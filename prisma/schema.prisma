@@ -7,43 +7,173 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
     url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
+enum ProjetoEstado {
+    RASCUNHO
+    PENDENTE
+    APROVADO
+    EM_DESENVOLVIMENTO
+    CONCLUIDO
 }
 
-// Necessary for Next auth
+enum Permissao {
+    ADMIN
+    GESTOR
+    COMUM
+}
+
+enum Regime {
+    PARCIAL
+    INTEGRAL
+}
+
+// Novo enum para Rubrica
+enum Rubrica {
+    MATERIAIS
+    SERVICOS_TERCEIROS
+    OUTROS_SERVICOS
+    DESLOCACAO_ESTADIAS
+    OUTROS_CUSTOS
+    CUSTOS_ESTRUTURA
+}
+
+model Projeto {
+    id              String        @id @default(uuid()) @db.Uuid
+    nome            String        @db.VarChar(255)
+    descricao       String?       @db.Text
+    inicio          DateTime?     @db.Date
+    fim             DateTime?     @db.Date
+    estado          ProjetoEstado @default(RASCUNHO)
+    financiamentoId Int?          @map("financiamento_id")
+    
+    // Relações
+    financiamento   Financiamento? @relation(fields: [financiamentoId], references: [id])
+    workpackages    Workpackage[]
+
+    @@map("Projetos")
+}
+
+model Financiamento {
+    id                 Int       @id @default(autoincrement())
+    nome               String    @unique @db.VarChar(255)
+    overhead           Decimal   @db.Decimal(5, 2)
+    taxa_financiamento Decimal   @db.Decimal(5, 2)
+    valor_eti          Decimal   @db.Decimal(10, 2)
+    
+    // Relações
+    projetos           Projeto[]
+
+    @@map("Financiamentos")
+}
+
+model Workpackage {
+    id         String    @id @default(uuid()) @db.Uuid
+    projetoId  String    @map("projeto_id") @db.Uuid
+    nome       String    @db.VarChar(255)
+    inicio     DateTime? @db.Date
+    fim        DateTime? @db.Date
+    estado     Boolean   @default(false)
+    
+    // Relações
+    projeto    Projeto   @relation(fields: [projetoId], references: [id])
+    tarefas    Tarefa[]
+    materiais  Material[]
+    recursos   WorkpackageUser[]
+
+    @@map("Workpackages")
+}
+
+model Tarefa {
+    id             String    @id @default(uuid()) @db.Uuid
+    workpackageId  String    @map("workpackage_id") @db.Uuid
+    nome           String    @db.VarChar(255)
+    inicio         DateTime? @db.Date
+    fim            DateTime? @db.Date
+    estado         Boolean   @default(false)
+    
+    // Relações
+    workpackage    Workpackage @relation(fields: [workpackageId], references: [id])
+
+    @@map("Tarefas")
+}
+
+model Material {
+    id            Int         @id @default(autoincrement())
+    nome          String      @db.VarChar(255)
+    preco         Decimal     @db.Decimal(10, 2)
+    quantidade    Int
+    rubrica       Rubrica     @default(MATERIAIS)  
+    workpackageId String?     @map("workpackage_id") @db.Uuid
+    
+    // Relação direta com Workpackage
+    workpackage   Workpackage? @relation(fields: [workpackageId], references: [id])
+
+    @@map("Materiais")
+}
+
+// Modelo de User para NextAuth
+model User {
+    id            String    @id @default(cuid())
+    name          String?   @db.VarChar(255)
+    email         String?   @unique @db.VarChar(255)
+    emailVerified DateTime?
+    foto         String?   @db.Text
+    
+    // Campos específicos da aplicação
+    atividade     String?   @db.VarChar(255)
+    contratacao   DateTime? @db.Date
+    username      String?   @unique @db.VarChar(255)
+    permissao     Permissao @default(COMUM)
+    regime        Regime   @default(INTEGRAL)
+
+    // Relações NextAuth
+    accounts      Account[]
+    sessions      Session[]
+    
+    // Relações da aplicação
+    workpackages  WorkpackageUser[]
+    password      Password?
+
+    @@map("users")
+}
+
+// Modelo para alocação de utilizadores a workpackages
+model WorkpackageUser {
+    workpackageId  String   @map("workpackage_id") @db.Uuid
+    userId         String   @map("user_id")
+    mes            Int      @db.Integer
+    ano            Int      @db.Integer
+    ocupacao       Decimal  @db.Decimal(2, 1)
+    
+    // Relações
+    workpackage    Workpackage @relation(fields: [workpackageId], references: [id])
+    user           User     @relation(fields: [userId], references: [id])
+
+    @@id([workpackageId, userId, mes, ano])
+    @@map("WorkpackageUser")
+}
+
+// Modelos NextAuth padrão
 model Account {
-    id                       String  @id @default(cuid())
-    userId                   String
-    type                     String
-    provider                 String
-    providerAccountId        String
-    refresh_token            String? // @db.Text
-    access_token             String? // @db.Text
-    expires_at               Int?
-    token_type               String?
-    scope                    String?
-    id_token                 String? // @db.Text
-    session_state            String?
-    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    refresh_token_expires_in Int?
+    id                 String  @id @default(cuid())
+    userId             String
+    type               String
+    provider           String
+    providerAccountId  String
+    refresh_token      String? @db.Text
+    access_token       String? @db.Text
+    expires_at         Int?
+    token_type         String?
+    scope              String?
+    id_token           String? @db.Text
+    session_state      String?
+    
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@unique([provider, providerAccountId])
+    @@map("accounts")
 }
 
 model Session {
@@ -51,18 +181,10 @@ model Session {
     sessionToken String   @unique
     userId       String
     expires      DateTime
+    
     user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
 
-model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
-    posts         Post[]
+    @@map("sessions")
 }
 
 model VerificationToken {
@@ -71,4 +193,24 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+    @@map("verificationtokens")
+}
+
+model PasswordReset {
+    id        String   @id @default(cuid())
+    email     String
+    token     String   @unique
+    expires   DateTime
+    createdAt DateTime @default(now())
+
+    @@map("password_resets")
+}
+
+model Password {
+    id        String   @id @default(cuid())
+    hash      String   @db.Text
+    userId    String   @unique
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("passwords")
 }
