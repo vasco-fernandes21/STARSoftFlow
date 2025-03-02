@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
-import { loginSchema } from "@/server/auth/schemas";
+import { loginSchema } from "@/server/api/auth/types";
 import { ZodError } from "zod";
 
 export default function LoginPage() {

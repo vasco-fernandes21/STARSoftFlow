@@ -1,0 +1,357 @@
+"use client";
+
+import Image from "next/image";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CheckCircle2, XCircle, AlertCircle, CheckCircle } from "lucide-react";
+import { api } from "@/trpc/react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { signIn } from "next-auth/react";
+
+export default function DefinirPasswordPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
+  
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  
+  // Validação de palavra-passe
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    upperCase: false,
+    lowerCase: false,
+    number: false,
+    special: false,
+  });
+
+  useEffect(() => {
+    // Validar força da palavra-passe
+    setPasswordStrength({
+      length: password.length >= 8,
+      upperCase: /[A-Z]/.test(password),
+      lowerCase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[^A-Za-z0-9]/.test(password),
+    });
+  }, [password]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    
+    if (password !== confirmPassword) {
+      setError("As palavras-passe não coincidem.");
+      return;
+    }
+    
+    const passwordChecks = Object.values(passwordStrength);
+    if (passwordChecks.includes(false)) {
+      setError("A palavra-passe não cumpre todos os requisitos de segurança.");
+      return;
+    }
+    
+    if (!token) {
+      setError("Token de convite ausente. Verifique o link que recebeu.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+
+    const result = await signIn("token-validation", {
+      token: token,
+      password: password,
+      redirect: false
+    });
+
+    if (result?.error) {
+      toast.error(result.error || "Falha na ativação da conta");
+      setError(result.error || "Falha na ativação da conta");
+      setIsSubmitting(false);
+    } else {
+      toast.success("Palavra-passe definida com sucesso!");
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/');
+      }, 3000);
+    }
+  };
+
+  // Calcular a força da password
+  const passwordStrengthScore = Object.values(passwordStrength).filter(Boolean).length;
+  const getPasswordStrengthLabel = () => {
+    if (password.length === 0) return "";
+    if (passwordStrengthScore <= 2) return "Fraca";
+    if (passwordStrengthScore <= 4) return "Média";
+    return "Forte";
+  };
+  
+  const getPasswordStrengthColor = () => {
+    if (password.length === 0) return "bg-gray-200";
+    if (passwordStrengthScore <= 2) return "bg-red-500";
+    if (passwordStrengthScore <= 4) return "bg-yellow-500";
+    return "bg-green-500";
+  };
+
+  return (
+    <div className="min-h-screen w-full flex">
+      {/* Left side - Animation and Image */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-azul/20">
+        {/* Fixed gradient background with blur */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(120deg, rgba(255,255,255,0.9) 0%, rgba(59,130,246,0.5) 100%)",
+            backdropFilter: "blur(16px)"
+          }}
+        />
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-12 z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.8 }}
+            className="w-full max-w-md"
+          >
+            <Image
+              src="/star-institute-logo.png"
+              alt="STAR Institute"
+              width={280} 
+              height={80}
+              priority
+              className="mb-12 drop-shadow-lg"
+            />
+            <motion.h1 
+              className="text-4xl font-bold text-azul mb-6"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+            >
+              Ative a sua conta
+            </motion.h1>
+            <motion.p 
+              className="text-lg text-azul/80"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+            >
+              Defina a sua palavra-passe para começar a usar a plataforma STARSoftFlow e acompanhar os seus projetos em tempo real.
+            </motion.p>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Right side - Password form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white relative">
+        <div className="w-full max-w-md px-6 py-12 sm:px-12">
+          {/* Logo for mobile only */}
+          <div className="flex justify-center mb-12 lg:hidden">
+            <Image
+              src="/star-institute-logo.png"
+              alt="STAR Institute"
+              width={180} 
+              height={48}
+              priority
+              className="h-10 w-auto"
+            />
+          </div>
+          
+          <div>
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900">Defina a sua palavra-passe</h2>
+            </div>
+
+            {!success ? (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-6">
+                  {/* Password */}
+                  <div className="space-y-2">
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                      Nova palavra-passe
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="block w-full rounded-xl border-0 px-4 py-3.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-azul pr-10 transition-all duration-200"
+                        placeholder="••••••••"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Password força indicador */}
+                    {password.length > 0 && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-xs font-medium text-gray-500">
+                            Força da palavra-passe: {getPasswordStrengthLabel()}
+                          </div>
+                        </div>
+                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-1.5 ${getPasswordStrengthColor()} transition-all duration-300`} 
+                            style={{ width: `${(passwordStrengthScore / 5) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Confirmar Password */}
+                  <div className="space-y-2">
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                      Confirmar palavra-passe
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="block w-full rounded-xl border-0 px-4 py-3.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-azul pr-10 transition-all duration-200"
+                        placeholder="••••••••"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showConfirmPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    {confirmPassword && password !== confirmPassword && (
+                      <p className="text-sm text-red-600 mt-1 flex items-center">
+                        <XCircle className="w-4 h-4 mr-1" /> As palavras-passe não coincidem
+                      </p>
+                    )}
+                    {confirmPassword && password === confirmPassword && (
+                      <p className="text-sm text-green-600 mt-1 flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-1" /> As palavras-passe coincidem
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Requisitos de segurança */}
+                <div className="rounded-xl bg-gray-50 p-4 border border-gray-100">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Requisitos de segurança:</h3>
+                  <ul className="space-y-2">
+                    <li className={`text-sm flex items-center ${passwordStrength.length ? 'text-green-600' : 'text-gray-500'}`}>
+                      {passwordStrength.length ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <AlertCircle className="w-4 h-4 mr-2" />}
+                      Mínimo de 8 caracteres
+                    </li>
+                    <li className={`text-sm flex items-center ${passwordStrength.upperCase ? 'text-green-600' : 'text-gray-500'}`}>
+                      {passwordStrength.upperCase ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <AlertCircle className="w-4 h-4 mr-2" />}
+                      Pelo menos uma letra maiúscula
+                    </li>
+                    <li className={`text-sm flex items-center ${passwordStrength.lowerCase ? 'text-green-600' : 'text-gray-500'}`}>
+                      {passwordStrength.lowerCase ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <AlertCircle className="w-4 h-4 mr-2" />}
+                      Pelo menos uma letra minúscula
+                    </li>
+                    <li className={`text-sm flex items-center ${passwordStrength.number ? 'text-green-600' : 'text-gray-500'}`}>
+                      {passwordStrength.number ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <AlertCircle className="w-4 h-4 mr-2" />}
+                      Pelo menos um número
+                    </li>
+                    <li className={`text-sm flex items-center ${passwordStrength.special ? 'text-green-600' : 'text-gray-500'}`}>
+                      {passwordStrength.special ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <AlertCircle className="w-4 h-4 mr-2" />}
+                      Pelo menos um caractere especial
+                    </li>
+                  </ul>
+                </div>
+
+                {error && (
+                  <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm flex items-start">
+                    <XCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex w-full justify-center rounded-xl bg-azul px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-azul/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-azul transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      A processar...
+                    </>
+                  ) : (
+                    'Criar palavra-passe e entrar'
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <div className="text-center p-6 space-y-4">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900">Palavra-passe definida com sucesso!</h3>
+                <p className="text-gray-500">
+                  A sua conta foi ativada. Será redirecionado para a página de login em instantes.
+                </p>
+                <div className="w-full bg-gray-200 rounded-full h-1.5 mt-4">
+                  <div className="bg-azul h-1.5 rounded-full animate-progress"></div>
+                </div>
+              </div>
+            )}
+
+            <footer className="mt-8 text-center text-xs text-gray-400">
+              © {new Date().getFullYear()} STAR Institute. Todos os direitos reservados.
+            </footer>
+          </div>
+        </div>
+      </div>
+      
+      {/* Animação de progresso para o redirect após sucesso */}
+      <style jsx global>{`
+        @keyframes progress {
+          0% { width: 0%; }
+          100% { width: 100%; }
+        }
+        .animate-progress {
+          animation: progress 3s linear forwards;
+        }
+      `}</style>
+    </div>
+  );
+}

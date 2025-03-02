@@ -1,11 +1,14 @@
 -- CreateEnum
-CREATE TYPE "ProjetoEstado" AS ENUM ('RASCUNHO', 'PENDENTE', 'ACEITE', 'CONCLUIDO');
+CREATE TYPE "ProjetoEstado" AS ENUM ('RASCUNHO', 'PENDENTE', 'APROVADO', 'EM_DESENVOLVIMENTO', 'CONCLUIDO');
 
 -- CreateEnum
 CREATE TYPE "Permissao" AS ENUM ('ADMIN', 'GESTOR', 'COMUM');
 
 -- CreateEnum
 CREATE TYPE "Regime" AS ENUM ('PARCIAL', 'INTEGRAL');
+
+-- CreateEnum
+CREATE TYPE "Rubrica" AS ENUM ('MATERIAIS', 'SERVICOS_TERCEIROS', 'OUTROS_SERVICOS', 'DESLOCACAO_ESTADIAS', 'OUTROS_CUSTOS', 'CUSTOS_ESTRUTURA');
 
 -- CreateTable
 CREATE TABLE "Projetos" (
@@ -15,19 +18,20 @@ CREATE TABLE "Projetos" (
     "inicio" DATE,
     "fim" DATE,
     "estado" "ProjetoEstado" NOT NULL DEFAULT 'RASCUNHO',
-    "tipo_financiamento_id" INTEGER,
-    "detalhes_financiamento" JSONB,
+    "financiamento_id" INTEGER,
 
     CONSTRAINT "Projetos_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "TiposFinanciamento" (
+CREATE TABLE "Financiamentos" (
     "id" SERIAL NOT NULL,
     "nome" VARCHAR(255) NOT NULL,
-    "campos" JSONB,
+    "overhead" DECIMAL(5,2) NOT NULL,
+    "taxa_financiamento" DECIMAL(5,2) NOT NULL,
+    "valor_eti" DECIMAL(10,2) NOT NULL,
 
-    CONSTRAINT "TiposFinanciamento_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Financiamentos_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -55,11 +59,24 @@ CREATE TABLE "Tarefas" (
 );
 
 -- CreateTable
+CREATE TABLE "Entregaveis" (
+    "id" UUID NOT NULL,
+    "tarefa_id" UUID NOT NULL,
+    "nome" VARCHAR(255) NOT NULL,
+    "descricao" TEXT,
+    "data" DATE,
+    "anexo" TEXT,
+
+    CONSTRAINT "Entregaveis_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Materiais" (
     "id" SERIAL NOT NULL,
     "nome" VARCHAR(255) NOT NULL,
     "preco" DECIMAL(10,2) NOT NULL,
     "quantidade" INTEGER NOT NULL,
+    "rubrica" "Rubrica" NOT NULL DEFAULT 'MATERIAIS',
     "workpackage_id" UUID,
 
     CONSTRAINT "Materiais_pkey" PRIMARY KEY ("id")
@@ -82,14 +99,14 @@ CREATE TABLE "users" (
 );
 
 -- CreateTable
-CREATE TABLE "TarefaUser" (
-    "tarefa_id" UUID NOT NULL,
+CREATE TABLE "WorkpackageUser" (
+    "workpackage_id" UUID NOT NULL,
     "user_id" TEXT NOT NULL,
     "mes" INTEGER NOT NULL,
     "ano" INTEGER NOT NULL,
     "ocupacao" DECIMAL(2,1) NOT NULL,
 
-    CONSTRAINT "TarefaUser_pkey" PRIMARY KEY ("tarefa_id","user_id","mes","ano")
+    CONSTRAINT "WorkpackageUser_pkey" PRIMARY KEY ("workpackage_id","user_id","mes","ano")
 );
 
 -- CreateTable
@@ -138,8 +155,17 @@ CREATE TABLE "password_resets" (
     CONSTRAINT "password_resets_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "passwords" (
+    "id" TEXT NOT NULL,
+    "hash" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "passwords_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
-CREATE UNIQUE INDEX "TiposFinanciamento_nome_key" ON "TiposFinanciamento"("nome");
+CREATE UNIQUE INDEX "Financiamentos_nome_key" ON "Financiamentos"("nome");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
@@ -162,8 +188,11 @@ CREATE UNIQUE INDEX "verificationtokens_identifier_token_key" ON "verificationto
 -- CreateIndex
 CREATE UNIQUE INDEX "password_resets_token_key" ON "password_resets"("token");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "passwords_userId_key" ON "passwords"("userId");
+
 -- AddForeignKey
-ALTER TABLE "Projetos" ADD CONSTRAINT "Projetos_tipo_financiamento_id_fkey" FOREIGN KEY ("tipo_financiamento_id") REFERENCES "TiposFinanciamento"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Projetos" ADD CONSTRAINT "Projetos_financiamento_id_fkey" FOREIGN KEY ("financiamento_id") REFERENCES "Financiamentos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Workpackages" ADD CONSTRAINT "Workpackages_projeto_id_fkey" FOREIGN KEY ("projeto_id") REFERENCES "Projetos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -172,16 +201,22 @@ ALTER TABLE "Workpackages" ADD CONSTRAINT "Workpackages_projeto_id_fkey" FOREIGN
 ALTER TABLE "Tarefas" ADD CONSTRAINT "Tarefas_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Entregaveis" ADD CONSTRAINT "Entregaveis_tarefa_id_fkey" FOREIGN KEY ("tarefa_id") REFERENCES "Tarefas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Materiais" ADD CONSTRAINT "Materiais_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TarefaUser" ADD CONSTRAINT "TarefaUser_tarefa_id_fkey" FOREIGN KEY ("tarefa_id") REFERENCES "Tarefas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "WorkpackageUser" ADD CONSTRAINT "WorkpackageUser_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TarefaUser" ADD CONSTRAINT "TarefaUser_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "WorkpackageUser" ADD CONSTRAINT "WorkpackageUser_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "passwords" ADD CONSTRAINT "passwords_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

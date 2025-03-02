@@ -86,17 +86,33 @@ model Workpackage {
 }
 
 model Tarefa {
-    id             String    @id @default(uuid()) @db.Uuid
-    workpackageId  String    @map("workpackage_id") @db.Uuid
-    nome           String    @db.VarChar(255)
-    inicio         DateTime? @db.Date
-    fim            DateTime? @db.Date
-    estado         Boolean   @default(false)
+    id             String      @id @default(uuid()) @db.Uuid
+    workpackageId  String      @map("workpackage_id") @db.Uuid
+    nome           String      @db.VarChar(255)
+    inicio         DateTime?   @db.Date
+    fim            DateTime?   @db.Date
+    estado         Boolean     @default(false)
     
     // Relações
     workpackage    Workpackage @relation(fields: [workpackageId], references: [id])
+    entregaveis    Entregavel[]
 
     @@map("Tarefas")
+}
+
+model Entregavel {
+    id          String    @id @default(uuid()) @db.Uuid
+    tarefaId    String    @map("tarefa_id") @db.Uuid
+    nome        String    @db.VarChar(255)
+    descricao   String?   @db.Text
+    data        DateTime? @db.Date
+    anexo       String?   @db.Text
+    estado      Boolean   @default(false)
+    
+    // Relação com Tarefa
+    tarefa      Tarefa    @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+
+    @@map("Entregaveis")
 }
 
 model Material {

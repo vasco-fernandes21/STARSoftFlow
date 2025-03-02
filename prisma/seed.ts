@@ -8,12 +8,13 @@ async function main() {
 
   // Limpar dados existentes
   console.log('🧹 A limpar tabelas existentes...');
-  await prisma.tarefaUser.deleteMany();
+  await prisma.workpackageUser.deleteMany();
+  await prisma.entregavel.deleteMany(); // Limpar entregáveis antes das tarefas
   await prisma.tarefa.deleteMany();
   await prisma.material.deleteMany();
   await prisma.workpackage.deleteMany();
   await prisma.projeto.deleteMany();
-  await prisma.tipoFinanciamento.deleteMany();
+  await prisma.financiamento.deleteMany();
   await prisma.verificationToken.deleteMany();
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
@@ -158,72 +159,50 @@ async function main() {
   // Criar Tipos de Financiamento
   console.log('💰 A criar tipos de financiamento...');
   const [fct, portugal2030, horizonteEuropa, privado, interno] = await Promise.all([
-    prisma.tipoFinanciamento.create({
+    prisma.financiamento.create({
       data: {
         nome: "FCT - Fundação para a Ciência e Tecnologia",
-        campos: {
-          referencia: "string",
-          programaFinanciamento: "string",
-          percentagemFinanciamento: "number",
-          coordenador: "string",
-          valorTotal: "number",
-          dataAprovacao: "date"
-        }
+        overhead: 25.00,
+        taxa_financiamento: 85.00,
+        valor_eti: 4500.00
       }
     }),
-    prisma.tipoFinanciamento.create({
+    prisma.financiamento.create({
       data: {
         nome: "Portugal 2030",
-        campos: {
-          referenciaCandidatura: "string",
-          eixoPrioritario: "string",
-          taxaFinanciamento: "number",
-          organismo: "string",
-          valorAprovado: "number",
-          dataDecisao: "date"
-        }
+        overhead: 20.00,
+        taxa_financiamento: 75.00,
+        valor_eti: 4200.00
       }
     }),
-    prisma.tipoFinanciamento.create({
+    prisma.financiamento.create({
       data: {
         nome: "Horizonte Europa",
-        campos: {
-          grantAgreementId: "string",
-          tipoProjeto: "string",
-          consorcio: "array",
-          coordenador: "string",
-          valorFinanciamento: "number",
-          periodoExecucao: "string"
-        }
+        overhead: 25.00,
+        taxa_financiamento: 100.00,
+        valor_eti: 5000.00
       }
     }),
-    prisma.tipoFinanciamento.create({
+    prisma.financiamento.create({
       data: {
         nome: "Financiamento Privado",
-        campos: {
-          empresa: "string",
-          representante: "string",
-          valorContrato: "number",
-          modalidadePagamento: "string",
-          dataContrato: "date"
-        }
+        overhead: 15.00,
+        taxa_financiamento: 100.00,
+        valor_eti: 4800.00
       }
     }),
-    prisma.tipoFinanciamento.create({
+    prisma.financiamento.create({
       data: {
         nome: "Interno",
-        campos: {
-          departamento: "string",
-          responsavel: "string",
-          orcamento: "number",
-          objetivos: "array"
-        }
+        overhead: 10.00,
+        taxa_financiamento: 100.00,
+        valor_eti: 4000.00
       }
     })
   ]);
 
   // Após criar os tipos de financiamento
-  const tiposFinanciamento = await prisma.tipoFinanciamento.findMany();
+  const tiposFinanciamento = await prisma.financiamento.findMany();
   console.log('Tipos de financiamento criados:', tiposFinanciamento);
 
   if (tiposFinanciamento.length === 0) {
@@ -282,16 +261,8 @@ async function main() {
       descricao: "O INOVC+ é um projeto-piloto estratégico para Região Centro que consiste na implementação e consolidação de um Ecossistema de Inovação para a Transferência de Conhecimento e Tecnologia que, num contexto de trabalho em rede, potencia a valorização e a transferência de conhecimento e de resultados de I&D+I para a economia da região centro.",
       inicio: new Date("2023-03-01"),
       fim: new Date("2025-02-28"),
-      estado: ProjetoEstado.ACEITE,
-      tipoFinanciamentoId: fct.id,
-      detalhesFinanciamento: {
-        referencia: "PTDC/CCI-BIO/29168/2023",
-        programaFinanciamento: "Projetos de I&D em Todos os Domínios Científicos",
-        percentagemFinanciamento: 85,
-        coordenador: "STAR Institute",
-        valorTotal: 235000,
-        dataAprovacao: "2023-01-15"
-      }
+      estado: ProjetoEstado.APROVADO,
+      financiamentoId: fct.id,
     }
   });
 
@@ -337,7 +308,7 @@ async function main() {
   });
 
   // Tarefas para WP1 do Projeto 1
-  const tarefasWP1Proj1 = await prisma.tarefa.createMany({
+  await prisma.tarefa.createMany({
     data: [
       {
         workpackageId: wp1Projeto1.id,
@@ -364,7 +335,7 @@ async function main() {
   });
 
   // Tarefas para WP2 do Projeto 1
-  const tarefasWP2Proj1 = await prisma.tarefa.createMany({
+  await prisma.tarefa.createMany({
     data: [
       {
         workpackageId: wp2Projeto1.id,
@@ -391,7 +362,7 @@ async function main() {
   });
 
   // Tarefas para WP3 do Projeto 1
-  const tarefasWP3Proj1 = await prisma.tarefa.createMany({
+  await prisma.tarefa.createMany({
     data: [
       {
         workpackageId: wp3Projeto1.id,
@@ -418,7 +389,7 @@ async function main() {
   });
 
   // Tarefas para WP4 do Projeto 1
-  const tarefasWP4Proj1 = await prisma.tarefa.createMany({
+  await prisma.tarefa.createMany({
     data: [
       {
         workpackageId: wp4Projeto1.id,
@@ -445,15 +416,7 @@ async function main() {
       inicio: new Date("2024-09-01"),
       fim: new Date("2026-08-31"),
       estado: ProjetoEstado.PENDENTE,
-      tipoFinanciamentoId: portugal2030.id,
-      detalhesFinanciamento: {
-        referenciaCandidatura: "NORTE-01-0247-FEDER-045622",
-        eixoPrioritario: "Competitividade e Internacionalização",
-        taxaFinanciamento: 75,
-        organismo: "ANI - Agência Nacional de Inovação",
-        valorAprovado: 320000,
-        dataDecisao: null // Ainda pendente
-      }
+      financiamentoId: portugal2030.id,
     }
   });
 
@@ -499,7 +462,7 @@ async function main() {
   });
 
   // Tarefas para WP1 do Projeto 2
-  const tarefasWP1Proj2 = await prisma.tarefa.createMany({
+  await prisma.tarefa.createMany({
     data: [
       {
         workpackageId: wp1Projeto2.id,
@@ -533,15 +496,7 @@ async function main() {
       inicio: new Date("2024-11-01"),
       fim: new Date("2026-10-31"),
       estado: ProjetoEstado.RASCUNHO,
-      tipoFinanciamentoId: horizonteEuropa.id,
-      detalhesFinanciamento: {
-        grantAgreementId: "101058432",
-        tipoProjeto: "Research and Innovation Action",
-        consorcio: ["STAR Institute", "Universidade do Porto", "Fraunhofer Institute", "Técnico Lisboa", "INESC TEC"],
-        coordenador: "STAR Institute",
-        valorFinanciamento: 1850000,
-        periodoExecucao: "24 meses"
-      }
+      financiamentoId: horizonteEuropa.id,
     }
   });
 
@@ -574,14 +529,7 @@ async function main() {
       inicio: new Date("2022-01-15"),
       fim: new Date("2023-07-31"),
       estado: ProjetoEstado.CONCLUIDO,
-      tipoFinanciamentoId: privado.id,
-      detalhesFinanciamento: {
-        empresa: "Grupo Educacional Futuro",
-        representante: "Miguel Costa",
-        valorContrato: 95000,
-        modalidadePagamento: "Trimestral",
-        dataContrato: "2021-11-30"
-      }
+      financiamentoId: privado.id,
     }
   });
 
@@ -727,6 +675,9 @@ async function main() {
 
   console.log('👥 A associar utilizadores às tarefas...');
   
+  // Conjunto para rastrear combinações já usadas
+  const alocacoesExistentes = new Set();
+
   // Distribuir utilizadores pelas tarefas com ocupação variável
   for (const tarefa of todasTarefas) {
     // Determinar o período da tarefa
@@ -746,25 +697,95 @@ async function main() {
       .sort(() => 0.5 - Math.random())
       .slice(0, numUtilizadores);
     
+    // Obter o workpackage da tarefa para associar os utilizadores
+    const workpackage = await prisma.workpackage.findUnique({
+      where: { id: tarefa.workpackageId }
+    });
+    
+    if (!workpackage) continue;
+    
     for (const utilizador of utilizadoresSelecionados) {
       // Criar alocações para cada mês da tarefa
       for (let i = 0; i < duracaoMeses; i++) {
         const data = new Date(inicio);
         data.setMonth(data.getMonth() + i);
         
-        // Atribuir uma ocupação entre 0.1 e 1.0
-        const ocupacao = parseFloat((Math.random() * 0.9 + 0.1).toFixed(1));
+        const mes = data.getMonth() + 1; // 1-12
+        const ano = data.getFullYear();
         
-        await prisma.tarefaUser.create({
-          data: {
-            tarefaId: tarefa.id,
-            userId: utilizador.id,
-            mes: data.getMonth() + 1, // 1-12
-            ano: data.getFullYear(),
-            ocupacao: ocupacao
+        // Criar uma chave única para verificar duplicações
+        const chaveUnica = `${workpackage.id}-${utilizador.id}-${mes}-${ano}`;
+        
+        // Verificar se esta combinação já existe
+        if (!alocacoesExistentes.has(chaveUnica)) {
+          // Adicionar ao conjunto para evitar duplicações
+          alocacoesExistentes.add(chaveUnica);
+          
+          // Atribuir uma ocupação entre 0.1 e 1.0
+          const ocupacao = parseFloat((Math.random() * 0.9 + 0.1).toFixed(1));
+          
+          try {
+            await prisma.workpackageUser.create({
+              data: {
+                workpackageId: workpackage.id,
+                userId: utilizador.id,
+                mes: mes,
+                ano: ano,
+                ocupacao: ocupacao
+              }
+            });
+          } catch (error: any) {
+            console.warn(`Não foi possível criar alocação para ${chaveUnica}: ${error.message}`);
+            // Continuar com as próximas alocações mesmo se esta falhar
           }
-        });
+        }
       }
+    }
+  }
+
+  // Criar entregáveis para algumas tarefas
+  console.log('📦 A criar entregáveis para as tarefas...');
+  
+  // Criar entregáveis para tarefas concluídas
+  const tarefasConcluidas = todasTarefas.filter(tarefa => tarefa.estado);
+  
+  for (const tarefa of tarefasConcluidas) {
+    // Criar 1 a 3 entregáveis para cada tarefa concluída
+    const numEntregaveis = Math.floor(Math.random() * 3) + 1;
+    
+    for (let i = 0; i < numEntregaveis; i++) {
+      const dataEntrega = tarefa.fim ? new Date(tarefa.fim) : new Date();
+      dataEntrega.setDate(dataEntrega.getDate() - Math.floor(Math.random() * 30)); // Data aleatória nos últimos 30 dias da tarefa
+      
+      await prisma.entregavel.create({
+        data: {
+          tarefaId: tarefa.id,
+          nome: `Entregável ${i+1} - ${tarefa.nome}`,
+          descricao: `Descrição detalhada do entregável ${i+1} para a tarefa "${tarefa.nome}"`,
+          data: dataEntrega,
+          anexo: i === 0 ? "https://example.com/docs/entregavel.pdf" : null
+        }
+      });
+    }
+  }
+  
+  // Criar alguns entregáveis para tarefas em andamento
+  const tarefasEmAndamento = todasTarefas.filter(tarefa => !tarefa.estado);
+  
+  for (const tarefa of tarefasEmAndamento) {
+    // 50% de chance de ter um entregável parcial
+    if (Math.random() > 0.5) {
+      const hoje = new Date();
+      
+      await prisma.entregavel.create({
+        data: {
+          tarefaId: tarefa.id,
+          nome: `Versão preliminar - ${tarefa.nome}`,
+          descricao: "Este é um entregável parcial ou preliminar que ainda está a ser desenvolvido.",
+          data: hoje,
+          anexo: null
+        }
+      });
     }
   }
 
@@ -772,12 +793,13 @@ async function main() {
   
   const stats = {
     users: await prisma.user.count(),
-    tiposFinanciamento: await prisma.tipoFinanciamento.count(),
+    financiamentos: await prisma.financiamento.count(),
     materiais: await prisma.material.count(),
     projetos: await prisma.projeto.count(),
     workpackages: await prisma.workpackage.count(),
     tarefas: await prisma.tarefa.count(),
-    alocacoes: await prisma.tarefaUser.count()
+    alocacoes: await prisma.workpackageUser.count(),
+    entregaveis: await prisma.entregavel.count() // Adicionar contagem de entregáveis
   };
 
   console.log('📊 Estatísticas:');
