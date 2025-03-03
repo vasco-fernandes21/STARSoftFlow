@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Edit } from "lucide-react";
-import { TaskSidebar } from "@/components/projetos/Tasksidebar";
+import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -240,9 +240,9 @@ export function Cronograma({
         </div>
       </div>
 
-      {/* Task Sidebar */}
+      {/* Menu da Tarefa */}
       {selectedTarefa && (
-        <TaskSidebar
+        <MenuTarefa
           tarefaId={selectedTarefa}
           open={!!selectedTarefa}
           onClose={() => setSelectedTarefa(null)}

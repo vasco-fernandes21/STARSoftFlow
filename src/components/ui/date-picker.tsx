@@ -40,8 +40,6 @@ export function DatePicker({
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
 
-    // Se o espaço abaixo for menor que 400px (altura aproximada do calendário)
-    // e houver mais espaço acima, posiciona acima do input
     if (spaceBelow < 400 && spaceAbove > spaceBelow) {
       setPosition("top")
     } else {
@@ -87,8 +85,8 @@ export function DatePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-[320px] p-0 bg-white/95 backdrop-blur-md shadow-xl rounded-xl border-white/20" 
-          align="start"
+          className="w-[280px] p-0 bg-white/95 backdrop-blur-md shadow-xl rounded-xl border-white/20" 
+          align="center"
           side={position}
           sideOffset={5}
           alignOffset={0}
@@ -97,13 +95,13 @@ export function DatePicker({
           hideWhenDetached={false}
           style={{ 
             zIndex: 50,
-            maxHeight: "calc(100vh - 100px)", // Limita a altura máxima
-            overflowY: "auto" // Adiciona scroll se necessário
+            maxHeight: "calc(100vh - 100px)",
+            overflowY: "auto"
           }}
         >
-          <div className="p-3">
-            <div className="mb-3 px-1">
-              <div className="text-azul font-medium text-sm">
+          <div className="p-2 flex flex-col items-center">
+            <div className="mb-2 px-1 w-full">
+              <div className="text-azul font-medium text-sm text-center">
                 Selecione uma data
               </div>
             </div>
@@ -113,21 +111,26 @@ export function DatePicker({
               onSelect={onChange}
               initialFocus
               locale={pt}
-              className="p-0"
+              className="p-0 w-full"
+              formatters={{
+                formatCaption: (date, options) => {
+                  return format(date, "MMMM yyyy", { locale: pt });
+                },
+              }}
               classNames={{
-                months: "flex flex-col space-y-4",
-                month: "space-y-4",
-                caption: "flex justify-center relative items-center px-2",
-                caption_label: "text-sm font-semibold text-gray-900",
-                nav: "flex items-center space-x-1",
+                months: "flex flex-col space-y-2 w-full",
+                month: "space-y-2 w-full",
+                caption: "flex justify-center relative items-center h-10 w-full",
+                caption_label: "text-sm font-medium capitalize text-customBlue absolute left-1/2 -translate-x-1/2",
+                nav: "flex items-center justify-between space-x-1 w-full px-2",
                 nav_button: "h-7 w-7 bg-white/80 hover:bg-azul/10 rounded-full flex items-center justify-center text-azul hover:text-azul transition-colors",
-                nav_button_previous: "absolute left-1",
-                nav_button_next: "absolute right-1",
-                table: "w-full border-collapse",
-                head_row: "flex w-full mt-2",
-                head_cell: "text-azul/80 font-medium text-xs w-9 h-9 flex items-center justify-center rounded-md",
-                row: "flex w-full mt-1",
-                cell: "relative w-9 h-9 p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-azul/5 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md",
+                nav_button_previous: "",
+                nav_button_next: "",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex justify-between w-full px-2",
+                head_cell: "text-azul/80 font-medium text-[0.8rem] w-9 flex items-center justify-center",
+                row: "flex justify-between w-full mt-1 px-2",
+                cell: "relative w-9 h-9 p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-azul/5",
                 day: "w-9 h-9 p-0 flex items-center justify-center rounded-md aria-selected:opacity-100 hover:bg-azul/10 hover:text-azul transition-colors",
                 day_selected: "bg-azul text-white hover:bg-azul hover:text-white focus:bg-azul focus:text-white shadow-md",
                 day_today: "border-2 border-azul/20 text-gray-900",

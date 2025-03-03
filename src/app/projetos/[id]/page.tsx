@@ -5,7 +5,6 @@ import { useRouter, useParams } from "next/navigation";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { CalendarClock, Users, LineChart, DollarSign, ArrowLeft, Download, FileText, Calendar, Search } from "lucide-react";
-import { TaskSidebar } from "@/components/projetos/Tasksidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -13,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Projeto, ProjetoEstado } from "@prisma/client";
 import { Cronograma } from "@/components/projetos/Cronograma";
+import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 
 export default function DetalheProjeto() {
   const router = useRouter();
@@ -287,10 +287,10 @@ export default function DetalheProjeto() {
       </div>
 
       {/* Barra Lateral de Tarefas */}
-      {tarefaSelecionadaId && (
-        <TaskSidebar
+      {tarefaSelecionadaId !== null && (
+        <MenuTarefa
           tarefaId={tarefaSelecionadaId}
-          open={!!tarefaSelecionadaId}
+          open={true}
           onClose={() => setTarefaSelecionadaId(null)}
         />
       )}
