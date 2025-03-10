@@ -3,11 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Edit } from "lucide-react";
 import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MenuWorkpackage } from "@/components/projetos/MenuWorkpackage";
+
+interface CronogramaOptions {
+  leftColumnWidth?: number;
+  disableInteractions?: boolean;
+  hideWorkpackageEdit?: boolean;
+  compactMode?: boolean;
+}
 
 interface CronogramaProps {
   workpackages: (Workpackage & { tarefas: Tarefa[] })[];
@@ -16,6 +22,7 @@ interface CronogramaProps {
   onSelectTarefa?: (tarefaId: string) => void;
   onUpdateWorkPackage?: (workpackage: Workpackage) => void;
   onUpdateTarefa?: (tarefa: Tarefa) => void;
+  options?: CronogramaOptions;
 }
 
 export function Cronograma({ 
@@ -24,7 +31,8 @@ export function Cronograma({
   endDate,
   onSelectTarefa,
   onUpdateWorkPackage,
-  onUpdateTarefa
+  onUpdateTarefa,
+  options = {}
 }: CronogramaProps) {
   const [selectedTarefa, setSelectedTarefa] = useState<string | null>(null);
   const [selectedWorkpackage, setSelectedWorkpackage] = useState<string | null>(null);
@@ -96,6 +104,7 @@ export function Cronograma({
   };
 
   const handleTarefaClick = (tarefa: Tarefa) => {
+    if (disableInteractions) return;
     setSelectedTarefa(tarefa.id);
     if (onSelectTarefa) onSelectTarefa(tarefa.id);
   };
@@ -109,17 +118,31 @@ export function Cronograma({
     });
   };
 
+  const {
+    leftColumnWidth = 300,
+    disableInteractions = false,
+    hideWorkpackageEdit = false,
+    compactMode = false
+  } = options;
+
   return (
     <div className="flex h-full w-full">
       <div className="flex w-full h-full overflow-hidden">
         {/* Coluna fixa da esquerda */}
         <div 
           ref={leftColumnRef} 
-          className="w-[300px] flex-shrink-0 sticky left-0 bg-white/70 backdrop-blur-sm z-20 border-r border-white/30 overflow-y-scroll scrollbar-none"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }} // Garante que a barra seja ocultada
+          className="flex-shrink-0 sticky left-0 bg-white/70 backdrop-blur-sm z-20 border-r border-white/30 overflow-y-scroll scrollbar-none"
+          style={{ 
+            width: `${leftColumnWidth}px`,
+            scrollbarWidth: 'none', 
+            msOverflowStyle: 'none' 
+          }}
         >
           {/* Cabeçalho da coluna fixa */}
-          <div className="sticky top-0 px-6 py-4 border-b border-white/30 bg-white/70 backdrop-blur-sm z-20">
+          <div className={cn(
+            "sticky top-0 px-6 border-b border-white/30 bg-white/70 backdrop-blur-sm z-20",
+            compactMode ? "py-2" : "py-4"
+          )}>
             <div className="text-xs font-medium text-gray-500">
               Workpackage/Tarefa
             </div>
@@ -130,21 +153,23 @@ export function Cronograma({
             {workpackages.map((wp) => (
               <div key={wp.id}>
                 {/* Cabeçalho do Workpackage */}
-                <div className="h-[36px] flex items-center px-6">
+                <div 
+                  className={cn(
+                    "flex items-center px-6 cursor-pointer hover:bg-blue-50/50 transition-colors",
+                    compactMode ? "h-[30px]" : "h-[36px]"
+                  )}
+                  onClick={() => {
+                    if (!disableInteractions) {
+                      setSelectedWorkpackage(wp.id);
+                    }
+                  }}
+                >
                   <div className="flex items-center gap-2 w-full">
                     <h3 
-                      className="text-base font-semibold text-gray-700 cursor-pointer hover:text-customBlue transition-colors flex items-center gap-2 truncate max-w-[280px]"
-                      onClick={() => setSelectedWorkpackage(wp.id)}
+                      className="text-base font-semibold text-gray-700 flex items-center gap-2 truncate"
+                      style={{ maxWidth: `${leftColumnWidth - 60}px` }}
                     >
                       {wp.nome}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 rounded-full text-gray-400 hover:text-customBlue hover:bg-blue-50 flex-shrink-0"
-                        onClick={() => onUpdateWorkPackage?.(wp)}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
                     </h3>
                     <Badge className="bg-blue-50/70 text-customBlue border-blue-200 text-[10px] px-2 py-0.5 backdrop-blur-sm shadow-sm flex-shrink-0">
                       {wp.tarefas.length}
@@ -154,13 +179,20 @@ export function Cronograma({
 
                 {/* Lista de Tarefas */}
                 {sortTarefas(wp.tarefas).map((tarefa) => (
-                  <div key={tarefa.id} className="h-[48px] flex items-center px-6">
-                    <div
-                      className="cursor-pointer w-full"
-                      onClick={() => handleTarefaClick(tarefa)}
-                    >
+                  <div 
+                    key={tarefa.id} 
+                    className={cn(
+                      "flex items-center px-6 cursor-pointer hover:bg-blue-50/50 transition-colors",
+                      compactMode ? "h-[40px]" : "h-[48px]"
+                    )}
+                    onClick={() => handleTarefaClick(tarefa)}
+                  >
+                    <div className="w-full">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-gray-600 hover:text-customBlue transition-colors truncate max-w-[260px] hover:font-semibold">
+                        <span 
+                          className="text-sm font-medium text-gray-600 truncate"
+                          style={{ maxWidth: `${leftColumnWidth - 100}px` }}
+                        >
                           {tarefa.nome}
                         </span>
                         <Badge className={cn(
@@ -221,12 +253,13 @@ export function Cronograma({
 
                           {/* Barra da tarefa */}
                           <div
+                            onClick={() => handleTarefaClick(tarefa)}
                             className={cn(
-                              "absolute h-6 rounded-full transition-all duration-300",
+                              "absolute h-6 rounded-full transition-all duration-300 cursor-pointer",
                               tarefa.estado
-                                ? 'bg-gradient-to-r from-emerald-100 to-emerald-50 border border-emerald-300/30' 
-                                : 'bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-300/30',
-                              "top-1/2 -translate-y-1/2 shadow-md group-hover:shadow-lg group-hover:h-7"
+                                ? 'bg-gradient-to-r from-emerald-100 to-emerald-50 border border-emerald-300/30 hover:from-emerald-200 hover:to-emerald-100' 
+                                : 'bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-300/30 hover:from-blue-200 hover:to-blue-100',
+                              "top-1/2 -translate-y-1/2 shadow-md hover:shadow-lg hover:h-7"
                             )}
                             style={{
                               left: `${((position.gridColumnStart - 2) / months.length) * 100}%`,
@@ -245,23 +278,48 @@ export function Cronograma({
         </div>
       </div>
 
-      {/* Menu da Tarefa */}
-      {selectedTarefa && (
-        <MenuTarefa
-          tarefaId={selectedTarefa}
-          open={!!selectedTarefa}
-          onClose={() => setSelectedTarefa(null)}
-        />
-      )}
+      {/* Remover completamente os menus se as interações estiverem desabilitadas */}
+      {!disableInteractions && (
+        <>
+          {selectedTarefa && (
+            <MenuTarefa
+              tarefaId={selectedTarefa}
+              open={!!selectedTarefa}
+              onClose={() => setSelectedTarefa(null)}
+              onUpdate={async () => {
+                if (onUpdateTarefa) {
+                  // Encontrar a tarefa atualizada
+                  const tarefaAtualizada = workpackages
+                    .flatMap(wp => wp.tarefas)
+                    .find(t => t.id === selectedTarefa);
+                  
+                  if (tarefaAtualizada) {
+                    await onUpdateTarefa(tarefaAtualizada);
+                  }
+                }
+              }}
+            />
+          )}
 
-      {selectedWorkpackage && (
-        <MenuWorkpackage
-          workpackageId={selectedWorkpackage}
-          open={!!selectedWorkpackage}
-          onClose={() => setSelectedWorkpackage(null)}
-          startDate={startDate}
-          endDate={endDate}
-        />
+          {selectedWorkpackage && (
+            <MenuWorkpackage
+              workpackageId={selectedWorkpackage}
+              open={!!selectedWorkpackage}
+              onClose={() => setSelectedWorkpackage(null)}
+              startDate={startDate}
+              endDate={endDate}
+              onUpdate={async () => {
+                if (onUpdateWorkPackage) {
+                  // Encontrar o workpackage atualizado
+                  const wpAtualizado = workpackages.find(wp => wp.id === selectedWorkpackage);
+                  if (wpAtualizado) {
+                    await onUpdateWorkPackage(wpAtualizado);
+                  }
+                }
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );

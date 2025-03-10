@@ -8,17 +8,28 @@ export type ProjetoCreateInput = Omit<Prisma.ProjetoCreateInput, 'workpackages' 
   financiamento?: Prisma.ProjetoCreateInput['financiamento'];
 };
 
-export type WorkpackageWithRelations = Omit<Prisma.WorkpackageCreateInput, 'projeto' | 'tarefas' | 'materiais' | 'recursos'> & {
-  id: string;
-  tarefas: TarefaWithRelations[];
-  materiais: MaterialWithRelations[];
-  alocacaoRecursos: AlocacaoRecursoWithRelations[];
+export type WorkpackageWithRelations = Omit<Prisma.WorkpackageGetPayload<{
+  include: {
+    tarefas: {
+      include: {
+        entregaveis: true
+      }
+    }
+    materiais: true
+    recursos: true
+  }
+}>, "projeto"> & {
+  projetoId: string;
+  tarefas: Array<Omit<Prisma.TarefaGetPayload<{ include: { entregaveis: true } }>, "workpackage">>;
+  materiais: Array<Omit<Prisma.MaterialGetPayload<{}>, "workpackage">>;
+  recursos: Array<Omit<Prisma.AlocacaoRecursoGetPayload<{}>, "workpackage" | "user">>;
 };
 
-export type TarefaWithRelations = Omit<Prisma.TarefaCreateInput, 'workpackage' | 'entregaveis'> & {
-  id: string;
-  entregaveis: EntregavelWithRelations[];
-};
+export type TarefaWithRelations = Prisma.TarefaGetPayload<{
+  include: {
+    entregaveis: true
+  }
+}>;
 
 export type EntregavelWithRelations = Omit<Prisma.EntregavelCreateInput, 'tarefa'> & {
   id: string;

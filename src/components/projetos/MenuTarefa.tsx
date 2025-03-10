@@ -20,9 +20,10 @@ interface MenuTarefaProps {
   tarefaId: string;
   open: boolean;
   onClose: () => void;
+  onUpdate?: () => void;
 }
 
-export function MenuTarefa({ tarefaId, open, onClose }: MenuTarefaProps) {
+export function MenuTarefa({ tarefaId, open, onClose, onUpdate }: MenuTarefaProps) {
   const [uploading, setUploading] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -47,7 +48,8 @@ export function MenuTarefa({ tarefaId, open, onClose }: MenuTarefaProps) {
   const updateTarefaMutation = api.tarefa.update.useMutation({
     onSuccess: () => {
       refetchTarefa();
-      toast.success("Tarefa atualizada");
+      if (onUpdate) onUpdate();
+      toast.success("Tarefa atualizada com sucesso!");
     },
   });
 

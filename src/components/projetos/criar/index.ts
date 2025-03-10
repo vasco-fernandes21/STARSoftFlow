@@ -1,4 +1,3 @@
-export * from './ProjetoFormContent';
 export * from './ProjetoFormContext';
 export * from './types';
 export * from './ProjetoHeader';

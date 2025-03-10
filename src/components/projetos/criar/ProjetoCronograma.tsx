@@ -1,5 +1,6 @@
 import { Calendar } from "lucide-react";
 import { Cronograma } from "@/components/projetos/Cronograma";
+import { useProjetoForm } from "./ProjetoFormContext";
 
 interface ProjetoCronogramaProps {
   state: any;
@@ -8,10 +9,12 @@ interface ProjetoCronogramaProps {
 }
 
 export function ProjetoCronograma({
-  state,
   handleUpdateWorkPackage,
   handleUpdateTarefa
 }: ProjetoCronogramaProps) {
+  
+  const { state } = useProjetoForm();
+
   const renderCronograma = () => {
     try {
       // Se não tiver dados suficientes, mostrar mensagem
@@ -32,33 +35,24 @@ export function ProjetoCronograma({
       const endDate = state.fim ? new Date(state.fim) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
       
       // Mapear workpackages para o formato esperado pelo Cronograma
-      const workpackages = state.workpackages.map(wp => {
-        const formattedWp = {
-          id: wp.id,
-          nome: wp.nome || "",
-          descricao: wp.descricao || null,
-          inicio: wp.inicio ? new Date(wp.inicio) : null,
-          fim: wp.fim ? new Date(wp.fim) : null,
-          estado: typeof wp.estado === 'boolean' ? wp.estado : false,
-          projetoId: "temp-id", // ID temporário
-          tarefas: []
-        };
-        
-        // Adicionar tarefas se existirem
-        if (wp.tarefas && Array.isArray(wp.tarefas)) {
-          formattedWp.tarefas = wp.tarefas.map(t => ({
-            id: t.id,
-            nome: t.nome || "",
-            descricao: t.descricao || null,
-            inicio: t.inicio ? new Date(t.inicio) : null,
-            fim: t.fim ? new Date(t.fim) : null,
-            estado: typeof t.estado === 'boolean' ? t.estado : false,
-            workpackageId: wp.id
-          }));
-        }
-        
-        return formattedWp;
-      });
+      const workpackages = state.workpackages.map(wp => ({
+        id: wp.id,
+        nome: wp.nome || "",
+        descricao: wp.descricao || null,
+        inicio: wp.inicio ? new Date(wp.inicio) : null,
+        fim: wp.fim ? new Date(wp.fim) : null,
+        estado: typeof wp.estado === 'boolean' ? wp.estado : false,
+        projetoId: "temp-id",
+        tarefas: (wp.tarefas || []).map(t => ({
+          id: t.id,
+          nome: t.nome || "",
+          descricao: t.descricao || null,
+          inicio: t.inicio ? new Date(t.inicio) : null,
+          fim: t.fim ? new Date(t.fim) : null,
+          estado: typeof t.estado === 'boolean' ? t.estado : false,
+          workpackageId: wp.id
+        }))
+      }));
       
       return (
         <Cronograma 
@@ -67,6 +61,12 @@ export function ProjetoCronograma({
           endDate={endDate}
           onUpdateWorkPackage={handleUpdateWorkPackage}
           onUpdateTarefa={handleUpdateTarefa}
+          options={{
+            leftColumnWidth: 180,
+            disableInteractions: true,
+            hideWorkpackageEdit: true,
+            compactMode: true,
+          }}
         />
       );
     } catch (error) {
@@ -84,14 +84,14 @@ export function ProjetoCronograma({
 
   return (
     <div className="bg-white rounded-2xl overflow-hidden h-full">
-      <div className="px-8 py-6 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <Calendar className="h-5 w-5 text-azul" />
-          <h2 className="text-lg font-medium text-gray-900">Cronograma</h2>
+      <div className="px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-azul" />
+          <h2 className="text-base font-medium text-gray-900">Cronograma</h2>
         </div>
       </div>
       
-      <div className="p-4 h-[calc(100vh-16rem)]">
+      <div className="p-2 h-[calc(100vh-14rem)]">
         {renderCronograma()}
       </div>
     </div>

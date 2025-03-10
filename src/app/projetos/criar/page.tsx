@@ -13,6 +13,7 @@ import { FaseType, fasesOrdem } from "@/components/projetos/criar/types";
 import { api } from "@/trpc/react";
 import { ProjetoEstado, Rubrica, type Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
+import { generateUUID } from "@/server/api/utils/token";
 
 import { 
   InformacoesTab,
@@ -21,6 +22,7 @@ import {
   RecursosTab,
   ResumoTab 
 } from "@/components/projetos/criar/tabs";
+import { TarefaWithRelations } from "@/components/projetos/criar/types";
 
 // Tipo para workpackage com todas as relações
 type WorkpackageWithRelations = Prisma.WorkpackageGetPayload<{
@@ -34,6 +36,34 @@ type WorkpackageWithRelations = Prisma.WorkpackageGetPayload<{
     recursos: true
   }
 }>;
+
+// Definir a interface WorkpackageHandlers
+export interface WorkpackageHandlers {
+  // Workpackage handlers
+  addWorkpackage: (workpackage: any) => void;
+  updateWorkpackage: (id: string, data: any) => void;
+  removeWorkpackage: (id: string) => void;
+  
+  // Tarefa handlers
+  addTarefa: (workpackageId: string, tarefa: any) => void;
+  updateTarefa: (workpackageId: string, tarefaId: string, data: any) => void;
+  removeTarefa: (workpackageId: string, tarefaId: string) => void;
+  
+  // Material handlers
+  addMaterial: (workpackageId: string, material: any) => void;
+  updateMaterial: (workpackageId: string, materialId: number, data: any) => void;
+  removeMaterial: (workpackageId: string, materialId: number) => void;
+  
+  // Entregavel handlers
+  addEntregavel: (workpackageId: string, tarefaId: string, entregavel: any) => void;
+  updateEntregavel: (workpackageId: string, tarefaId: string, entregavelId: string, data: any) => void;
+  removeEntregavel: (workpackageId: string, tarefaId: string, entregavelId: string) => void;
+  
+  // Recurso handlers
+  addRecurso: (workpackageId: string, recurso: any) => void;
+  updateRecurso: (workpackageId: string, recursoId: number, data: any) => void;
+  removeRecurso: (workpackageId: string, recursoId: number) => void;
+}
 
 function ProjetoFormContent() {
   const router = useRouter();
@@ -64,41 +94,31 @@ function ProjetoFormContent() {
 
   // Verificar se fase está concluída
   useEffect(() => {
-    setFasesConcluidas(prev => {
-      const novoEstado = { ...prev };
-      
-      // Informações (agora inclui datas)
-      novoEstado.informacoes = Boolean(
+    setFasesConcluidas(prev => ({
+      ...prev,
+      informacoes: Boolean(
         state.nome?.trim() && 
         state.inicio && 
         state.fim && 
         new Date(state.fim) > new Date(state.inicio)
-      );
-      
-      // Finanças
-      novoEstado.financas = Boolean(
+      ),
+      financas: Boolean(
         state.overhead !== undefined && 
         state.taxa_financiamento !== undefined && 
         state.valor_eti !== undefined
-      );
-      
-      // Workpackages
-      novoEstado.workpackages = Boolean(state.workpackages?.length);
-      
-      // Recursos - verificar se pelo menos um workpackage tem recursos
-      novoEstado.recursos = Boolean(
-        state.workpackages?.some(wp => wp.recursos?.length > 0)
-      );
-      
-      // Resumo - todas as fases anteriores concluídas
-      novoEstado.resumo = Boolean(
-        novoEstado.informacoes && 
-        novoEstado.financas && 
-        novoEstado.workpackages
-      );
-      
-      return novoEstado;
-    });
+      ),
+      workpackages: Boolean(state.workpackages?.length),
+      recursos: Boolean(state.workpackages?.some(wp => wp.recursos?.length > 0)),
+      resumo: Boolean(
+        state.nome?.trim() && 
+        state.inicio && 
+        state.fim && 
+        state.overhead !== undefined && 
+        state.taxa_financiamento !== undefined && 
+        state.valor_eti !== undefined &&
+        state.workpackages?.length
+      )
+    }));
   }, [state]);
 
   // Função para navegar para uma fase específica
@@ -132,77 +152,395 @@ function ProjetoFormContent() {
     }
   };
 
-  // Função para enviar o formulário
-  const handleSubmit = async () => {
-    // Verificar se todos os dados necessários estão preenchidos
-    if (!fasesConcluidas.resumo) {
-      toast.error("Complete todas as fases antes de finalizar.");
-      return;
-    }
-    
-    try {
-      setSubmitLoading(true);
-      
-      // Preparar dados do projeto para enviar para a API
-      const projetoData = {
-        nome: state.nome || "",
-        descricao: state.descricao || undefined,
-        inicio: state.inicio instanceof Date ? state.inicio : state.inicio ? new Date(state.inicio) : undefined,
-        fim: state.fim instanceof Date ? state.fim : state.fim ? new Date(state.fim) : undefined,
-        estado: ProjetoEstado.PENDENTE, // Definir estado como PENDENTE conforme solicitado
-        overhead: Number(state.overhead),
-        taxa_financiamento: Number(state.taxa_financiamento),
-        valor_eti: Number(state.valor_eti),
-        financiamentoId: typeof state.financiamentoId === 'number' ? state.financiamentoId : undefined,
-        
-        // Mapear workpackages para o formato esperado pela API
-        workpackages: state.workpackages?.map(wp => ({
-          nome: wp.nome || "",
-          descricao: wp.descricao || undefined,
-          inicio: wp.inicio instanceof Date ? wp.inicio : wp.inicio ? new Date(wp.inicio) : undefined,
-          fim: wp.fim instanceof Date ? wp.fim : wp.fim ? new Date(wp.fim) : undefined,
-          estado: Boolean(wp.estado),
-          
-          // Mapear tarefas
-          tarefas: wp.tarefas?.map(t => ({
-            nome: t.nome || "",
-            descricao: t.descricao || undefined,
-            inicio: t.inicio instanceof Date ? t.inicio : t.inicio ? new Date(t.inicio) : undefined,
-            fim: t.fim instanceof Date ? t.fim : t.fim ? new Date(t.fim) : undefined,
-            estado: Boolean(t.estado),
-            
-            // Mapear entregáveis
-            entregaveis: t.entregaveis?.map(e => ({
-              nome: e.nome || "",
-              descricao: e.descricao || undefined,
-              data: e.data instanceof Date ? e.data : e.data ? new Date(e.data) : undefined
-            })) || []
-          })) || [],
-          
-          // Mapear materiais
-          materiais: wp.materiais?.map(m => ({
-            nome: m.nome || "",
-            preco: Number(m.preco),
-            quantidade: Number(m.quantidade),
-            rubrica: m.rubrica || Rubrica.MATERIAIS,
-            ano_utilizacao: Number(m.ano_utilizacao)
-          })) || []
-        })) || []
+  // Handlers agrupados em um objeto
+ const workpackageHandlers: WorkpackageHandlers = {
+    // Workpackages
+    addWorkpackage: (workpackage) => {
+      const newWorkpackage = {
+        id: generateUUID(),
+        projetoId: generateUUID(),
+        nome: workpackage.nome,
+        descricao: workpackage.descricao || null,
+        inicio: workpackage.inicio ? new Date(workpackage.inicio) : null,
+        fim: workpackage.fim ? new Date(workpackage.fim) : null,
+        estado: workpackage.estado || false,
+        tarefas: [],
+        materiais: [],
+        recursos: []
       };
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: {
+          workpackages: [...(state.workpackages || []), newWorkpackage]
+        }
+      });
+      toast.success("Workpackage adicionado com sucesso!");
+    },
+
+    updateWorkpackage: (id, data) => {
+      if (!state.workpackages) return;
       
-      // Chamar a API para criar o projeto
-      criarProjetoMutation.mutate(projetoData);
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === id
+          ? {
+              ...wp,
+              nome: data.nome || wp.nome,
+              descricao: data.descricao ?? wp.descricao,
+              inicio: data.inicio ? new Date(data.inicio) : wp.inicio,
+              fim: data.fim ? new Date(data.fim) : wp.fim,
+              estado: data.estado ?? wp.estado
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    removeWorkpackage: (id) => {
+      if (!state.workpackages) return;
       
-    } catch (error) {
-      console.error("Erro ao criar projeto:", error);
-      toast.error("Ocorreu um erro ao criar o projeto. Tente novamente.");
-      setSubmitLoading(false);
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: {
+          workpackages: state.workpackages.filter(wp => wp.id !== id)
+        }
+      });
+      toast.success("Workpackage removido com sucesso!");
+    },
+
+    // Tarefas
+    addTarefa: (workpackageId, tarefa) => {
+      if (!state.workpackages) return;
+      
+      const newTarefa = {
+        id: generateUUID(),
+        workpackageId: workpackageId,
+        nome: tarefa.nome,
+        descricao: tarefa.descricao || null,
+        inicio: tarefa.inicio ? new Date(tarefa.inicio) : null,
+        fim: tarefa.fim ? new Date(tarefa.fim) : null,
+        estado: tarefa.estado || false,
+        entregaveis: []
+      };
+
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              tarefas: [...(wp.tarefas || []), newTarefa]
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    updateTarefa: (workpackageId, tarefaId, data) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              tarefas: wp.tarefas?.map(t =>
+                t.id === tarefaId
+                  ? { 
+                      ...t, 
+                      nome: data.nome || t.nome,
+                      descricao: data.descricao ?? t.descricao,
+                      inicio: data.inicio ? new Date(data.inicio) : t.inicio,
+                      fim: data.fim ? new Date(data.fim) : t.fim,
+                      estado: data.estado ?? t.estado
+                    }
+                  : t
+              ) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    removeTarefa: (workpackageId, tarefaId) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              tarefas: wp.tarefas?.filter(t => t.id !== tarefaId) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+      toast.success("Tarefa removida com sucesso!");
+    },
+
+    // Materiais
+    addMaterial: (workpackageId, material) => {
+      if (!state.workpackages) return;
+      
+      const newMaterial = {
+        id: Date.now(),
+        workpackageId: workpackageId,
+        nome: material.nome,
+        preco: new Decimal(material.preco.toString()),
+        quantidade: Number(material.quantidade),
+        rubrica: material.rubrica || "MATERIAIS",
+        ano_utilizacao: Number(material.ano_utilizacao)
+      };
+
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              materiais: [...(wp.materiais || []), newMaterial]
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    updateMaterial: (workpackageId, materialId, data) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              materiais: wp.materiais?.map(m =>
+                m.id === materialId
+                  ? { 
+                      ...m, 
+                      nome: data.nome || m.nome,
+                      preco: data.preco ? new Decimal(data.preco.toString()) : m.preco,
+                      quantidade: data.quantidade !== undefined ? Number(data.quantidade) : m.quantidade,
+                      rubrica: data.rubrica || m.rubrica,
+                      ano_utilizacao: data.ano_utilizacao !== undefined ? Number(data.ano_utilizacao) : m.ano_utilizacao
+                    }
+                  : m
+              ) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    removeMaterial: (workpackageId, materialId) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              materiais: wp.materiais?.filter(m => m.id !== materialId) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+      toast.success("Material removido com sucesso!");
+    },
+
+    // Entregáveis
+    addEntregavel: (workpackageId, tarefaId, entregavel) => {
+      if (!state.workpackages) return;
+      
+      const newEntregavel = {
+        id: generateUUID(),
+        tarefaId: tarefaId,
+        nome: entregavel.nome,
+        descricao: entregavel.descricao || null,
+        data: entregavel.data ? new Date(entregavel.data) : null,
+        estado: false,
+        anexo: null
+      };
+
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              tarefas: wp.tarefas?.map(t =>
+                t.id === tarefaId
+                  ? {
+                      ...t,
+                      entregaveis: [...(t.entregaveis || []), newEntregavel]
+                    }
+                  : t
+              ) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    updateEntregavel: (workpackageId, tarefaId, entregavelId, data) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              tarefas: wp.tarefas?.map(t =>
+                t.id === tarefaId
+                  ? {
+                      ...t,
+                      entregaveis: t.entregaveis?.map(e =>
+                        e.id === entregavelId
+                          ? { 
+                              ...e, 
+                              nome: data.nome || e.nome,
+                              descricao: data.descricao ?? e.descricao,
+                              data: data.data ? new Date(data.data) : e.data
+                            }
+                          : e
+                      ) || []
+                    }
+                  : t
+              ) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    removeEntregavel: (workpackageId, tarefaId, entregavelId) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              tarefas: wp.tarefas?.map(t =>
+                t.id === tarefaId
+                  ? {
+                      ...t,
+                      entregaveis: t.entregaveis?.filter(e => e.id !== entregavelId) || []
+                    }
+                  : t
+              ) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+      toast.success("Entregável removido com sucesso!");
+    },
+
+    // Recursos
+    addRecurso: (workpackageId, recurso) => {
+      if (!state.workpackages) return;
+      
+      const newRecurso = {
+        id: Date.now(),
+        workpackageId: workpackageId,
+        mes: recurso.mes,
+        ano: recurso.ano,
+        ocupacao: new Decimal(recurso.ocupacao?.toString() || "0"),
+        userId: recurso.userId
+      };
+
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              recursos: [...(wp.recursos || []), newRecurso]
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    updateRecurso: (workpackageId, recursoId, data) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              recursos: wp.recursos?.map(r =>
+                // @ts-ignore - Ignorar erro de tipagem para o ID
+                r.id === recursoId
+                  ? { 
+                      ...r, 
+                      mes: data.mes !== undefined ? data.mes : r.mes,
+                      ano: data.ano !== undefined ? data.ano : r.ano,
+                      ocupacao: data.ocupacao ? new Decimal(data.ocupacao.toString()) : r.ocupacao,
+                      userId: data.userId || r.userId
+                    }
+                  : r
+              ) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
+    },
+
+    removeRecurso: (workpackageId, recursoId) => {
+      if (!state.workpackages) return;
+      
+      const updatedWorkpackages = state.workpackages.map(wp =>
+        wp.id === workpackageId
+          ? {
+              ...wp,
+              recursos: wp.recursos?.filter(r => 
+                // @ts-ignore - Ignorar erro de tipagem para o ID
+                r.id !== recursoId
+              ) || []
+            }
+          : wp
+      );
+
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: { workpackages: updatedWorkpackages }
+      });
     }
   };
-
-  const progressoAtual = fasesOrdem.indexOf(faseAtual) + 1;
-  const progressoTotal = fasesOrdem.length;
-  const percentualProgresso = (progressoAtual / progressoTotal) * 100;
 
   // Renderizar o conteúdo da fase atual
   const renderizarConteudoFase = () => {
@@ -218,10 +556,14 @@ function ProjetoFormContent() {
         );
       case "workpackages":
         return (
-          <WorkpackagesTab 
-            onNavigateForward={irParaProximaFase} 
-            onNavigateBack={irParaFaseAnterior} 
-          />
+          <div>
+            <WorkpackagesTab 
+              workpackages={state.workpackages || []}
+              onNavigateForward={irParaProximaFase} 
+              onNavigateBack={irParaFaseAnterior}
+              handlers={workpackageHandlers}
+            />
+          </div>
         );
       case "recursos":
         return (
@@ -319,6 +661,78 @@ function ProjetoFormContent() {
       taxa_financiamento: new Decimal(value)
     });
   };
+
+  // Função para enviar o formulário
+  const handleSubmit = async () => {
+    // Verificar se todos os dados necessários estão preenchidos
+    if (!fasesConcluidas.resumo) {
+      toast.error("Complete todas as fases antes de finalizar.");
+      return;
+    }
+    
+    try {
+      setSubmitLoading(true);
+      
+      // Preparar dados do projeto para enviar para a API
+      const projetoData = {
+        nome: state.nome || "",
+        descricao: state.descricao || undefined,
+        inicio: state.inicio instanceof Date ? state.inicio : state.inicio ? new Date(state.inicio) : undefined,
+        fim: state.fim instanceof Date ? state.fim : state.fim ? new Date(state.fim) : undefined,
+        estado: ProjetoEstado.PENDENTE, // Definir estado como PENDENTE conforme solicitado
+        overhead: Number(state.overhead),
+        taxa_financiamento: Number(state.taxa_financiamento),
+        valor_eti: Number(state.valor_eti),
+        financiamentoId: typeof state.financiamentoId === 'number' ? state.financiamentoId : undefined,
+        
+        // Mapear workpackages para o formato esperado pela API
+        workpackages: state.workpackages?.map(wp => ({
+          nome: wp.nome || "",
+          descricao: wp.descricao || undefined,
+          inicio: wp.inicio instanceof Date ? wp.inicio : wp.inicio ? new Date(wp.inicio) : undefined,
+          fim: wp.fim instanceof Date ? wp.fim : wp.fim ? new Date(wp.fim) : undefined,
+          estado: Boolean(wp.estado),
+          
+          // Mapear tarefas
+          tarefas: wp.tarefas?.map(t => ({
+            nome: t.nome || "",
+            descricao: t.descricao || undefined,
+            inicio: t.inicio instanceof Date ? t.inicio : t.inicio ? new Date(t.inicio) : undefined,
+            fim: t.fim instanceof Date ? t.fim : t.fim ? new Date(t.fim) : undefined,
+            estado: Boolean(t.estado),
+            
+            // Mapear entregáveis
+            entregaveis: t.entregaveis?.map(e => ({
+              nome: e.nome || "",
+              descricao: e.descricao || undefined,
+              data: e.data instanceof Date ? e.data : e.data ? new Date(e.data) : undefined
+            })) || []
+          })) || [],
+          
+          // Mapear materiais
+          materiais: wp.materiais?.map(m => ({
+            nome: m.nome || "",
+            preco: Number(m.preco),
+            quantidade: Number(m.quantidade),
+            rubrica: m.rubrica || Rubrica.MATERIAIS,
+            ano_utilizacao: Number(m.ano_utilizacao)
+          })) || []
+        })) || []
+      };
+      
+      // Chamar a API para criar o projeto
+      criarProjetoMutation.mutate(projetoData);
+      
+    } catch (error) {
+      console.error("Erro ao criar projeto:", error);
+      toast.error("Ocorreu um erro ao criar o projeto. Tente novamente.");
+      setSubmitLoading(false);
+    }
+  };
+
+  const progressoAtual = fasesOrdem.indexOf(faseAtual) + 1;
+  const progressoTotal = fasesOrdem.length;
+  const percentualProgresso = (progressoAtual / progressoTotal) * 100;
 
   return (
     <div className="flex flex-col md:flex-row gap-6 justify-between">

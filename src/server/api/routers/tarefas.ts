@@ -17,8 +17,16 @@ const tarefaBaseSchema = z.object({
 
 const createTarefaSchema = tarefaBaseSchema;
 
-const updateTarefaSchema = tarefaBaseSchema.partial().extend({
-  workpackageId: z.string().uuid("ID de workpackage inválido").optional(),
+const updateTarefaSchema = z.object({
+  id: z.string(),
+  data: z.object({
+    nome: z.string().optional(),
+    descricao: z.string().nullable().optional(),
+    inicio: z.date().nullable().optional(),
+    fim: z.date().nullable().optional(),
+    estado: z.boolean().optional(),
+    workpackageId: z.string().optional(),
+  }).strict() // só vai aceitar estes
 });
 
 const tarefaFilterSchema = z.object({
@@ -197,47 +205,26 @@ export const tarefaRouter = createTRPCRouter({
   
   // Atualizar tarefa
   update: protectedProcedure
-    .input(z.object({
-      id: z.string(),
-      data: updateTarefaSchema,
-    }))
+    .input(updateTarefaSchema)
     .mutation(async ({ ctx, input }) => {
-      try {
-        const { id, data } = input;
-        
-        // Validar datas
-        if (data.inicio && data.fim) {
-          const { success } = tarefaDateValidationSchema.safeParse({
-            inicio: data.inicio,
-            fim: data.fim,
-          });
-          
-          if (!success) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "A data de fim deve ser posterior à data de início",
-            });
-          }
-        }
-        
-        // Atualizar tarefa
-        const tarefa = await ctx.db.tarefa.update({
-          where: { id },
-          data,
-          include: {
-            workpackage: {
-              include: {
-                projeto: true,
-              },
-            },
-            entregaveis: true,
-          },
-        });
-        
-        return tarefa;
-      } catch (error) {
-        return handlePrismaError(error);
+      const { id, data } = input;
+
+      // Verificar se a tarefa existe
+      const tarefaExistente = await ctx.db.tarefa.findUnique({
+        where: { id },
+      });
+
+      if (!tarefaExistente) {
+        throw new Error("Tarefa não encontrada");
       }
+
+      // Atualizar apenas os campos fornecidos
+      return ctx.db.tarefa.update({
+        where: { id },
+        data: {
+          ...Object.keys(data).length > 0 ? data : {},
+        },
+      });
     }),
   
   // Alternar estado da tarefa (concluída/não concluída)

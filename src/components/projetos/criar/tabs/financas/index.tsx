@@ -144,6 +144,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
         onNext={onNavigateForward}
         onBack={onNavigateBack}
         nextLabel="Próximo: Workpackages"
+        backLabel="Anterior: Informações"
         isNextDisabled={!isValid}
         className="pt-4 border-t border-azul/10"
       />

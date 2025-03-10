@@ -12,15 +12,13 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Projeto, ProjetoEstado } from "@prisma/client";
 import { Cronograma } from "@/components/projetos/Cronograma";
-import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 
 export default function DetalheProjeto() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const [tarefaSelecionadaId, setTarefaSelecionadaId] = useState<string | null>(null);
   const [separadorAtivo, setSeparadorAtivo] = useState("cronograma");
 
-  const { data: projeto, isLoading, error } = api.projeto.getById.useQuery(id as string, {
+  const { data: projeto, isLoading, error, refetch } = api.projeto.getById.useQuery(id as string, {
     enabled: !!id,
   });
 
@@ -49,12 +47,6 @@ export default function DetalheProjeto() {
     EM_DESENVOLVIMENTO: "Em Desenvolvimento",
     CONCLUIDO: "Concluído",
   };
-
-  const tarefaSelecionada = tarefaSelecionadaId 
-    ? projeto.workpackages
-        .flatMap(wp => wp.tarefas)
-        .find(tarefa => tarefa.id === tarefaSelecionadaId) || null
-    : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8 custom-blue-blur">
@@ -205,7 +197,17 @@ export default function DetalheProjeto() {
                     workpackages={projeto.workpackages}
                     startDate={dataInicio}
                     endDate={dataFim}
-                    onSelectTarefa={setTarefaSelecionadaId}
+                    onUpdateWorkPackage={async () => {
+                      await refetch();
+                    }}
+                    onUpdateTarefa={async () => {
+                      await refetch();
+                    }}
+                    options={{
+                      leftColumnWidth: 300,
+                      disableInteractions: false,
+                      compactMode: false,
+                    }}
                   />
                 )}
               </div>
@@ -285,15 +287,6 @@ export default function DetalheProjeto() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Barra Lateral de Tarefas */}
-      {tarefaSelecionadaId !== null && (
-        <MenuTarefa
-          tarefaId={tarefaSelecionadaId}
-          open={true}
-          onClose={() => setTarefaSelecionadaId(null)}
-        />
-      )}
     </div>
   );
 }
