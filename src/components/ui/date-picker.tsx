@@ -20,6 +20,7 @@ interface DatePickerProps {
   placeholder?: string
   error?: boolean
   className?: string
+  minDate?: Date
 }
 
 export function DatePicker({
@@ -27,10 +28,15 @@ export function DatePicker({
   onChange,
   placeholder = "Selecione uma data",
   error = false,
-  className
+  className,
+  minDate
 }: DatePickerProps) {
   const [position, setPosition] = React.useState<"top" | "bottom">("bottom")
   const triggerRef = React.useRef<HTMLButtonElement>(null)
+
+  // Definimos o minDate dentro do componente
+  const defaultMinDate = React.useMemo(() => new Date(), []);
+  const effectiveMinDate = minDate || defaultMinDate;
 
   // Função para calcular a posição ideal do calendário
   const updatePosition = React.useCallback(() => {
@@ -60,6 +66,13 @@ export function DatePicker({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [updatePosition])
+
+  // Função para lidar com a seleção de data de forma segura
+  const handleDateSelect = (date?: Date) => {
+    if (onChange) {
+      onChange(date);
+    }
+  };
 
   return (
     <div className="relative w-full">
@@ -108,9 +121,10 @@ export function DatePicker({
             <Calendar
               mode="single"
               selected={value}
-              onSelect={onChange}
+              onSelect={handleDateSelect}
               initialFocus
               locale={pt}
+              disabled={(date) => date < effectiveMinDate}
               className="p-0 w-full"
               formatters={{
                 formatCaption: (date, options) => {

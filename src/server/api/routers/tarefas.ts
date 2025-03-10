@@ -2,16 +2,46 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-
-// Importar schemas e utilidades
-import {
-  createTarefaSchema,
-  updateTarefaSchema,
-  tarefaFilterSchema,
-  tarefaDateValidationSchema
-} from "../schemas/tarefa";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
-import { getPaginationParams } from "../schemas/common";
+import { paginationSchema, getPaginationParams } from "../schemas/common";
+
+// Schemas
+const tarefaBaseSchema = z.object({
+  nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
+  workpackageId: z.string().uuid("ID de workpackage inválido"),
+  descricao: z.string().optional(),
+  inicio: z.date().optional(),
+  fim: z.date().optional(),
+  estado: z.boolean().default(false),
+});
+
+const createTarefaSchema = tarefaBaseSchema;
+
+const updateTarefaSchema = tarefaBaseSchema.partial().extend({
+  workpackageId: z.string().uuid("ID de workpackage inválido").optional(),
+});
+
+const tarefaFilterSchema = z.object({
+  workpackageId: z.string().uuid("ID de workpackage inválido").optional(),
+  search: z.string().optional(),
+  estado: z.boolean().optional(),
+}).merge(paginationSchema);
+
+const tarefaDateValidationSchema = z.object({
+  inicio: z.date().optional(),
+  fim: z.date().optional(),
+}).refine(
+  (data) => {
+    if (data.inicio && data.fim) {
+      return data.inicio <= data.fim;
+    }
+    return true;
+  },
+  {
+    message: "A data de fim deve ser posterior à data de início",
+    path: ["fim"],
+  }
+);
 
 // Schema para criação de entregável
 const createEntregavelSchema = z.object({
@@ -30,6 +60,7 @@ const updateEntregavelSchema = z.object({
   anexo: z.string().optional(),
 });
 
+// Router
 export const tarefaRouter = createTRPCRouter({
   // Obter todas as tarefas
   getAll: publicProcedure
@@ -78,33 +109,20 @@ export const tarefaRouter = createTRPCRouter({
     }),
   
   // Obter tarefa por ID
-  getById: publicProcedure
-    .input(z.string())
-    .query(async ({ ctx, input: id }) => {
-      try {
-        const tarefa = await ctx.db.tarefa.findUnique({
-          where: { id },
-          include: {
-            workpackage: {
-              include: {
-                projeto: true,
-              },
+  getById: protectedProcedure
+    .input(z.string().uuid("ID da tarefa inválido"))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.tarefa.findUnique({
+        where: { id: input },
+        include: {
+          workpackage: {
+            include: {
+              projeto: true,
             },
-            entregaveis: true,
           },
-        });
-        
-        if (!tarefa) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Tarefa não encontrada",
-          });
-        }
-        
-        return tarefa;
-      } catch (error) {
-        return handlePrismaError(error);
-      }
+          entregaveis: true,
+        },
+      });
     }),
   
   // Obter tarefas por workpackage

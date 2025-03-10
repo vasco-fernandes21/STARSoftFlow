@@ -197,9 +197,9 @@ export default function DetalheProjeto() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="cronograma" className="mt-4">
+          <TabsContent value="cronograma" className="mt-8">
             <Card className="glass-card border-white/20 shadow-xl overflow-hidden rounded-2xl">
-              <div className="h-[500px]">
+              <div className="h-[calc(92vh-280px)]">
                 {dataInicio && dataFim && (
                   <Cronograma
                     workpackages={projeto.workpackages}
@@ -264,7 +264,7 @@ export default function DetalheProjeto() {
               <CardContent className="p-6 overflow-y-auto h-[440px]">
                 <div className="space-y-4">
                   <p className="text-sm text-gray-600">
-                    Tipo de Financiamento: <span className="font-medium">{projeto.financiamento?.nome || "N/A"}</span>
+                    Tipo de projeto: <span className="font-medium">{projeto.financiamento?.nome || "N/A"}</span>
                   </p>
                   {projeto.financiamento && (
                     <>

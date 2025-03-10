@@ -7,6 +7,7 @@ import { Edit } from "lucide-react";
 import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { MenuWorkpackage } from "@/components/projetos/MenuWorkpackage";
 
 interface CronogramaProps {
   workpackages: (Workpackage & { tarefas: Tarefa[] })[];
@@ -26,6 +27,7 @@ export function Cronograma({
   onUpdateTarefa
 }: CronogramaProps) {
   const [selectedTarefa, setSelectedTarefa] = useState<string | null>(null);
+  const [selectedWorkpackage, setSelectedWorkpackage] = useState<string | null>(null);
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   
@@ -130,7 +132,10 @@ export function Cronograma({
                 {/* Cabeçalho do Workpackage */}
                 <div className="h-[36px] flex items-center px-6">
                   <div className="flex items-center gap-2 w-full">
-                    <h3 className="text-base font-semibold text-gray-700 cursor-pointer hover:text-customBlue transition-colors flex items-center gap-2 truncate max-w-[280px]">
+                    <h3 
+                      className="text-base font-semibold text-gray-700 cursor-pointer hover:text-customBlue transition-colors flex items-center gap-2 truncate max-w-[280px]"
+                      onClick={() => setSelectedWorkpackage(wp.id)}
+                    >
                       {wp.nome}
                       <Button
                         variant="ghost"
@@ -246,6 +251,16 @@ export function Cronograma({
           tarefaId={selectedTarefa}
           open={!!selectedTarefa}
           onClose={() => setSelectedTarefa(null)}
+        />
+      )}
+
+      {selectedWorkpackage && (
+        <MenuWorkpackage
+          workpackageId={selectedWorkpackage}
+          open={!!selectedWorkpackage}
+          onClose={() => setSelectedWorkpackage(null)}
+          startDate={startDate}
+          endDate={endDate}
         />
       )}
     </div>

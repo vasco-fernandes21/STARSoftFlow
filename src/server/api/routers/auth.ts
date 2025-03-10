@@ -5,14 +5,67 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendEmail } from "@/lib/email";
 import { Prisma } from "@prisma/client";
-
-// Importar schemas e utilidades
-import {
-  loginSchema,
-  resetPasswordRequestSchema
-} from "../schemas/auth";
-import { emailSchema, passwordSchema } from "../schemas/utilizador";
 import { handlePrismaError } from "../utils";
+import { generateToken } from "../utils/token";
+import { sendPasswordResetEmail, sendPrimeiroAcessoEmail } from "../utils/email";
+import { hashPassword, verifyPassword } from "../utils/password";
+
+// Schemas base
+const emailSchema = z.string().email("Email inválido");
+const passwordSchema = z
+  .string()
+  .min(8, "A password deve ter pelo menos 8 caracteres")
+  .regex(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
+    "A password deve conter pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial"
+  );
+
+/**
+ * Schema para login
+ */
+export const loginSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+});
+
+/**
+ * Schema para reset de password
+ */
+export const resetPasswordRequestSchema = z.object({
+  email: emailSchema,
+});
+
+/**
+ * Schema para definir nova password após reset
+ */
+export const resetPasswordSchema = z.object({
+  email: emailSchema,
+  token: z.string(),
+  password: passwordSchema,
+  confirmPassword: passwordSchema,
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As passwords não coincidem",
+  path: ["confirmPassword"],
+});
+
+/**
+ * Schema para validação de primeiro acesso
+ */
+export const primeiroAcessoSchema = z.object({
+  email: emailSchema,
+  token: z.string(),
+  password: passwordSchema,
+  confirmPassword: passwordSchema,
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As passwords não coincidem",
+  path: ["confirmPassword"],
+});
+
+// Tipos inferidos dos schemas
+export type LoginInput = z.infer<typeof loginSchema>;
+export type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type PrimeiroAcessoInput = z.infer<typeof primeiroAcessoSchema>;
 
 // Tipo personalizado para o utilizador com campos adicionais
 type UserWithAuth = {
@@ -31,103 +84,32 @@ type UserWithAuth = {
   primeiroAcessoExpira?: Date | null;
 };
 
-// Definir novos schemas diretamente
-const resetPasswordSchema = z.object({
-  token: z.string(),
-  password: passwordSchema,
-  confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
-  email: z.string().email("Email inválido"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As passwords não coincidem",
-  path: ["confirmPassword"],
-});
-
-const primeiroAcessoSchema = z.object({
-  token: z.string(),
-  password: passwordSchema,
-  confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
-  email: z.string().email("Email inválido"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As passwords não coincidem",
-  path: ["confirmPassword"],
-});
-
 export const authRouter = createTRPCRouter({
   // Login 
   login: publicProcedure
     .input(loginSchema)
     .mutation(async ({ ctx, input }) => {
-      try {
-        const { email, password } = input;
-        
-        // Buscar utilizador pelo email
-        const user = await ctx.db.user.findUnique({
-          where: { email },
-          include: { password: true },
-        }) as unknown as UserWithAuth;
-        
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Utilizador não encontrado",
-          });
-        }
-        
-        // Verificar se o utilizador está ativo
-        if (user.ativo === false) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Conta desativada. Contacte o administrador.",
-          });
-        }
-        
-        // Verificar se a password existe (pode não existir se for primeiro acesso)
-        if (!user.password) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "É necessário definir uma password (primeiro acesso)",
-          });
-        }
-        
-        // Verificar password
-        const passwordCorrect = await bcrypt.compare(password, user.password.hash);
-        if (!passwordCorrect) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Password incorreta",
-          });
-        }
-        
-        // Verificar verificação de email
-        if (!user.emailVerified) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Email não verificado",
-          });
-        }
-        
-        // Registrar último login
-        await ctx.db.user.update({
-          where: { id: user.id },
-          data: {
-            // Use um campo compatível com o modelo ou guarde esta informação em outra tabela
-            // ultimoLogin: new Date(),
-          },
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+        include: { password: true }
+      });
+
+      if (!user || !user.password) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Utilizador não encontrado",
         });
-        
-        // Retornar dados do utilizador (excluindo a password)
-        const userWithoutPassword = {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          emailVerified: user.emailVerified,
-          // Outros campos que você queira incluir
-        };
-        
-        return userWithoutPassword;
-      } catch (error) {
-        return handlePrismaError(error);
       }
+
+      const isValid = await verifyPassword(input.password, user.password.hash);
+      if (!isValid) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Password incorreta",
+        });
+      }
+
+      return { user };
     }),
   
   // Obter dados do utilizador atual
@@ -155,195 +137,156 @@ export const authRouter = createTRPCRouter({
     }),
   
   // Solicitar redefinição de password
-  requestPasswordReset: publicProcedure
+  resetPasswordRequest: publicProcedure
     .input(resetPasswordRequestSchema)
     .mutation(async ({ ctx, input }) => {
-      try {
-        const { email } = input;
-        
-        // Buscar utilizador pelo email
-        const user = await ctx.db.user.findUnique({
-          where: { email },
-        }) as unknown as UserWithAuth;
-        
-        // Se o utilizador não existir, não informamos ao cliente
-        // para evitar divulgação de informações sobre quais emails estão cadastrados
-        if (!user || user.ativo === false) {
-          return { success: true };
-        }
-        
-        // Gerar token único
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const tokenHash = await bcrypt.hash(resetToken, 10);
-        
-        // Salvar token e data de expiração (24 horas)
-        const tokenExpira = new Date();
-        tokenExpira.setHours(tokenExpira.getHours() + 24);
-        
-        // Aqui precisamos verificar se nossa tabela tem os campos para resetToken
-        // ou usar uma tabela separada para armazenar tokens
-        await ctx.db.passwordReset.create({
-          data: {
-            email: user.email || "",
-            token: resetToken,
-            expires: tokenExpira,
-          }
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Utilizador não encontrado",
         });
-        
-        // Enviar email com link para redefinição
-        const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${resetToken}&email=${email}`;
-        
-        await sendEmail({
-          to: email,
-          subject: "Recuperação de Password",
-          html: `
-            <p>Olá ${user.name || "Utilizador"},</p>
-            <p>Foi solicitada a recuperação de password para a sua conta.</p>
-            <p>Clique no link abaixo para definir uma nova password:</p>
-            <a href="${resetLink}">Redefinir Password</a>
-            <p>Este link é válido por 24 horas.</p>
-            <p>Se você não solicitou esta alteração, ignore este email.</p>
-          `,
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
       }
+
+      const token = generateToken();
+      const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}&email=${input.email}`;
+
+      // Criar ou atualizar o token de reset
+      await ctx.db.passwordReset.create({
+        data: {
+          email: input.email,
+          token: token,
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+        },
+      });
+
+      await sendPasswordResetEmail(input.email, resetLink);
+
+      return { success: true };
     }),
   
   // Redefinir password
   resetPassword: publicProcedure
     .input(resetPasswordSchema)
     .mutation(async ({ ctx, input }) => {
-      try {
-        const { token, password, email } = input;
-        
-        // Verificar token na tabela passwordReset
-        const resetToken = await ctx.db.passwordReset.findUnique({
-          where: { token },
+      // Verificar token de reset
+      const resetToken = await ctx.db.passwordReset.findFirst({
+        where: {
+          email: input.email,
+          token: input.token,
+          expires: { gt: new Date() },
+        },
+      });
+
+      if (!resetToken) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Token inválido ou expirado",
         });
-        
-        if (!resetToken || resetToken.expires < new Date()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Token inválido ou expirado",
-          });
-        }
-        
-        // Buscar utilizador pelo email
-        const user = await ctx.db.user.findUnique({
-          where: { email },
-          include: { password: true },
-        });
-        
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Utilizador não encontrado",
-          });
-        }
-        
-        // Hash da nova password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Atualizar password
-        if (user.password) {
-          await ctx.db.password.update({
-            where: { userId: user.id },
-            data: { hash: hashedPassword },
-          });
-        } else {
-          await ctx.db.password.create({
-            data: {
-              userId: user.id,
-              hash: hashedPassword,
-            },
-          });
-        }
-        
-        // Marcar email como verificado
-        await ctx.db.user.update({
-          where: { id: user.id },
-          data: { emailVerified: new Date() },
-        });
-        
-        // Eliminar token
-        await ctx.db.passwordReset.delete({
-          where: { token },
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
       }
+
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+        include: { password: true }
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Utilizador não encontrado",
+        });
+      }
+
+      const hashedPassword = await hashPassword(input.password);
+
+      // Atualizar ou criar password
+      if (user.password) {
+        await ctx.db.password.update({
+          where: { userId: user.id },
+          data: { hash: hashedPassword },
+        });
+      } else {
+        await ctx.db.password.create({
+          data: {
+            userId: user.id,
+            hash: hashedPassword,
+          },
+        });
+      }
+
+      // Remover token de reset
+      await ctx.db.passwordReset.delete({
+        where: { token: input.token },
+      });
+
+      return { success: true };
     }),
   
   // Primeiro acesso (ativação de conta)
   primeiroAcesso: publicProcedure
     .input(primeiroAcessoSchema)
     .mutation(async ({ ctx, input }) => {
-      try {
-        const { email, token, password } = input;
-        
-        // Em vez de usar campos personalizados no modelo User,
-        // vamos verificar o token na tabela verificationToken
-        const verificationToken = await ctx.db.verificationToken.findUnique({
-          where: { token },
+      // Verificar token de verificação
+      const verificationToken = await ctx.db.verificationToken.findFirst({
+        where: {
+          identifier: input.email,
+          token: input.token,
+          expires: { gt: new Date() },
+        },
+      });
+
+      if (!verificationToken) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Token inválido ou expirado",
         });
-        
-        if (!verificationToken || verificationToken.expires < new Date() || verificationToken.identifier !== email) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Token inválido ou expirado",
-          });
-        }
-        
-        // Buscar utilizador pelo email
-        const user = await ctx.db.user.findUnique({
-          where: { email },
-          include: { password: true },
-        });
-        
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Utilizador não encontrado",
-          });
-        }
-        
-        // Hash da nova password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Atualizar password
-        if (user.password) {
-          await ctx.db.password.update({
-            where: { userId: user.id },
-            data: { hash: hashedPassword },
-          });
-        } else {
-          await ctx.db.password.create({
-            data: {
-              userId: user.id,
-              hash: hashedPassword,
-            },
-          });
-        }
-        
-        // Marcar email como verificado
-        await ctx.db.user.update({
-          where: { id: user.id },
-          data: { emailVerified: new Date() },
-        });
-        
-        // Eliminar token
-        await ctx.db.verificationToken.delete({
-          where: { token },
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
       }
+
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+        include: { password: true }
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Utilizador não encontrado",
+        });
+      }
+
+      const hashedPassword = await hashPassword(input.password);
+
+      // Atualizar ou criar password
+      if (user.password) {
+        await ctx.db.password.update({
+          where: { userId: user.id },
+          data: { hash: hashedPassword },
+        });
+      } else {
+        await ctx.db.password.create({
+          data: {
+            userId: user.id,
+            hash: hashedPassword,
+          },
+        });
+      }
+
+      // Atualizar dados do utilizador
+      await ctx.db.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: new Date(),
+        },
+      });
+
+      // Remover token de verificação
+      await ctx.db.verificationToken.delete({
+        where: { token: input.token },
+      });
+
+      return { success: true };
     }),
 }); 

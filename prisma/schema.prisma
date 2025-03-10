@@ -46,6 +46,10 @@ model Projeto {
     inicio          DateTime?     @db.Date
     fim             DateTime?     @db.Date
     estado          ProjetoEstado @default(RASCUNHO)
+    
+    overhead           Decimal?   @default(0) @db.Decimal(5, 2)
+    taxa_financiamento Decimal?   @default(0) @db.Decimal(5, 2)
+    valor_eti          Decimal?   @default(0) @db.Decimal(10, 2)
     financiamentoId Int?          @map("financiamento_id")
     
     // Relações
@@ -81,7 +85,7 @@ model Workpackage {
     projeto    Projeto   @relation(fields: [projetoId], references: [id])
     tarefas    Tarefa[]
     materiais  Material[]
-    recursos   WorkpackageUser[]
+    recursos   AlocacaoRecurso[]
 
     @@map("Workpackages")
 }
@@ -110,6 +114,7 @@ model Entregavel {
     data        DateTime? @db.Date
     anexo    String?   @db.Text
     estado    Boolean   @default(false)
+    
     // Relação com Tarefa
     tarefa      Tarefa    @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
 
@@ -120,6 +125,7 @@ model Material {
     id            Int         @id @default(autoincrement())
     nome          String      @db.VarChar(255)
     preco         Decimal     @db.Decimal(10, 2)
+    ano_utilizacao Int         @db.Integer
     quantidade    Int
     rubrica       Rubrica     @default(MATERIAIS)  
     workpackageId String?     @map("workpackage_id") @db.Uuid
@@ -136,40 +142,47 @@ model User {
     name          String?   @db.VarChar(255)
     email         String?   @unique @db.VarChar(255)
     emailVerified DateTime?
-    foto         String?   @db.Text
+    foto          String?   @db.Text
     
     // Campos específicos da aplicação
     atividade     String?   @db.VarChar(255)
     contratacao   DateTime? @db.Date
     username      String?   @unique @db.VarChar(255)
     permissao     Permissao @default(COMUM)
-    regime        Regime   @default(INTEGRAL)
+    regime        Regime    @default(INTEGRAL)
 
     // Relações NextAuth
     accounts      Account[]
     sessions      Session[]
     
     // Relações da aplicação
-    workpackages  WorkpackageUser[]
+    workpackages  AlocacaoRecurso[]
     password      Password?
+    projetoRascunhos Rascunho[]
 
     @@map("users")
 }
 
-// Modelo para alocação de utilizadores a workpackages
-model WorkpackageUser {
+// Novo modelo que substitui o WorkpackageUser
+model AlocacaoRecurso {
     workpackageId  String   @map("workpackage_id") @db.Uuid
     userId         String   @map("user_id")
     mes            Int      @db.Integer
     ano            Int      @db.Integer
-    ocupacao       Decimal  @db.Decimal(2, 1)
+    ocupacao       Decimal  @db.Decimal(3, 2)
     
     // Relações
     workpackage    Workpackage @relation(fields: [workpackageId], references: [id])
-    user           User     @relation(fields: [userId], references: [id])
+    user           User        @relation(fields: [userId], references: [id])
 
+    // Chave primária composta
     @@id([workpackageId, userId, mes, ano])
-    @@map("WorkpackageUser")
+    
+    // Índices para melhor performance
+    @@index([userId, ano, mes])
+    @@index([workpackageId, ano, mes])
+
+    @@map("alocacoes_recursos")
 }
 
 // Modelos NextAuth padrão
@@ -230,4 +243,18 @@ model Password {
     user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@map("passwords")
+}
+
+model Rascunho {
+    id          String   @id @default(uuid()) @db.Uuid
+    userId      String   
+    titulo      String   @db.VarChar(255)
+    conteudo    Json     // Armazena todo o estado do formulário
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    
+    // Relação com User
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("rascunhos")
 }

@@ -2,6 +2,7 @@
 
 import { AppSidebar } from "@/components/ui/sidebar";
 import { usePathname } from "next/navigation";
+import { PopupConfirmacaoProvider } from "@/providers/PopupConfirmacaoProvider";
 
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,7 +17,9 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       <AppSidebar />
       <main className="flex-1 overflow-y-auto relative">
-        {children}
+        <PopupConfirmacaoProvider>
+          {children}
+        </PopupConfirmacaoProvider>
       </main>
     </div>
   );

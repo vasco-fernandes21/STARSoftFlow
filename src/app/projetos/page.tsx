@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { MoreHorizontal, BarChart } from "lucide-react";
+import { useState, useMemo } from "react";
+import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -13,6 +13,7 @@ import { PaginaHeader } from "@/components/common/PaginaHeader";
 import { TabelaDados, FilterOption } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { BarraProgresso } from "@/components/common/BarraProgresso";
+import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
 
 const ESTADO_LABELS: Record<string, string> = {
   APROVADO: "Aprovado",
@@ -77,7 +78,7 @@ const extrairPaginacao = (apiResponse: any) => {
   return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
 };
 
-export default function Projects() {
+export default function Projetos() {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -98,15 +99,14 @@ export default function Projects() {
     {
       staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: true,
-      refetchOnReconnect: true
+      refetchOnReconnect: true,
+      onSuccess: (data) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Resposta da API de projetos:', data);
+        }
+      }
     }
   );
-
-  useEffect(() => {
-    if (apiResponse && process.env.NODE_ENV === 'development') {
-      console.log('Resposta da API de projetos:', apiResponse);
-    }
-  }, [apiResponse]);
 
   const projetos = useMemo(() => extrairProjetos(apiResponse), [apiResponse]);
   const paginacao = useMemo(() => extrairPaginacao(apiResponse), [apiResponse]);
@@ -262,6 +262,64 @@ export default function Projects() {
     },
   ];
 
+  // Cálculos estatísticos baseados no array atual
+  const projetosArray = Array.isArray(projetos) ? projetos : [];
+  
+  const totalProjetos = projetosArray.length;
+  const projetosAtivos = projetosArray.filter(
+    projeto => projeto.estado === "EM_DESENVOLVIMENTO"
+  ).length;
+  const projetosConcluidos = projetosArray.filter(
+    projeto => projeto.estado === "CONCLUIDO"
+  ).length;
+  const projetosAtrasados = projetosArray.filter(projeto => {
+    if (!projeto.fim) return false;
+    const dataFim = new Date(projeto.fim);
+    return dataFim < new Date() && projeto.estado !== "CONCLUIDO";
+  }).length;
+  
+  // Média de progresso de todos os projetos
+  const mediaProgresso = projetosArray.length > 0
+    ? Math.round(
+        (projetosArray.reduce(
+          (acc, projeto) => acc + (projeto.progresso || 0), 
+          0
+        ) / projetosArray.length) * 100
+      )
+    : 0;
+
+  // Configuração das estatísticas
+  const stats: StatItem[] = [
+    {
+      icon: Briefcase,
+      label: "Total de Projetos",
+      value: totalProjetos,
+      iconClassName: "text-azul",
+      iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
+    },
+    {
+      icon: Clock,
+      label: "Em Desenvolvimento",
+      value: projetosAtivos,
+      iconClassName: "text-azul",
+      iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
+    },
+    {
+      icon: CheckCircle2,
+      label: "Concluídos",
+      value: projetosConcluidos,
+      iconClassName: "text-emerald-600",
+      iconContainerClassName: "bg-emerald-50/70 hover:bg-emerald-100/80"
+    },
+    {
+      icon: AlertCircle,
+      label: "Atrasados",
+      value: projetosAtrasados,
+      iconClassName: "text-amber-600",
+      iconContainerClassName: "bg-amber-50/70 hover:bg-amber-100/80"
+    }
+  ];
+
   return (
     <PageLayout>
       <PaginaHeader
@@ -269,6 +327,8 @@ export default function Projects() {
         subtitle="Consulte os seus projetos e acompanhe o progresso"
         action={<NovoProjeto />}
       />
+
+      <StatsGrid stats={stats} className="my-4" />
 
       <TabelaDados
         title=""

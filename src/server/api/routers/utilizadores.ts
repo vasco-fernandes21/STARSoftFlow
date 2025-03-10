@@ -5,21 +5,101 @@ import { randomUUID } from "crypto";
 import { sendEmail } from "@/lib/email";
 import { hash, compare } from "bcrypt";
 import { z } from "zod";
-
-// Importar schemas e utilidades
-import { 
-  createUtilizadorSchema,
-  updateUtilizadorSchema,
-  utilizadorFilterSchema,
-  changePasswordSchema
-} from "../schemas/utilizador";
-import { 
-  resetPasswordRequestSchema,
-  resetPasswordSchema,
-  primeiroAcessoSchema 
-} from "../schemas/auth";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
-import { getPaginationParams } from "../schemas/common";
+import { paginationSchema, getPaginationParams } from "../schemas/common";
+
+// Schemas base
+const emailSchema = z
+  .string({ required_error: "Email é obrigatório" })
+  .email("Email inválido");
+
+const passwordSchema = z
+  .string({ required_error: "Password é obrigatória" })
+  .min(8, "Password deve ter pelo menos 8 caracteres")
+  .max(32, "Password deve ter no máximo 32 caracteres")
+  .regex(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    "Password deve conter pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial"
+  );
+
+const dateSchema = z.union([
+  z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Data inválida",
+  }),
+  z.date(),
+  z.null(),
+]);
+
+// Schema base para utilizador
+const utilizadorBaseSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  email: emailSchema,
+  foto: z.string().nullable().optional(),
+  atividade: z.string().min(1, "Atividade é obrigatória"),
+  contratacao: dateSchema,
+  username: z.string().min(3, "Username deve ter pelo menos 3 caracteres"),
+  permissao: z.nativeEnum(Permissao),
+  regime: z.nativeEnum(Regime)
+}).passthrough();
+
+// Schema para criação de utilizador
+const createUtilizadorSchema = utilizadorBaseSchema.extend({
+  password: passwordSchema.optional(),
+}).passthrough();
+
+// Schema para atualização de utilizador
+const updateUtilizadorSchema = utilizadorBaseSchema.partial();
+
+// Schema para alteração de password
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Password atual é obrigatória"),
+  newPassword: passwordSchema,
+  confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "As passwords não coincidem",
+  path: ["confirmPassword"],
+});
+
+// Schema para filtros de utilizador
+const utilizadorFilterSchema = z.object({
+  search: z.string().optional(),
+  permissao: z.nativeEnum(Permissao).optional(),
+  regime: z.nativeEnum(Regime).optional(),
+}).merge(paginationSchema);
+
+// Schema para reset de password
+const resetPasswordRequestSchema = z.object({
+  email: emailSchema,
+});
+
+// Schema para definir nova password após reset
+const resetPasswordSchema = z.object({
+  token: z.string(),
+  password: passwordSchema,
+  confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As passwords não coincidem",
+  path: ["confirmPassword"],
+});
+
+// Schema para validação de primeiro acesso
+const primeiroAcessoSchema = z.object({
+  token: z.string(),
+  password: passwordSchema,
+  confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As passwords não coincidem",
+  path: ["confirmPassword"],
+});
+
+// Tipos inferidos dos schemas
+export type CreateUtilizadorInput = z.infer<typeof createUtilizadorSchema>;
+export type UpdateUtilizadorInput = z.infer<typeof updateUtilizadorSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type UtilizadorFilterInput = z.infer<typeof utilizadorFilterSchema>;
+export type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type PrimeiroAcessoInput = z.infer<typeof primeiroAcessoSchema>;
 
 // Tipo estendido para o utilizador com as propriedades que precisamos
 type UserWithPermissao = {
@@ -28,6 +108,7 @@ type UserWithPermissao = {
   // Outras propriedades do utilizador
 } & Record<string, any>;
 
+// Router
 export const utilizadorRouter = createTRPCRouter({
   // Obter todos os utilizadores
   getAll: protectedProcedure
@@ -80,7 +161,49 @@ export const utilizadorRouter = createTRPCRouter({
         return handlePrismaError(error);
       }
     }),
-  
+
+  getByWorkpackage: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input: workpackageId }) => {
+      try {
+        const users = await ctx.db.user.findMany({
+          where: {
+            workpackages: {
+              some: {
+                workpackageId: workpackageId
+              }
+            }
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            foto: true,
+            atividade: true,
+            regime: true,
+            workpackages: {
+              where: {
+                workpackageId: workpackageId
+              },
+              select: {
+                mes: true,
+                ano: true,
+                ocupacao: true
+              }
+            }
+          }
+        });
+
+        return users;
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter utilizadores do workpackage",
+          cause: error,
+        });
+      }
+    }),
+
   // Obter utilizador por ID
   getById: protectedProcedure
     .input(z.string())
@@ -332,9 +455,8 @@ export const utilizadorRouter = createTRPCRouter({
   requestPasswordReset: publicProcedure
     .input(resetPasswordRequestSchema)
     .mutation(async ({ ctx, input }) => {
+      const { email } = input as { email: string };
       try {
-        const { email } = input;
-        
         // Verificar se utilizador existe
         const user = await ctx.db.user.findUnique({
           where: { email },
@@ -378,9 +500,8 @@ export const utilizadorRouter = createTRPCRouter({
   resetPassword: publicProcedure
     .input(resetPasswordSchema)
     .mutation(async ({ ctx, input }) => {
+      const { token, password } = input as { token: string; password: string };
       try {
-        const { token, password } = input;
-        
         // Verificar token
         const resetToken = await ctx.db.passwordReset.findUnique({
           where: { token },
@@ -408,17 +529,18 @@ export const utilizadorRouter = createTRPCRouter({
         
         // Atualizar password
         const hashedPassword = await hash(password, 10);
+        const hashString = hashedPassword.toString();
         
         if (user.password) {
           await ctx.db.password.update({
             where: { userId: user.id },
-            data: { hash: hashedPassword },
+            data: { hash: hashString },
           });
         } else {
           await ctx.db.password.create({
             data: {
               userId: user.id,
-              hash: hashedPassword,
+              hash: hashString,
             },
           });
         }
@@ -438,9 +560,8 @@ export const utilizadorRouter = createTRPCRouter({
   primeiroAcesso: publicProcedure
     .input(primeiroAcessoSchema)
     .mutation(async ({ ctx, input }) => {
+      const { token, password } = input as { token: string; password: string };
       try {
-        const { token, password } = input;
-        
         // Verificar token
         const verificationToken = await ctx.db.verificationToken.findUnique({
           where: { token },
@@ -468,6 +589,7 @@ export const utilizadorRouter = createTRPCRouter({
         
         // Atualizar password e marcar email como verificado
         const hashedPassword = await hash(password, 10);
+        const hashString = hashedPassword.toString();
         
         await ctx.db.user.update({
           where: { id: user.id },
@@ -477,13 +599,13 @@ export const utilizadorRouter = createTRPCRouter({
         if (user.password) {
           await ctx.db.password.update({
             where: { userId: user.id },
-            data: { hash: hashedPassword },
+            data: { hash: hashString },
           });
         } else {
           await ctx.db.password.create({
             data: {
               userId: user.id,
-              hash: hashedPassword,
+              hash: hashString,
             },
           });
         }

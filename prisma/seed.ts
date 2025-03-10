@@ -1,5 +1,6 @@
-import { PrismaClient, ProjetoEstado, Permissao, Regime } from '@prisma/client';
+import { PrismaClient, ProjetoEstado, Permissao, Regime, Rubrica } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { Decimal } from "decimal.js";
 
 const prisma = new PrismaClient();
 
@@ -8,7 +9,7 @@ async function main() {
 
   // Limpar dados existentes
   console.log('🧹 A limpar tabelas existentes...');
-  await prisma.workpackageUser.deleteMany();
+  await prisma.alocacaoRecurso.deleteMany();
   await prisma.entregavel.deleteMany(); // Limpar entregáveis antes das tarefas
   await prisma.tarefa.deleteMany();
   await prisma.material.deleteMany();
@@ -27,11 +28,11 @@ async function main() {
   
   const admin = await prisma.user.create({
     data: {
-      name: "Administrador",
+      name: "Vasco Fernandes",
       email: "admin@starinstitute.com", 
       emailVerified: new Date(),
       foto: "https://ui-avatars.com/api/?name=Administrator&background=1d4ed8&color=fff",
-      atividade: "Administração",
+      atividade: "Administrador",
       contratacao: new Date("2020-01-01"),
       username: "admin",
       permissao: Permissao.ADMIN,
@@ -162,41 +163,41 @@ async function main() {
     prisma.financiamento.create({
       data: {
         nome: "FCT - Fundação para a Ciência e Tecnologia",
-        overhead: 25.00,
-        taxa_financiamento: 85.00,
-        valor_eti: 4500.00
+        overhead: new Decimal(25.00),
+        taxa_financiamento: new Decimal(85.00),
+        valor_eti: new Decimal(4500.00)
       }
     }),
     prisma.financiamento.create({
       data: {
         nome: "Portugal 2030",
-        overhead: 20.00,
-        taxa_financiamento: 75.00,
-        valor_eti: 4200.00
+        overhead: new Decimal(20.00),
+        taxa_financiamento: new Decimal(75.00),
+        valor_eti: new Decimal(4200.00)
       }
     }),
     prisma.financiamento.create({
       data: {
         nome: "Horizonte Europa",
-        overhead: 25.00,
-        taxa_financiamento: 100.00,
-        valor_eti: 5000.00
+        overhead: new Decimal(25.00),
+        taxa_financiamento: new Decimal(100.00),
+        valor_eti: new Decimal(5000.00)
       }
     }),
     prisma.financiamento.create({
       data: {
         nome: "Financiamento Privado",
-        overhead: 15.00,
-        taxa_financiamento: 100.00,
-        valor_eti: 4800.00
+        overhead: new Decimal(15.00),
+        taxa_financiamento: new Decimal(100.00),
+        valor_eti: new Decimal(4800.00)
       }
     }),
     prisma.financiamento.create({
       data: {
         nome: "Interno",
-        overhead: 10.00,
-        taxa_financiamento: 100.00,
-        valor_eti: 4000.00
+        overhead: new Decimal(10.00),
+        taxa_financiamento: new Decimal(100.00),
+        valor_eti: new Decimal(4000.00)
       }
     })
   ]);
@@ -215,38 +216,52 @@ async function main() {
     data: [
       {
         nome: "Laptop Dell XPS 15",
-        preco: 1799.99,
-        quantidade: 8
+        preco: new Decimal(1799.99),
+        quantidade: 8,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.MATERIAIS
       },
       {
         nome: "Monitor Dell UltraSharp 27\"",
-        preco: 549.90,
-        quantidade: 12
+        preco: new Decimal(549.90),
+        quantidade: 12,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.MATERIAIS
       },
       {
         nome: "Servidor HPE ProLiant DL380 Gen10",
-        preco: 6299.00,
-        quantidade: 2
+        preco: new Decimal(6299.00),
+        quantidade: 2,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.MATERIAIS
       },
       {
         nome: "Impressora HP LaserJet Pro",
-        preco: 349.99,
-        quantidade: 3
+        preco: new Decimal(349.99),
+        quantidade: 3,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.MATERIAIS
       },
       {
         nome: "Kit Desenvolvimento IoT",
-        preco: 189.90,
-        quantidade: 15
+        preco: new Decimal(189.90),
+        quantidade: 15,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.MATERIAIS
       },
       {
         nome: "Licença Software Estatístico SPSS",
-        preco: 2499.00,
-        quantidade: 5
+        preco: new Decimal(2499.00),
+        quantidade: 5,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.SERVICOS_TERCEIROS
       },
       {
         nome: "Mesa de Reunião",
-        preco: 299.00,
-        quantidade: 4
+        preco: new Decimal(299.00),
+        quantidade: 4,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.OUTROS_CUSTOS
       }
     ]
   });
@@ -722,10 +737,10 @@ async function main() {
           alocacoesExistentes.add(chaveUnica);
           
           // Atribuir uma ocupação entre 0.1 e 1.0
-          const ocupacao = parseFloat((Math.random() * 0.9 + 0.1).toFixed(1));
+          const ocupacao = new Decimal((Math.random() * 0.9 + 0.1).toFixed(1));
           
           try {
-            await prisma.workpackageUser.create({
+            await prisma.alocacaoRecurso.create({
               data: {
                 workpackageId: workpackage.id,
                 userId: utilizador.id,
@@ -798,7 +813,7 @@ async function main() {
     projetos: await prisma.projeto.count(),
     workpackages: await prisma.workpackage.count(),
     tarefas: await prisma.tarefa.count(),
-    alocacoes: await prisma.workpackageUser.count(),
+    alocacoes: await prisma.alocacaoRecurso.count(),
     entregaveis: await prisma.entregavel.count() // Adicionar contagem de entregáveis
   };
 
