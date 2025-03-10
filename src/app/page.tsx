@@ -40,7 +40,7 @@ export default function Page() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold text-gray-900">Painel de Controlo</h1>
-            <p className="text-sm text-gray-500">Bem-vindo de volta, João Silva</p>
+            <p className="text-sm text-gray-500">Bem-vindo de volta, Vasco Fernandes</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative">

@@ -30,27 +30,27 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
 
   const { data: financiamentos } = api.financiamento.getAllSimple.useQuery();
 
-  const handleOverheadChange = (value: number) => {
+  const handleOverheadChange = (value: number | null) => {
     dispatch({
       type: "UPDATE_FIELD",
       field: "overhead",
-      value
+      value: value ?? 0
     });
   };
 
-  const handleTaxaFinanciamentoChange = (value: number) => {
+  const handleTaxaFinanciamentoChange = (value: number | null) => {
     dispatch({
       type: "UPDATE_FIELD",
       field: "taxa_financiamento",
-      value
+      value: value ?? 0
     });
   };
 
-  const handleValorEtiChange = (value: number) => {
+  const handleValorEtiChange = (value: number | null) => {
     dispatch({
       type: "UPDATE_FIELD",
       field: "valor_eti",
-      value
+      value: value ?? 0
     });
   };
 
@@ -143,7 +143,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
       <TabNavigation
         onNext={onNavigateForward}
         onBack={onNavigateBack}
-        nextLabel="Próximo: Equipa"
+        nextLabel="Próximo: Workpackages"
         isNextDisabled={!isValid}
         className="pt-4 border-t border-azul/10"
       />

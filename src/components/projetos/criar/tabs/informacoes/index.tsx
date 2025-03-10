@@ -58,7 +58,7 @@ export function InformacoesTab({ onNavigateForward }: InformacoesTabProps) {
             label="Nome do Projeto"
             value={state.nome || ""}
             onChange={(value) => updateField("nome", value)}
-            placeholder="Ex: Desenvolvimento de Software Inovador"
+            placeholder="Ex: INOVC+"
             required
             tooltip="Nome descritivo e único para o projeto"
             id="nome-projeto"
@@ -68,10 +68,10 @@ export function InformacoesTab({ onNavigateForward }: InformacoesTabProps) {
             label="Descrição"
             value={state.descricao || ""}
             onChange={(value) => updateField("descricao", value)}
-            placeholder="Descreva os objetivos e o escopo do projeto..."
-            tooltip="Uma breve descrição dos objetivos e escopo do projeto"
+            placeholder="Descreva brevemente o projeto..."
+            tooltip="Uma breve descrição dos objetivos e tema do projeto"
             id="descricao-projeto"
-            rows={8}
+            rows={4}
           />
         </div>
 

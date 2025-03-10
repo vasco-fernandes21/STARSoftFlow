@@ -12,7 +12,6 @@ import { ProjetoCronograma } from "@/components/projetos/criar/ProjetoCronograma
 import { FaseType, fasesOrdem } from "@/components/projetos/criar/types";
 import { api } from "@/trpc/react";
 import { ProjetoEstado, Rubrica, type Prisma } from "@prisma/client";
-import { prisma } from "../../../lib/prisma";
 import { Decimal } from "decimal.js";
 
 import { 
@@ -325,40 +324,59 @@ function ProjetoFormContent() {
     <div className="flex flex-col md:flex-row gap-6 justify-between">
       <div className="space-y-4 flex-1">
         {/* Layout flexível para formulário e cronograma */}
-        <div className="flex gap-8">
+        <div className="flex gap-8 relative">
           {/* Conteúdo principal */}
-          <div className={`flex-1 space-y-6 transition-all duration-300 ${mostrarCronograma ? "w-3/5" : "w-full"}`}>
-            {/* Container de progresso (barra de progresso + navegação) */}
-            <ProjetoProgressContainer
-              fasesOrdem={fasesOrdem}
-              faseAtual={faseAtual}
-              fasesConcluidas={fasesConcluidas}
-              progressoAtual={progressoAtual}
-              progressoTotal={progressoTotal}
-              percentualProgresso={percentualProgresso}
-              mostrarCronograma={mostrarCronograma}
-              navegarParaFase={navegarParaFase}
-              toggleCronograma={() => setMostrarCronograma(!mostrarCronograma)}
-            />
+          <div 
+            className={`
+              flex-1 space-y-6 
+              transition-all duration-100 ease-in-out
+              ${mostrarCronograma ? "w-3/5" : "w-full"}
+            `}
+          >
+            {/* Container de progresso com shadow suave */}
+            <div className="glass-card border-white/20 shadow-md transition-all duration-500 ease-in-out hover:shadow-lg rounded-2xl">
+              <ProjetoProgressContainer
+                fasesOrdem={fasesOrdem}
+                faseAtual={faseAtual}
+                fasesConcluidas={fasesConcluidas}
+                progressoAtual={progressoAtual}
+                progressoTotal={progressoTotal}
+                percentualProgresso={percentualProgresso}
+                mostrarCronograma={mostrarCronograma}
+                navegarParaFase={navegarParaFase}
+                toggleCronograma={() => setMostrarCronograma(!mostrarCronograma)}
+              />
+            </div>
 
-            {/* Formulário */}
-            <ProjetoFormPanel
-              faseAtual={faseAtual}
-            >
-              {renderizarConteudoFase()}
-            </ProjetoFormPanel>
+            {/* Formulário com shadow suave */}
+            <div className="glass-card border-white/20 shadow-md transition-all duration-500 ease-in-out hover:shadow-lg rounded-2xl">
+              <ProjetoFormPanel
+                faseAtual={faseAtual}
+              >
+                {renderizarConteudoFase()}
+              </ProjetoFormPanel>
+            </div>
           </div>
 
-          {/* Cronograma */}
-          {mostrarCronograma && (
-            <div className="w-2/5">
+          {/* Cronograma com animação e shadow */}
+          <div 
+            className={`
+              transition-all duration-500 ease-in-out
+              transform
+              ${mostrarCronograma 
+                ? "opacity-100 translate-x-0 w-2/5" 
+                : "opacity-0 translate-x-full w-0 overflow-hidden"
+              }
+            `}
+          >
+            <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-2xl">
               <ProjetoCronograma
                 state={state}
                 handleUpdateWorkPackage={handleUpdateWorkPackage}
                 handleUpdateTarefa={handleUpdateTarefa}
               />
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

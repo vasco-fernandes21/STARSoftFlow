@@ -193,6 +193,18 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
     }
   });
 
+  // Adicionar mutation para atualizar material
+  const updateMaterialMutation = api.material.update.useMutation({
+    onSuccess: () => {
+      refetchWorkpackage();
+      setEditingMaterial(null);
+      toast.success('Material atualizado com sucesso');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar material');
+    }
+  });
+
   // Gerar array de meses entre as datas do projeto
   const mesesEntreDatas = gerarMesesEntreDatas(startDate, endDate);
     
@@ -380,7 +392,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
     setEditingMaterial(prev => prev ? { ...prev, value: sanitizedValue } : null);
   };
 
-  // Adicionar função para salvar as alterações
+  // Substituir a chamada direta à API pela mutation
   const handleSaveMaterial = async (materialId: string) => {
     if (!editingMaterial) return;
 
@@ -393,13 +405,12 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
     }
 
     try {
-      await api.material.update.mutate({
-        id: materialId,
-        [editingMaterial.field]: numeroValido
+      await updateMaterialMutation.mutate({
+        id: parseInt(materialId),
+        data: {
+          [editingMaterial.field]: numeroValido
+        }
       });
-      await refetchWorkpackage();
-      setEditingMaterial(null);
-      toast.success('Material atualizado com sucesso');
     } catch (error) {
       toast.error('Erro ao atualizar material');
     }
@@ -483,7 +494,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                   <span className="text-sm text-gray-500">
                     {workpackage.inicio && workpackage.fim && (
                       <>
-                        {format(new Date(workpackage.inicio), "dd MMM", { locale: ptBR })} - 
+                        {format(new Date(workpackage.inicio), "dd MMM", { locale: ptBR })} - {" "}
                         {format(new Date(workpackage.fim), "dd MMM yyyy", { locale: ptBR })}
                       </>
                     )}
@@ -736,199 +747,199 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                 <Card className="border border-gray-100 shadow-lg bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
                   {/* Agrupar recursos por utilizador */}
                   <div className="divide-y divide-gray-100">
-                    {workpackage.recursos && Object.entries(
-                      workpackage.recursos.reduce((acc, alocacao) => {
-                        if (!acc[alocacao.userId]) {
-                          acc[alocacao.userId] = {
-                            user: alocacao.user,
-                            alocacoes: {}
-                          };
-                        }
-                        acc[alocacao.userId].alocacoes[`${alocacao.mes}-${alocacao.ano}`] = Number(alocacao.ocupacao);
-                        return acc;
-                      }, {} as Record<string, { user: any; alocacoes: Record<string, number> }>)
-                    ).map(([userId, { user, alocacoes }]) => (
-                      <div key={userId} className="p-6 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
-                              <Users className="h-4 w-4 text-gray-600" />
+                    {(workpackage?.recursos ?? []).length > 0 ? (
+                      Object.entries(
+                        (workpackage?.recursos ?? []).reduce((acc, alocacao) => {
+                          if (!acc[alocacao.userId]) {
+                            acc[alocacao.userId] = {
+                              user: alocacao.user,
+                              alocacoes: {}
+                            };
+                          }
+                          acc[alocacao.userId].alocacoes[`${alocacao.mes}-${alocacao.ano}`] = Number(alocacao.ocupacao);
+                          return acc;
+                        }, {} as Record<string, { user: any; alocacoes: Record<string, number> }>)
+                      ).map(([userId, { user, alocacoes }]) => (
+                        <div key={userId} className="p-6 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
+                                <Users className="h-4 w-4 text-gray-600" />
+                              </div>
+                              <span className="font-medium text-gray-800">
+                                {user?.name || "Utilizador não encontrado"}
+                              </span>
                             </div>
-                            <span className="font-medium text-gray-800">
-                              {user?.name || "Utilizador não encontrado"}
-                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const confirmed = window.confirm("Tem a certeza que deseja remover todas as alocações deste recurso?");
+                                if (confirmed) {
+                                  Object.entries(alocacoes).forEach(([mesAno, _]) => {
+                                    const [mes, ano] = mesAno.split("-").map(Number);
+                                    handleRemoveAlocacao(
+                                      userId, 
+                                      mes || 1, 
+                                      ano || new Date().getFullYear()
+                                    );
+                                  });
+                                }
+                              }}
+                              className="h-7 w-7 p-0 rounded-full hover:bg-red-50 hover:text-red-500"
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const confirmed = window.confirm("Tem a certeza que deseja remover todas as alocações deste recurso?");
-                              if (confirmed) {
-                                Object.entries(alocacoes).forEach(([mesAno, _]) => {
-                                  const [mes, ano] = mesAno.split("-").map(Number);
-                                  handleRemoveAlocacao(
-                                    userId, 
-                                    mes || 1, 
-                                    ano || new Date().getFullYear()
-                                  );
-                                });
-                              }
-                            }}
-                            className="h-7 w-7 p-0 rounded-full hover:bg-red-50 hover:text-red-500"
-                          >
-                            <XIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
 
-                        {/* Alocação mensal para este utilizador */}
-                        <div className="bg-gray-50/50 p-4 rounded-lg space-y-4">
-                          <div className="flex justify-between items-center">
-                            <h4 className="text-sm font-medium text-gray-700">Alocação Mensal (0-1)</h4>
+                          {/* Alocação mensal para este utilizador */}
+                          <div className="bg-gray-50/50 p-4 rounded-lg space-y-4">
+                            <div className="flex justify-between items-center">
+                              <h4 className="text-sm font-medium text-gray-700">Alocação Mensal (0-1)</h4>
+                              
+                              {anosDisponiveis.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={navegarAnoAnterior}
+                                    disabled={anosDisponiveis.indexOf(anoSelecionado) === 0}
+                                    className="h-7 w-7 p-0 rounded-full"
+                                  >
+                                    <ChevronLeft className="h-4 w-4" />
+                                  </Button>
+                                  
+                                  <Badge variant="outline" className="bg-white font-semibold">
+                                    {anoSelecionado}
+                                  </Badge>
+                                  
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={navegarProximoAno}
+                                    disabled={anosDisponiveis.indexOf(anoSelecionado) === anosDisponiveis.length - 1}
+                                    className="h-7 w-7 p-0 rounded-full"
+                                  >
+                                    <ChevronRight className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                             
-                            {anosDisponiveis.length > 0 && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={navegarAnoAnterior}
-                                  disabled={anosDisponiveis.indexOf(anoSelecionado) === 0}
-                                  className="h-7 w-7 p-0 rounded-full"
-                                >
-                                  <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                
-                                <Badge variant="outline" className="bg-white font-semibold">
-                                  {anoSelecionado}
-                                </Badge>
-                                
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={navegarProximoAno}
-                                  disabled={anosDisponiveis.indexOf(anoSelecionado) === anosDisponiveis.length - 1}
-                                  className="h-7 w-7 p-0 rounded-full"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="relative">
-                            <ScrollArea className="w-full">
-                              <div className="grid grid-cols-6 gap-4">
-                                {/* Janeiro a Junho */}
-                                {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero <= 6).map(mes => (
-                                  <div key={mes.chave} className="flex flex-col items-center space-y-1">
-                                    <Label className="text-xs text-gray-500">
-                                      {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
-                                      format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
-                                    </Label>
-                                    <Input
-                                      type="text"
-                                      inputMode="decimal"
-                                      className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                                      value={alocacoes[mes.chave]?.toString().replace('.', ',') || ""}
-                                      onChange={(e) => {
-                                        const valor = e.target.value.replace(',', '.');
-                                        
-                                        // Se estiver vazio, remove a alocação
-                                        if (valor === "") {
-                                          handleRemoveAlocacao(
-                                            userId, 
-                                            mes.mesNumero || 1, 
-                                            mes.ano || new Date().getFullYear()
-                                          );
-                                          return;
-                                        }
-
-                                        // Permite apenas números e um ponto decimal
-                                        if (/^\d*\.?\d*$/.test(valor)) {
-                                          const numeroValido = parseFloat(valor);
-                                          // Se for um número válido entre 0 e 1, atualiza
-                                          if (!isNaN(numeroValido) && numeroValido > 0 && numeroValido <= 1) {
-                                            addAlocacaoMutation.mutate({
-                                              workpackageId,
-                                              userId,
-                                              mes: mes.mesNumero || 1,
-                                              ano: mes.ano || new Date().getFullYear(),
-                                              ocupacao: numeroValido
-                                            });
+                            <div className="relative">
+                              <ScrollArea className="w-full">
+                                <div className="grid grid-cols-6 gap-4">
+                                  {/* Janeiro a Junho */}
+                                  {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero <= 6).map(mes => (
+                                    <div key={mes.chave} className="flex flex-col items-center space-y-1">
+                                      <Label className="text-xs text-gray-500">
+                                        {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
+                                        format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
+                                      </Label>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
+                                        value={alocacoes[mes.chave]?.toString().replace('.', ',') || ""}
+                                        onChange={(e) => {
+                                          const valor = e.target.value.replace(',', '.');
+                                          
+                                          // Se estiver vazio, remove a alocação
+                                          if (valor === "") {
+                                            handleRemoveAlocacao(
+                                              userId, 
+                                              mes.mesNumero || 1, 
+                                              mes.ano || new Date().getFullYear()
+                                            );
+                                            return;
                                           }
-                                        }
-                                      }}
-                                      placeholder="0,0"
-                                    />
-                                  </div>
-                                ))}
-                                
-                                {/* Julho a Dezembro */}
-                                {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero > 6).map(mes => (
-                                  <div key={mes.chave} className="flex flex-col items-center space-y-1">
-                                    <Label className="text-xs text-gray-500">
-                                      {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
-                                      format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
-                                    </Label>
-                                    <Input
-                                      type="text"
-                                      inputMode="decimal"
-                                      className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                                      value={alocacoes[mes.chave]?.toString().replace('.', ',') || ""}
-                                      onChange={(e) => {
-                                        const valor = e.target.value.replace(',', '.');
-                                        
-                                        // Se estiver vazio, remove a alocação
-                                        if (valor === "") {
-                                          handleRemoveAlocacao(
-                                            userId, 
-                                            mes.mesNumero || 1, 
-                                            mes.ano || new Date().getFullYear()
-                                          );
-                                          return;
-                                        }
 
-                                        // Permite apenas números e um ponto decimal
-                                        if (/^\d*\.?\d*$/.test(valor)) {
-                                          const numeroValido = parseFloat(valor);
-                                          // Se for um número válido entre 0 e 1, atualiza
-                                          if (!isNaN(numeroValido) && numeroValido > 0 && numeroValido <= 1) {
-                                            addAlocacaoMutation.mutate({
-                                              workpackageId,
-                                              userId,
-                                              mes: mes.mesNumero || 1,
-                                              ano: mes.ano || new Date().getFullYear(),
-                                              ocupacao: numeroValido
-                                            });
+                                          // Permite apenas números e um ponto decimal
+                                          if (/^\d*\.?\d*$/.test(valor)) {
+                                            const numeroValido = parseFloat(valor);
+                                            // Se for um número válido entre 0 e 1, atualiza
+                                            if (!isNaN(numeroValido) && numeroValido > 0 && numeroValido <= 1) {
+                                              addAlocacaoMutation.mutate({
+                                                workpackageId,
+                                                userId,
+                                                mes: mes.mesNumero || 1,
+                                                ano: mes.ano || new Date().getFullYear(),
+                                                ocupacao: numeroValido
+                                              });
+                                            }
                                           }
-                                        }
-                                      }}
-                                      placeholder="0,0"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            </ScrollArea>
-                          </div>
-                          
-                          {/* Resumo de alocação */}
-                          <div className="flex flex-wrap gap-2">
-                            {mesesEntreDatas
-                              .filter(mes => Number(alocacoes[mes.chave] ?? 0) > 0)
-                              .map(mes => (
-                                <Badge 
-                                  key={mes.chave}
-                                  className="rounded-full px-2 py-1 text-xs bg-blue-50/70 text-azul border-blue-200"
-                                >
-                                  {mes.formatado}: {Number(alocacoes[mes.chave] ?? 0).toFixed(1)}
-                                </Badge>
-                              ))
-                            }
+                                        }}
+                                        placeholder="0,0"
+                                      />
+                                    </div>
+                                  ))}
+                                  
+                                  {/* Julho a Dezembro */}
+                                  {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero > 6).map(mes => (
+                                    <div key={mes.chave} className="flex flex-col items-center space-y-1">
+                                      <Label className="text-xs text-gray-500">
+                                        {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
+                                        format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
+                                      </Label>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
+                                        value={alocacoes[mes.chave]?.toString().replace('.', ',') || ""}
+                                        onChange={(e) => {
+                                          const valor = e.target.value.replace(',', '.');
+                                          
+                                          // Se estiver vazio, remove a alocação
+                                          if (valor === "") {
+                                            handleRemoveAlocacao(
+                                              userId, 
+                                              mes.mesNumero || 1, 
+                                              mes.ano || new Date().getFullYear()
+                                            );
+                                            return;
+                                          }
+
+                                          // Permite apenas números e um ponto decimal
+                                          if (/^\d*\.?\d*$/.test(valor)) {
+                                            const numeroValido = parseFloat(valor);
+                                            // Se for um número válido entre 0 e 1, atualiza
+                                            if (!isNaN(numeroValido) && numeroValido > 0 && numeroValido <= 1) {
+                                              addAlocacaoMutation.mutate({
+                                                workpackageId,
+                                                userId,
+                                                mes: mes.mesNumero || 1,
+                                                ano: mes.ano || new Date().getFullYear(),
+                                                ocupacao: numeroValido
+                                              });
+                                            }
+                                          }
+                                        }}
+                                        placeholder="0,0"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                            
+                            {/* Resumo de alocação */}
+                            <div className="flex flex-wrap gap-2">
+                              {mesesEntreDatas
+                                .filter(mes => Number(alocacoes[mes.chave] ?? 0) > 0)
+                                .map(mes => (
+                                  <Badge 
+                                    key={mes.chave}
+                                    className="rounded-full px-2 py-1 text-xs bg-blue-50/70 text-azul border-blue-200"
+                                  >
+                                    {mes.formatado}: {Number(alocacoes[mes.chave] ?? 0).toFixed(1)}
+                                  </Badge>
+                                ))
+                              }
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-
-                    {(!workpackage.recursos || workpackage.recursos.length === 0) && (
+                      ))
+                    ) : (
                       <div className="py-8 text-center text-gray-500">
                         <div className="flex flex-col items-center gap-2">
                           <Users className="h-8 w-8 text-gray-400" />
@@ -1094,12 +1105,12 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {workpackage.materiais.map(material => (
+                      {workpackage?.materiais?.map(material => (
                         <TableRow key={material.id} className="border-gray-100 hover:bg-gray-50/50">
                           <TableCell className="py-4 text-gray-600">{material.nome}</TableCell>
                           <TableCell className="py-4 text-gray-500">{material.rubrica.replace(/_/g, " ")}</TableCell>
                           <TableCell className="py-4 text-right">
-                            {editingMaterial?.id === material.id && editingMaterial.field === 'quantidade' ? (
+                            {editingMaterial?.id === material.id.toString() ? (
                               <div className="flex items-center gap-2 justify-end">
                                 <Input
                                   type="text"
@@ -1131,7 +1142,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                             )}
                           </TableCell>
                           <TableCell className="py-4 text-right">
-                            {editingMaterial?.id === material.id && editingMaterial.field === 'preco' ? (
+                            {editingMaterial?.id === material.id.toString() ? (
                               <div className="flex items-center gap-2 justify-end">
                                 <Input
                                   type="text"
@@ -1180,7 +1191,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                                 if (confirmed) {
                                   deleteMaterialMutation.mutate({
                                     workpackageId,
-                                    materialId: material.id
+                                    materialId: Number(material.id)
                                   });
                                 }
                               }}
@@ -1196,7 +1207,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                           Total
                         </TableCell>
                         <TableCell className="py-4 text-right font-semibold text-gray-900">
-                          {workpackage.materiais.reduce(
+                          {(workpackage?.materiais ?? []).reduce(
                             (total, material) => total + (material.quantidade * Number(material.preco)),
                             0
                           ).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}

@@ -24,9 +24,9 @@ export const StatCard = ({
   const calculatedDuration = duration || value / 10;
 
   return (
-    <Card className="glass-card border-white/20 shadow-xl transition-all duration-300 ease-in-out hover:shadow-2xl hover:translate-y-[-2px]">
+    <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px]">
       <div className="p-5 flex items-center gap-4">
-        <div className={cn("h-10 w-10 rounded-full backdrop-blur-sm flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-300", iconContainerClassName)}>
+        <div className={cn("h-10 w-10 rounded-full backdrop-blur-sm flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-300", iconContainerClassName)}>
           <Icon className={cn("h-5 w-5", iconClassName)} />
         </div>
         <div>
