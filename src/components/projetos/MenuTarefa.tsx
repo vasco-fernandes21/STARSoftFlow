@@ -46,16 +46,21 @@ export function MenuTarefa({ tarefaId, open, onClose, onUpdate }: MenuTarefaProp
   });
 
   const updateTarefaMutation = api.tarefa.update.useMutation({
-    onSuccess: () => {
-      refetchTarefa();
-      if (onUpdate) onUpdate();
+    onSuccess: async () => {
+      await refetchTarefa();
+      if (onUpdate) {
+        await onUpdate();
+      }
       toast.success("Tarefa atualizada com sucesso!");
     },
   });
 
   const createEntregavelMutation = api.tarefa.createEntregavel.useMutation({
-    onSuccess: () => {
-      refetchEntregaveis();
+    onSuccess: async () => {
+      await refetchEntregaveis();
+      if (onUpdate) {
+        await onUpdate();
+      }
       setAddingEntregavel(false);
       setNewEntregavel({ nome: "", descricao: "", data: undefined });
       toast.success("Entregável adicionado");

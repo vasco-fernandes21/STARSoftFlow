@@ -7,6 +7,7 @@ import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MenuWorkpackage } from "@/components/projetos/MenuWorkpackage";
+import { api } from "@/trpc/react";
 
 interface CronogramaOptions {
   leftColumnWidth?: number;
@@ -38,6 +39,7 @@ export function Cronograma({
   const [selectedWorkpackage, setSelectedWorkpackage] = useState<string | null>(null);
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const utils = api.useContext();
   
   // Sincronizar scroll entre as colunas
   useEffect(() => {
@@ -118,6 +120,18 @@ export function Cronograma({
     });
   };
 
+  // Ordenar workpackages por data de início
+  const sortWorkpackages = (wps: (Workpackage & { tarefas: Tarefa[] })[]) => {
+    return [...wps].sort((a, b) => {
+      const dateA = a.inicio ? new Date(a.inicio) : new Date(0);
+      const dateB = b.inicio ? new Date(b.inicio) : new Date(0);
+      return dateA.getTime() - dateB.getTime();
+    });
+  };
+
+  // Ordenar os workpackages antes de renderizar
+  const sortedWorkpackages = sortWorkpackages(workpackages);
+
   const {
     leftColumnWidth = 300,
     disableInteractions = false,
@@ -150,7 +164,7 @@ export function Cronograma({
           
           {/* Lista de Workpackages e Tarefas */}
           <div className="py-2">
-            {workpackages.map((wp) => (
+            {sortedWorkpackages.map((wp) => (
               <div key={wp.id}>
                 {/* Cabeçalho do Workpackage */}
                 <div 
@@ -232,7 +246,7 @@ export function Cronograma({
 
             {/* Barras da Timeline */}
             <div className="py-2">
-              {workpackages.map((wp) => (
+              {sortedWorkpackages.map((wp) => (
                 <div key={wp.id}>
                   <div className="h-[36px]"></div>
                   {sortTarefas(wp.tarefas).map((tarefa) => {
@@ -287,14 +301,17 @@ export function Cronograma({
               open={!!selectedTarefa}
               onClose={() => setSelectedTarefa(null)}
               onUpdate={async () => {
+                // Invalidar e refetchar todas as queries relevantes
+                await Promise.all([
+                  utils.tarefa.getById.invalidate(selectedTarefa),
+                  utils.projeto.getById.invalidate(),
+                  utils.workpackage.getById.invalidate()
+                ]);
+
                 if (onUpdateTarefa) {
-                  // Encontrar a tarefa atualizada
-                  const tarefaAtualizada = workpackages
-                    .flatMap(wp => wp.tarefas)
-                    .find(t => t.id === selectedTarefa);
-                  
-                  if (tarefaAtualizada) {
-                    await onUpdateTarefa(tarefaAtualizada);
+                  const tarefa = await utils.tarefa.getById.fetch(selectedTarefa);
+                  if (tarefa) {
+                    await onUpdateTarefa(tarefa);
                   }
                 }
               }}
@@ -309,11 +326,16 @@ export function Cronograma({
               startDate={startDate}
               endDate={endDate}
               onUpdate={async () => {
+                // Invalidar e refetchar todas as queries relevantes
+                await Promise.all([
+                  utils.workpackage.getById.invalidate({ id: selectedWorkpackage }),
+                  utils.projeto.getById.invalidate()
+                ]);
+
                 if (onUpdateWorkPackage) {
-                  // Encontrar o workpackage atualizado
-                  const wpAtualizado = workpackages.find(wp => wp.id === selectedWorkpackage);
-                  if (wpAtualizado) {
-                    await onUpdateWorkPackage(wpAtualizado);
+                  const workpackage = await utils.workpackage.getById.fetch({ id: selectedWorkpackage });
+                  if (workpackage) {
+                    await onUpdateWorkPackage(workpackage);
                   }
                 }
               }}

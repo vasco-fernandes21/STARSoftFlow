@@ -43,7 +43,10 @@ type Action =
   | { type: "ADD_MATERIAL"; workpackageId: string; material: ProjetoState["workpackages"][0]["materiais"][0] }
   | { type: "REMOVE_MATERIAL"; workpackageId: string; materialId: number }
   | { type: "UPDATE_PROJETO"; data: Partial<ProjetoState> }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  | { type: "ADD_ALOCACAO"; workpackageId: string; alocacao: Omit<AlocacaoRecurso, "workpackage" | "user"> }
+  | { type: "UPDATE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number; data: Partial<Omit<AlocacaoRecurso, "workpackage" | "user">> }
+  | { type: "REMOVE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number };
 
 function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
   switch (action.type) {
@@ -151,6 +154,59 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
 
     case "RESET":
       return initialState;
+
+    case "ADD_ALOCACAO":
+      return {
+        ...state,
+        workpackages: state.workpackages.map(wp =>
+          wp.id === action.workpackageId
+            ? {
+                ...wp,
+                recursos: [
+                  ...(wp.recursos || []),
+                  {
+                    ...action.alocacao,
+                    workpackageId: action.workpackageId
+                  }
+                ]
+              }
+            : wp
+        )
+      };
+
+    case "UPDATE_ALOCACAO":
+      return {
+        ...state,
+        workpackages: state.workpackages.map(wp =>
+          wp.id === action.workpackageId
+            ? {
+                ...wp,
+                recursos: wp.recursos?.map(recurso =>
+                  recurso.userId === action.userId &&
+                  recurso.mes === action.mes &&
+                  recurso.ano === action.ano
+                    ? { ...recurso, ...action.data }
+                    : recurso
+                ) || []
+              }
+            : wp
+        )
+      };
+
+    case "REMOVE_ALOCACAO":
+      return {
+        ...state,
+        workpackages: state.workpackages.map(wp =>
+          wp.id === action.workpackageId
+            ? {
+                ...wp,
+                recursos: wp.recursos?.filter(
+                  r => !(r.userId === action.userId && r.mes === action.mes && r.ano === action.ano)
+                ) || []
+              }
+            : wp
+        )
+      };
 
     default:
       return state;

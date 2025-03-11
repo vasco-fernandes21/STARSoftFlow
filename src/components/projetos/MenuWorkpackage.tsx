@@ -70,6 +70,7 @@ interface MenuWorkpackageProps {
   onClose: () => void;
   startDate: Date;
   endDate: Date;
+  onUpdate?: () => Promise<void>;
 }
 
 type NovaAlocacao = {
@@ -112,7 +113,7 @@ function gerarMesesEntreDatas(dataInicio: Date, dataFim: Date): {
   return meses;
 }
 
-export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDate }: MenuWorkpackageProps) {
+export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDate, onUpdate }: MenuWorkpackageProps) {
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [newName, setNewName] = useState("");
@@ -139,16 +140,24 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
     { enabled: !!workpackageId && open }
   );
 
+  const utils = api.useContext();
+
   const updateWorkpackageMutation = api.workpackage.update.useMutation({
-    onSuccess: () => {
-      refetchWorkpackage();
+    onSuccess: async () => {
+      await refetchWorkpackage();
+      if (onUpdate) {
+        await onUpdate();
+      }
       toast.success("Workpackage atualizado");
     }
   });
 
   const createMaterialMutation = api.workpackage.addMaterial.useMutation({
-    onSuccess: () => {
-      refetchWorkpackage();
+    onSuccess: async () => {
+      await refetchWorkpackage();
+      if (onUpdate) {
+        await onUpdate();
+      }
       setAddingMaterial(false);
       setNewMaterial({
         nome: "",
@@ -750,12 +759,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                     {(workpackage?.recursos ?? []).length > 0 ? (
                       Object.entries(
                         (workpackage?.recursos ?? []).reduce((acc, alocacao) => {
-                          if (!acc[alocacao.userId]) {
-                            acc[alocacao.userId] = {
-                              user: alocacao.user,
-                              alocacoes: {}
-                            };
-                          }
+                          acc[alocacao.userId] = acc[alocacao.userId] || { user: alocacao.user, alocacoes: {} };
                           acc[alocacao.userId].alocacoes[`${alocacao.mes}-${alocacao.ano}`] = Number(alocacao.ocupacao);
                           return acc;
                         }, {} as Record<string, { user: any; alocacoes: Record<string, number> }>)

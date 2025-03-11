@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 import type { PaginatedResponse } from "./schemas/common";
+import { format, addMonths, differenceInMonths } from "date-fns";
+import { pt } from "date-fns/locale";
 
 /**
  * Classe de erro personalizada que estende TRPCError
@@ -121,4 +123,36 @@ export const serializeObject = <T>(obj: T): T => {
   }
   
   return result as T;
-}; 
+};
+
+export function gerarMesesEntreDatas(dataInicio: Date, dataFim: Date): {
+  chave: string;
+  nome: string;
+  mesNumero: number;
+  ano: number;
+  data: Date;
+  formatado: string;
+}[] {
+  const meses = [];
+  const numMeses = differenceInMonths(dataFim, dataInicio) + 1;
+  
+  for (let i = 0; i < numMeses; i++) {
+    const data = addMonths(dataInicio, i);
+    const mesNumero = data.getMonth() + 1;
+    const ano = data.getFullYear();
+    const nome = format(data, 'MMM', { locale: pt });
+    const chave = `${mesNumero}-${ano}`;
+    const formatado = `${nome.charAt(0).toUpperCase() + nome.slice(1, 3)}/${String(ano).slice(2)}`;
+    
+    meses.push({
+      chave,
+      nome,
+      mesNumero,
+      ano,
+      data,
+      formatado
+    });
+  }
+  
+  return meses;
+} 
