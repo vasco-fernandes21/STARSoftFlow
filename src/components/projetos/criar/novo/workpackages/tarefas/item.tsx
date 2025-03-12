@@ -99,6 +99,10 @@ export function TarefaItem({
             {addingEntregavel && (
               <EntregavelForm
                 tarefaId={tarefa.id}
+                tarefaDates={{
+                  inicio: tarefa.inicio || new Date(),
+                  fim: tarefa.fim || new Date()
+                }}
                 onSubmit={(tarefaId, entregavel) => {
                   handlers.addEntregavel(workpackageId, tarefaId, entregavel);
                   setAddingEntregavel(false);

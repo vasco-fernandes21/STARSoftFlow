@@ -12,6 +12,8 @@ import { TarefaWithRelations } from "../../../types";
 
 interface TarefaFormProps {
   workpackageId: string;
+  workpackageInicio: Date;
+  workpackageFim: Date;
   onSubmit: (workpackageId: string, tarefa: Omit<Prisma.TarefaCreateInput, "workpackage">) => void;
   onCancel: () => void;
   initialData?: Partial<TarefaWithRelations>;
@@ -19,9 +21,11 @@ interface TarefaFormProps {
 
 export function TarefaForm({ 
   workpackageId, 
+  workpackageInicio, 
+  workpackageFim, 
   onSubmit, 
   onCancel, 
-  initialData 
+  initialData
 }: TarefaFormProps) {
   const [formData, setFormData] = useState({
     nome: initialData?.nome || '',
@@ -38,6 +42,17 @@ export function TarefaForm({
 
     if (formData.fim < formData.inicio) {
       toast.error("A data de fim não pode ser anterior à data de início");
+      return;
+    }
+
+    // Verificar se as datas estão dentro do período do workpackage
+    if (formData.inicio < workpackageInicio) {
+      toast.error("A data de início não pode ser anterior à data de início do workpackage");
+      return;
+    }
+
+    if (formData.fim > workpackageFim) {
+      toast.error("A data de fim não pode ser posterior à data de fim do workpackage");
       return;
     }
 
@@ -90,7 +105,8 @@ export function TarefaForm({
             <DatePicker
               value={formData.inicio}
               onChange={(date) => date && setFormData({ ...formData, inicio: date })}
-              className="mt-1"
+              minDate={workpackageInicio}
+              maxDate={workpackageFim}
             />
           </div>
           <div>
@@ -98,7 +114,8 @@ export function TarefaForm({
             <DatePicker
               value={formData.fim}
               onChange={(date) => date && setFormData({ ...formData, fim: date })}
-              className="mt-1"
+              minDate={formData.inicio || workpackageInicio}
+              maxDate={workpackageFim}
             />
           </div>
         </div>

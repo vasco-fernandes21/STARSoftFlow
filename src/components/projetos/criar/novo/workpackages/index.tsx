@@ -7,6 +7,7 @@ import { WorkpackageItem } from "./workpackage/item";
 import { WorkpackageForm } from "./workpackage/form";
 import { useConfirmacao } from "@/providers/PopupConfirmacaoProvider";
 import { Prisma } from "@prisma/client";
+import { useProjetoForm } from "../../ProjetoFormContext";
 
 // Importar a interface WorkpackageHandlers
 import { WorkpackageHandlers } from "@/app/projetos/criar/page";
@@ -53,6 +54,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
   const [addingWorkpackage, setAddingWorkpackage] = useState(false);
   const [editingWorkpackage, setEditingWorkpackage] = useState<WorkpackageWithRelations | null>(null);
   const { confirmar } = useConfirmacao();
+  const { state: projeto } = useProjetoForm();
 
   // Função para converter WorkpackageWithRelations para o formato esperado pelo WorkpackageForm
   const convertToFormData = (wp: WorkpackageWithRelations) => {
@@ -117,6 +119,8 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
         <WorkpackageForm
           onSubmit={handleAddWorkpackage}
           onCancel={() => setAddingWorkpackage(false)}
+          projetoInicio={projeto.inicio || undefined}
+          projetoFim={projeto.fim || undefined}
         />
       )}
 

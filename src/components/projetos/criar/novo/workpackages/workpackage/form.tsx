@@ -18,12 +18,16 @@ type WorkpackageFormProps = {
     inicio?: Date;
     fim?: Date;
   };
+  projetoInicio?: Date;
+  projetoFim?: Date;
 };
 
 export function WorkpackageForm({ 
   onSubmit, 
   onCancel,
-  initialData 
+  initialData,
+  projetoInicio,
+  projetoFim
 }: WorkpackageFormProps) {
   const [formData, setFormData] = useState({
     nome: initialData?.nome || '',
@@ -89,6 +93,8 @@ export function WorkpackageForm({
             <DatePicker
               value={formData.inicio}
               onChange={(date) => setFormData({ ...formData, inicio: date })}
+              minDate={projetoInicio}
+              maxDate={projetoFim}
             />
           </div>
           <div>
@@ -99,6 +105,8 @@ export function WorkpackageForm({
             <DatePicker
               value={formData.fim}
               onChange={(date) => setFormData({ ...formData, fim: date })}
+              minDate={formData.inicio || projetoInicio}
+              maxDate={projetoFim}
             />
           </div>
         </div>

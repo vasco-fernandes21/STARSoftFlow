@@ -2,7 +2,6 @@ import type { Workpackage, Tarefa } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -81,9 +80,8 @@ export function Cronograma({
 
   const months = getMonthsBetweenDates(startDate, endDate);
 
-  // Calcular a posição do dia atual
   const getCurrentDayPosition = () => {
-    const today = new Date(); // Data atual
+    const today = new Date();
     if (today < startDate || today > endDate) return null;
 
     const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -247,10 +245,12 @@ export function Cronograma({
               {/* Barra vertical do dia atual */}
               {currentDayPosition !== null && (
                 <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-blue-400/30 z-10"
+                  className="absolute top-0 bottom-0 w-px bg-gradient-to-b from-blue-500/50 to-blue-300/20 z-10 transition-all duration-300"
                   style={{ left: `${currentDayPosition}%` }}
                 >
-                  <div className="absolute top-0 w-2 h-2 bg-blue-400 rounded-full -translate-x-1/2" />
+                  <div 
+                    className="absolute top-0 w-3 h-3 bg-blue-500 rounded-full shadow-md -translate-x-[5px] -translate-y-1.5 hover:scale-125 transition-transform duration-200"
+                  />
                 </div>
               )}
 

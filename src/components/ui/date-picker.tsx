@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { format, getYear, getMonth, setMonth, setYear } from "date-fns"
+import { Calendar as CalendarIcon, ChevronDown } from "lucide-react"
 import { pt } from "date-fns/locale"
 
 import { cn } from "@/lib/utils"
@@ -13,6 +13,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface DatePickerProps {
   value?: Date
@@ -21,6 +28,7 @@ interface DatePickerProps {
   error?: boolean
   className?: string
   minDate?: Date
+  maxDate?: Date
 }
 
 export function DatePicker({
@@ -29,8 +37,11 @@ export function DatePicker({
   placeholder = "Selecione uma data",
   error = false,
   className,
-  minDate
+  minDate,
+  maxDate
 }: DatePickerProps) {
+  // Estado para controlar o mês e ano atual do calendário
+  const [calendarDate, setCalendarDate] = React.useState<Date>(value || new Date());
   const [position, setPosition] = React.useState<"top" | "bottom">("bottom")
   const triggerRef = React.useRef<HTMLButtonElement>(null)
 
@@ -57,6 +68,8 @@ export function DatePicker({
   const handleOpenChange = (open: boolean) => {
     if (open) {
       updatePosition()
+      // Quando o popover abre, atualiza o calendário para a data selecionada ou a data atual
+      setCalendarDate(value || new Date())
     }
   }
 
@@ -69,8 +82,26 @@ export function DatePicker({
 
   // Função para lidar com a seleção de data de forma segura
   const handleDateSelect = (date?: Date) => {
+    // Verificar se a data está dentro dos limites permitidos
+    if (date) {
+      // Não permitir datas anteriores ao minDate
+      if (effectiveMinDate && date < effectiveMinDate) {
+        return;
+      }
+      
+      // Não permitir datas posteriores ao maxDate
+      if (maxDate && date > maxDate) {
+        return;
+      }
+    }
+    
     if (onChange) {
       onChange(date);
+    }
+    
+    // Atualizar o estado do calendário para a data selecionada
+    if (date) {
+      setCalendarDate(date);
     }
   };
 
@@ -117,14 +148,69 @@ export function DatePicker({
               <div className="text-azul font-medium text-sm text-center">
                 Selecione uma data
               </div>
+              
+              {/* Seletores de Ano e Mês */}
+              <div className="flex gap-2 mt-2 w-full">
+                <div className="flex-1">
+                  <Select 
+                    value={getYear(calendarDate).toString()} 
+                    onValueChange={(year) => {
+                      setCalendarDate(setYear(calendarDate, parseInt(year)));
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 20 }, (_, i) => {
+                        const year = new Date().getFullYear() - 10 + i;
+                        return (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex-1">
+                  <Select 
+                    value={getMonth(calendarDate).toString()} 
+                    onValueChange={(month) => {
+                      setCalendarDate(setMonth(calendarDate, parseInt(month)));
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const monthName = format(new Date(2000, i, 1), 'MMMM', { locale: pt });
+                        return (
+                          <SelectItem key={i} value={i.toString()}>
+                            {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
             <Calendar
               mode="single"
               selected={value}
               onSelect={handleDateSelect}
+              month={calendarDate}
+              onMonthChange={setCalendarDate}
               initialFocus
               locale={pt}
-              disabled={(date) => date < effectiveMinDate}
+              disabled={(date) => {
+                if (date < effectiveMinDate) return true;
+                if (maxDate && date > maxDate) return true;
+                return false;
+              }}
               className="p-0 w-full"
               formatters={{
                 formatCaption: (date, options) => {

@@ -60,6 +60,8 @@ export function WorkpackageDetails({
             <div className="mb-4">
               <TarefaForm
                 workpackageId={workpackage.id}
+                workpackageInicio={workpackage.inicio || new Date()}
+                workpackageFim={workpackage.fim || new Date()}
                 onSubmit={(workpackageId, tarefa) => {
                   handlers.addTarefa(workpackageId, tarefa);
                   setAddingTarefa(false);

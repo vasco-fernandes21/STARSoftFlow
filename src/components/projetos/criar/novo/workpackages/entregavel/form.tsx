@@ -12,21 +12,47 @@ interface EntregavelFormProps {
   tarefaId: string;
   onSubmit: (tarefaId: string, entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">) => void;
   onCancel: () => void;
+  tarefaDates: {
+    inicio: Date;
+    fim: Date;
+  };
 }
 
 export function EntregavelForm({ 
   tarefaId, 
   onSubmit, 
-  onCancel 
+  onCancel,
+  tarefaDates
 }: EntregavelFormProps) {
   const [formData, setFormData] = useState({
     nome: '',
     data: new Date()
   });
 
+  // Converter string para Date se necessário
+  const getDateValue = (dateValue: string | Date | null | undefined): Date | undefined => {
+    if (!dateValue) return undefined;
+    return dateValue instanceof Date ? dateValue : new Date(dateValue);
+  };
+
+  // Obter as datas da tarefa para definir os limites
+  const tarefaInicio = tarefaDates.inicio;
+  const tarefaFim = tarefaDates.fim;
+
   const handleSubmit = () => {
     if (!formData.nome) {
       toast.error("O nome do entregável é obrigatório");
+      return;
+    }
+
+    // Verificar se a data está dentro do período da tarefa
+    if (formData.data < tarefaInicio) {
+      toast.error("A data do entregável não pode ser anterior à data de início da tarefa");
+      return;
+    }
+
+    if (formData.data > tarefaFim) {
+      toast.error("A data do entregável não pode ser posterior à data de fim da tarefa");
       return;
     }
 
@@ -63,7 +89,9 @@ export function EntregavelForm({
           <DatePicker
             value={formData.data}
             onChange={(date: Date | undefined) => date && setFormData({ ...formData, data: date })}
-            className="mt-1"
+            minDate={tarefaInicio}
+            maxDate={tarefaFim}
+            showValidationMessage={true}
           />
         </div>
 

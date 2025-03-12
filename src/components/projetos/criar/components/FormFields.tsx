@@ -274,6 +274,7 @@ export function DateField({
         value={value ?? undefined}
         onChange={(date) => onChange(date ?? null)}
         minDate={minDate}
+        maxDate={maxDate}
       />
       {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
     </div>
