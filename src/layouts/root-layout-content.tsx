@@ -3,6 +3,7 @@
 import { AppSidebar } from "@/components/ui/sidebar";
 import { usePathname } from "next/navigation";
 import { PopupConfirmacaoProvider } from "@/providers/PopupConfirmacaoProvider";
+import { ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -18,7 +19,9 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <main className="flex-1 overflow-y-auto relative">
         <PopupConfirmacaoProvider>
-          {children}
+          <ProjetoFormProvider>
+            {children}
+          </ProjetoFormProvider>
         </PopupConfirmacaoProvider>
       </main>
     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageLayout } from "@/components/common/PageLayout";
-import { ProjetoFormProvider, useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
+import { useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
 import { ProjetoHeader } from "@/components/projetos/criar/ProjetoHeader";
 import { ProjetoProgressContainer } from "@/components/projetos/criar/ProjetoProgressContainer";
 import { ProjetoFormPanel } from "@/components/projetos/criar/ProjetoFormPanel";
@@ -14,6 +14,11 @@ import { api } from "@/trpc/react";
 import { ProjetoEstado, Rubrica, type Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { generateUUID } from "@/server/api/utils/token";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
+import TestButton from "@/components/projetos/TestButton";
+import StateMonitor from "@/components/projetos/StateMonitor";
 
 import { 
   InformacoesTab,
@@ -801,18 +806,23 @@ export default function CriarProjetoPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8 custom-blue-blur">
       <div className="max-w-8xl mx-auto space-y-8">
-        {/* Cabeçalho */}
-        <div className="flex flex-col md:flex-row gap-6 justify-between">
-          <div className="space-y-4 flex-1">
+        {/* Cabeçalho modificado para incluir o botão de importação */}
+        <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
+          <div className="space-y-4">
             <div className="flex items-center gap-3">
               <ProjetoHeader />
             </div>
           </div>
+          
+          {/* Botão de importar Excel */}
+          <div className="flex-shrink-0 mt-4 md:mt-0 space-x-2">
+            <ImportarProjetoButton />
+            <TestButton />
+          </div>
         </div>
 
-        <ProjetoFormProvider>
-          <ProjetoFormContent />
-        </ProjetoFormProvider>
+        <ProjetoFormContent />
+        <StateMonitor />
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Edit, Trash, ChevronDown, ChevronUp } from "lucide-react";
+import { Briefcase, Edit, Trash, ChevronDown, ChevronUp, ListTodo, Package } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -32,12 +32,24 @@ export function WorkpackageItem({ workpackage, onEdit, onDelete, handlers }: Wor
             <div>
               <h3 className="text-base font-medium text-azul">{workpackage.nome}</h3>
               <div className="flex items-center gap-2 mt-1">
+                {/* Badge para Tarefas */}
                 <Badge 
                   variant="outline" 
-                  className={`px-2 py-0.5 text-xs ${workpackage.estado ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-gray-50 text-gray-600 border-gray-200"}`}
+                  className="px-2 py-0.5 text-xs bg-blue-50 text-blue-600 border-blue-200"
                 >
-                  {workpackage.estado ? "Concluído" : "Em progresso"}
+                  <ListTodo className="h-3 w-3 mr-1" />
+                  {workpackage.tarefas?.length || 0} tarefas
                 </Badge>
+                
+                {/* Badge para Materiais */}
+                <Badge 
+                  variant="outline" 
+                  className="px-2 py-0.5 text-xs bg-amber-50 text-amber-600 border-amber-200"
+                >
+                  <Package className="h-3 w-3 mr-1" />
+                  {workpackage.materiais?.length || 0} materiais
+                </Badge>
+                
                 <span className="text-xs text-azul/70">
                   {workpackage.inicio && workpackage.fim && (
                     <>

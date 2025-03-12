@@ -41,7 +41,6 @@ export function Cronograma({
   const timelineRef = useRef<HTMLDivElement>(null);
   const utils = api.useContext();
   
-  // Sincronizar scroll entre as colunas
   useEffect(() => {
     const leftColumn = leftColumnRef.current;
     const timeline = timelineRef.current;
@@ -65,7 +64,6 @@ export function Cronograma({
     };
   }, []);
   
-  // Gerar array de meses entre as datas
   const getMonthsBetweenDates = (start: Date, end: Date) => {
     const months = [];
     const current = new Date(start);
@@ -83,7 +81,18 @@ export function Cronograma({
 
   const months = getMonthsBetweenDates(startDate, endDate);
 
-  // Calcular posição da tarefa na timeline
+  // Calcular a posição do dia atual
+  const getCurrentDayPosition = () => {
+    const today = new Date(); // Data atual
+    if (today < startDate || today > endDate) return null;
+
+    const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    const daysSinceStart = (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    const percentage = (daysSinceStart / totalDays) * 100;
+
+    return percentage;
+  };
+
   const getTarefaPosition = (tarefa: Tarefa) => {
     const tarefaStart = tarefa.inicio ? new Date(tarefa.inicio) : null;
     const tarefaEnd = tarefa.fim ? new Date(tarefa.fim) : null;
@@ -111,7 +120,6 @@ export function Cronograma({
     if (onSelectTarefa) onSelectTarefa(tarefa.id);
   };
 
-  // Ordenar tarefas por data de início
   const sortTarefas = (tarefas: Tarefa[]) => {
     return [...tarefas].sort((a, b) => {
       const dateA = a.inicio ? new Date(a.inicio) : new Date(0);
@@ -120,7 +128,6 @@ export function Cronograma({
     });
   };
 
-  // Ordenar workpackages por data de início
   const sortWorkpackages = (wps: (Workpackage & { tarefas: Tarefa[] })[]) => {
     return [...wps].sort((a, b) => {
       const dateA = a.inicio ? new Date(a.inicio) : new Date(0);
@@ -129,7 +136,6 @@ export function Cronograma({
     });
   };
 
-  // Ordenar os workpackages antes de renderizar
   const sortedWorkpackages = sortWorkpackages(workpackages);
 
   const {
@@ -139,10 +145,11 @@ export function Cronograma({
     compactMode = false
   } = options;
 
+  const currentDayPosition = getCurrentDayPosition();
+
   return (
     <div className="flex h-full w-full">
       <div className="flex w-full h-full overflow-hidden">
-        {/* Coluna fixa da esquerda */}
         <div 
           ref={leftColumnRef} 
           className="flex-shrink-0 sticky left-0 bg-white/70 backdrop-blur-sm z-20 border-r border-white/30 overflow-y-scroll scrollbar-none"
@@ -152,7 +159,6 @@ export function Cronograma({
             msOverflowStyle: 'none' 
           }}
         >
-          {/* Cabeçalho da coluna fixa */}
           <div className={cn(
             "sticky top-0 px-6 border-b border-white/30 bg-white/70 backdrop-blur-sm z-20",
             compactMode ? "py-2" : "py-4"
@@ -161,12 +167,9 @@ export function Cronograma({
               Workpackage/Tarefa
             </div>
           </div>
-          
-          {/* Lista de Workpackages e Tarefas */}
           <div className="py-2">
             {sortedWorkpackages.map((wp) => (
               <div key={wp.id}>
-                {/* Cabeçalho do Workpackage */}
                 <div 
                   className={cn(
                     "flex items-center px-6 cursor-pointer hover:bg-blue-50/50 transition-colors",
@@ -190,8 +193,6 @@ export function Cronograma({
                     </Badge>
                   </div>
                 </div>
-
-                {/* Lista de Tarefas */}
                 {sortTarefas(wp.tarefas).map((tarefa) => (
                   <div 
                     key={tarefa.id} 
@@ -226,14 +227,12 @@ export function Cronograma({
           </div>
         </div>
 
-        {/* Área scrollável da Timeline */}
         <div 
           ref={timelineRef} 
           className="overflow-x-auto flex-1 overflow-y-scroll scrollbar-none"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }} // Garante que a barra seja ocultada
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          <div className="inline-block min-w-max">
-            {/* Cabeçalho dos meses */}
+          <div className="inline-block min-w-max relative">
             <div className="sticky top-0 bg-white/70 backdrop-blur-sm border-b border-white/30 shadow-sm z-10">
               <div className="grid gap-1 px-4 py-4" style={{ gridTemplateColumns: `repeat(${months.length}, minmax(80px, 1fr))` }}>
                 {months.map((month) => (
@@ -244,8 +243,17 @@ export function Cronograma({
               </div>
             </div>
 
-            {/* Barras da Timeline */}
-            <div className="py-2">
+            <div className="py-2 relative">
+              {/* Barra vertical do dia atual */}
+              {currentDayPosition !== null && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-blue-400/30 z-10"
+                  style={{ left: `${currentDayPosition}%` }}
+                >
+                  <div className="absolute top-0 w-2 h-2 bg-blue-400 rounded-full -translate-x-1/2" />
+                </div>
+              )}
+
               {sortedWorkpackages.map((wp) => (
                 <div key={wp.id}>
                   <div className="h-[36px]"></div>
@@ -258,14 +266,11 @@ export function Cronograma({
                     return (
                       <div key={tarefa.id} className="h-[48px] px-4 flex items-center">
                         <div className="relative w-full h-8">
-                          {/* Linhas de grid */}
                           <div className="absolute inset-0 grid gap-1 opacity-10" style={{ gridTemplateColumns: `repeat(${months.length}, 1fr)` }}>
                             {Array.from({ length: months.length }).map((_, i) => (
                               <div key={i} className="border-l border-gray-300 h-full" />
                             ))}
                           </div>
-
-                          {/* Barra da tarefa */}
                           <div
                             onClick={() => handleTarefaClick(tarefa)}
                             className={cn(
@@ -292,7 +297,6 @@ export function Cronograma({
         </div>
       </div>
 
-      {/* Remover completamente os menus se as interações estiverem desabilitadas */}
       {!disableInteractions && (
         <>
           {selectedTarefa && (
@@ -301,7 +305,6 @@ export function Cronograma({
               open={!!selectedTarefa}
               onClose={() => setSelectedTarefa(null)}
               onUpdate={async () => {
-                // Invalidar e refetchar todas as queries relevantes
                 await Promise.all([
                   utils.tarefa.getById.invalidate(selectedTarefa),
                   utils.projeto.getById.invalidate(),
@@ -326,7 +329,6 @@ export function Cronograma({
               startDate={startDate}
               endDate={endDate}
               onUpdate={async () => {
-                // Invalidar e refetchar todas as queries relevantes
                 await Promise.all([
                   utils.workpackage.getById.invalidate({ id: selectedWorkpackage }),
                   utils.projeto.getById.invalidate()

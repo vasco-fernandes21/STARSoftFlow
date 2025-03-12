@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { gerarMesesEntreDatas } from "@/server/api/utils";
 import { Decimal } from "decimal.js";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 
 interface ItemProps {
   workpackageId: string;
@@ -88,7 +90,7 @@ export function Item({
       <div className="flex flex-wrap gap-2 pl-13">
         {mesesEntreDatas
           .filter(mes => Number(alocacoesPorMes[mes.chave] ?? 0) > 0)
-          .map(mes => {
+          .map((mes, idx) => {
             const valor = Number(alocacoesPorMes[mes.chave] ?? 0);
             // Determinar a cor do badge com base no valor de alocação
             let bgColor = "bg-azul/10";
@@ -113,12 +115,20 @@ export function Item({
               borderColor = "border-gray-200";
             }
             
+            // Converter explicitamente para números
+            const ano = Number(mes.ano);
+            const mesNum = Number(mes.mes);
+            
+            // Criar data corretamente (mês - 1 porque meses em JS são 0-indexed)
+            const data = new Date(ano, mesNum - 1);
+            const mesFormatado = format(data, 'MMM', { locale: pt });
+            
             return (
               <Badge 
-                key={mes.chave}
+                key={idx}
                 className={`rounded-full px-2.5 py-1 text-xs ${bgColor} ${textColor} ${borderColor}`}
               >
-                {mes.formatado}: {valor.toFixed(1).replace('.', ',')}
+                {mesFormatado}: {valor.toFixed(1).replace('.', ',')}
               </Badge>
             );
           })

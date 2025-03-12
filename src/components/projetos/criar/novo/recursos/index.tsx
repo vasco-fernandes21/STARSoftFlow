@@ -8,6 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { toast } from "sonner";
+import React from "react";
+
 import {
   Select,
   SelectContent,
@@ -53,21 +55,32 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   const hasRecursos = selectedWorkpackage && selectedWorkpackage.recursos && selectedWorkpackage.recursos.length > 0;
 
   // Agrupar recursos por utilizador
-  const recursosAgrupados = selectedWorkpackage?.recursos?.reduce((acc: Record<string, { userId: string; alocacoes: any[] }>, alocacao) => {
-    if (!alocacao) return acc;
-    
-    const userId = alocacao.userId;
-    if (!acc[userId]) {
-      acc[userId] = {
-        userId,
-        alocacoes: []
-      };
+  const recursosAgrupados = React.useMemo(() => {
+    if (!selectedWorkpackage?.recursos || selectedWorkpackage.recursos.length === 0) {
+      return {};
     }
-    // Cria o objeto caso ainda não exista e acessa de forma segura
-    const anoObj = acc[userId].alocacoes[alocacao.ano] || (acc[userId].alocacoes[alocacao.ano] = {});
-    anoObj[alocacao.mes] = Number(alocacao.ocupacao ?? 0) * 100;
-    return acc;
-  }, {}) || {};
+
+    return selectedWorkpackage.recursos.reduce((acc: Record<string, { userId: string; alocacoes: any[] }>, alocacao) => {
+      if (!alocacao) return acc;
+      
+      const userId = alocacao.userId;
+      if (!acc[userId]) {
+        acc[userId] = {
+          userId,
+          alocacoes: []
+        };
+      }
+      
+      // Adiciona a alocação ao array de alocações do utilizador
+      acc[userId].alocacoes.push({
+        mes: alocacao.mes,
+        ano: alocacao.ano,
+        ocupacao: Number(alocacao.ocupacao ?? 0)
+      });
+      
+      return acc;
+    }, {});
+  }, [selectedWorkpackage]);
 
   // Função para adicionar alocação
   const handleAddAlocacao = (workpackageId: string, alocacoes: Array<{
@@ -78,14 +91,10 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   }>) => {
     // Se estiver editando, primeiro remover as alocações existentes
     if (recursoEmEdicao) {
-      recursoEmEdicao.alocacoes.forEach(alocacao => {
-        dispatch({
-          type: "REMOVE_ALOCACAO",
-          workpackageId,
-          userId: recursoEmEdicao.userId,
-          mes: alocacao.mes,
-          ano: alocacao.ano
-        });
+      dispatch({
+        type: "REMOVE_RECURSO_COMPLETO",
+        workpackageId,
+        userId: recursoEmEdicao.userId
       });
       
       toast.success("Recurso atualizado com sucesso");
@@ -116,14 +125,10 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
       action: {
         label: "Remover",
         onClick: () => {
-          alocacoes.forEach(alocacao => {
-            dispatch({
-              type: "REMOVE_ALOCACAO",
-              workpackageId,
-              userId,
-              mes: alocacao.mes,
-              ano: alocacao.ano
-            });
+          dispatch({
+            type: "REMOVE_RECURSO_COMPLETO",
+            workpackageId,
+            userId
           });
           toast.success("Recurso removido com sucesso");
         }
@@ -147,13 +152,43 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     const agrupadas: Record<string, Record<number, number>> = {};
     
     alocacoes.forEach(alocacao => {
-      if (!agrupadas[alocacao.ano]) {
-        agrupadas[alocacao.ano] = {};
+      const ano = String(alocacao.ano);
+      const mes = Number(alocacao.mes);
+      const ocupacao = Number(alocacao.ocupacao ?? 0) * 100;
+      
+      if (!agrupadas[ano]) {
+        agrupadas[ano] = {};
       }
-      agrupadas[alocacao.ano]![alocacao.mes] = Number(alocacao.ocupacao ?? 0) * 100;
+      
+      agrupadas[ano][mes] = ocupacao;
     });
     
     return agrupadas;
+  };
+
+  const excelDateToJS = (excelDate: number) => {
+    const date = new Date((excelDate - 25569) * 86400 * 1000);
+    return {
+      mes: date.getMonth() + 1,
+      ano: date.getFullYear()
+    };
+  };
+
+  const formatarDataSegura = (ano: string | number, mes: string | number, formatString: string) => {
+    try {
+      const anoNum = Number(ano);
+      const mesNum = Number(mes) - 1;
+      
+      if (isNaN(anoNum) || isNaN(mesNum) || mesNum < 0 || mesNum > 11) {
+        return `${mes}/${ano}`;
+      }
+      
+      const data = new Date(anoNum, mesNum);
+      return format(data, formatString, { locale: pt });
+    } catch (error) {
+      console.error("Erro de formatação:", error, { mes, ano });
+      return `${mes}/${ano}`;
+    }
   };
 
   return (
@@ -387,7 +422,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                                             variant="outline"
                                             className={`${badgeClass} text-xs whitespace-nowrap`}
                                           >
-                                            {format(new Date(Number(ano), Number(mes) - 1), 'MMM/yyyy', { locale: pt })}:
+                                            {formatarDataSegura(ano, mes, 'MMM/yyyy')}:
                                             {' '}
                                             {Math.round(ocupacao)}%
                                           </Badge>
@@ -479,7 +514,9 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                                                 `}
                                               >
                                                 <div className="flex justify-between text-xs mb-1.5">
-                                                  <span>{format(new Date(Number(ano), mes - 1), 'MMMM', { locale: pt })}</span>
+                                                  <span>
+                                                    {formatarDataSegura(ano, mes, 'MMMM')}
+                                                  </span>
                                                   <span className="font-medium">{ocupacao}%</span>
                                                 </div>
                                                 <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
