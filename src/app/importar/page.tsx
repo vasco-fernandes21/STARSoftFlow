@@ -1,11 +1,19 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjetoForm, ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { User, Calendar, Percent, Users, BarChart2, Package, Briefcase, DollarSign } from "lucide-react";
+import { Decimal } from "decimal.js";
+import { Rubrica } from "@prisma/client";
+import { toast } from "sonner";
 
 interface Alocacao {
   mes: number;
@@ -18,14 +26,60 @@ interface Recurso {
   alocacoes: Alocacao[];
 }
 
+interface Material {
+  nome: string;
+  preco: number;
+  quantidade: number;
+  ano_utilizacao: number;
+  rubrica: Rubrica;
+  workpackageNome: string;
+}
+
 interface WorkpackageSimples {
   codigo: string;
   nome: string;
   recursos: Recurso[];
+  materiais: Material[];
+}
+
+function mapearRubrica(rubricaExcel: string): Rubrica {
+  const mapeamento: Record<string, Rubrica> = {
+    "Materiais": "MATERIAIS",
+    "Serviços Terceiros": "SERVICOS_TERCEIROS",
+    "Outros Serviços": "OUTROS_SERVICOS",
+    "Deslocações e Estadas": "DESLOCACAO_ESTADIAS",
+    "Outros Custos": "OUTROS_CUSTOS",
+    "Custos Estrutura": "CUSTOS_ESTRUTURA",
+  };
+  
+  return mapeamento[rubricaExcel] || "MATERIAIS";
+}
+
+function getBadgeColors(percentagem: number) {
+  if (percentagem >= 80) {
+    return "bg-green-50 text-green-600 border-green-200";
+  } else if (percentagem >= 50) {
+    return "bg-blue-50 text-blue-600 border-blue-200";
+  } else if (percentagem >= 30) {
+    return "bg-amber-50 text-amber-600 border-amber-200";
+  }
+  return "bg-gray-50 text-gray-600 border-gray-200";
+}
+
+function getRubricaColors(rubrica: Rubrica): string {
+  switch(rubrica) {
+    case "MATERIAIS": return "bg-blue-50 text-blue-600 border-blue-200";
+    case "SERVICOS_TERCEIROS": return "bg-green-50 text-green-600 border-green-200";
+    case "OUTROS_SERVICOS": return "bg-purple-50 text-purple-600 border-purple-200";
+    case "DESLOCACAO_ESTADIAS": return "bg-amber-50 text-amber-600 border-amber-200";
+    case "OUTROS_CUSTOS": return "bg-red-50 text-red-600 border-red-200";
+    case "CUSTOS_ESTRUTURA": return "bg-slate-50 text-slate-600 border-slate-200";
+    default: return "bg-gray-50 text-gray-600 border-gray-200";
+  }
 }
 
 function ImportarExcelContent() {
-  const { dispatch } = useProjetoForm();
+  const { state, dispatch } = useProjetoForm();
   const [sheets, setSheets] = useState<{[key: string]: any[][]}>({});
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [workpackages, setWorkpackages] = useState<WorkpackageSimples[]>([]);
@@ -35,15 +89,44 @@ function ImportarExcelContent() {
     fileInputRef.current?.click();
   };
 
-  const extrairDadosRH = (data: any[][]) => {
+  const extrairMateriais = (data: any[][]): Material[] => {
+    const materiais: Material[] = [];
+    
+    for (let i = 6; i < data.length; i++) {
+      const row = data[i];
+      if (!row || row.length === 0 || !row[0]) continue;
+      
+      const despesa = row[0];
+      const atividade = row[1];
+      const ano = row[3];
+      const rubrica = row[4];
+      const custoUnitario = row[5];
+      const unidades = row[6];
+      
+      if (!despesa || !atividade || !custoUnitario || !unidades) continue;
+      
+      if (typeof custoUnitario === 'number' && typeof unidades === 'number') {
+        materiais.push({
+          nome: despesa,
+          preco: custoUnitario,
+          quantidade: unidades,
+          ano_utilizacao: typeof ano === 'number' ? ano : new Date().getFullYear(),
+          rubrica: mapearRubrica(rubrica),
+          workpackageNome: atividade
+        });
+      }
+    }
+    
+    return materiais;
+  };
+
+  const extrairDadosRH = (data: any[][]): WorkpackageSimples[] => {
     const wps: WorkpackageSimples[] = [];
     let wpAtual: WorkpackageSimples | null = null;
 
-    // Extrair anos e meses do cabeçalho
-    const anos = data[3]?.slice(6) || []; // Linha dos anos
-    const meses = data[4]?.slice(6) || []; // Linha dos códigos de data Excel
+    const anos = data[3]?.slice(6) || [];
+    const meses = data[4]?.slice(6) || [];
 
-    // Função para converter código Excel para data
     const excelDateToJS = (excelDate: number) => {
       const date = new Date((excelDate - 25569) * 86400 * 1000);
       return {
@@ -52,22 +135,30 @@ function ImportarExcelContent() {
       };
     };
 
-    // Começar da linha 8 (índice 7) que é onde começam os dados reais
     for (let i = 7; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0) continue;
 
-      // Se é uma linha de workpackage (A1, A2, etc.)
       if (row[1]?.match(/^A\d+$/)) {
         console.log("Encontrado workpackage:", row[1], row[2]);
         wpAtual = {
           codigo: row[1],
           nome: row[2] || '',
-          recursos: []
+          recursos: [],
+          materiais: []
         };
         wps.push(wpAtual);
       }
-      // Se é uma linha de recurso
+      else if (!row[1] && row[2]?.startsWith("A1 -") && !wpAtual) {
+        console.log("Encontrado workpackage A1 implícito");
+        wpAtual = {
+          codigo: "A1",
+          nome: row[2],
+          recursos: [],
+          materiais: []
+        };
+        wps.push(wpAtual);
+      }
       else if (wpAtual && row[3]) {
         console.log("Processando recurso:", row[3]);
         const recurso: Recurso = {
@@ -75,10 +166,9 @@ function ImportarExcelContent() {
           alocacoes: []
         };
 
-        // Processar alocações (começam no índice 6)
-        for (let j = 6; j < 42; j++) { // Limitamos a 36 meses (3 anos)
+        for (let j = 6; j < 42; j++) {
           const valor = row[j];
-          if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor < 2) { // Limitamos a valores entre 0 e 1 (percentagens)
+          if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor < 2) {
             const dataExcel = meses[j - 6];
             const { mes, ano } = excelDateToJS(dataExcel);
             
@@ -100,6 +190,42 @@ function ImportarExcelContent() {
     return wps;
   };
 
+  const atribuirMateriaisAosWorkpackages = (
+    workpackages: WorkpackageSimples[],
+    materiais: Material[]
+  ): WorkpackageSimples[] => {
+    const wpMap = new Map<string, WorkpackageSimples>();
+    workpackages.forEach(wp => {
+      wpMap.set(wp.nome, wp);
+      
+      const wpCodigo = wp.nome.split(' - ')[0]?.trim();
+      if (wpCodigo) {
+        wpMap.set(wpCodigo, wp);
+      }
+    });
+    
+    materiais.forEach(material => {
+      let wpMatch = wpMap.get(material.workpackageNome);
+      
+      if (!wpMatch) {
+        const codigoMatch = material.workpackageNome.match(/^A\d+/);
+        if (codigoMatch) {
+          wpMatch = workpackages.find(wp => wp.codigo === codigoMatch[0]) || null;
+        }
+      }
+      
+      if (wpMatch) {
+        wpMatch.materiais.push(material);
+      } else {
+        if (workpackages.length > 0) {
+          workpackages[0].materiais.push(material);
+        }
+      }
+    });
+    
+    return workpackages;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("Iniciando upload do ficheiro");
     const file = e.target.files?.[0];
@@ -119,7 +245,6 @@ function ImportarExcelContent() {
         
         console.log("Sheets encontradas:", workbook.SheetNames);
         
-        // Extrair todas as sheets
         const sheetsData: {[key: string]: any[][]} = {};
         const names = workbook.SheetNames;
         
@@ -127,17 +252,25 @@ function ImportarExcelContent() {
           console.log(`Processando sheet: ${name}`);
           const sheet = workbook.Sheets[name];
           sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-          
-          // Se for a sheet RH_Budget_SUBM, processar os workpackages
-          if (name === 'RH_Budget_SUBM') {
-            console.log("Encontrada sheet RH_Budget_SUBM");
-            const wps = extrairDadosRH(sheetsData[name]);
-            console.log("Workpackages extraídos:", wps);
-            setWorkpackages(wps);
-          }
         });
         
-        console.log("Todas as sheets processadas");
+        let wps: WorkpackageSimples[] = [];
+        let materiais: Material[] = [];
+        
+        if (sheetsData['RH_Budget_SUBM']) {
+          wps = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
+        }
+        
+        if (sheetsData['Outros_Budget']) {
+          materiais = extrairMateriais(sheetsData['Outros_Budget']);
+        }
+        
+        if (wps.length > 0 && materiais.length > 0) {
+          wps = atribuirMateriaisAosWorkpackages(wps, materiais);
+        }
+        
+        console.log("Workpackages extraídos:", wps);
+        setWorkpackages(wps);
         setSheets(sheetsData);
         setSheetNames(names);
       } catch (error) {
@@ -152,6 +285,94 @@ function ImportarExcelContent() {
 
     reader.readAsArrayBuffer(file);
   };
+
+  const handleImportarProjeto = () => {
+    dispatch({ type: "RESET" });
+    
+    workpackages.forEach(wp => {
+      const wpId = crypto.randomUUID();
+      
+      dispatch({
+        type: "ADD_WORKPACKAGE",
+        workpackage: {
+          id: wpId,
+          nome: wp.nome,
+          descricao: null,
+          inicio: null,
+          fim: null,
+          estado: false,
+          tarefas: [],
+          materiais: [],
+          recursos: []
+        }
+      });
+      
+      wp.recursos.forEach(recurso => {
+        recurso.alocacoes.forEach(alocacao => {
+          const userId = "1";
+          
+          dispatch({
+            type: "ADD_ALOCACAO",
+            workpackageId: wpId,
+            alocacao: {
+              userId,
+              mes: alocacao.mes,
+              ano: alocacao.ano,
+              ocupacao: new Decimal(alocacao.percentagem / 100)
+            }
+          });
+        });
+      });
+      
+      wp.materiais.forEach(material => {
+        dispatch({
+          type: "ADD_MATERIAL",
+          workpackageId: wpId,
+          material: {
+            id: Math.floor(Math.random() * 1000000),
+            nome: material.nome,
+            preco: new Decimal(material.preco),
+            quantidade: material.quantidade,
+            ano_utilizacao: material.ano_utilizacao,
+            rubrica: material.rubrica,
+            workpackageId: wpId
+          }
+        });
+      });
+    });
+    
+    toast.success("Dados importados com sucesso para o formulário do projeto");
+  };
+
+  const alocacoesFormatadas = useMemo(() => {
+    return workpackages.map(wp => {
+      const recursos = wp.recursos.map(recurso => {
+        const mesesPorAno: Record<number, Array<{ mes: number, percentagem: number }>> = {};
+        
+        recurso.alocacoes.forEach(({ mes, ano, percentagem }) => {
+          if (!mesesPorAno[ano]) {
+            mesesPorAno[ano] = [];
+          }
+          mesesPorAno[ano].push({ mes, percentagem });
+        });
+        
+        Object.keys(mesesPorAno).forEach(ano => {
+          mesesPorAno[Number(ano)].sort((a, b) => a.mes - b.mes);
+        });
+        
+        return {
+          ...recurso,
+          mesesPorAno,
+          totalAlocacoes: recurso.alocacoes.length
+        };
+      });
+      
+      return {
+        ...wp,
+        recursos
+      };
+    });
+  }, [workpackages]);
 
   return (
     <div className="container mx-auto py-8">
@@ -181,33 +402,140 @@ function ImportarExcelContent() {
             </div>
 
             {workpackages.length > 0 && (
-              <div className="space-y-6">
-                {workpackages.map((wp) => (
-                  <Card key={wp.codigo} className="p-4">
-                    <h3 className="text-lg font-medium mb-4">
-                      {wp.codigo} - {wp.nome}
-                    </h3>
-                    <div className="space-y-6">
-                      {wp.recursos.map((recurso, idx) => (
-                        <div key={idx} className="bg-gray-50 p-4 rounded-lg">
-                          <h4 className="font-medium mb-3 text-azul">
-                            {recurso.nome}
-                          </h4>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                            {recurso.alocacoes
-                              .filter(aloc => aloc && aloc.percentagem != null)
-                              .map((aloc, i) => (
-                                <div 
-                                  key={i} 
-                                  className="bg-white p-2 rounded shadow-sm text-sm"
-                                >
-                                  {aloc.mes}/{aloc.ano}: {aloc.percentagem?.toFixed(0)}%
-                                </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+              <div className="flex justify-end">
+                <Button 
+                  className="bg-azul hover:bg-azul/90"
+                  onClick={handleImportarProjeto}
+                >
+                  Importar para o Projeto
+                </Button>
+              </div>
+            )}
+
+            {alocacoesFormatadas.length > 0 && (
+              <div className="space-y-8">
+                {alocacoesFormatadas.map((wp) => (
+                  <Card key={wp.codigo} className="p-4 overflow-hidden">
+                    <div className="flex items-center gap-3 mb-4 border-b border-azul/10 pb-3">
+                      <div className="h-10 w-10 rounded-lg bg-azul/10 flex items-center justify-center">
+                        <Briefcase className="h-5 w-5 text-azul" />
+                      </div>
+                      <h3 className="text-lg font-medium text-azul">
+                        {wp.codigo} - {wp.nome}
+                      </h3>
+                      <Badge variant="outline" className="ml-auto bg-azul/5">
+                        <User className="h-3.5 w-3.5 mr-1" />
+                        {wp.recursos.length} recursos
+                      </Badge>
+                      <Badge variant="outline" className="bg-azul/5">
+                        <Package className="h-3.5 w-3.5 mr-1" />
+                        {wp.materiais.length} materiais
+                      </Badge>
                     </div>
+
+                    {wp.materiais.length > 0 && (
+                      <div className="mb-8">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Package className="h-4 w-4 text-azul" />
+                          <h4 className="text-sm font-medium text-azul">Materiais</h4>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="bg-azul/5 text-xs text-azul/70">
+                                <th className="p-2 text-left border-b border-azul/10">Item</th>
+                                <th className="p-2 text-right border-b border-azul/10">Preço</th>
+                                <th className="p-2 text-center border-b border-azul/10">Qtd.</th>
+                                <th className="p-2 text-right border-b border-azul/10">Total</th>
+                                <th className="p-2 text-center border-b border-azul/10">Ano</th>
+                                <th className="p-2 text-left border-b border-azul/10">Rubrica</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {wp.materiais.map((material, idx) => (
+                                <tr key={idx} className="hover:bg-azul/5">
+                                  <td className="p-2 border-b border-azul/10">{material.nome}</td>
+                                  <td className="p-2 text-right border-b border-azul/10">{material.preco.toLocaleString('pt-PT')} €</td>
+                                  <td className="p-2 text-center border-b border-azul/10">{material.quantidade}</td>
+                                  <td className="p-2 text-right border-b border-azul/10">{(material.preco * material.quantidade).toLocaleString('pt-PT')} €</td>
+                                  <td className="p-2 text-center border-b border-azul/10">{material.ano_utilizacao}</td>
+                                  <td className="p-2 border-b border-azul/10">
+                                    <Badge variant="outline" className={getRubricaColors(material.rubrica)}>
+                                      {material.rubrica.replace('_', ' ')}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr className="bg-azul/5 font-medium">
+                                <td colSpan={3} className="p-2 text-right">Total:</td>
+                                <td className="p-2 text-right">
+                                  {wp.materiais.reduce((total, m) => total + (m.preco * m.quantidade), 0).toLocaleString('pt-PT')} €
+                                </td>
+                                <td colSpan={2}></td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {wp.recursos.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <User className="h-4 w-4 text-azul" />
+                          <h4 className="text-sm font-medium text-azul">Recursos</h4>
+                        </div>
+                        
+                        <div className="space-y-6">
+                          {wp.recursos.map((recurso, idx) => (
+                            <div key={idx} className="bg-white border border-azul/10 rounded-lg overflow-hidden">
+                              <div className="p-4 flex items-center justify-between border-b border-azul/10">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-10 w-10 rounded-full bg-azul/10 flex items-center justify-center">
+                                    <User className="h-5 w-5 text-azul" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium text-azul">{recurso.nome}</h4>
+                                    <div className="flex items-center gap-2 text-xs text-azul/60">
+                                      <Calendar className="h-3.5 w-3.5" />
+                                      <span>{recurso.totalAlocacoes} meses alocados</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="p-4 bg-slate-50/70">
+                                <div className="space-y-6">
+                                  {Object.entries(recurso.mesesPorAno).sort().map(([ano, meses]) => (
+                                    <div key={ano} className="space-y-2">
+                                      <h5 className="text-sm font-medium text-azul">{ano}</h5>
+                                      
+                                      <div className="flex flex-wrap gap-2">
+                                        {meses.map((item) => {
+                                          const mesFormatado = format(new Date(Number(ano), item.mes - 1), 'MMM', { locale: pt });
+                                          const badgeClass = getBadgeColors(item.percentagem);
+                                          
+                                          return (
+                                            <Badge 
+                                              key={`${item.mes}-${ano}`} 
+                                              variant="outline"
+                                              className={`${badgeClass} whitespace-nowrap py-1`}
+                                            >
+                                              {mesFormatado}: {Math.round(item.percentagem)}%
+                                            </Badge>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>
