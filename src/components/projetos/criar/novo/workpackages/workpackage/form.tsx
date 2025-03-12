@@ -18,7 +18,7 @@ type WorkpackageFormProps = {
     inicio?: Date;
     fim?: Date;
   };
-  projetoInicio?: Date;
+  projetoInicio?: Date; 
   projetoFim?: Date;
 };
 
@@ -32,8 +32,8 @@ export function WorkpackageForm({
   const [formData, setFormData] = useState({
     nome: initialData?.nome || '',
     descricao: initialData?.descricao || '',
-    inicio: initialData?.inicio,
-    fim: initialData?.fim
+    inicio: initialData?.inicio || projetoInicio,
+    fim: initialData?.fim || projetoFim
   });
 
   const handleSubmit = () => {

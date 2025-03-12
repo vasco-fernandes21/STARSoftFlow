@@ -92,32 +92,19 @@ export function Item({
           .filter(mes => Number(alocacoesPorMes[mes.chave] ?? 0) > 0)
           .map((mes, idx) => {
             const valor = Number(alocacoesPorMes[mes.chave] ?? 0);
-            // Determinar a cor do badge com base no valor de alocação
-            let bgColor = "bg-azul/10";
-            let textColor = "text-azul";
-            let borderColor = "border-azul/20";
+            let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
             
             if (valor >= 0.8) {
-              bgColor = "bg-green-50";
-              textColor = "text-green-600";
-              borderColor = "border-green-200";
+              variant = "destructive";
             } else if (valor >= 0.5) {
-              bgColor = "bg-blue-50";
-              textColor = "text-blue-600";
-              borderColor = "border-blue-200";
+              variant = "secondary";
             } else if (valor >= 0.3) {
-              bgColor = "bg-amber-50";
-              textColor = "text-amber-600";
-              borderColor = "border-amber-200";
-            } else {
-              bgColor = "bg-gray-50";
-              textColor = "text-gray-600";
-              borderColor = "border-gray-200";
+              variant = "default";
             }
             
-            // Converter explicitamente para números
+            // Use mesNumero em vez de mes
             const ano = Number(mes.ano);
-            const mesNum = Number(mes.mes);
+            const mesNum = Number(mes.mesNumero);
             
             // Criar data corretamente (mês - 1 porque meses em JS são 0-indexed)
             const data = new Date(ano, mesNum - 1);
@@ -126,7 +113,8 @@ export function Item({
             return (
               <Badge 
                 key={idx}
-                className={`rounded-full px-2.5 py-1 text-xs ${bgColor} ${textColor} ${borderColor}`}
+                variant={variant}
+                className="rounded-full px-2.5 py-1 text-xs"
               >
                 {mesFormatado}: {valor.toFixed(1).replace('.', ',')}
               </Badge>

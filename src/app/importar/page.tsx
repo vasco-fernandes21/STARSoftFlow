@@ -40,6 +40,8 @@ interface WorkpackageSimples {
   nome: string;
   recursos: Recurso[];
   materiais: Material[];
+  dataInicio: Date | null;
+  dataFim: Date | null;
 }
 
 function mapearRubrica(rubricaExcel: string): Rubrica {
@@ -135,6 +137,9 @@ function ImportarExcelContent() {
       };
     };
 
+    let dataInicioProjeto: Date | null = null;
+    let dataFimProjeto: Date | null = null;
+
     for (let i = 7; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0) continue;
@@ -145,7 +150,9 @@ function ImportarExcelContent() {
           codigo: row[1],
           nome: row[2] || '',
           recursos: [],
-          materiais: []
+          materiais: [],
+          dataInicio: null,
+          dataFim: null
         };
         wps.push(wpAtual);
       }
@@ -155,7 +162,9 @@ function ImportarExcelContent() {
           codigo: "A1",
           nome: row[2],
           recursos: [],
-          materiais: []
+          materiais: [],
+          dataInicio: null,
+          dataFim: null
         };
         wps.push(wpAtual);
       }
@@ -166,13 +175,19 @@ function ImportarExcelContent() {
           alocacoes: []
         };
 
+        let dataInicio: Date | null = null;
+        let dataFim: Date | null = null;
+
         for (let j = 6; j < 42; j++) {
           const valor = row[j];
           if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor < 2) {
             const dataExcel = meses[j - 6];
             const { mes, ano } = excelDateToJS(dataExcel);
-            
-            console.log(`Alocação encontrada: mês ${mes}, ano ${ano}, valor ${valor}`);
+
+            if (!dataInicio) {
+              dataInicio = new Date(ano, mes - 1, 1); // Primeiro dia do mês
+            }
+
             recurso.alocacoes.push({
               mes,
               ano,
@@ -181,10 +196,39 @@ function ImportarExcelContent() {
           }
         }
 
+        if (dataInicio && row[5]) {
+          const duracao = row[5] - 1; // PLAN DURATION - 1
+          dataFim = new Date(dataInicio);
+          dataFim.setMonth(dataInicio.getMonth() + duracao);
+          dataFim.setDate(new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()); // Último dia do mês
+        }
+
         if (recurso.alocacoes.length > 0) {
           wpAtual.recursos.push(recurso);
+          wpAtual.dataInicio = dataInicio;
+          wpAtual.dataFim = dataFim;
+          console.log(`Data de Início: ${dataInicio?.toLocaleDateString('pt-PT')}, Data de Fim: ${dataFim?.toLocaleDateString('pt-PT')}`);
+
+          // Atualizar datas de início e fim do projeto
+          if (!dataInicioProjeto || dataInicio && dataInicio < dataInicioProjeto) {
+            dataInicioProjeto = dataInicio;
+          }
+          if (!dataFimProjeto || (dataFim && dataFim > dataFimProjeto)) {
+            dataFimProjeto = dataFim;
+          }
         }
       }
+    }
+
+    // Atualizar o estado do projeto com as datas de início e fim
+    if (dataInicioProjeto && dataFimProjeto) {
+      dispatch({
+        type: "UPDATE_PROJETO",
+        data: {
+          inicio: dataInicioProjeto,
+          fim: dataFimProjeto
+        }
+      });
     }
 
     return wps;
@@ -298,8 +342,8 @@ function ImportarExcelContent() {
           id: wpId,
           nome: wp.nome,
           descricao: null,
-          inicio: null,
-          fim: null,
+          inicio: wp.dataInicio,
+          fim: wp.dataFim,
           estado: false,
           tarefas: [],
           materiais: [],
@@ -412,6 +456,15 @@ function ImportarExcelContent() {
               </div>
             )}
 
+            <div className="mb-4">
+              <p className="text-sm text-azul">
+                Início do Projeto: {state.inicio?.toLocaleDateString('pt-PT')}
+              </p>
+              <p className="text-sm text-azul">
+                Fim do Projeto: {state.fim?.toLocaleDateString('pt-PT')}
+              </p>
+            </div>
+
             {alocacoesFormatadas.length > 0 && (
               <div className="space-y-8">
                 {alocacoesFormatadas.map((wp) => (
@@ -431,6 +484,15 @@ function ImportarExcelContent() {
                         <Package className="h-3.5 w-3.5 mr-1" />
                         {wp.materiais.length} materiais
                       </Badge>
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-sm text-azul">
+                        Início: {wp.dataInicio?.toLocaleDateString('pt-PT')}
+                      </p>
+                      <p className="text-sm text-azul">
+                        Fim: {wp.dataFim?.toLocaleDateString('pt-PT')}
+                      </p>
                     </div>
 
                     {wp.materiais.length > 0 && (

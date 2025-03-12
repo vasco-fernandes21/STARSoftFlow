@@ -141,15 +141,17 @@ export function Form({
         const updated = [...prev];
         updated[index] = { ...updated[index], ocupacao };
         return updated;
-      } else {
+      } else if (selectedUserId) {
         return [...prev, { userId: selectedUserId, mes, ano, ocupacao }];
+      } else {
+        return prev;
       }
     });
   };
   
   // Preencher todos os meses com o mesmo valor
   const handlePreencherTodos = () => {
-    if (!preencherTodosValue) return;
+    if (!preencherTodosValue || !selectedUserId) return;
     
     const ocupacao = parseValorOcupacao(preencherTodosValue);
     
@@ -203,7 +205,7 @@ export function Form({
     
     // Converter para o formato esperado pelo onAddAlocacao
     const alocacoesFormatadas = alocacoesValidas.map(a => ({
-      userId: a.userId,
+      userId: selectedUserId,
       mes: a.mes,
       ano: a.ano,
       ocupacao: new Decimal(a.ocupacao)

@@ -8,6 +8,7 @@ import { TarefaItem } from "../tarefas/item";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { WorkpackageHandlers } from "@/app/projetos/criar/page";
+
 interface WorkpackageDetailsProps {
   workpackage: WorkpackageWithRelations;
   handlers: WorkpackageHandlers;
@@ -22,11 +23,11 @@ export function WorkpackageDetails({
 
   return (
     <div className="mt-2 rounded-xl bg-white/70 backdrop-blur-sm border border-azul/10 shadow-sm">
-      <div className="p-6 space-y-8">
+      <div className="p-4 space-y-6">
         {/* Descrição */}
         {workpackage.descricao && (
           <div className="glass-section">
-            <h4 className="text-sm font-medium text-azul flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-medium text-azul flex items-center gap-2 mb-2">
               <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
                 <FileText className="h-3.5 w-3.5 text-azul/70" />
               </div>
@@ -38,7 +39,7 @@ export function WorkpackageDetails({
 
         {/* Tarefas */}
         <div className="glass-section">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-medium text-azul flex items-center gap-2">
               <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
                 <Clock className="h-3.5 w-3.5 text-azul/70" />
@@ -49,15 +50,15 @@ export function WorkpackageDetails({
               variant="outline"
               size="sm"
               onClick={() => setAddingTarefa(true)}
-              className="h-8 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors"
+              className="h-7 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors"
             >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              <Plus className="h-3 w-3 mr-1" />
               Adicionar Tarefa
             </Button>
           </div>
 
           {addingTarefa && (
-            <div className="mb-4">
+            <div className="mb-3">
               <TarefaForm
                 workpackageId={workpackage.id}
                 workpackageInicio={workpackage.inicio || new Date()}
@@ -73,7 +74,7 @@ export function WorkpackageDetails({
           )}
 
           {workpackage.tarefas && workpackage.tarefas.length > 0 ? (
-            <div className="space-y-3 pl-8">
+            <div className="space-y-2 pl-8">
               {workpackage.tarefas.map((tarefa) => (
                 <TarefaItem
                   key={tarefa.id}
@@ -85,8 +86,8 @@ export function WorkpackageDetails({
             </div>
           ) : (
             <div className="pl-8">
-              <Card className="p-4 border-dashed border-azul/10 bg-azul/5 text-center">
-                <p className="text-sm text-azul/70">Nenhuma tarefa adicionada</p>
+              <Card className="p-3 border-dashed border-azul/10 bg-azul/5 text-center">
+                <p className="text-xs text-azul/70">Nenhuma tarefa adicionada</p>
               </Card>
             </div>
           )}
@@ -94,7 +95,7 @@ export function WorkpackageDetails({
 
         {/* Materiais */}
         <div className="glass-section">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-medium text-azul flex items-center gap-2">
               <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
                 <Package className="h-3.5 w-3.5 text-azul/70" />
@@ -105,15 +106,15 @@ export function WorkpackageDetails({
               variant="outline"
               size="sm"
               onClick={() => setAddingMaterial(true)}
-              className="h-8 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors"
+              className="h-7 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors"
             >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              <Plus className="h-3 w-3 mr-1" />
               Adicionar Material
             </Button>
           </div>
 
           {addingMaterial && (
-            <div className="mb-4">
+            <div className="mb-3">
               <MaterialForm
                 workpackageId={workpackage.id}
                 onSubmit={(workpackageId, material) => {
@@ -131,28 +132,31 @@ export function WorkpackageDetails({
               {workpackage.materiais.map((material) => (
                 <Card 
                   key={material.id} 
-                  className="p-4 border-azul/10 hover:border-azul/20 transition-all bg-white/70 backdrop-blur-sm"
+                  className="p-3 border-azul/10 hover:border-azul/20 transition-all bg-white/70 backdrop-blur-sm"
                 >
                   <div className="flex justify-between items-start">
-                    <div className="flex items-start gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
-                        <Package className="h-4 w-4 text-azul/70" />
+                    <div className="flex items-start gap-2.5">
+                      <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center">
+                        <Package className="h-3.5 w-3.5 text-azul/70" />
                       </div>
                       <div>
                         <h5 className="text-sm font-medium text-azul">{material.nome}</h5>
-                        <p className="text-xs text-azul/70 mt-1">
-                          {material.quantidade} unid. x {Number(material.preco).toLocaleString('pt-PT', {
-                            style: 'currency',
-                            currency: 'EUR'
-                          })}
-                        </p>
-                        <p className="text-xs text-azul/70 mt-0.5">
-                          Total: {(material.quantidade * Number(material.preco)).toLocaleString('pt-PT', {
-                            style: 'currency',
-                            currency: 'EUR'
-                          })}
-                        </p>
-                        <p className="text-xs text-azul/60 mt-1.5">
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-azul/70">
+                            {material.quantidade} unid. × {Number(material.preco).toLocaleString('pt-PT', {
+                              style: 'currency',
+                              currency: 'EUR'
+                            })}
+                          </p>
+                          <span className="text-xs text-azul/70">•</span>
+                          <p className="text-xs text-azul/70">
+                            Total: {(material.quantidade * Number(material.preco)).toLocaleString('pt-PT', {
+                              style: 'currency',
+                              currency: 'EUR'
+                            })}
+                          </p>
+                        </div>
+                        <p className="text-xs text-azul/60 mt-1">
                           Ano de utilização: {material.ano_utilizacao}
                         </p>
                       </div>
@@ -161,9 +165,9 @@ export function WorkpackageDetails({
                       variant="ghost"
                       size="sm"
                       onClick={() => handlers.removeMaterial(workpackage.id, Number(material.id))}
-                      className="h-8 w-8 p-0 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors"
+                      className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors"
                     >
-                      <Plus className="h-4 w-4 rotate-45" />
+                      <Plus className="h-3.5 w-3.5 rotate-45" />
                     </Button>
                   </div>
                 </Card>
@@ -171,8 +175,8 @@ export function WorkpackageDetails({
             </div>
           ) : (
             <div className="pl-8">
-              <Card className="p-4 border-dashed border-azul/10 bg-azul/5 text-center">
-                <p className="text-sm text-azul/70">Nenhum material adicionado</p>
+              <Card className="p-3 border-dashed border-azul/10 bg-azul/5 text-center">
+                <p className="text-xs text-azul/70">Nenhum material adicionado</p>
               </Card>
             </div>
           )}

@@ -14,14 +14,14 @@ export function DatasTab({ onNavigateBack, onNavigateForward }: DatasTabProps) {
   const { state, dispatch } = useProjetoForm();
 
   const updateField = <K extends keyof ProjetoCreateInput>(field: K, value: ProjetoCreateInput[K]) => {
-    dispatch({ type: "UPDATE_PROJETO", field, value });
+    dispatch({ type: "UPDATE_PROJETO", data: { [field]: value } });
   };
 
   const isValid = Boolean(state.inicio && state.fim);
 
   // Converter string para Date se necessário
-  const getDateValue = (dateValue: string | Date | null | undefined): Date | undefined => {
-    if (!dateValue) return undefined;
+  const getDateValue = (dateValue: string | Date | null | undefined): Date | null => {
+    if (!dateValue) return null;
     return dateValue instanceof Date ? dateValue : new Date(dateValue);
   };
 

@@ -48,9 +48,11 @@ interface WorkpackageSimples {
   nome: string;
   recursos: Recurso[];
   materiais: Material[];
+  dataInicio: Date | null;
+  dataFim: Date | null;
 }
 
-// Função para mapear a rubrica do Excel para o enum Rubrica
+// Funções Utilitárias
 function mapearRubrica(rubricaExcel: string): Rubrica {
   const mapeamento: Record<string, Rubrica> = {
     "Materiais": "MATERIAIS",
@@ -60,10 +62,244 @@ function mapearRubrica(rubricaExcel: string): Rubrica {
     "Outros Custos": "OUTROS_CUSTOS",
     "Custos Estrutura": "CUSTOS_ESTRUTURA",
   };
-  
   return mapeamento[rubricaExcel] || "MATERIAIS";
 }
 
+function excelDateToJS(excelDate: number) {
+  const date = new Date((excelDate - 25569) * 86400 * 1000);
+  return {
+    mes: date.getMonth() + 1,
+    ano: date.getFullYear()
+  };
+}
+
+// Funções de Conversão de Excel para JSON
+function converterExcelParaJson(workbook: XLSX.WorkBook): {[key: string]: any[][]} {
+  const sheetsData: {[key: string]: any[][]} = {};
+  workbook.SheetNames.forEach(name => {
+    const sheet = workbook.Sheets[name];
+    if (sheet) {
+      sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    }
+  });
+  return sheetsData;
+}
+
+// Funções de Processamento de Dados
+function extrairMateriais(data: any[][]): Material[] {
+  const materiais: Material[] = [];
+  
+  for (let i = 6; i < data.length; i++) {
+    const row = data[i];
+    if (!row || row.length === 0 || !row[0]) continue;
+    
+    const despesa = row[0];
+    const atividade = row[1];
+    const ano = row[3];
+    const rubrica = row[4];
+    const custoUnitario = row[5];
+    const unidades = row[6];
+    
+    if (!despesa || !atividade || !custoUnitario || !unidades) continue;
+    
+    if (typeof custoUnitario === 'number' && typeof unidades === 'number') {
+      materiais.push({
+        nome: despesa,
+        preco: custoUnitario,
+        quantidade: unidades,
+        ano_utilizacao: typeof ano === 'number' ? ano : new Date().getFullYear(),
+        rubrica: mapearRubrica(rubrica),
+        workpackageNome: atividade
+      });
+    }
+  }
+  
+  return materiais;
+}
+
+function extrairDadosRH(data: any[][]): { workpackages: WorkpackageSimples[], dataInicioProjeto: Date | null, dataFimProjeto: Date | null } {
+  const wps: WorkpackageSimples[] = [];
+  let wpAtual: WorkpackageSimples | null = null;
+
+  const anos = data[3]?.slice(6) || [];
+  const meses = data[4]?.slice(6) || [];
+
+  // Determinar a primeira e última data diretamente dos cabeçalhos
+  let dataInicioProjeto: Date | null = null;
+  let dataFimProjeto: Date | null = null;
+
+  // Encontrar a primeira data válida
+  for (let i = 0; i < meses.length; i++) {
+    if (meses[i] && typeof meses[i] === 'number') {
+      const { mes, ano } = excelDateToJS(meses[i]);
+      dataInicioProjeto = new Date(ano, mes - 1, 1);
+      console.log(`Primeira data do projeto (do cabeçalho): ${mes}/${ano}`);
+      break;
+    }
+  }
+
+  // Encontrar a última data válida
+  for (let i = meses.length - 1; i >= 0; i--) {
+    if (meses[i] && typeof meses[i] === 'number') {
+      const { mes, ano } = excelDateToJS(meses[i]);
+      // Último dia do mês
+      dataFimProjeto = new Date(ano, mes, 0);
+      console.log(`Última data do projeto (do cabeçalho): ${mes}/${ano}`);
+      break;
+    }
+  }
+
+  // Converter os valores de meses do Excel para objetos de data
+  const datas: { mes: number; ano: number; indice: number }[] = [];
+  for (let i = 0; i < meses.length; i++) {
+    if (meses[i] && typeof meses[i] === 'number') {
+      const { mes, ano } = excelDateToJS(meses[i]);
+      datas.push({ mes, ano, indice: i + 6 }); // +6 porque os dados começam na coluna 6
+    }
+  }
+
+  // Ordenar as datas cronologicamente
+  datas.sort((a, b) => {
+    if (a.ano !== b.ano) return a.ano - b.ano;
+    return a.mes - b.mes;
+  });
+
+  console.log("Datas ordenadas:", datas.map(d => `${d.mes}/${d.ano} (índice ${d.indice})`));
+
+  for (let i = 7; i < data.length; i++) {
+    const row = data[i];
+    if (!row || row.length === 0) continue;
+
+    if (row[1]?.match(/^A\d+$/)) {
+      console.log("Encontrado workpackage:", row[1], row[2]);
+      wpAtual = {
+        codigo: row[1],
+        nome: row[2] || '',
+        recursos: [],
+        materiais: [],
+        dataInicio: null,
+        dataFim: null
+      };
+      wps.push(wpAtual);
+    }
+    else if (!row[1] && row[2]?.startsWith("A1 -") && !wpAtual) {
+      console.log("Encontrado workpackage A1 implícito");
+      wpAtual = {
+        codigo: "A1",
+        nome: row[2],
+        recursos: [],
+        materiais: [],
+        dataInicio: null,
+        dataFim: null
+      };
+      wps.push(wpAtual);
+    }
+    else if (wpAtual && row[3]) {
+      console.log("Processando recurso:", row[3]);
+      const recurso: Recurso = {
+        nome: row[3],
+        alocacoes: []
+      };
+
+      let dataInicio: Date | null = null;
+      
+      // Verificar cada coluna de alocação
+      for (const data of datas) {
+        const valor = row[data.indice];
+        if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor < 2) {
+          // Se encontramos uma alocação válida
+          if (!dataInicio) {
+            dataInicio = new Date(data.ano, data.mes - 1, 1); // Primeiro dia do mês
+            console.log(`Primeira alocação encontrada para ${row[3]}: ${data.mes}/${data.ano}`);
+          }
+
+          recurso.alocacoes.push({
+            mes: data.mes,
+            ano: data.ano,
+            percentagem: valor * 100
+          });
+        }
+      }
+
+      // Calcular a data de fim com base na duração do plano
+      let dataFim: Date | null = null;
+      if (dataInicio && typeof row[5] === 'number' && row[5] > 0) {
+        const duracao = row[5] - 1; // PLAN DURATION - 1
+        dataFim = new Date(dataInicio);
+        dataFim.setMonth(dataInicio.getMonth() + duracao);
+        dataFim.setDate(new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()); // Último dia do mês
+      }
+
+      if (recurso.alocacoes.length > 0) {
+        wpAtual.recursos.push(recurso);
+        
+        // Atualizar as datas do workpackage
+        if (!wpAtual.dataInicio || (dataInicio && dataInicio < wpAtual.dataInicio)) {
+          wpAtual.dataInicio = dataInicio;
+        }
+        
+        if (!wpAtual.dataFim || (dataFim && dataFim > wpAtual.dataFim)) {
+          wpAtual.dataFim = dataFim;
+        }
+        
+        console.log(`Data de Início WP: ${wpAtual.dataInicio?.toLocaleDateString('pt-PT')}, Data de Fim WP: ${wpAtual.dataFim?.toLocaleDateString('pt-PT')}`);
+      }
+    }
+  }
+
+  // Verificação final para garantir que nenhum workpackage tem datas inválidas
+  for (const wp of wps) {
+    if (!wp.dataInicio || wp.dataInicio.getFullYear() > 2100) {
+      console.warn(`Workpackage ${wp.codigo} tem data de início inválida: ${wp.dataInicio}`);
+      wp.dataInicio = dataInicioProjeto;
+    }
+    
+    if (!wp.dataFim || wp.dataFim.getFullYear() > 2100) {
+      console.warn(`Workpackage ${wp.codigo} tem data de fim inválida: ${wp.dataFim}`);
+      wp.dataFim = dataFimProjeto;
+    }
+  }
+
+  return { workpackages: wps, dataInicioProjeto, dataFimProjeto };
+}
+
+function atribuirMateriaisAosWorkpackages(
+  workpackages: WorkpackageSimples[],
+  materiais: Material[]
+): WorkpackageSimples[] {
+  const wpMap = new Map<string, WorkpackageSimples>();
+  workpackages.forEach(wp => {
+    wpMap.set(wp.nome, wp);
+    
+    const wpCodigo = wp.nome.split(' - ')[0]?.trim();
+    if (wpCodigo) {
+      wpMap.set(wpCodigo, wp);
+    }
+  });
+  
+  materiais.forEach(material => {
+    let wpMatch = wpMap.get(material.workpackageNome);
+    
+    if (!wpMatch) {
+      const codigoMatch = material.workpackageNome.match(/^A\d+/);
+      if (codigoMatch) {
+        wpMatch = workpackages.find(wp => wp.codigo === codigoMatch[0]) || null;
+      }
+    }
+    
+    if (wpMatch) {
+      wpMatch.materiais.push(material);
+    } else {
+      if (workpackages.length > 0) {
+        workpackages[0].materiais.push(material);
+      }
+    }
+  });
+  
+  return workpackages;
+}
+
+// Função Principal
 export default function ImportarProjetoButton() {
   const router = useRouter();
   const { dispatch } = useProjetoForm();
@@ -71,272 +307,55 @@ export default function ImportarProjetoButton() {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Função para extrair materiais do Excel - versão melhorada
-  const extrairMateriais = (data: any[][]): Material[] => {
-    const materiais: Material[] = [];
-    console.log("Iniciando extração de materiais de Outros_Budget, linhas totais:", data?.length);
-    
-    for (let i = 6; i < data.length; i++) {
-      const row = data[i];
-      if (!row || row.length === 0 || !row[0]) continue;
-      
-      const despesa = row[0];
-      const atividade = row[1];
-      const ano = row[3];
-      const rubrica = row[4];
-      const custoUnitario = row[5];
-      const unidades = row[6];
-      
-      // Log para debug
-      console.log(`Linha ${i}: Despesa=${despesa}, Atividade=${atividade}, Custo=${custoUnitario}, Qtd=${unidades}`);
-      
-      if (!despesa || !atividade) {
-        console.log(`Linha ${i} ignorada: Falta despesa ou atividade`);
-        continue;
-      }
-      
-      // Converter valores para número, independentemente do formato original
-      const precoNumerico = typeof custoUnitario === 'number' ? custoUnitario : 
-                          (typeof custoUnitario === 'string' ? parseFloat(custoUnitario) : 0);
-      
-      const qtdNumerica = typeof unidades === 'number' ? unidades : 
-                         (typeof unidades === 'string' ? parseFloat(unidades) : 1);
-      
-      // Verificar se a conversão resultou em valores válidos
-      if (isNaN(precoNumerico) || precoNumerico <= 0) {
-        console.log(`Linha ${i} ignorada: Preço inválido (${custoUnitario})`);
-        continue;
-      }
-      
-      // Ano de utilização (usar ano atual como default)
-      const anoNumerico = typeof ano === 'number' ? ano : 
-                        (typeof ano === 'string' ? parseInt(ano) : new Date().getFullYear());
-      
-      // Mapear rubrica com fallback
-      const rubricaMapeada = rubrica ? mapearRubrica(rubrica) : "MATERIAIS";
-      
-      materiais.push({
-        nome: despesa,
-        preco: precoNumerico,
-        quantidade: qtdNumerica || 1, // usar 1 como quantidade padrão se for 0 ou NaN
-        ano_utilizacao: anoNumerico,
-        rubrica: rubricaMapeada,
-        workpackageNome: atividade
-      });
-      
-      console.log(`Material adicionado: ${despesa} - ${precoNumerico}€ x ${qtdNumerica} (${rubricaMapeada})`);
-    }
-    
-    console.log(`Total de materiais extraídos: ${materiais.length}`);
-    return materiais;
-  };
-
-  // Função para extrair dados RH
-  const extrairDadosRH = (data: any[][]): WorkpackageSimples[] => {
-    const wps: WorkpackageSimples[] = [];
-    let wpAtual: WorkpackageSimples | null = null;
-
-    // Extrair anos e meses do cabeçalho
-    const anos = data[3]?.slice(6) || [];
-    const meses = data[4]?.slice(6) || [];
-
-    // Função para converter código Excel para data
-    const excelDateToJS = (excelDate: number) => {
-      const date = new Date((excelDate - 25569) * 86400 * 1000);
-      return {
-        mes: date.getMonth() + 1,
-        ano: date.getFullYear()
-      };
-    };
-
-    for (let i = 7; i < data.length; i++) {
-      const row = data[i];
-      if (!row || row.length === 0) continue;
-
-      if (row[1]?.match(/^A\d+$/)) {
-        console.log("Encontrado workpackage:", row[1], row[2]);
-        wpAtual = {
-          codigo: row[1],
-          nome: row[2] || '',
-          recursos: [],
-          materiais: []
-        };
-        wps.push(wpAtual);
-      }
-      else if (!row[1] && row[2]?.startsWith("A1 -") && !wpAtual) {
-        console.log("Encontrado workpackage A1 implícito");
-        wpAtual = {
-          codigo: "A1",
-          nome: row[2],
-          recursos: [],
-          materiais: []
-        };
-        wps.push(wpAtual);
-      }
-      else if (wpAtual && row[3]) {
-        console.log("Processando recurso:", row[3]);
-        const recurso: Recurso = {
-          nome: row[3],
-          alocacoes: []
-        };
-
-        for (let j = 6; j < 42; j++) {
-          const valor = row[j];
-          if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor < 2) {
-            const dataExcel = meses[j - 6];
-            const { mes, ano } = excelDateToJS(dataExcel);
-            
-            recurso.alocacoes.push({
-              mes,
-              ano,
-              percentagem: valor * 100
-            });
-          }
-        }
-
-        if (recurso.alocacoes.length > 0) {
-          wpAtual.recursos.push(recurso);
-        }
-      }
-    }
-
-    return wps;
-  };
-
-  // Função melhorada para atribuir materiais aos workpackages
-  const atribuirMateriaisAosWorkpackages = (
-    workpackages: WorkpackageSimples[],
-    materiais: Material[]
-  ): WorkpackageSimples[] => {
-    console.log(`Atribuindo ${materiais.length} materiais a ${workpackages.length} workpackages`);
-    
-    const wpMap = new Map<string, WorkpackageSimples>();
-    
-    // Mapear workpackages por nome e código para busca mais eficiente
-    workpackages.forEach(wp => {
-      // Mapear pelo nome completo
-      wpMap.set(wp.nome, wp);
-      
-      // Mapear pelo código (A1, A2, etc.)
-      wpMap.set(wp.codigo, wp);
-      
-      // Tentar extrair código do nome (A1 - Descrição)
-      const wpCodigo = wp.nome.split(' - ')[0]?.trim();
-      if (wpCodigo) {
-        wpMap.set(wpCodigo, wp);
-        
-        // Também mapear sem o "A" (apenas o número)
-        const codigoNumerico = wpCodigo.replace('A', '');
-        wpMap.set(codigoNumerico, wp);
-      }
-      
-      // Inicializar array de materiais se não existir
-      if (!wp.materiais) {
-        wp.materiais = [];
-      }
-      
-      console.log(`Workpackage mapeado: ${wp.codigo} - ${wp.nome}`);
-    });
-    
-    let atribuidos = 0;
-    let fallback = 0;
-    
-    materiais.forEach(material => {
-      console.log(`Tentando atribuir material: ${material.nome} à atividade: ${material.workpackageNome}`);
-      
-      // Tentativa 1: Procurar pelo nome completo da atividade
-      let wpMatch = wpMap.get(material.workpackageNome);
-      
-      // Tentativa 2: Procurar pelo código (A1, A2, etc.)
-      if (!wpMatch) {
-        const codigoMatch = material.workpackageNome.match(/^A?\d+/);
-        if (codigoMatch) {
-          const codigo = codigoMatch[0];
-          console.log(`Tentando match por código: ${codigo}`);
-          wpMatch = wpMap.get(codigo);
-        }
-      }
-      
-      // Tentativa 3: Procurar por correspondência parcial (se o nome do workpackage contém o código da atividade)
-      if (!wpMatch) {
-        for (const [key, wp] of wpMap.entries()) {
-          if (key.includes(material.workpackageNome) || material.workpackageNome.includes(key)) {
-            wpMatch = wp;
-            console.log(`Match parcial encontrado: ${key}`);
-            break;
-          }
-        }
-      }
-      
-      if (wpMatch) {
-        console.log(`Material atribuído ao workpackage: ${wpMatch.codigo}`);
-        wpMatch.materiais.push(material);
-        atribuidos++;
-      } else {
-        console.log(`Não foi possível atribuir: ${material.nome} - Usando fallback`);
-        
-        // Adicionar ao primeiro workpackage como fallback
-        if (workpackages.length > 0) {
-          workpackages[0].materiais.push(material);
-          fallback++;
-        }
-      }
-    });
-    
-    console.log(`Atribuição concluída: ${atribuidos} atribuídos diretamente, ${fallback} via fallback`);
-    
-    // Verificar quantidade de materiais por workpackage após atribuição
-    workpackages.forEach(wp => {
-      console.log(`Workpackage ${wp.codigo} tem ${wp.materiais.length} materiais`);
-    });
-    
-    return workpackages;
-  };
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
-    
     const reader = new FileReader();
     
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        
-        const sheetsData: {[key: string]: any[][]} = {};
-        const names = workbook.SheetNames;
-        
-        names.forEach(name => {
-          const sheet = workbook.Sheets[name];
-          sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        });
+        const sheetsData = converterExcelParaJson(workbook);
         
         let wps: WorkpackageSimples[] = [];
         let materiais: Material[] = [];
+        let dataInicioProjeto: Date | null = null;
+        let dataFimProjeto: Date | null = null;
         
         if (sheetsData['RH_Budget_SUBM']) {
-          wps = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
+          const resultado = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
+          wps = resultado.workpackages;
+          dataInicioProjeto = resultado.dataInicioProjeto;
+          dataFimProjeto = resultado.dataFimProjeto;
         }
         
         if (sheetsData['Outros_Budget']) {
-          console.log("Sheet Outros_Budget encontrada");
           materiais = extrairMateriais(sheetsData['Outros_Budget']);
-        } else {
-          console.warn("Sheet Outros_Budget NÃO encontrada!");
         }
         
         if (wps.length > 0 && materiais.length > 0) {
-          console.log(`Atribuindo ${materiais.length} materiais a ${wps.length} workpackages`);
           wps = atribuirMateriaisAosWorkpackages(wps, materiais);
         }
         
-        // Resetar o estado atual
+        console.log(`Projeto: Início ${dataInicioProjeto?.toLocaleDateString('pt-PT')}, Fim ${dataFimProjeto?.toLocaleDateString('pt-PT')}`);
+        
+        // Atualizar o estado do projeto com as datas
         dispatch({ type: "RESET" });
         
-        // Importar workpackages e recursos
+        if (dataInicioProjeto && dataFimProjeto) {
+          dispatch({
+            type: "UPDATE_PROJETO",
+            data: {
+              inicio: dataInicioProjeto,
+              fim: dataFimProjeto
+            }
+          });
+        }
+        
+        // Agora, ao adicionar os workpackages, incluir as datas calculadas
         wps.forEach(wp => {
           const wpId = generateUUID();
           
@@ -346,8 +365,8 @@ export default function ImportarProjetoButton() {
               id: wpId,
               nome: wp.nome,
               descricao: null,
-              inicio: null,
-              fim: null,
+              inicio: wp.dataInicio,
+              fim: wp.dataFim,
               estado: false,
               tarefas: [],
               materiais: [],
@@ -355,11 +374,10 @@ export default function ImportarProjetoButton() {
             }
           });
           
-          // Importar recursos
+          // Adicionar recursos e alocações
           wp.recursos.forEach(recurso => {
             recurso.alocacoes.forEach(alocacao => {
-              // Este ID precisa ser substituído por um ID real em produção
-              const userId = "1"; 
+              const userId = "1";
               
               dispatch({
                 type: "ADD_ALOCACAO",
@@ -368,35 +386,29 @@ export default function ImportarProjetoButton() {
                   userId,
                   mes: alocacao.mes,
                   ano: alocacao.ano,
-                  ocupacao: new Decimal(alocacao.percentagem / 100)
+                  ocupacao: new Decimal(alocacao.percentagem / 100),
+                  workpackageId: wpId
                 }
               });
             });
           });
           
-          // Importar materiais
-          if (wp.materiais && wp.materiais.length > 0) {
-            console.log(`Importando ${wp.materiais.length} materiais para workpackage ${wp.nome}`);
-            
-            wp.materiais.forEach(material => {
-              const materialId = Math.floor(Math.random() * 1000000);
-              console.log(`Despachando material: ${material.nome}, ${material.preco}€ x ${material.quantidade}`);
-              
-              dispatch({
-                type: "ADD_MATERIAL",
-                workpackageId: wpId,
-                material: {
-                  id: materialId,
-                  nome: material.nome,
-                  preco: new Decimal(material.preco),
-                  quantidade: material.quantidade,
-                  ano_utilizacao: material.ano_utilizacao,
-                  rubrica: material.rubrica,
-                  workpackageId: wpId
-                }
-              });
+          // Adicionar materiais
+          wp.materiais.forEach(material => {
+            dispatch({
+              type: "ADD_MATERIAL",
+              workpackageId: wpId,
+              material: {
+                id: Math.floor(Math.random() * 1000000),
+                nome: material.nome,
+                preco: new Decimal(material.preco),
+                quantidade: material.quantidade,
+                ano_utilizacao: material.ano_utilizacao,
+                rubrica: material.rubrica,
+                workpackageId: wpId
+              }
             });
-          }
+          });
         });
         
         toast.success("Dados importados com sucesso!");

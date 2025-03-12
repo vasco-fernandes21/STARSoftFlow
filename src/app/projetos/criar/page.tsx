@@ -17,7 +17,6 @@ import { generateUUID } from "@/server/api/utils/token";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
-import TestButton from "@/components/projetos/TestButton";
 import StateMonitor from "@/components/projetos/StateMonitor";
 
 import { 
@@ -784,17 +783,15 @@ function ProjetoFormContent() {
               transform
               ${mostrarCronograma 
                 ? "opacity-100 translate-x-0 w-2/5" 
-                : "opacity-0 translate-x-full w-0 overflow-hidden"
+                : "opacity-0 translate-x-full w-0 overflow-hidden max-w-[50vw]"
               }
             `}
           >
-            <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-2xl">
               <ProjetoCronograma
-                state={state}
-                handleUpdateWorkPackage={handleUpdateWorkPackage}
-                handleUpdateTarefa={handleUpdateTarefa}
+              state={state}
+              handleUpdateWorkPackage={handleUpdateWorkPackage}
+              handleUpdateTarefa={handleUpdateTarefa}
               />
-            </div>
           </div>
         </div>
       </div>
@@ -817,7 +814,6 @@ export default function CriarProjetoPage() {
           {/* Botão de importar Excel */}
           <div className="flex-shrink-0 mt-4 md:mt-0 space-x-2">
             <ImportarProjetoButton />
-            <TestButton />
           </div>
         </div>
 

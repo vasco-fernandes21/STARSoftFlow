@@ -129,6 +129,8 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
           initialData={convertToFormData(editingWorkpackage)}
           onSubmit={(data) => handleUpdateWorkpackage(editingWorkpackage.id, data)}
           onCancel={() => setEditingWorkpackage(null)}
+          projetoInicio={projeto.inicio || undefined}
+          projetoFim={projeto.fim || undefined}
         />
       )}
 
@@ -153,10 +155,12 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                 workpackages.map(wp => (
                   <WorkpackageItem
                     key={wp.id}
-                    workpackage={wp}
+                    workpackage={wp}  
                     onEdit={handleEditWorkpackage}
                     onDelete={handleDeleteWorkpackage}
                     handlers={handlers}
+                    projetoInicio={wp.inicio || new Date()}
+                    projetoFim={wp.fim || new Date()}
                   />
                 ))
               ) : (

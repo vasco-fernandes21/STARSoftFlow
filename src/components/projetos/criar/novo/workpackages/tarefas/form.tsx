@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Clock, X, Save } from "lucide-react";
+import { Clock, X, Save, Calendar } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { toast } from "sonner";
 import { TarefaWithRelations } from "../../../types";
@@ -30,8 +30,8 @@ export function TarefaForm({
   const [formData, setFormData] = useState({
     nome: initialData?.nome || '',
     descricao: initialData?.descricao || '',
-    inicio: initialData?.inicio ? new Date(initialData.inicio) : new Date(),
-    fim: initialData?.fim ? new Date(initialData.fim) : new Date(),
+    inicio: initialData?.inicio ? new Date(initialData.inicio) : workpackageInicio || new Date(),
+    fim: initialData?.fim ? new Date(initialData.fim) : workpackageFim || new Date(),
   });
 
   const handleSubmit = () => {
@@ -66,42 +66,45 @@ export function TarefaForm({
   };
 
   return (
-    <Card className="p-4 border border-azul/10 shadow-sm bg-white/70 backdrop-blur-sm mt-2">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
-          <Clock className="h-4 w-4 text-azul" />
+    <Card className="p-3 border border-azul/10 shadow-sm bg-white/70 backdrop-blur-sm mt-2">
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center">
+          <Clock className="h-3.5 w-3.5 text-azul" />
         </div>
-        <h4 className="text-base font-medium text-azul">
+        <h4 className="text-sm font-medium text-azul">
           {initialData?.id ? "Editar Tarefa" : "Nova Tarefa"}
         </h4>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         <div>
-          <Label htmlFor="nome-tarefa" className="text-azul/80 text-sm">Nome da Tarefa</Label>
+          <Label htmlFor="nome-tarefa" className="text-azul/80 text-xs">Nome da Tarefa</Label>
           <Input
             id="nome-tarefa"
             placeholder="Ex: Desenvolvimento do Frontend"
             value={formData.nome}
             onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-            className="mt-1"
+            className="mt-1 h-8 text-sm"
           />
         </div>
         
         <div>
-          <Label htmlFor="descricao-tarefa" className="text-azul/80 text-sm">Descrição</Label>
+          <Label htmlFor="descricao-tarefa" className="text-azul/80 text-xs">Descrição</Label>
           <Textarea
             id="descricao-tarefa"
             placeholder="Descreva a tarefa..."
             value={formData.descricao || ""}
             onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-            className="mt-1 min-h-[60px]"
+            className="mt-1 min-h-[50px] text-sm"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="data-inicio" className="text-azul/80 text-sm">Data de Início</Label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Calendar className="h-3 w-3 text-azul/60" />
+              <Label htmlFor="data-inicio" className="text-azul/80 text-xs">Data de Início</Label>
+            </div>
             <DatePicker
               value={formData.inicio}
               onChange={(date) => date && setFormData({ ...formData, inicio: date })}
@@ -110,7 +113,10 @@ export function TarefaForm({
             />
           </div>
           <div>
-            <Label htmlFor="data-fim" className="text-azul/80 text-sm">Data de Fim</Label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Calendar className="h-3 w-3 text-azul/60" />
+              <Label htmlFor="data-fim" className="text-azul/80 text-xs">Data de Fim</Label>
+            </div>
             <DatePicker
               value={formData.fim}
               onChange={(date) => date && setFormData({ ...formData, fim: date })}
@@ -120,20 +126,20 @@ export function TarefaForm({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-2">
+        <div className="flex justify-end gap-2 mt-1.5">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={onCancel}
-            className="text-gray-500 hover:text-gray-700"
+            className="h-7 text-xs border-azul/20 text-azul/70 hover:bg-azul/5"
           >
-            <X className="h-4 w-4 mr-2" />
+            <X className="h-3 w-3 mr-1.5" />
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
-            className="bg-azul hover:bg-azul/90 text-white"
+            className="h-7 text-xs bg-azul hover:bg-azul/90 text-white"
           >
-            <Save className="h-4 w-4 mr-2" />
+            <Save className="h-3 w-3 mr-1.5" />
             Guardar
           </Button>
         </div>

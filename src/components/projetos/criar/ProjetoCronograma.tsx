@@ -3,24 +3,29 @@ import { Cronograma } from "@/components/projetos/Cronograma";
 import { useProjetoForm } from "./ProjetoFormContext";
 
 interface ProjetoCronogramaProps {
-  state: any;
   handleUpdateWorkPackage: (workpackage: any) => void;
   handleUpdateTarefa: (tarefa: any) => void;
+  state?: any; 
+  height?: string | number;
 }
 
 export function ProjetoCronograma({
   handleUpdateWorkPackage,
-  handleUpdateTarefa
+  handleUpdateTarefa,
+  state: externalState,
+  height = "100%"
 }: ProjetoCronogramaProps) {
   
-  const { state } = useProjetoForm();
+  // Use external state if provided, otherwise use context
+  const contextState = useProjetoForm().state;
+  const state = externalState || contextState;
 
   const renderCronograma = () => {
     try {
       // Se não tiver dados suficientes, mostrar mensagem
       if (!state.inicio || !state.fim || !state.workpackages || state.workpackages.length === 0) {
         return (
-          <div className="h-full flex flex-col items-center justify-center p-5 text-azul/70">
+          <div className="flex flex-col items-center justify-center h-full p-5 text-azul/70">
             <Calendar className="h-16 w-16 mb-4 text-azul/30" />
             <h3 className="text-lg font-medium mb-2">Ainda não há dados suficientes</h3>
             <p className="text-sm text-center max-w-sm">
@@ -72,7 +77,7 @@ export function ProjetoCronograma({
     } catch (error) {
       console.error("Erro ao renderizar cronograma:", error);
       return (
-        <div className="h-full flex flex-col items-center justify-center p-5 text-azul/70">
+        <div className="flex flex-col items-center justify-center h-full p-5 text-azul/70">
           <h3 className="text-lg font-medium mb-2">Não foi possível carregar o cronograma</h3>
           <p className="text-sm text-center max-w-sm">
             Ocorreu um erro ao tentar exibir o cronograma. Tente novamente mais tarde.
@@ -83,16 +88,25 @@ export function ProjetoCronograma({
   };
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden h-full">
-      <div className="px-6 py-4 border-b border-gray-100">
+    <div 
+      className="bg-white rounded-2xl overflow-hidden flex flex-col w-full" 
+      style={{ 
+        maxWidth: "100%", 
+        height: height
+      }}
+    >
+      <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-azul" />
           <h2 className="text-base font-medium text-gray-900">Cronograma</h2>
         </div>
       </div>
       
-      <div className="p-2 h-[calc(100vh-14rem)]">
-        {renderCronograma()}
+      <div className="p-2 flex-grow overflow-hidden">
+        {/* Adding a fixed-width wrapper to constrain the timeline content */}
+        <div className="h-full w-full relative overflow-auto max-w-[50vw]">
+          {renderCronograma()}
+        </div>
       </div>
     </div>
   );

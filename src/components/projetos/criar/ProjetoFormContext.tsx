@@ -46,7 +46,8 @@ type Action =
   | { type: "RESET" }
   | { type: "ADD_ALOCACAO"; workpackageId: string; alocacao: Omit<AlocacaoRecurso, "workpackage" | "user"> }
   | { type: "UPDATE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number; data: Partial<Omit<AlocacaoRecurso, "workpackage" | "user">> }
-  | { type: "REMOVE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number };
+  | { type: "REMOVE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number }
+  | { type: "REMOVE_RECURSO_COMPLETO"; workpackageId: string; userId: string };
 
 function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
   switch (action.type) {
@@ -56,7 +57,14 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
     case "ADD_WORKPACKAGE":
       return {
         ...state,
-        workpackages: [...state.workpackages, action.workpackage]
+        workpackages: [
+          ...state.workpackages,
+          {
+            ...action.workpackage,
+            inicio: action.workpackage.inicio,
+            fim: action.workpackage.fim
+          }
+        ]
       };
 
     case "UPDATE_WORKPACKAGE":
@@ -202,6 +210,21 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
                 ...wp,
                 recursos: wp.recursos?.filter(
                   r => !(r.userId === action.userId && r.mes === action.mes && r.ano === action.ano)
+                ) || []
+              }
+            : wp
+        )
+      };
+
+    case "REMOVE_RECURSO_COMPLETO":
+      return {
+        ...state,
+        workpackages: state.workpackages.map(wp =>
+          wp.id === action.workpackageId
+            ? {
+                ...wp,
+                recursos: wp.recursos?.filter(
+                  r => r.userId !== action.userId
                 ) || []
               }
             : wp

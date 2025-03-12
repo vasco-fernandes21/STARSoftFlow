@@ -29,16 +29,6 @@ export function EntregavelForm({
     data: new Date()
   });
 
-  // Converter string para Date se necessário
-  const getDateValue = (dateValue: string | Date | null | undefined): Date | undefined => {
-    if (!dateValue) return undefined;
-    return dateValue instanceof Date ? dateValue : new Date(dateValue);
-  };
-
-  // Obter as datas da tarefa para definir os limites
-  const tarefaInicio = tarefaDates.inicio;
-  const tarefaFim = tarefaDates.fim;
-
   const handleSubmit = () => {
     if (!formData.nome) {
       toast.error("O nome do entregável é obrigatório");
@@ -46,12 +36,12 @@ export function EntregavelForm({
     }
 
     // Verificar se a data está dentro do período da tarefa
-    if (formData.data < tarefaInicio) {
+    if (formData.data < tarefaDates.inicio) {
       toast.error("A data do entregável não pode ser anterior à data de início da tarefa");
       return;
     }
 
-    if (formData.data > tarefaFim) {
+    if (formData.data > tarefaDates.fim) {
       toast.error("A data do entregável não pode ser posterior à data de fim da tarefa");
       return;
     }
@@ -87,11 +77,10 @@ export function EntregavelForm({
         <div>
           <Label htmlFor="data-entrega" className="text-azul/80 text-sm">Data de Entrega</Label>
           <DatePicker
-            value={formData.data}
+            value={formData.data || tarefaDates.fim}
             onChange={(date: Date | undefined) => date && setFormData({ ...formData, data: date })}
-            minDate={tarefaInicio}
-            maxDate={tarefaFim}
-            showValidationMessage={true}
+            minDate={tarefaDates.inicio}
+            maxDate={tarefaDates.fim}
           />
         </div>
 
