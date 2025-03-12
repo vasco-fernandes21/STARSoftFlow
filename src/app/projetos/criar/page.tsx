@@ -21,7 +21,7 @@ import {
   WorkpackagesTab,
   RecursosTab,
   ResumoTab 
-} from "@/components/projetos/criar/tabs";
+} from "@/components/projetos/criar/novo";
 import { TarefaWithRelations } from "@/components/projetos/criar/types";
 
 // Tipo para workpackage com todas as relações

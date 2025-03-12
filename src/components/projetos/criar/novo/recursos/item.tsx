@@ -5,15 +5,7 @@ import { toast } from "sonner";
 import { gerarMesesEntreDatas } from "@/server/api/utils";
 import { Decimal } from "decimal.js";
 
-// Simulação de dados - em um cenário real, viriam da API
-const MEMBROS_EQUIPA = [
-  { id: "1", name: "Ana Silva", email: "ana.silva@exemplo.pt", regime: "INTEGRAL" },
-  { id: "2", name: "João Santos", email: "joao.santos@exemplo.pt", regime: "PARCIAL" },
-  { id: "3", name: "Maria Oliveira", email: "maria.oliveira@exemplo.pt", regime: "INTEGRAL" },
-  { id: "4", name: "Ricardo Ferreira", email: "ricardo.ferreira@exemplo.pt", regime: "PARCIAL" },
-];
-
-interface RecursoItemProps {
+interface ItemProps {
   workpackageId: string;
   recurso: {
     userId: string;
@@ -25,18 +17,24 @@ interface RecursoItemProps {
   };
   inicio: Date;
   fim: Date;
+  utilizador: {
+    id: string;
+    name: string;
+    email: string;
+    regime: string;
+  } | undefined;
   onRemoveAlocacao: (workpackageId: string, userId: string, mes: number, ano: number) => void;
 }
 
-export function RecursoItem({ 
+export function Item({ 
   workpackageId, 
   recurso, 
   inicio, 
   fim, 
+  utilizador,
   onRemoveAlocacao 
-}: RecursoItemProps) {
+}: ItemProps) {
   const { userId, alocacoes } = recurso;
-  const user = MEMBROS_EQUIPA.find(u => u.id === userId);
   const mesesEntreDatas = gerarMesesEntreDatas(inicio, fim);
   
   // Converter alocações para um objeto indexado por chave de mês para facilitar acesso
@@ -55,7 +53,7 @@ export function RecursoItem({
           </div>
           <div>
             <span className="font-medium text-azul block">
-              {user?.name || "Utilizador não encontrado"}
+              {utilizador?.name || "Utilizador não encontrado"}
             </span>
             <span className="text-xs text-azul/60">
               {Object.keys(alocacoesPorMes).length} meses alocados
@@ -128,4 +126,4 @@ export function RecursoItem({
       </div>
     </div>
   );
-}
+} 
