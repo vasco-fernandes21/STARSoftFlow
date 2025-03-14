@@ -56,7 +56,7 @@ export const createProjetoCompletoSchema = z.object({
   inicio: z.date().optional(),
   fim: z.date().optional(),
   estado: z.nativeEnum(ProjetoEstado).optional().default(ProjetoEstado.RASCUNHO),
-  financiamento: z.number().optional(),
+  financiamentoId: z.number().optional(),
   overhead: z.number().min(0).max(100).default(0),
   taxa_financiamento: z.number().min(0).max(100).default(0),
   valor_eti: z.number().min(0).default(0),
@@ -423,7 +423,7 @@ export const projetoRouter = createTRPCRouter({
       inicio: z.date().optional(),
       fim: z.date().optional(),
       estado: z.nativeEnum(ProjetoEstado).optional().default(ProjetoEstado.RASCUNHO),
-      financiamento: z.number().optional(),
+      financiamentoId: z.number().optional(),
       overhead: z.number().min(0).max(100).default(0),
       taxa_financiamento: z.number().min(0).max(100).default(0),
       valor_eti: z.number().min(0).default(0),
@@ -544,10 +544,8 @@ export const projetoRouter = createTRPCRouter({
             overhead: input.overhead,
             taxa_financiamento: input.taxa_financiamento,
             valor_eti: input.valor_eti,
-            ...(input.financiamento ? {
-              financiamento: {
-                connect: { id: input.financiamento }
-              }
+            ...(input.financiamentoId ? {
+              financiamentoId: input.financiamentoId
             } : {}),
             workpackages: {
               create: input.workpackages.map(wp => ({
@@ -604,6 +602,7 @@ export const projetoRouter = createTRPCRouter({
           data: projeto
         };
       } catch (error) {
+        console.error("Erro ao criar projeto completo:", error);
         if (error instanceof TRPCError) {
           throw error;
         }

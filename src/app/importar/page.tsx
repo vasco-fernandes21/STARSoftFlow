@@ -12,9 +12,10 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { User, Calendar, Percent, Users, BarChart2, Package, Briefcase, DollarSign } from "lucide-react";
 import { Decimal } from "decimal.js";
-import { Rubrica } from "@prisma/client";
+import { Rubrica, type Material as PrismaMaterial, type Workpackage as PrismaWorkpackage, type AlocacaoRecurso as PrismaAlocacaoRecurso } from "@prisma/client";
 import { toast } from "sonner";
 
+// Interfaces baseadas nos tipos do Prisma
 interface Alocacao {
   mes: number;
   ano: number;
@@ -26,20 +27,17 @@ interface Recurso {
   alocacoes: Alocacao[];
 }
 
-interface Material {
-  nome: string;
+// Modificar o tipo para usar number em vez de Decimal durante a importação
+type MaterialImportacao = Omit<PrismaMaterial, 'preco'> & {
   preco: number;
-  quantidade: number;
-  ano_utilizacao: number;
-  rubrica: Rubrica;
   workpackageNome: string;
-}
+};
 
 interface WorkpackageSimples {
   codigo: string;
   nome: string;
   recursos: Recurso[];
-  materiais: Material[];
+  materiais: MaterialImportacao[];
   dataInicio: Date | null;
   dataFim: Date | null;
 }
@@ -91,8 +89,8 @@ function ImportarExcelContent() {
     fileInputRef.current?.click();
   };
 
-  const extrairMateriais = (data: any[][]): Material[] => {
-    const materiais: Material[] = [];
+  const extrairMateriais = (data: any[][]): MaterialImportacao[] => {
+    const materiais: MaterialImportacao[] = [];
     
     for (let i = 6; i < data.length; i++) {
       const row = data[i];
@@ -109,11 +107,13 @@ function ImportarExcelContent() {
       
       if (typeof custoUnitario === 'number' && typeof unidades === 'number') {
         materiais.push({
+          id: Math.floor(Math.random() * 1000000), // Adicionar id que é obrigatório
           nome: despesa,
-          preco: custoUnitario,
+          preco: custoUnitario, // Agora é number, não Decimal
           quantidade: unidades,
           ano_utilizacao: typeof ano === 'number' ? ano : new Date().getFullYear(),
           rubrica: mapearRubrica(rubrica),
+          workpackageId: null, // Adicionar workpackageId que é obrigatório
           workpackageNome: atividade
         });
       }
@@ -122,9 +122,9 @@ function ImportarExcelContent() {
     return materiais;
   };
 
-  const extrairDadosRH = (data: any[][]): WorkpackageSimples[] => {
+  const extrairDadosRH = (data: any[][]): { workpackages: WorkpackageSimples[], dataInicioProjeto: Date | null, dataFimProjeto: Date | null } => {
     const wps: WorkpackageSimples[] = [];
-    let wpAtual: WorkpackageSimples | null = null;
+    let wpAtual: WorkpackageSimples | undefined = undefined;
 
     const anos = data[3]?.slice(6) || [];
     const meses = data[4]?.slice(6) || [];
@@ -182,17 +182,19 @@ function ImportarExcelContent() {
           const valor = row[j];
           if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor < 2) {
             const dataExcel = meses[j - 6];
-            const { mes, ano } = excelDateToJS(dataExcel);
+            if (dataExcel && typeof dataExcel === 'number') {
+              const { mes, ano } = excelDateToJS(dataExcel);
 
-            if (!dataInicio) {
-              dataInicio = new Date(ano, mes - 1, 1); // Primeiro dia do mês
+              if (!dataInicio) {
+                dataInicio = new Date(ano, mes - 1, 1); // Primeiro dia do mês
+              }
+
+              recurso.alocacoes.push({
+                mes,
+                ano,
+                percentagem: valor * 100
+              });
             }
-
-            recurso.alocacoes.push({
-              mes,
-              ano,
-              percentagem: valor * 100
-            });
           }
         }
 
@@ -210,7 +212,7 @@ function ImportarExcelContent() {
           console.log(`Data de Início: ${dataInicio?.toLocaleDateString('pt-PT')}, Data de Fim: ${dataFim?.toLocaleDateString('pt-PT')}`);
 
           // Atualizar datas de início e fim do projeto
-          if (!dataInicioProjeto || dataInicio && dataInicio < dataInicioProjeto) {
+          if (!dataInicioProjeto || (dataInicio && dataInicio < dataInicioProjeto)) {
             dataInicioProjeto = dataInicio;
           }
           if (!dataFimProjeto || (dataFim && dataFim > dataFimProjeto)) {
@@ -231,12 +233,12 @@ function ImportarExcelContent() {
       });
     }
 
-    return wps;
+    return { workpackages: wps, dataInicioProjeto, dataFimProjeto };
   };
 
   const atribuirMateriaisAosWorkpackages = (
     workpackages: WorkpackageSimples[],
-    materiais: Material[]
+    materiais: MaterialImportacao[]
   ): WorkpackageSimples[] => {
     const wpMap = new Map<string, WorkpackageSimples>();
     workpackages.forEach(wp => {
@@ -254,7 +256,7 @@ function ImportarExcelContent() {
       if (!wpMatch) {
         const codigoMatch = material.workpackageNome.match(/^A\d+/);
         if (codigoMatch) {
-          wpMatch = workpackages.find(wp => wp.codigo === codigoMatch[0]) || null;
+          wpMatch = workpackages.find(wp => wp.codigo === codigoMatch[0]) || undefined;
         }
       }
       
@@ -295,14 +297,17 @@ function ImportarExcelContent() {
         names.forEach(name => {
           console.log(`Processando sheet: ${name}`);
           const sheet = workbook.Sheets[name];
-          sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          if (sheet) {
+            sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          }
         });
         
         let wps: WorkpackageSimples[] = [];
-        let materiais: Material[] = [];
+        let materiais: MaterialImportacao[] = [];
         
         if (sheetsData['RH_Budget_SUBM']) {
-          wps = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
+          const { workpackages: wpsFromRH, dataInicioProjeto, dataFimProjeto } = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
+          wps = wpsFromRH;
         }
         
         if (sheetsData['Outros_Budget']) {
@@ -336,6 +341,9 @@ function ImportarExcelContent() {
     workpackages.forEach(wp => {
       const wpId = crypto.randomUUID();
       
+      // Verificar se state.id existe e fornecer um valor padrão se não existir
+      const projetoId = state.id || crypto.randomUUID();
+      
       dispatch({
         type: "ADD_WORKPACKAGE",
         workpackage: {
@@ -345,6 +353,7 @@ function ImportarExcelContent() {
           inicio: wp.dataInicio,
           fim: wp.dataFim,
           estado: false,
+          projetoId: projetoId,
           tarefas: [],
           materiais: [],
           recursos: []
@@ -362,7 +371,8 @@ function ImportarExcelContent() {
               userId,
               mes: alocacao.mes,
               ano: alocacao.ano,
-              ocupacao: new Decimal(alocacao.percentagem / 100)
+              ocupacao: new Decimal(alocacao.percentagem / 100),
+              workpackageId: wpId
             }
           });
         });
@@ -375,7 +385,7 @@ function ImportarExcelContent() {
           material: {
             id: Math.floor(Math.random() * 1000000),
             nome: material.nome,
-            preco: new Decimal(material.preco),
+            preco: new Decimal(material.preco), // Converter para Decimal
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
             rubrica: material.rubrica,

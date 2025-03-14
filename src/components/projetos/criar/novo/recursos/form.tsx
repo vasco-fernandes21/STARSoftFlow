@@ -9,6 +9,7 @@ import { Decimal } from "decimal.js";
 import { ChevronLeft, ChevronRight, Calendar, User, Percent, Save, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { gerarMesesEntreDatas } from "@/server/api/utils";
 
 interface FormProps {
   workpackageId: string;
@@ -38,30 +39,6 @@ type NovaAlocacao = {
   ano: number;
   ocupacao: number;
 };
-
-// Função auxiliar para gerar meses entre datas
-function gerarMesesEntreDatas(dataInicio: Date, dataFim: Date) {
-  const meses = [];
-  const dataAtual = new Date(dataInicio);
-  dataAtual.setDate(1);
-
-  while (dataAtual <= dataFim) {
-    const mesNumero = dataAtual.getMonth() + 1;
-    const ano = dataAtual.getFullYear();
-    
-    meses.push({
-      chave: `${mesNumero}-${ano}`,
-      nome: format(dataAtual, 'MMMM', { locale: pt }),
-      mesNumero,
-      ano,
-      formatado: format(dataAtual, 'MMM/yyyy', { locale: pt })
-    });
-    
-    dataAtual.setMonth(dataAtual.getMonth() + 1);
-  }
-  
-  return meses;
-}
 
 // Função para converter valor para número
 function parseValorOcupacao(valor: string): number {

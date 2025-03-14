@@ -742,7 +742,7 @@ function ProjetoFormContent() {
     <div className="flex flex-col md:flex-row gap-6 justify-between">
       <div className="space-y-4 flex-1">
         {/* Layout flexível para formulário e cronograma */}
-        <div className="flex gap-8 relative">
+        <div className="flex relative">
           {/* Conteúdo principal */}
           <div 
             className={`
@@ -782,9 +782,8 @@ function ProjetoFormContent() {
               transition-all duration-500 ease-in-out
               transform
               ${mostrarCronograma 
-                ? "opacity-100 translate-x-0 w-2/5" 
-                : "opacity-0 translate-x-full w-0 overflow-hidden max-w-[50vw]"
-              }
+                ? "opacity-100 translate-x-0 w-2/5 pl-8" 
+                : "opacity-0 translate-x-full w-0 overflow-hidden max-w-[50vw] p-0"}
             `}
           >
               <ProjetoCronograma
@@ -822,4 +821,4 @@ export default function CriarProjetoPage() {
       </div>
     </div>
   );
-} 
+}

@@ -189,12 +189,23 @@ export const utilizadorRouter = createTRPCRouter({
                 mes: true,
                 ano: true,
                 ocupacao: true
-              }
+              },
+              orderBy: [
+                { ano: 'asc' },
+                { mes: 'asc' }
+              ]
             }
           }
         });
 
-        return users;
+        return users.map(user => ({
+          ...user,
+          alocacoes: user.workpackages.map(wp => ({
+            mes: wp.mes,
+            ano: wp.ano,
+            ocupacao: wp.ocupacao
+          }))
+        }));
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

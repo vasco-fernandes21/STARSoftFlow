@@ -18,11 +18,12 @@ import { useRouter } from "next/navigation";
 import { useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
 import * as XLSX from 'xlsx';
 import { Decimal } from "decimal.js";
-import { Rubrica } from "@prisma/client";
+import { Rubrica, type Material as PrismaMaterial, type Workpackage as PrismaWorkpackage } from "@prisma/client";
 import { toast } from "sonner";
 import { generateUUID } from "@/server/api/utils/token";
+import { api } from "@/trpc/react";
 
-// Interfaces necessárias
+// Interfaces necessárias - agora baseadas nos tipos do Prisma
 interface Alocacao {
   mes: number;
   ano: number;
@@ -31,23 +32,21 @@ interface Alocacao {
 
 interface Recurso {
   nome: string;
+  userId: string | null;
   alocacoes: Alocacao[];
 }
 
-interface Material {
-  nome: string;
-  preco: number;
-  quantidade: number;
-  ano_utilizacao: number;
-  rubrica: Rubrica;
+// Usar o tipo do Prisma como base e estender conforme necessário
+type MaterialImportacao = Pick<PrismaMaterial, 'nome' | 'preco' | 'quantidade' | 'ano_utilizacao' | 'rubrica'> & {
   workpackageNome: string;
-}
+};
 
+// Usar o tipo do Prisma como base e estender conforme necessário
 interface WorkpackageSimples {
   codigo: string;
   nome: string;
   recursos: Recurso[];
-  materiais: Material[];
+  materiais: MaterialImportacao[];
   dataInicio: Date | null;
   dataFim: Date | null;
 }
@@ -86,8 +85,8 @@ function converterExcelParaJson(workbook: XLSX.WorkBook): {[key: string]: any[][
 }
 
 // Funções de Processamento de Dados
-function extrairMateriais(data: any[][]): Material[] {
-  const materiais: Material[] = [];
+function extrairMateriais(data: any[][]): MaterialImportacao[] {
+  const materiais: MaterialImportacao[] = [];
   
   for (let i = 6; i < data.length; i++) {
     const row = data[i];
@@ -117,75 +116,95 @@ function extrairMateriais(data: any[][]): Material[] {
   return materiais;
 }
 
-function extrairDadosRH(data: any[][]): { workpackages: WorkpackageSimples[], dataInicioProjeto: Date | null, dataFimProjeto: Date | null } {
+// Função auxiliar para extrair utilizadores da resposta da API
+function extrairUtilizadores(apiResponse: any): any[] {
+  if (!apiResponse) return [];
+  
+  // Novo formato aninhado
+  if (apiResponse.result?.data?.json?.items && Array.isArray(apiResponse.result.data.json.items)) {
+    return apiResponse.result.data.json.items;
+  }
+  
+  // Formato direto
+  if (apiResponse.items && Array.isArray(apiResponse.items)) {
+    return apiResponse.items;
+  }
+  
+  // Compatibilidade com o formato json aninhado
+  if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
+    return apiResponse.json.items;
+  }
+  
+  if (apiResponse.json && Array.isArray(apiResponse.json)) {
+    return apiResponse.json;
+  }
+  
+  if (Array.isArray(apiResponse)) {
+    return apiResponse;
+  }
+  
+  return [];
+}
+
+// Modificar a função extrairDadosRH para melhor deteção de workpackages
+function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackages: WorkpackageSimples[], dataInicioProjeto: Date | null, dataFimProjeto: Date | null } {
   const wps: WorkpackageSimples[] = [];
   let wpAtual: WorkpackageSimples | null = null;
 
-  const anos = data[3]?.slice(6) || [];
-  const meses = data[4]?.slice(6) || [];
+  console.log("Utilizadores disponíveis:", utilizadores.map(u => `${u.name} (ID: ${u.id})`));
+
+  // Identificar as linhas de cabeçalho (anos e meses)
+  const linhaAnos = data[3] || [];
+  const linhaMeses = data[4] || [];
+  const linhaColunas = data[5] || []; // Linha com os números das colunas (1, 2, 3, etc.)
 
   // Determinar a primeira e última data diretamente dos cabeçalhos
   let dataInicioProjeto: Date | null = null;
   let dataFimProjeto: Date | null = null;
 
-  // Encontrar a primeira data válida
-  for (let i = 0; i < meses.length; i++) {
-    if (meses[i] && typeof meses[i] === 'number') {
-      const { mes, ano } = excelDateToJS(meses[i]);
-      dataInicioProjeto = new Date(ano, mes - 1, 1);
-      console.log(`Primeira data do projeto (do cabeçalho): ${mes}/${ano}`);
-      break;
+  // Mapear as colunas de alocação
+  const colunasDatas: { coluna: number; mes: number; ano: number }[] = [];
+  
+  // Começar da coluna 6 (índice 6) que é onde começam os dados de alocação
+  for (let i = 6; i < linhaMeses.length; i++) {
+    if (linhaAnos[i] && typeof linhaAnos[i] === 'number' && 
+        linhaMeses[i] && typeof linhaMeses[i] === 'number') {
+      
+      // Converter o valor do Excel para data
+      const { mes, ano } = excelDateToJS(linhaMeses[i]);
+      
+      // Verificar se o ano corresponde ao cabeçalho
+      if (ano === linhaAnos[i]) {
+        colunasDatas.push({ 
+          coluna: i, 
+          mes, 
+          ano 
+        });
+        
+        // Atualizar datas do projeto
+        if (!dataInicioProjeto || (new Date(ano, mes - 1, 1) < dataInicioProjeto)) {
+          dataInicioProjeto = new Date(ano, mes - 1, 1);
+        }
+        
+        if (!dataFimProjeto || (new Date(ano, mes, 0) > dataFimProjeto)) {
+          dataFimProjeto = new Date(ano, mes, 0);
+        }
+      }
     }
   }
+  
+  console.log("Colunas de datas mapeadas:", colunasDatas.map(d => `Coluna ${d.coluna}: ${d.mes}/${d.ano}`));
 
-  // Encontrar a última data válida
-  for (let i = meses.length - 1; i >= 0; i--) {
-    if (meses[i] && typeof meses[i] === 'number') {
-      const { mes, ano } = excelDateToJS(meses[i]);
-      // Último dia do mês
-      dataFimProjeto = new Date(ano, mes, 0);
-      console.log(`Última data do projeto (do cabeçalho): ${mes}/${ano}`);
-      break;
-    }
-  }
-
-  // Converter os valores de meses do Excel para objetos de data
-  const datas: { mes: number; ano: number; indice: number }[] = [];
-  for (let i = 0; i < meses.length; i++) {
-    if (meses[i] && typeof meses[i] === 'number') {
-      const { mes, ano } = excelDateToJS(meses[i]);
-      datas.push({ mes, ano, indice: i + 6 }); // +6 porque os dados começam na coluna 6
-    }
-  }
-
-  // Ordenar as datas cronologicamente
-  datas.sort((a, b) => {
-    if (a.ano !== b.ano) return a.ano - b.ano;
-    return a.mes - b.mes;
-  });
-
-  console.log("Datas ordenadas:", datas.map(d => `${d.mes}/${d.ano} (índice ${d.indice})`));
-
-  for (let i = 7; i < data.length; i++) {
+  // Processar as linhas de dados (a partir da linha 7)
+  for (let i = 6; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length === 0) continue;
 
-    if (row[1]?.match(/^A\d+$/)) {
+    // Verificar se é uma linha de workpackage (tem código na coluna 1)
+    if (row[1] && typeof row[1] === 'string' && row[1].match(/^A\d+$/) && row[2]) {
       console.log("Encontrado workpackage:", row[1], row[2]);
       wpAtual = {
         codigo: row[1],
-        nome: row[2] || '',
-        recursos: [],
-        materiais: [],
-        dataInicio: null,
-        dataFim: null
-      };
-      wps.push(wpAtual);
-    }
-    else if (!row[1] && row[2]?.startsWith("A1 -") && !wpAtual) {
-      console.log("Encontrado workpackage A1 implícito");
-      wpAtual = {
-        codigo: "A1",
         nome: row[2],
         recursos: [],
         materiais: [],
@@ -193,56 +212,72 @@ function extrairDadosRH(data: any[][]): { workpackages: WorkpackageSimples[], da
         dataFim: null
       };
       wps.push(wpAtual);
+      
+      // Extrair datas do workpackage da linha do workpackage
+      if (typeof row[4] === 'number' && typeof row[5] === 'number') {
+        const planStart = row[4];
+        const planDuration = row[5];
+        
+        if (planStart > 0 && planDuration > 0 && dataInicioProjeto) {
+          // Calcular data de início baseada no PLAN START
+          const dataInicio = new Date(dataInicioProjeto);
+          dataInicio.setMonth(dataInicioProjeto.getMonth() + (planStart - 1));
+          
+          // Calcular data de fim baseada na duração
+          const dataFim = new Date(dataInicio);
+          dataFim.setMonth(dataInicio.getMonth() + (planDuration - 1));
+          dataFim.setDate(new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()); // Último dia do mês
+          
+          wpAtual.dataInicio = dataInicio;
+          wpAtual.dataFim = dataFim;
+          
+          console.log(`Datas do workpackage ${wpAtual.codigo}: Início ${dataInicio.toLocaleDateString('pt-PT')}, Fim ${dataFim.toLocaleDateString('pt-PT')}`);
+        }
+      }
     }
-    else if (wpAtual && row[3]) {
-      console.log("Processando recurso:", row[3]);
+    // Verificar se é uma linha de recurso (tem nome na coluna 3 e não tem código na coluna 1)
+    else if (wpAtual && row[3] && typeof row[3] === 'string' && !row[1]) {
+      const nomeRecurso = row[3];
+      console.log(`Processando recurso para ${wpAtual.codigo}: ${nomeRecurso}`);
+      
+      // Encontrar o utilizador correspondente
+      const utilizador = utilizadores.find(u => 
+        u.name?.toLowerCase() === nomeRecurso.toLowerCase() ||
+        u.name?.toLowerCase().includes(nomeRecurso.toLowerCase()) ||
+        nomeRecurso.toLowerCase().includes(u.name?.toLowerCase())
+      );
+      
+      if (utilizador) {
+        console.log(`Associação encontrada: "${nomeRecurso}" -> "${utilizador.name}" (ID: ${utilizador.id})`);
+      } else {
+        console.log(`Nenhuma associação encontrada para "${nomeRecurso}"`);
+      }
+      
       const recurso: Recurso = {
-        nome: row[3],
+        nome: nomeRecurso,
+        userId: utilizador?.id || null,
         alocacoes: []
       };
-
-      let dataInicio: Date | null = null;
       
-      // Verificar cada coluna de alocação
-      for (const data of datas) {
-        const valor = row[data.indice];
-        if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor < 2) {
-          // Se encontramos uma alocação válida
-          if (!dataInicio) {
-            dataInicio = new Date(data.ano, data.mes - 1, 1); // Primeiro dia do mês
-            console.log(`Primeira alocação encontrada para ${row[3]}: ${data.mes}/${data.ano}`);
-          }
-
+      // Extrair alocações diretamente das colunas mapeadas
+      for (const colData of colunasDatas) {
+        const valor = row[colData.coluna];
+        
+        // Verificar se o valor é um número válido entre 0 e 1 (percentagem)
+        if (valor && typeof valor === 'number' && !isNaN(valor) && valor > 0 && valor <= 1) {
           recurso.alocacoes.push({
-            mes: data.mes,
-            ano: data.ano,
-            percentagem: valor * 100
+            mes: colData.mes,
+            ano: colData.ano,
+            percentagem: valor * 100 // Converter para percentagem (0-100)
           });
+          
+          console.log(`Alocação encontrada para ${nomeRecurso}: ${colData.mes}/${colData.ano} = ${valor * 100}%`);
         }
       }
-
-      // Calcular a data de fim com base na duração do plano
-      let dataFim: Date | null = null;
-      if (dataInicio && typeof row[5] === 'number' && row[5] > 0) {
-        const duracao = row[5] - 1; // PLAN DURATION - 1
-        dataFim = new Date(dataInicio);
-        dataFim.setMonth(dataInicio.getMonth() + duracao);
-        dataFim.setDate(new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()); // Último dia do mês
-      }
-
+      
+      // Adicionar o recurso ao workpackage atual se tiver alocações
       if (recurso.alocacoes.length > 0) {
         wpAtual.recursos.push(recurso);
-        
-        // Atualizar as datas do workpackage
-        if (!wpAtual.dataInicio || (dataInicio && dataInicio < wpAtual.dataInicio)) {
-          wpAtual.dataInicio = dataInicio;
-        }
-        
-        if (!wpAtual.dataFim || (dataFim && dataFim > wpAtual.dataFim)) {
-          wpAtual.dataFim = dataFim;
-        }
-        
-        console.log(`Data de Início WP: ${wpAtual.dataInicio?.toLocaleDateString('pt-PT')}, Data de Fim WP: ${wpAtual.dataFim?.toLocaleDateString('pt-PT')}`);
       }
     }
   }
@@ -265,7 +300,7 @@ function extrairDadosRH(data: any[][]): { workpackages: WorkpackageSimples[], da
 
 function atribuirMateriaisAosWorkpackages(
   workpackages: WorkpackageSimples[],
-  materiais: Material[]
+  materiais: MaterialImportacao[]
 ): WorkpackageSimples[] {
   const wpMap = new Map<string, WorkpackageSimples>();
   workpackages.forEach(wp => {
@@ -307,128 +342,145 @@ export default function ImportarProjetoButton() {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
-    const reader = new FileReader();
     
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetsData = converterExcelParaJson(workbook);
-        
-        let wps: WorkpackageSimples[] = [];
-        let materiais: Material[] = [];
-        let dataInicioProjeto: Date | null = null;
-        let dataFimProjeto: Date | null = null;
-        
-        if (sheetsData['RH_Budget_SUBM']) {
-          const resultado = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
-          wps = resultado.workpackages;
-          dataInicioProjeto = resultado.dataInicioProjeto;
-          dataFimProjeto = resultado.dataFimProjeto;
-        }
-        
-        if (sheetsData['Outros_Budget']) {
-          materiais = extrairMateriais(sheetsData['Outros_Budget']);
-        }
-        
-        if (wps.length > 0 && materiais.length > 0) {
-          wps = atribuirMateriaisAosWorkpackages(wps, materiais);
-        }
-        
-        console.log(`Projeto: Início ${dataInicioProjeto?.toLocaleDateString('pt-PT')}, Fim ${dataFimProjeto?.toLocaleDateString('pt-PT')}`);
-        
-        // Atualizar o estado do projeto com as datas
-        dispatch({ type: "RESET" });
-        
-        if (dataInicioProjeto && dataFimProjeto) {
-          dispatch({
-            type: "UPDATE_PROJETO",
-            data: {
-              inicio: dataInicioProjeto,
-              fim: dataFimProjeto
-            }
-          });
-        }
-        
-        // Agora, ao adicionar os workpackages, incluir as datas calculadas
-        wps.forEach(wp => {
-          const wpId = generateUUID();
+    try {
+      // Buscar todos os utilizadores usando fetch
+      const response = await fetch('/api/trpc/utilizador.getAll');
+      const responseData = await response.json();
+      const utilizadores = extrairUtilizadores(responseData);
+      
+      console.log("Utilizadores carregados:", utilizadores.length);
+      
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetsData = converterExcelParaJson(workbook);
           
-          dispatch({
-            type: "ADD_WORKPACKAGE",
-            workpackage: {
-              id: wpId,
-              nome: wp.nome,
-              descricao: null,
-              inicio: wp.dataInicio,
-              fim: wp.dataFim,
-              estado: false,
-              tarefas: [],
-              materiais: [],
-              recursos: []
-            }
-          });
+          let wps: WorkpackageSimples[] = [];
+          let materiais: MaterialImportacao[] = [];
+          let dataInicioProjeto: Date | null = null;
+          let dataFimProjeto: Date | null = null;
           
-          // Adicionar recursos e alocações
-          wp.recursos.forEach(recurso => {
-            recurso.alocacoes.forEach(alocacao => {
-              const userId = "1";
+          if (sheetsData['RH_Budget_SUBM']) {
+            const resultado = extrairDadosRH(sheetsData['RH_Budget_SUBM'], utilizadores);
+            wps = resultado.workpackages;
+            dataInicioProjeto = resultado.dataInicioProjeto;
+            dataFimProjeto = resultado.dataFimProjeto;
+          }
+          
+          if (sheetsData['Outros_Budget']) {
+            materiais = extrairMateriais(sheetsData['Outros_Budget']);
+          }
+          
+          if (wps.length > 0 && materiais.length > 0) {
+            wps = atribuirMateriaisAosWorkpackages(wps, materiais);
+          }
+          
+          console.log(`Projeto: Início ${dataInicioProjeto?.toLocaleDateString('pt-PT')}, Fim ${dataFimProjeto?.toLocaleDateString('pt-PT')}`);
+          
+          // Atualizar o estado do projeto com as datas
+          dispatch({ type: "RESET" });
+          
+          if (dataInicioProjeto && dataFimProjeto) {
+            dispatch({
+              type: "UPDATE_PROJETO",
+              data: {
+                inicio: dataInicioProjeto,
+                fim: dataFimProjeto
+              }
+            });
+          }
+          
+          // Agora, ao adicionar os workpackages, incluir as datas calculadas
+          wps.forEach(wp => {
+            const wpId = generateUUID();
+            
+            dispatch({
+              type: "ADD_WORKPACKAGE",
+              workpackage: {
+                id: wpId,
+                nome: wp.nome,
+                descricao: null,
+                inicio: wp.dataInicio,
+                fim: wp.dataFim,
+                estado: false,
+                tarefas: [],
+                materiais: [],
+                recursos: []
+              }
+            });
+            
+            // Adicionar recursos e alocações
+            wp.recursos.forEach(recurso => {
+              // Usar o ID do utilizador encontrado ou um ID padrão se não encontrado
+              const userId = recurso.userId || "1";
+              console.log(`Adicionando recurso: ${recurso.nome} (ID: ${userId}) ao WP: ${wp.nome}`);
               
+              recurso.alocacoes.forEach(alocacao => {
+                dispatch({
+                  type: "ADD_ALOCACAO",
+                  workpackageId: wpId,
+                  alocacao: {
+                    userId,
+                    mes: alocacao.mes,
+                    ano: alocacao.ano,
+                    ocupacao: new Decimal(alocacao.percentagem / 100),
+                    workpackageId: wpId
+                  }
+                });
+                console.log(`  Alocação: ${alocacao.mes}/${alocacao.ano} - ${alocacao.percentagem}%`);
+              });
+            });
+            
+            // Adicionar materiais
+            wp.materiais.forEach(material => {
               dispatch({
-                type: "ADD_ALOCACAO",
+                type: "ADD_MATERIAL",
                 workpackageId: wpId,
-                alocacao: {
-                  userId,
-                  mes: alocacao.mes,
-                  ano: alocacao.ano,
-                  ocupacao: new Decimal(alocacao.percentagem / 100),
+                material: {
+                  id: Math.floor(Math.random() * 1000000),
+                  nome: material.nome,
+                  preco: new Decimal(material.preco),
+                  quantidade: material.quantidade,
+                  ano_utilizacao: material.ano_utilizacao,
+                  rubrica: material.rubrica,
                   workpackageId: wpId
                 }
               });
             });
           });
           
-          // Adicionar materiais
-          wp.materiais.forEach(material => {
-            dispatch({
-              type: "ADD_MATERIAL",
-              workpackageId: wpId,
-              material: {
-                id: Math.floor(Math.random() * 1000000),
-                nome: material.nome,
-                preco: new Decimal(material.preco),
-                quantidade: material.quantidade,
-                ano_utilizacao: material.ano_utilizacao,
-                rubrica: material.rubrica,
-                workpackageId: wpId
-              }
-            });
-          });
-        });
-        
-        toast.success("Dados importados com sucesso!");
-        setOpen(false);
-        
-      } catch (error) {
-        console.error("Erro ao processar o ficheiro Excel:", error);
-        toast.error("Ocorreu um erro ao processar o ficheiro Excel.");
-      } finally {
+          toast.success("Dados importados com sucesso!");
+          setOpen(false);
+          
+        } catch (error) {
+          console.error("Erro ao processar o ficheiro Excel:", error);
+          toast.error("Ocorreu um erro ao processar o ficheiro Excel.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      reader.onerror = (error) => {
+        console.error("Erro ao ler o ficheiro:", error);
+        toast.error("Ocorreu um erro ao ler o ficheiro.");
         setIsLoading(false);
-      }
-    };
+      };
 
-    reader.onerror = (error) => {
-      console.error("Erro ao ler o ficheiro:", error);
-      toast.error("Ocorreu um erro ao ler o ficheiro.");
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error("Erro ao buscar utilizadores:", error);
+      toast.error("Ocorreu um erro ao buscar utilizadores.");
       setIsLoading(false);
-    };
-
-    reader.readAsArrayBuffer(file);
+    }
   };
 
   return (
@@ -496,3 +548,4 @@ export default function ImportarProjetoButton() {
     </>
   );
 }
+

@@ -10,7 +10,7 @@ async function main() {
   // Limpar dados existentes
   console.log('🧹 A limpar tabelas existentes...');
   await prisma.alocacaoRecurso.deleteMany();
-  await prisma.entregavel.deleteMany(); // Limpar entregáveis antes das tarefas
+  await prisma.entregavel.deleteMany(); 
   await prisma.tarefa.deleteMany();
   await prisma.material.deleteMany();
   await prisma.workpackage.deleteMany();
@@ -51,20 +51,16 @@ async function main() {
       hash: hashedPassword
     }
   });
-  
-  console.log('👑 Administrador criado com senha pré-definida');
-  console.log('📧 Email: admin@starinstitute.com');
-  console.log('🔑 Senha: ' + adminPassword);
 
   const gestor = await prisma.user.create({
     data: {
-      name: "Carlos Oliveira", 
-      email: "carlos.oliveira@starinstitute.com",
+      name: "Helga Carvalho", 
+      email: "helga.carvalho@starinstitute.com",
       emailVerified: new Date(),
-      foto: "https://ui-avatars.com/api/?name=Carlos+Oliveira&background=15803d&color=fff",
-      atividade: "Gestão de Projetos",
+      foto: "https://ui-avatars.com/api/?name=Helga+Carvalho&background=15803d&color=fff",
+      atividade: "Administração",
       contratacao: new Date("2020-03-15"),
-      username: "carlos.oliveira",
+      username: "helga.carvalho",
       permissao: Permissao.GESTOR,
       regime: Regime.INTEGRAL
     }
@@ -82,65 +78,78 @@ async function main() {
   const users = await Promise.all([
     prisma.user.create({
       data: {
-        name: "Ana Silva",
-        email: "ana.silva@starinstitute.com",
+        name: "Ricardo Correia",
+        email: "ricardo.correia@starinstitute.com",
         emailVerified: new Date(),
-        foto: "https://ui-avatars.com/api/?name=Ana+Silva&background=0284c7&color=fff",
-        atividade: "Engenheira de Software",
+        foto: "https://ui-avatars.com/api/?name=Ricardo+Correia&background=0284c7&color=fff",
+        atividade: "Investigador no Laboratório Digital",
         contratacao: new Date("2021-01-10"),
-        username: "ana.silva",
+        username: "ricardo.correia",
         permissao: Permissao.COMUM,
-        regime: Regime.INTEGRAL
+        regime: Regime.PARCIAL
       }
     }),
     prisma.user.create({
       data: {
-        name: "Pedro Santos",
-        email: "pedro.santos@starinstitute.com",
+        name: "Ana Isabel Carvalho",
+        email: "ana.i.carvalho@starinstitute.com",
         emailVerified: new Date(),
-        foto: "https://ui-avatars.com/api/?name=Pedro+Santos&background=0f766e&color=fff",
-        atividade: "Desenvolvedor Full-Stack",
+        foto: "https://ui-avatars.com/api/?name=Ana+Isabel+Carvalho&background=0f766e&color=fff",
+        atividade: "Investigadora no Laboratório Digital",
         contratacao: new Date("2021-03-22"),
-        username: "pedro.santos",
+        username: "ana.i.carvalho",
         permissao: Permissao.COMUM,
         regime: Regime.PARCIAL
       }
     }),
     prisma.user.create({
       data: {
-        name: "Sofia Martins",
-        email: "sofia.martins@starinstitute.com",
+        name: "Ana Claudia Carvalho",
+        email: "ana.c.carvalho@starinstitute.com",
         emailVerified: new Date(),
-        foto: "https://ui-avatars.com/api/?name=Sofia+Martins&background=7e22ce&color=fff",
-        atividade: "UX/UI Designer",
+        foto: "https://ui-avatars.com/api/?name=Ana+Claudia+Carvalho&background=7e22ce&color=fff",
+        atividade: "Investigadora no Laboratório Digital",
         contratacao: new Date("2022-01-05"),
-        username: "sofia.martins",
+        username: "ana.c.carvalho",
         permissao: Permissao.COMUM,
         regime: Regime.INTEGRAL
       }
     }),
     prisma.user.create({
       data: {
-        name: "João Pereira",
-        email: "joao.pereira@starinstitute.com",
+        name: "João Lopes",
+        email: "joao.lopes@starinstitute.com",
         emailVerified: new Date(),
-        foto: "https://ui-avatars.com/api/?name=João+Pereira&background=b91c1c&color=fff",
-        atividade: "DevOps Engineer",
+        foto: "https://ui-avatars.com/api/?name=João+Lopes&background=b91c1c&color=fff",
+        atividade: "Investigador no Laboratório Digital",
         contratacao: new Date("2022-06-12"),
-        username: "joao.pereira",
+        username: "joao.lopes",
         permissao: Permissao.COMUM,
-        regime: Regime.PARCIAL
+        regime: Regime.INTEGRAL
       }
     }),
     prisma.user.create({
       data: {
-        name: "Teresa Almeida",
-        email: "teresa.almeida@starinstitute.com",
+        name: "Filipe Coutinho",
+        email: "filipe.coutinho@starinstitute.com",
         emailVerified: new Date(),
-        foto: "https://ui-avatars.com/api/?name=Teresa+Almeida&background=c2410c&color=fff",
-        atividade: "Investigadora",
+        foto: "https://ui-avatars.com/api/?name=Filipe+Coutinho&background=c2410c&color=fff",
+        atividade: "Investigador no Laboratório Digital",
         contratacao: new Date("2023-02-01"),
-        username: "teresa.almeida",
+        username: "filipe.coutinho",
+        permissao: Permissao.COMUM,
+        regime: Regime.INTEGRAL
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: "Rui Coimbra",
+        email: "rui.coimbra@starinstitute.com",
+        emailVerified: new Date(),
+        foto: "https://ui-avatars.com/api/?name=Rui+Coimbra&background=0284c7&color=fff",
+        atividade: "Investigador no Laboratório Digital",
+        contratacao: new Date("2023-02-01"),
+        username: "rui.coimbra",
         permissao: Permissao.COMUM,
         regime: Regime.INTEGRAL
       }
@@ -157,8 +166,6 @@ async function main() {
     });
   }
 
-  // Criar Tipos de Financiamento
-  console.log('💰 A criar tipos de financiamento...');
   const [fct, portugal2030, horizonteEuropa, privado, interno] = await Promise.all([
     prisma.financiamento.create({
       data: {
@@ -204,7 +211,6 @@ async function main() {
 
   // Após criar os tipos de financiamento
   const tiposFinanciamento = await prisma.financiamento.findMany();
-  console.log('Tipos de financiamento criados:', tiposFinanciamento);
 
   if (tiposFinanciamento.length === 0) {
     throw new Error('Tipos de financiamento não foram criados corretamente');
@@ -659,21 +665,38 @@ async function main() {
 
   console.log('🔧 A associar materiais aos workpackages...');
 
-  // Para cada workpackage, associar entre 1 e 4 materiais aleatórios
+  // Para cada workpackage, criar entre 1 e 4 materiais específicos
   for (const workpackage of todosWorkpackages) {
     // Selecionar um número aleatório de materiais (entre 1 e 4)
     const numMateriais = Math.floor(Math.random() * 4) + 1;
     
-    // Embaralhar materiais e selecionar alguns aleatoriamente
-    const materiaisAleatorios = [...todosMateriais]
-      .sort(() => 0.5 - Math.random())
-      .slice(0, numMateriais);
-
-    // Atualizar cada material para associá-lo ao workpackage
-    for (const material of materiaisAleatorios) {
-      await prisma.material.update({
-        where: { id: material.id },
-        data: { workpackageId: workpackage.id }
+    // Verificar se há materiais disponíveis
+    if (todosMateriais.length === 0) {
+      console.warn('Não há materiais disponíveis para associar aos workpackages');
+      break;
+    }
+    
+    // Criar materiais específicos para este workpackage
+    for (let i = 0; i < numMateriais; i++) {
+      // Selecionar um material aleatório como modelo (com verificação de segurança)
+      const indiceAleatorio = Math.floor(Math.random() * todosMateriais.length);
+      const materialModelo = todosMateriais[indiceAleatorio];
+      
+      // Verificar se o materialModelo foi encontrado
+      if (!materialModelo) {
+        console.warn(`Não foi possível encontrar um material modelo no índice ${indiceAleatorio}`);
+        continue;
+      }
+      
+      await prisma.material.create({
+        data: {
+          nome: `${materialModelo.nome} (WP ${workpackage.nome.split(' ')[0]})`,
+          preco: materialModelo.preco,
+          quantidade: Math.floor(Math.random() * 10) + 1,
+          ano_utilizacao: materialModelo.ano_utilizacao,
+          rubrica: materialModelo.rubrica,
+          workpackageId: workpackage.id
+        }
       });
     }
   }
