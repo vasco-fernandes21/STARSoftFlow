@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Users as UsersIcon,
   UserCheck,
@@ -9,6 +9,10 @@ import {
   MoreHorizontal,
   BarChart,
   FileText,
+  Eye,
+  Plus,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,6 +24,8 @@ import { PaginaHeader } from "@/components/common/PaginaHeader";
 import { TabelaDados, FilterOption } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
+import { Badge } from "@/components/ui/badge";
+import { Permissao, Regime } from "@prisma/client";
 
 const PERMISSAO_LABELS: Record<string, string> = {
   ADMIN: 'Admin',
@@ -101,7 +107,7 @@ const Users = () => {
   const router = useRouter();
 
   // Usando a mesma configuração de cache e refetch que os projetos
-  const { data: apiResponse, isLoading } = api.utilizador.getAll.useQuery(
+  const queryResult = api.utilizador.getAll.useQuery(
     {
       page: currentPage,
       limit: itemsPerPage,
@@ -113,17 +119,12 @@ const Users = () => {
       staleTime: 5 * 60 * 1000, // 5 minutos
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
-      onSuccess: (data) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Resposta da API de utilizadores:', data);
-        }
-      }
     }
   );
 
   // Extrair utilizadores usando a função utilitária
-  const utilizadores = useMemo(() => extrairUtilizadores(apiResponse), [apiResponse]);
-  const paginacao = useMemo(() => extrairPaginacao(apiResponse), [apiResponse]);
+  const utilizadores = useMemo(() => extrairUtilizadores(queryResult.data), [queryResult.data]);
+  const paginacao = useMemo(() => extrairPaginacao(queryResult.data), [queryResult.data]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -197,7 +198,7 @@ const Users = () => {
   };
 
   const handleRowClick = (utilizador: any) => {
-    router.push(`/users/${utilizador.id}`);
+    router.push(`/utilizadores/${utilizador.username}`);
   };
 
   const handleReportClick = (e: React.MouseEvent, id: string) => {
@@ -208,6 +209,25 @@ const Users = () => {
   const handleGenerateReportClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     router.push(`/users/${id}/generate-report`);
+  };
+
+  // Função para traduzir permissão para texto
+  const getPermissaoText = (permissao: Permissao) => {
+    switch (permissao) {
+      case Permissao.ADMIN: return "Administrador";
+      case Permissao.GESTOR: return "Gestor";
+      case Permissao.COMUM: return "Utilizador Comum";
+      default: return "Desconhecido";
+    }
+  };
+
+  // Função para traduzir regime para texto
+  const getRegimeText = (regime: Regime) => {
+    switch (regime) {
+      case Regime.INTEGRAL: return "Tempo Integral";
+      case Regime.PARCIAL: return "Tempo Parcial";
+      default: return "Desconhecido";
+    }
   };
 
   // Configuração das colunas da tabela
@@ -247,7 +267,7 @@ const Users = () => {
       renderCell: (utilizador: any) => (
         <BadgeEstado 
           status={utilizador.permissao} 
-          label={PERMISSAO_LABELS[utilizador.permissao] || ''} 
+          label={getPermissaoText(utilizador.permissao)} 
           variant="permissao" 
         />
       ),
@@ -258,7 +278,7 @@ const Users = () => {
       renderCell: (utilizador: any) => (
         <BadgeEstado 
           status={utilizador.regime} 
-          label={REGIME_LABELS[utilizador.regime] || ''} 
+          label={getRegimeText(utilizador.regime)} 
           variant="regime" 
         />
       ),
@@ -392,6 +412,15 @@ const Users = () => {
     }
   ];
 
+  // Usar useEffect para reagir às mudanças de dados
+  useEffect(() => {
+    if (queryResult.data) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Resposta da API de utilizadores:', queryResult.data);
+      }
+    }
+  }, [queryResult.data]);
+
   return (
     <PageLayout className="h-screen overflow-hidden ">
       <PaginaHeader
@@ -407,7 +436,7 @@ const Users = () => {
           title=""
           subtitle=""
           data={filteredUsers}
-          isLoading={isLoading}
+          isLoading={queryResult.isLoading}
           columns={columns}
           searchConfig={{
             placeholder: "Procurar utilizadores...",

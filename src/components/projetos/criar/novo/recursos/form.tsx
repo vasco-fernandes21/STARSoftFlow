@@ -116,7 +116,12 @@ export function Form({
       
       if (index >= 0) {
         const updated = [...prev];
-        updated[index] = { ...updated[index], ocupacao };
+        updated[index] = {
+          userId: updated[index]!.userId,
+          mes: updated[index]!.mes,
+          ano: updated[index]!.ano,
+          ocupacao: ocupacao
+        };
         return updated;
       } else if (selectedUserId) {
         return [...prev, { userId: selectedUserId, mes, ano, ocupacao }];

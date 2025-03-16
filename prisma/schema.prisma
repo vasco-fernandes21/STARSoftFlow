@@ -150,6 +150,7 @@ model User {
     username      String?   @unique @db.VarChar(255)
     permissao     Permissao @default(COMUM)
     regime        Regime    @default(INTEGRAL)
+    informacoes   String?   @db.Text
 
     // Relações NextAuth
     accounts      Account[]

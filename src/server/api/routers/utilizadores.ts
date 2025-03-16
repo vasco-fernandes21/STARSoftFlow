@@ -7,6 +7,8 @@ import { hash, compare } from "bcrypt";
 import { z } from "zod";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 
 // Schemas base
 const emailSchema = z
@@ -212,6 +214,128 @@ export const utilizadorRouter = createTRPCRouter({
           message: "Erro ao obter utilizadores do workpackage",
           cause: error,
         });
+      }
+    }),
+
+  getProjetosWithUser: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input: userId }) => {
+      try {
+        // Buscar todas as alocações do utilizador
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId: userId
+          },
+          select: {
+            mes: true,
+            ano: true,
+            ocupacao: true,
+            workpackageId: true,
+            userId: true
+          }
+        });
+
+        // Extrair IDs de workpackages únicos
+        const workpackageIds = [...new Set(alocacoes.map(w => w.workpackageId))];
+
+        // Buscar workpackages com seus projetos
+        const workpackages = await ctx.db.workpackage.findMany({
+          where: {
+            id: { in: workpackageIds }
+          },
+          select: {
+            id: true,
+            nome: true,
+            descricao: true,
+            inicio: true,
+            fim: true,
+            estado: true,
+            projetoId: true,
+            projeto: {
+              select: {
+                id: true,
+                nome: true,
+                descricao: true,
+                inicio: true,
+                fim: true
+              }
+            }
+          }
+        });
+
+        // Criar mapa de alocações por workpackage
+        const alocacoesPorWP = new Map();
+        alocacoes.forEach(alocacao => {
+          if (!alocacoesPorWP.has(alocacao.workpackageId)) {
+            alocacoesPorWP.set(alocacao.workpackageId, []);
+          }
+          alocacoesPorWP.get(alocacao.workpackageId).push({
+            mes: alocacao.mes,
+            ano: alocacao.ano,
+            ocupacao: alocacao.ocupacao
+          });
+        });
+
+        // Agrupar workpackages por projeto
+        const projetoMap = new Map();
+        workpackages.forEach(wp => {
+          if (!projetoMap.has(wp.projeto.id)) {
+            projetoMap.set(wp.projeto.id, {
+              id: wp.projeto.id,
+              nome: wp.projeto.nome,
+              descricao: wp.projeto.descricao,
+              inicio: wp.projeto.inicio,
+              fim: wp.projeto.fim,
+              workpackages: []
+            });
+          }
+
+          projetoMap.get(wp.projeto.id).workpackages.push({
+            id: wp.id,
+            nome: wp.nome,
+            descricao: wp.descricao,
+            inicio: wp.inicio,
+            fim: wp.fim,
+            estado: wp.estado,
+            alocacoes: alocacoesPorWP.get(wp.id) || []
+          });
+        });
+
+        // Converter o Map para array e ordenar por data de início do projeto
+        const projetos = Array.from(projetoMap.values()).sort((a, b) => 
+          new Date(a.inicio).getTime() - new Date(b.inicio).getTime()
+        );
+
+        return projetos;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
+  getAlocacoesWithUser: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input: userId }) => {
+      try {
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId: userId
+          },
+          select: {
+            mes: true,
+            ano: true,
+            ocupacao: true,
+            workpackageId: true,
+            userId: true
+          },
+          orderBy: [
+            { ano: 'asc' },
+            { mes: 'asc' }
+          ]
+        });
+
+        return alocacoes;
+      } catch (error) {
+        return handlePrismaError(error);
       }
     }),
 
@@ -627,6 +751,399 @@ export const utilizadorRouter = createTRPCRouter({
         });
         
         return { success: true };
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
+  // Obter utilizador por username
+  getByUsername: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input: username }) => {
+      try {
+        const user = await ctx.db.user.findUnique({
+          where: { username },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            foto: true,
+            atividade: true,
+            contratacao: true,
+            username: true,
+            permissao: true,
+            regime: true,
+            emailVerified: true,
+            informacoes: true,
+          },
+        });
+        
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+        
+        return user;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
+  // Atualizar informações (currículo) do utilizador
+  updateInformacoes: protectedProcedure
+    .input(z.object({
+      userId: z.string(),
+      informacoes: z.string()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { userId, informacoes } = input;
+        
+        // Verificar permissões (admin ou próprio utilizador)
+        const user = ctx.session.user as UserWithPermissao;
+        const isAdmin = user.permissao === Permissao.ADMIN;
+        const isSelf = user.id === userId;
+        
+        if (!isAdmin && !isSelf) {
+          throw new TRPCError({ 
+            code: "FORBIDDEN",
+            message: "Não tem permissões para atualizar este utilizador" 
+          });
+        }
+        
+        // Atualizar utilizador
+        const updatedUser = await ctx.db.user.update({
+          where: { id: userId },
+          data: { informacoes },
+          select: {
+            id: true,
+            informacoes: true
+          },
+        });
+        
+        return updatedUser;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
+  // Obter ocupação mensal agregada
+  getOcupacaoMensal: protectedProcedure
+    .input(z.object({
+      userId: z.string(),
+      ano: z.number()
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { userId, ano } = input;
+        
+        // Buscar alocações do ano
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId: userId,
+            ano: ano
+          },
+          select: {
+            mes: true,
+            ocupacao: true,
+            workpackageId: true
+          },
+          orderBy: { mes: 'asc' }
+        });
+        
+        // Buscar workpackages relacionados
+        const workpackageIds = alocacoes.map(a => a.workpackageId);
+        const workpackages = await ctx.db.workpackage.findMany({
+          where: {
+            id: { in: workpackageIds }
+          },
+          select: {
+            id: true,
+            nome: true,
+            projetoId: true,
+            projeto: {
+              select: {
+                id: true,
+                nome: true
+              }
+            }
+          }
+        });
+        
+        // Mapear workpackages por ID para fácil acesso
+        const workpackageMap = new Map();
+        workpackages.forEach(wp => {
+          workpackageMap.set(wp.id, {
+            nome: wp.nome,
+            projetoNome: wp.projeto.nome
+          });
+        });
+        
+        // Organizar por mês
+        const meses = Array.from({ length: 12 }, (_, i) => i + 1);
+        const ocupacaoPorMes = meses.map(mes => {
+          const alocacoesMes = alocacoes.filter(a => a.mes === mes);
+          
+          // Calcular ocupação total do mês
+          const ocupacaoTotal = alocacoesMes.reduce((sum, a) => sum + Number(a.ocupacao), 0);
+          
+          // Detalhes das alocações
+          const detalhes = alocacoesMes.map(a => {
+            const wpInfo = workpackageMap.get(a.workpackageId) || { nome: 'Desconhecido', projetoNome: 'Desconhecido' };
+            return {
+              ocupacao: Number(a.ocupacao),
+              workpackage: wpInfo.nome,
+              projeto: wpInfo.projetoNome
+            };
+          });
+          
+          return {
+            mes,
+            mesNome: format(new Date(ano, mes - 1, 1), 'MMMM', { locale: pt }),
+            ocupacaoTotal,
+            detalhes
+          };
+        });
+        
+        return ocupacaoPorMes;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
+  // Obter ocupação por projeto com workpackages
+  getOcupacaoPorProjeto: protectedProcedure
+    .input(z.object({
+      userId: z.string(),
+      dataInicio: z.date(),
+      dataFim: z.date()
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { userId, dataInicio, dataFim } = input;
+        
+        // Converter datas para ano/mês
+        const anoInicio = dataInicio.getFullYear();
+        const mesInicio = dataInicio.getMonth() + 1;
+        const anoFim = dataFim.getFullYear();
+        const mesFim = dataFim.getMonth() + 1;
+        
+        // Buscar todas as alocações no período
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId: userId,
+            OR: [
+              // Alocações dentro do mesmo ano
+              {
+                AND: [
+                  { ano: anoInicio },
+                  { mes: { gte: mesInicio } },
+                  { ano: anoFim },
+                  { mes: { lte: mesFim } }
+                ]
+              },
+              // Alocações em anos diferentes
+              {
+                AND: [
+                  { ano: { gt: anoInicio, lt: anoFim } }
+                ]
+              },
+              // Alocações no ano inicial após o mês inicial
+              {
+                AND: [
+                  { ano: anoInicio },
+                  { mes: { gte: mesInicio } },
+                ]
+              },
+              // Alocações no ano final antes do mês final
+              {
+                AND: [
+                  { ano: anoFim },
+                  { mes: { lte: mesFim } }
+                ]
+              }
+            ]
+          },
+          select: {
+            mes: true,
+            ano: true,
+            ocupacao: true,
+            workpackageId: true
+          }
+        });
+        
+        // Extrair workpackageIds das alocações
+        const workpackageIds = [...new Set(alocacoes.map(a => a.workpackageId))];
+        
+        // Buscar workpackages com seus projetos
+        const workpackages = await ctx.db.workpackage.findMany({
+          where: {
+            id: { in: workpackageIds }
+          },
+          select: {
+            id: true,
+            nome: true,
+            descricao: true,
+            inicio: true,
+            fim: true,
+            projetoId: true,
+            projeto: {
+              select: {
+                id: true,
+                nome: true,
+                descricao: true,
+                inicio: true,
+                fim: true
+              }
+            }
+          }
+        });
+        
+        // Agrupar alocações por workpackage
+        const alocacoesPorWorkpackage = new Map();
+        alocacoes.forEach(a => {
+          if (!alocacoesPorWorkpackage.has(a.workpackageId)) {
+            alocacoesPorWorkpackage.set(a.workpackageId, []);
+          }
+          alocacoesPorWorkpackage.get(a.workpackageId).push(a);
+        });
+        
+        // Agrupar workpackages por projeto
+        const projetoMap = new Map();
+        
+        for (const wp of workpackages) {
+          if (!projetoMap.has(wp.projeto.id)) {
+            projetoMap.set(wp.projeto.id, {
+              id: wp.projeto.id,
+              nome: wp.projeto.nome,
+              descricao: wp.projeto.descricao,
+              inicio: wp.projeto.inicio,
+              fim: wp.projeto.fim,
+              workpackages: [],
+              ocupacaoMedia: 0
+            });
+          }
+          
+          const wpAlocacoes = alocacoesPorWorkpackage.get(wp.id) || [];
+          const ocupacoes = wpAlocacoes.map((a: any) => Number(a.ocupacao));
+          const ocupacaoMedia = ocupacoes.length > 0
+            ? ocupacoes.reduce((sum: number, val: number) => sum + val, 0) / ocupacoes.length
+            : 0;
+          
+          projetoMap.get(wp.projeto.id).workpackages.push({
+            id: wp.id,
+            nome: wp.nome,
+            descricao: wp.descricao,
+            inicio: wp.inicio,
+            fim: wp.fim,
+            alocacoes: wpAlocacoes,
+            ocupacaoMedia
+          });
+        }
+        
+        // Calcular ocupação média para cada projeto
+        const projetosProcessados = Array.from(projetoMap.values()).map(projeto => {
+          const ocupacoesWP = projeto.workpackages.map((wp: any) => wp.ocupacaoMedia);
+          const ocupacaoMediaProjeto = ocupacoesWP.length > 0
+            ? ocupacoesWP.reduce((sum: number, val: number) => sum + val, 0) / ocupacoesWP.length
+            : 0;
+          
+          return {
+            ...projeto,
+            ocupacaoMedia: ocupacaoMediaProjeto
+          };
+        });
+        
+        return projetosProcessados;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
+  // Resumo geral de ocupação
+  getResumoOcupacao: protectedProcedure
+    .input(z.object({
+      userId: z.string()
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { userId } = input;
+        
+        // Buscar utilizador para saber o regime
+        const user = await ctx.db.user.findUnique({
+          where: { id: userId },
+          select: { regime: true }
+        });
+        
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado"
+          });
+        }
+        
+        // Buscar alocações do ano atual
+        const anoAtual = new Date().getFullYear();
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId: userId,
+            ano: anoAtual
+          },
+          select: {
+            mes: true,
+            ocupacao: true
+          }
+        });
+        
+        // Calcular ocupação média do ano
+        const ocupacoes = alocacoes.map(a => Number(a.ocupacao));
+        const ocupacaoMediaAnual = ocupacoes.length > 0 
+          ? ocupacoes.reduce((sum: number, val: number) => sum + val, 0) / ocupacoes.length 
+          : 0;
+        
+        // Calcular ocupação do mês atual
+        const mesAtual = new Date().getMonth() + 1;
+        const alocacoesMesAtual = alocacoes.filter(a => a.mes === mesAtual);
+        const ocupacaoMesAtual = alocacoesMesAtual.length > 0
+          ? alocacoesMesAtual.reduce((sum: number, a) => sum + Number(a.ocupacao), 0)
+          : 0;
+        
+        // Contar projetos ativos (via workpackages únicos)
+        const alocacoesAnoAtual = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId: userId,
+            ano: anoAtual
+          },
+          select: {
+            workpackageId: true
+          },
+          distinct: ['workpackageId']
+        });
+        
+        // Obter workpackages e seus projetos
+        const workpackageIds = alocacoesAnoAtual.map(a => a.workpackageId);
+        const workpackages = await ctx.db.workpackage.findMany({
+          where: {
+            id: { in: workpackageIds }
+          },
+          select: {
+            id: true,
+            projetoId: true
+          }
+        });
+        
+        // Contar projetos únicos
+        const projetosUnicos = new Set(workpackages.map(wp => wp.projetoId));
+        
+        return {
+          ocupacaoMediaAnual,
+          ocupacaoMesAtual,
+          projetosAtivos: projetosUnicos.size,
+          workpackagesAtivos: workpackageIds.length,
+          capacidadeMaxima: user.regime === 'INTEGRAL' ? 1.0 : 0.5
+        };
       } catch (error) {
         return handlePrismaError(error);
       }

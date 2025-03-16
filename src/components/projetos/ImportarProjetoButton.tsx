@@ -104,7 +104,7 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
     if (typeof custoUnitario === 'number' && typeof unidades === 'number') {
       materiais.push({
         nome: despesa,
-        preco: custoUnitario,
+        preco: new Decimal(custoUnitario),
         quantidade: unidades,
         ano_utilizacao: typeof ano === 'number' ? ano : new Date().getFullYear(),
         rubrica: mapearRubrica(rubrica),
@@ -318,16 +318,14 @@ function atribuirMateriaisAosWorkpackages(
     if (!wpMatch) {
       const codigoMatch = material.workpackageNome.match(/^A\d+/);
       if (codigoMatch) {
-        wpMatch = workpackages.find(wp => wp.codigo === codigoMatch[0]) || null;
+        wpMatch = workpackages.find(wp => wp.codigo === codigoMatch[0]);
       }
     }
     
     if (wpMatch) {
       wpMatch.materiais.push(material);
-    } else {
-      if (workpackages.length > 0) {
-        workpackages[0].materiais.push(material);
-      }
+    } else if (workpackages.length > 0 && workpackages[0]) {
+      workpackages[0].materiais.push(material);
     }
   });
   
@@ -414,7 +412,8 @@ export default function ImportarProjetoButton() {
                 estado: false,
                 tarefas: [],
                 materiais: [],
-                recursos: []
+                recursos: [],
+                projetoId: "seu-projeto-id-aqui"
               }
             });
             
