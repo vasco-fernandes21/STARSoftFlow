@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { 
-  User, 
+  User as UserIcon, 
   Mail, 
   Calendar, 
   Briefcase, 
@@ -33,7 +33,21 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageLayout } from "@/components/common/PageLayout";
 import { api } from "@/trpc/react";
-import { Permissao, Regime } from "@prisma/client";
+import { Permissao, Regime, User as PrismaUser, Projeto, Workpackage, AlocacaoRecurso } from "@prisma/client";
+import { AlocacoesDetalhadas } from "@/app/utilizadores/[username]/AlocacoesDetalhadas";
+
+// Definir interfaces estendidas para os tipos do Prisma
+interface UserWithDetails extends Omit<PrismaUser, 'informacoes'> {
+  informacoes?: string | null;
+}
+
+interface WorkpackageWithAlocacoes extends Workpackage {
+  alocacoes: AlocacaoRecurso[];
+}
+
+interface ProjetoWithWorkpackages extends Projeto {
+  workpackages: WorkpackageWithAlocacoes[];
+}
 
 // Mapeamento de Permissões
 const PERMISSAO_LABELS: Record<string, string> = {
@@ -47,15 +61,6 @@ const REGIME_LABELS: Record<string, string> = {
   PARCIAL: 'Parcial',
   INTEGRAL: 'Integral'
 };
-
-// Definição do tipo StatItem
-interface StatItem {
-  title: string;
-  value: number | string;
-  icon: React.ReactNode;
-  description: string;
-  trend: { direction: "up" | "down"; value: string } | null;
-}
 
 // Componente de visualização de estatísticas
 const StatCard = ({
@@ -120,63 +125,76 @@ const InfoItem = ({
   </div>
 );
 
-// Componente para gráfico de alocações mensais
-const AlocacoesChart = ({ alocacoes }: { alocacoes: any[] }) => {
-  // Organizar alocações por ano e mês
-  const alocacoesPorAnoMes: Record<string, Record<number, number>> = {};
-  
-  alocacoes?.forEach(alocacao => {
-    const { ano, mes, ocupacao } = alocacao;
-    if (!alocacoesPorAnoMes[ano]) {
-      alocacoesPorAnoMes[ano] = {};
-    }
-    alocacoesPorAnoMes[ano][mes] = Number(ocupacao) * 100;
-  });
+// Função para obter a cor baseada na ocupação
+function getOcupacaoColor(ocupacao: number): string {
+  if (ocupacao >= 80) return "bg-green-400";
+  if (ocupacao >= 50) return "bg-blue-400";
+  if (ocupacao >= 30) return "bg-amber-400";
+  return "bg-slate-200";
+}
 
-  // Obter cores baseadas na ocupação
-  const getProgressColor = (ocupacao: number): string => {
-    if (ocupacao >= 90) return "bg-red-500";
-    if (ocupacao >= 70) return "bg-yellow-500";
-    if (ocupacao >= 40) return "bg-blue-500";
-    return "bg-green-500";
-  };
+// Função para obter a classe de badge baseada na ocupação
+function getOcupacaoBadgeClass(ocupacao: number): string {
+  if (ocupacao >= 80) return "bg-green-50 text-green-600 border-green-100";
+  if (ocupacao >= 50) return "bg-blue-50 text-blue-600 border-blue-100";
+  if (ocupacao >= 30) return "bg-amber-50 text-amber-600 border-amber-100";
+  return "bg-slate-50 text-slate-400 border-slate-200";
+}
 
-  // Formatação de data
-  const formatarMes = (mes: number): string => {
-    const data = new Date(2023, mes - 1, 1);
-    return format(data, 'MMM', { locale: pt });
-  };
-
-  return (
-    <div className="space-y-6">
-      {Object.keys(alocacoesPorAnoMes).sort().map(ano => (
-        <Card key={ano} className="border-none shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-medium">{ano}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
-              const ocupacao = alocacoesPorAnoMes[ano]?.[mes] || 0;
-              return (
-                <div key={`${ano}-${mes}`} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{formatarMes(mes)}</span>
-                    <span className="text-sm text-gray-500">{ocupacao.toFixed(0)}%</span>
-                  </div>
-                  <Progress 
-                    value={ocupacao} 
-                    max={100} 
-                    className={`h-2 ${getProgressColor(ocupacao)}`} 
-                  />
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
+// Função auxiliar para formatar datas
+const formatarDataSegura = (ano: string | number, mes: string | number, formatString: string): string => {
+  try {
+    const data = new Date(Number(ano), Number(mes) - 1, 1);
+    return format(data, formatString, { locale: pt });
+  } catch (error) {
+    return `${mes}/${ano}`;
+  }
 };
+
+// Componentes de conteúdo
+const ProfileHeader = ({ utilizador }: { utilizador: any }) => (
+  <div className="relative h-[240px] mb-10 rounded-2xl overflow-hidden shadow-xl">
+    <div className="absolute inset-0">
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600">
+        <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+      </div>
+    </div>
+    
+    {/* Informações do utilizador no header */}
+    <div className="absolute bottom-0 left-0 p-8 text-white w-full">
+      <div className="flex items-center gap-6">
+        <Avatar className="h-24 w-24 border-4 border-white/30 shadow-lg">
+          {utilizador.foto ? (
+            <AvatarImage src={utilizador.foto} alt={utilizador.name || ""} />
+          ) : (
+            <AvatarFallback className="bg-gradient-to-br from-blue-300 to-blue-500 text-white text-2xl font-semibold">
+              {utilizador.name?.slice(0, 2).toUpperCase() || "U"}
+            </AvatarFallback>
+          )}
+        </Avatar>
+        
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-bold tracking-tight">{utilizador.name}</h1>
+            <Badge className="bg-white/20 text-white hover:bg-white/30 border-none">
+              {utilizador.permissao}
+            </Badge>
+          </div>
+          <p className="text-blue-50 mt-2 flex items-center">
+            <Briefcase className="h-4 w-4 mr-2" />
+            {utilizador.atividade || "Sem atividade definida"}
+          </p>
+        </div>
+        
+        <Button variant="outline" size="sm" className="bg-white/20 text-white border-white/40 hover:bg-white/30">
+          <Download className="mr-2 h-4 w-4" />
+          Exportar Relatório
+        </Button>
+      </div>
+    </div>
+  </div>
+);
 
 export default function PerfilUtilizador() {
   const { username } = useParams<{ username: string }>();
@@ -199,6 +217,57 @@ export default function PerfilUtilizador() {
     { userId: utilizador?.id as string },
     { enabled: !!utilizador?.id }
   );
+
+  // Buscar dados de projetos para obter informações detalhadas (inclui alocações)
+  const {
+    data: projetosData,
+    isLoading: isLoadingProjetos
+  } = api.utilizador.getProjetosWithUser.useQuery(
+    utilizador?.id as string,
+    { enabled: !!utilizador?.id && activeTab === "alocacoes" }
+  );
+
+  // Processar os dados para o formato esperado pelo componente
+  const alocacoesDetalhadas = useMemo(() => {
+    if (!projetosData) return null;
+    
+    const alocacoes: Array<{
+      ano: number;
+      mes: number;
+      ocupacao: number;
+      workpackage: {
+        id: string;
+        nome: string;
+      };
+      projeto: {
+        id: string;
+        nome: string;
+      };
+    }> = [];
+    
+    // Extrair alocações de todos os projetos e workpackages
+    projetosData.forEach((projeto) => {
+      projeto.workpackages.forEach((wp: { id: string; nome: string; alocacoes: any[] }) => {
+        wp.alocacoes.forEach((alocacao: { ano: number; mes: number; ocupacao: any }) => {
+          alocacoes.push({
+            ano: alocacao.ano,
+            mes: alocacao.mes,
+            ocupacao: Number(alocacao.ocupacao),
+            workpackage: {
+              id: wp.id,
+              nome: wp.nome
+            },
+            projeto: {
+              id: projeto.id,
+              nome: projeto.nome
+            }
+          });
+        });
+      });
+    });
+    
+    return alocacoes;
+  }, [projetosData]);
 
   // Obter texto de permissão formatado
   const getPermissaoText = (permissao: Permissao) => {
@@ -227,19 +296,13 @@ export default function PerfilUtilizador() {
     return (
       <PageLayout>
         <div className="max-w-7xl mx-auto">
-          <div className="relative h-[200px] mb-8">
+          <div className="relative h-[240px] mb-8">
             <div className="absolute inset-0 rounded-2xl overflow-hidden bg-blue-100 animate-pulse"></div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
               <Card className="border-none shadow-md">
                 <CardContent className="p-6 space-y-6">
-                  <div className="flex flex-col items-center">
-                    <Skeleton className="h-24 w-24 rounded-full" />
-                    <Skeleton className="h-6 w-40 mt-4" />
-                    <Skeleton className="h-4 w-32 mt-2" />
-                  </div>
-                  <Separator />
                   <div className="space-y-4">
                     <Skeleton className="h-16 w-full" />
                     <Skeleton className="h-16 w-full" />
@@ -262,7 +325,7 @@ export default function PerfilUtilizador() {
     return (
       <PageLayout>
         <div className="container mx-auto py-16 text-center">
-          <User className="h-20 w-20 mx-auto mb-6 text-blue-200" />
+          <UserIcon className="h-20 w-20 mx-auto mb-6 text-blue-200" />
           <h2 className="text-3xl font-bold text-blue-900 mb-3">Utilizador não encontrado</h2>
           <p className="text-blue-600 text-lg">O utilizador que procura não existe ou foi removido.</p>
         </div>
@@ -270,140 +333,84 @@ export default function PerfilUtilizador() {
     );
   }
 
-  // Estatísticas para mostrar
-  const stats: StatItem[] = [
-    {
-      title: "Anos na Equipa",
-      value: calcularAnosExperiencia(utilizador?.contratacao) || 0,
-      icon: <Calendar className="h-5 w-5 text-blue-500" />,
-      description: `Desde ${formatarData(utilizador?.contratacao)}`,
-      trend: null
-    },
-    {
-      title: "Ocupação Atual",
-      value: Math.round((resumoOcupacao?.ocupacaoMesAtual || 0) * 100),
-      icon: <BarChart2 className="h-5 w-5 text-blue-500" />,
-      description: resumoOcupacao?.ocupacaoMesAtual && resumoOcupacao.ocupacaoMesAtual > 0.7 
-        ? "Alta ocupação" 
-        : "Ocupação normal",
-      trend: resumoOcupacao?.ocupacaoMesAtual && resumoOcupacao.ocupacaoMesAtual > 0.7 
-        ? { direction: "up", value: "Alta" } 
-        : null
-    },
-    {
-      title: "Projetos Ativos",
-      value: resumoOcupacao?.projetosAtivos || 0,
-      icon: <Briefcase className="h-5 w-5 text-blue-500" />,
-      description: `Com ${resumoOcupacao?.workpackagesAtivos || 0} pacotes de trabalho`,
-      trend: null
-    },
-    {
-      title: "Regime",
-      value: utilizador?.regime ? getRegimeText(utilizador.regime as Regime) : "-",
-      icon: <Clock className="h-5 w-5 text-blue-500" />,
-      description: "Tipo de contratação",
-      trend: null
-    }
-  ];
+  // Preparar dados para o header
+  const utilizadorHeader = {
+    ...utilizador,
+    permissao: getPermissaoText(utilizador.permissao as Permissao),
+    regime: getRegimeText(utilizador.regime as Regime)
+  };
 
   return (
     <PageLayout>
-      <div className="max-w-7xl mx-auto">
-        {/* Header com banner de fundo */}
-        <div className="relative h-[220px] mb-8">
-          <div className="absolute inset-0 rounded-2xl overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-500">
-              <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20"></div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 p-8 text-white">
-            <h1 className="text-3xl font-bold">Perfil do Utilizador</h1>
-            <p className="text-blue-100 mt-1">Informação detalhada e resumo de alocações</p>
-          </div>
-        </div>
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <ProfileHeader utilizador={utilizadorHeader} />
 
-        {/* Conteúdo principal em grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Coluna da esquerda - Perfil */}
-          <div className="lg:col-span-1">
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow duration-300">
-              <CardContent className="p-6 space-y-6">
-                {/* Avatar e nome */}
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-24 w-24 border-4 border-white shadow-md">
-                    {utilizador.foto ? (
-                      <AvatarImage src={utilizador.foto} alt={utilizador.name || ""} />
-                    ) : (
-                      <AvatarFallback className="bg-blue-100 text-blue-800 text-xl">
-                        {utilizador.name?.slice(0, 2).toUpperCase() || "U"}
-                      </AvatarFallback>
+        {/* Layout de 2 colunas para melhor aproveitamento do espaço */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          {/* Coluna da esquerda - Detalhes do Utilizador */}
+          <div className="xl:col-span-3">
+            <div className="space-y-6">
+              <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-semibold text-blue-700 flex items-center">
+                    <UserIcon className="h-5 w-5 mr-2 text-blue-500" />
+                    Detalhes do Utilizador
+                  </CardTitle>
+                  <CardDescription>Informações pessoais e profissionais</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  {/* Informações de contacto */}
+                  <div className="space-y-1">
+                    <InfoItem 
+                      icon={<Mail className="h-4 w-4 text-blue-500" />} 
+                      label="Email" 
+                      value={utilizador.email || ""}
+                    />
+                    <InfoItem 
+                      icon={<Calendar className="h-4 w-4 text-blue-500" />} 
+                      label="Data de Contratação" 
+                      value={formatarData(utilizador.contratacao)}
+                    />
+                    <InfoItem 
+                      icon={<Shield className="h-4 w-4 text-blue-500" />} 
+                      label="Permissão" 
+                      value={getPermissaoText(utilizador.permissao as Permissao)}
+                      badge
+                    />
+                    <InfoItem 
+                      icon={<Clock className="h-4 w-4 text-blue-500" />} 
+                      label="Regime" 
+                      value={getRegimeText(utilizador.regime as Regime)}
+                      badge
+                    />
+                    <InfoItem 
+                      icon={<Calendar className="h-4 w-4 text-blue-500" />} 
+                      label="Anos na Equipa" 
+                      value={`${calcularAnosExperiencia(utilizador?.contratacao) || 0} anos`}
+                    />
+                    {resumoOcupacao?.ocupacaoMesAtual !== undefined && (
+                      <InfoItem 
+                        icon={<BarChart2 className="h-4 w-4 text-blue-500" />} 
+                        label="Ocupação Atual" 
+                        value={`${Math.round((resumoOcupacao.ocupacaoMesAtual || 0) * 100)}%`}
+                      />
                     )}
-                  </Avatar>
-                  <h2 className="text-xl font-bold mt-4">{utilizador.name}</h2>
-                  <p className="text-gray-500">{utilizador.atividade || "Sem atividade definida"}</p>
-                  <Badge className="mt-2" variant="outline">
-                    {getPermissaoText(utilizador.permissao as Permissao)}
-                  </Badge>
-                </div>
-
-                <Separator />
-
-                {/* Informações de contacto */}
-                <div className="space-y-1">
-                  <InfoItem 
-                    icon={<Mail className="h-4 w-4 text-blue-500" />} 
-                    label="Email" 
-                    value={utilizador.email || ""}
-                  />
-                  <InfoItem 
-                    icon={<Calendar className="h-4 w-4 text-blue-500" />} 
-                    label="Data de Contratação" 
-                    value={formatarData(utilizador.contratacao)}
-                  />
-                  <InfoItem 
-                    icon={<Shield className="h-4 w-4 text-blue-500" />} 
-                    label="Permissão" 
-                    value={getPermissaoText(utilizador.permissao as Permissao)}
-                    badge
-                  />
-                  <InfoItem 
-                    icon={<Clock className="h-4 w-4 text-blue-500" />} 
-                    label="Regime" 
-                    value={getRegimeText(utilizador.regime as Regime)}
-                    badge
-                  />
-                </div>
-
-                <Separator />
-
-                {/* Ações */}
-                <div className="flex justify-center">
-                  <Button variant="outline" className="w-full" size="sm">
-                    <Download className="mr-2 h-4 w-4" />
-                    Exportar Relatório
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Estatísticas do Utilizador */}
-            <div className="grid grid-cols-1 gap-4 mt-6">
-              {stats.map((stat, index) => (
-                <StatCard
-                  key={index}
-                  icon={stat.icon}
-                  label={stat.title}
-                  value={stat.value}
-                  trend={stat.trend?.value}
-                  trendUp={stat.trend?.direction === "up"}
-                />
-              ))}
+                    {resumoOcupacao?.projetosAtivos !== undefined && (
+                      <InfoItem 
+                        icon={<Briefcase className="h-4 w-4 text-blue-500" />} 
+                        label="Projetos Ativos" 
+                        value={`${resumoOcupacao.projetosAtivos || 0}`}
+                      />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
           {/* Coluna da direita - Tabs de Informação */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="xl:col-span-9 space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="info">
@@ -431,9 +438,9 @@ export default function PerfilUtilizador() {
                   </CardHeader>
                   <CardContent>
                     <div className="prose max-w-none">
-                      {utilizador.informacoes ? (
+                      {(utilizador as UserWithDetails).informacoes ? (
                         <div className="text-gray-700 whitespace-pre-wrap">
-                          {utilizador.informacoes}
+                          {(utilizador as UserWithDetails).informacoes}
                         </div>
                       ) : (
                         <div className="text-gray-500 italic">
@@ -449,27 +456,22 @@ export default function PerfilUtilizador() {
               <TabsContent value="alocacoes" className="mt-6">
                 <Card className="border-none shadow-md">
                   <CardHeader>
-                    <CardTitle>Alocações Mensais</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart2 className="h-5 w-5 text-blue-500" />
+                      Alocações Mensais
+                    </CardTitle>
                     <CardDescription>
-                      Visão geral da ocupação ao longo do tempo
+                      Visão geral da ocupação ao longo do tempo. Clique em um mês para ver detalhes.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {isLoadingOcupacao ? (
+                    {isLoadingProjetos ? (
                       <div className="space-y-4">
                         <Skeleton className="h-20 w-full" />
                         <Skeleton className="h-20 w-full" />
                       </div>
-                    ) : resumoOcupacao?.ocupacaoMesAtual !== undefined ? (
-                      <div className="text-center py-12">
-                        <Calendar className="h-12 w-12 mx-auto text-blue-300" />
-                        <h3 className="mt-4 text-lg font-medium text-gray-900">
-                          Ocupação atual: {(resumoOcupacao.ocupacaoMesAtual * 100).toFixed(0)}%
-                        </h3>
-                        <p className="mt-2 text-sm text-gray-500">
-                          Ocupação média anual: {(resumoOcupacao.ocupacaoMediaAnual * 100).toFixed(0)}%
-                        </p>
-                      </div>
+                    ) : alocacoesDetalhadas ? (
+                      <AlocacoesDetalhadas alocacoes={alocacoesDetalhadas} />
                     ) : (
                       <div className="text-center py-12">
                         <Calendar className="h-12 w-12 mx-auto text-gray-300" />

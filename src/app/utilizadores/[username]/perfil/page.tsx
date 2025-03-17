@@ -33,7 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageLayout } from "@/components/common/PageLayout";
 import { api } from "@/trpc/react";
-import { Permissao, Regime } from "@prisma/client";
+import { Permissao, Regime, User as PrismaUser } from "@prisma/client";
 
 // Mapeamento de Permissões
 const PERMISSAO_LABELS: Record<string, string> = {
@@ -47,6 +47,11 @@ const REGIME_LABELS: Record<string, string> = {
   PARCIAL: 'Parcial',
   INTEGRAL: 'Integral'
 };
+
+// Definir interface estendida para o tipo User
+interface UserWithDetails extends Omit<PrismaUser, 'informacoes'> {
+  informacoes?: string | null;
+}
 
 // Componente de visualização de estatísticas
 const StatCard = ({
@@ -407,9 +412,9 @@ export default function PerfilUtilizador() {
                   </CardHeader>
                   <CardContent>
                     <div className="prose max-w-none">
-                      {utilizador.informacoes ? (
+                      {(utilizador as UserWithDetails).informacoes ? (
                         <div className="text-gray-700 whitespace-pre-wrap">
-                          {utilizador.informacoes}
+                          {(utilizador as UserWithDetails).informacoes}
                         </div>
                       ) : (
                         <div className="text-gray-500 italic">

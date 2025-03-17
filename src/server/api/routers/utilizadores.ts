@@ -221,7 +221,6 @@ export const utilizadorRouter = createTRPCRouter({
     .input(z.string())
     .query(async ({ ctx, input: userId }) => {
       try {
-        // Buscar todas as alocações do utilizador
         const alocacoes = await ctx.db.alocacaoRecurso.findMany({
           where: {
             userId: userId
@@ -312,33 +311,6 @@ export const utilizadorRouter = createTRPCRouter({
       }
     }),
 
-  getAlocacoesWithUser: protectedProcedure
-    .input(z.string())
-    .query(async ({ ctx, input: userId }) => {
-      try {
-        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
-          where: {
-            userId: userId
-          },
-          select: {
-            mes: true,
-            ano: true,
-            ocupacao: true,
-            workpackageId: true,
-            userId: true
-          },
-          orderBy: [
-            { ano: 'asc' },
-            { mes: 'asc' }
-          ]
-        });
-
-        return alocacoes;
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-
   // Obter utilizador por ID
   getById: protectedProcedure
     .input(z.string())
@@ -372,7 +344,41 @@ export const utilizadorRouter = createTRPCRouter({
         return handlePrismaError(error);
       }
     }),
+
+  //Obter por username
+  getByUsername: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input: username }) => {
+      try {
+        const user = await ctx.db.user.findUnique({
+          where: { username },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            foto: true,
+            atividade: true,
+            contratacao: true,
+            username: true,
+            permissao: true,
+            regime: true,
+            emailVerified: true,
+          },
+        });
   
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+  
+        return user;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
   // Criar utilizador
   create: protectedProcedure
     .input(createUtilizadorSchema)
@@ -543,253 +549,7 @@ export const utilizadorRouter = createTRPCRouter({
         return handlePrismaError(error);
       }
     }),
-  
-  // Alterar password
-  changePassword: protectedProcedure
-    .input(changePasswordSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        const { currentPassword, newPassword } = input;
-        
-        // Obter utilizador com password
-        const user = await ctx.db.user.findUnique({
-          where: { id: ctx.session.user.id },
-          include: { password: true },
-        });
-        
-        if (!user || !user.password) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Utilizador não encontrado",
-          });
-        }
-        
-        // Verificar password atual
-        const isValidPassword = await compare(currentPassword, user.password.hash);
-        
-        if (!isValidPassword) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Password atual incorreta",
-          });
-        }
-        
-        // Atualizar password
-        await ctx.db.password.update({
-          where: { userId: user.id },
-          data: { hash: await hash(newPassword, 10) },
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-  
-  // Solicitar reset de password
-  requestPasswordReset: publicProcedure
-    .input(resetPasswordRequestSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { email } = input as { email: string };
-      try {
-        // Verificar se utilizador existe
-        const user = await ctx.db.user.findUnique({
-          where: { email },
-        });
-        
-        if (!user) {
-          // Não revelar se o email existe ou não
-          return { success: true };
-        }
-        
-        // Gerar token
-        const token = randomUUID();
-        const tokenExpiry = new Date();
-        tokenExpiry.setHours(tokenExpiry.getHours() + 1);
-        
-        // Guardar token
-        await ctx.db.passwordReset.create({
-          data: {
-            email,
-            token,
-            expires: tokenExpiry,
-          },
-        });
-        
-        // Enviar email
-        await sendEmail({
-          to: email,
-          subject: "Recuperação de Password",
-          html: `
-            <p>Para redefinir a sua password, clique no link: ${process.env.NEXTAUTH_URL}/reset-password?token=${token}</p>
-          `,
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-  
-  // Reset de password
-  resetPassword: publicProcedure
-    .input(resetPasswordSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { token, password } = input as { token: string; password: string };
-      try {
-        // Verificar token
-        const resetToken = await ctx.db.passwordReset.findUnique({
-          where: { token },
-        });
-        
-        if (!resetToken || resetToken.expires < new Date()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Token inválido ou expirado",
-          });
-        }
-        
-        // Obter utilizador
-        const user = await ctx.db.user.findUnique({
-          where: { email: resetToken.email },
-          include: { password: true },
-        });
-        
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Utilizador não encontrado",
-          });
-        }
-        
-        // Atualizar password
-        const hashedPassword = await hash(password, 10);
-        const hashString = hashedPassword.toString();
-        
-        if (user.password) {
-          await ctx.db.password.update({
-            where: { userId: user.id },
-            data: { hash: hashString },
-          });
-        } else {
-          await ctx.db.password.create({
-            data: {
-              userId: user.id,
-              hash: hashString,
-            },
-          });
-        }
-        
-        // Eliminar token
-        await ctx.db.passwordReset.delete({
-          where: { token },
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-  
-  // Primeiro acesso
-  primeiroAcesso: publicProcedure
-    .input(primeiroAcessoSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { token, password } = input as { token: string; password: string };
-      try {
-        // Verificar token
-        const verificationToken = await ctx.db.verificationToken.findUnique({
-          where: { token },
-        });
-        
-        if (!verificationToken || verificationToken.expires < new Date()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Token inválido ou expirado",
-          });
-        }
-        
-        // Obter utilizador
-        const user = await ctx.db.user.findUnique({
-          where: { email: verificationToken.identifier },
-          include: { password: true },
-        });
-        
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Utilizador não encontrado",
-          });
-        }
-        
-        // Atualizar password e marcar email como verificado
-        const hashedPassword = await hash(password, 10);
-        const hashString = hashedPassword.toString();
-        
-        await ctx.db.user.update({
-          where: { id: user.id },
-          data: { emailVerified: new Date() },
-        });
-        
-        if (user.password) {
-          await ctx.db.password.update({
-            where: { userId: user.id },
-            data: { hash: hashString },
-          });
-        } else {
-          await ctx.db.password.create({
-            data: {
-              userId: user.id,
-              hash: hashString,
-            },
-          });
-        }
-        
-        // Eliminar token
-        await ctx.db.verificationToken.delete({
-          where: { token },
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
 
-  // Obter utilizador por username
-  getByUsername: protectedProcedure
-    .input(z.string())
-    .query(async ({ ctx, input: username }) => {
-      try {
-        const user = await ctx.db.user.findUnique({
-          where: { username },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            foto: true,
-            atividade: true,
-            contratacao: true,
-            username: true,
-            permissao: true,
-            regime: true,
-            emailVerified: true,
-            informacoes: true,
-          },
-        });
-        
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Utilizador não encontrado",
-          });
-        }
-        
-        return user;
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
 
   // Atualizar informações (currículo) do utilizador
   updateInformacoes: protectedProcedure
@@ -866,7 +626,10 @@ export const utilizadorRouter = createTRPCRouter({
             projeto: {
               select: {
                 id: true,
-                nome: true
+                nome: true,
+                descricao: true,
+                inicio: true,
+                fim: true
               }
             }
           }

@@ -33,6 +33,7 @@ import {
 import { api } from '@/trpc/react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { ProjetoEstado } from '@prisma/client';
 
 // Interface para o utilizador
 interface User {
@@ -45,6 +46,35 @@ interface User {
   foto?: string | null;
 }
 
+// Interface para workpackage
+interface Workpackage {
+  id: string;
+  nome: string;
+  descricao: string;
+  inicio: Date | string;
+  fim: Date | string;
+  estado: ProjetoEstado | boolean;
+  alocacoes: Alocacao[];
+}
+
+// Interface para alocação
+interface Alocacao {
+  mes: number;
+  ano: number;
+  ocupacao: number | string;
+}
+
+// Interface para projeto
+interface Projeto {
+  id: string;
+  nome: string;
+  descricao: string;
+  inicio: Date | string;
+  fim: Date | string;
+  ocupacaoMedia: number;
+  workpackages: Workpackage[];
+}
+
 // Formato seguro para o estado do workpackage
 const formatEstado = (estado: any): string => {
   // Verificar se estado é um enum ProjetoEstado
@@ -54,7 +84,7 @@ const formatEstado = (estado: any): string => {
       estado === 'EM_DESENVOLVIMENTO' || 
       estado === 'CONCLUIDO') {
     // Substituir underscore por espaço e formatar
-    return estado.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return estado.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
   }
   
   // Se for um booleano (como no schema)
@@ -88,13 +118,7 @@ const UserWorkDetailsPage = () => {
   } = api.utilizador.getProjetosWithUser.useQuery(
     userData?.id || '', 
     { 
-      enabled: !!userData?.id,
-      onSuccess: (data) => {
-        console.log("Projetos carregados:", data);
-      },
-      onError: (error) => {
-        console.error("Erro ao carregar projetos:", error);
-      }
+      enabled: !!userData?.id
     }
   );
 
@@ -144,6 +168,21 @@ const UserWorkDetailsPage = () => {
     );
   }, [isLoadingUser, isLoadingProjetos, isLoadingRelatorios, isLoadingResumo, userData]);
 
+  // Efeito para processar dados após carregamento
+  useEffect(() => {
+    if (projetos) {
+      console.log("Projetos carregados:", projetos);
+    }
+  }, [projetos]);
+
+  // Efeito para tratar erros
+  useEffect(() => {
+    const fetchError = userError || (userData?.id && isLoadingProjetos === false && !projetos ? new Error("Erro ao carregar projetos") : null);
+    if (fetchError) {
+      console.error("Erro ao carregar dados:", fetchError);
+    }
+  }, [userError, userData, isLoadingProjetos, projetos]);
+
   // Filtrar projetos por mês selecionado
   const filteredProjetos = selectedMonth && selectedMonth !== 'all' && projetos
     ? projetos.map(projeto => {
@@ -151,9 +190,9 @@ const UserWorkDetailsPage = () => {
         
         return {
           ...projeto,
-          workpackages: projeto.workpackages.filter(wp => {
+          workpackages: projeto.workpackages.filter((wp: any) => {
             // Verificar se há alocações para o mês selecionado
-            return wp.alocacoes.some(a => a.ano === year && a.mes === month);
+            return wp.alocacoes.some((a: any) => a.ano === year && a.mes === month);
           })
         };
       }).filter(projeto => projeto.workpackages.length > 0)
@@ -318,7 +357,7 @@ const UserWorkDetailsPage = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {projeto.workpackages.map(wp => (
+                            {projeto.workpackages.map((wp: Workpackage) => (
                               <TableRow key={wp.id}>
                                 <TableCell className="font-medium">{wp.nome}</TableCell>
                                 <TableCell>{wp.descricao}</TableCell>
@@ -338,7 +377,7 @@ const UserWorkDetailsPage = () => {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   {wp.alocacoes.length > 0 
-                                    ? Math.round((wp.alocacoes.reduce((sum, a) => sum + Number(a.ocupacao), 0) / wp.alocacoes.length) * 100)
+                                    ? Math.round((wp.alocacoes.reduce((sum: number, a: Alocacao) => sum + Number(a.ocupacao), 0) / wp.alocacoes.length) * 100)
                                     : 0}%
                                 </TableCell>
                               </TableRow>
@@ -517,8 +556,8 @@ const UserWorkDetailsPage = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredProjetos.flatMap(projeto => 
-                          projeto.workpackages.map(wp => (
+                        {filteredProjetos.flatMap((projeto: Projeto) => 
+                          projeto.workpackages.map((wp: Workpackage) => (
                             <TableRow key={`${projeto.id}-${wp.id}`}>
                               <TableCell className="font-medium">{projeto.nome}</TableCell>
                               <TableCell>{wp.nome}</TableCell>
@@ -538,7 +577,7 @@ const UserWorkDetailsPage = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 {wp.alocacoes.length > 0 
-                                  ? Math.round((wp.alocacoes.reduce((sum, a) => sum + Number(a.ocupacao), 0) / wp.alocacoes.length) * 100)
+                                  ? Math.round((wp.alocacoes.reduce((sum: number, a: Alocacao) => sum + Number(a.ocupacao), 0) / wp.alocacoes.length) * 100)
                                   : 0}%
                               </TableCell>
                             </TableRow>

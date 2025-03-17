@@ -5,7 +5,6 @@ import { utilizadorRouter } from "./routers/utilizadores";
 import { projetoRouter } from "./routers/projetos";
 import { workpackageRouter } from "./routers/workpackages";
 import { tarefaRouter } from "./routers/tarefas";
-import { authRouter } from "./routers/auth";
 import { entregavelRouter } from "./routers/entregaveis";
 import { materialRouter } from "./routers/materiais";
 import { financiamentoRouter } from "./routers/financiamento";
@@ -18,7 +17,6 @@ export const appRouter = createTRPCRouter({
   projeto: projetoRouter,
   workpackage: workpackageRouter,
   tarefa: tarefaRouter,
-  auth: authRouter,
   entregavel: entregavelRouter,
   material: materialRouter,
   financiamento: financiamentoRouter,
