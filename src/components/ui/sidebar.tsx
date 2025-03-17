@@ -4,7 +4,7 @@ import * as React from "react";
 import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   FolderKanban,
@@ -21,8 +21,9 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { User as PrismaUser } from "@prisma/client";
+import { customSignOut } from "@/app/actions/auth-actions";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -42,6 +43,7 @@ export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const toggleCollapse = () => setCollapsed(!collapsed);
 
@@ -50,7 +52,16 @@ export const AppSidebar = () => {
   // Função para fazer logout
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
-    await signOut({ callbackUrl: '/login' });
+    
+    try {
+      // Chamar a server action de logout
+      await customSignOut();
+      // Nota: não precisamos de redirecionar aqui porque a server action já faz isso
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+      // Fallback: redirecionar manualmente em caso de erro
+      window.location.href = '/login';
+    }
   };
 
   // Click outside handler to collapse sidebar

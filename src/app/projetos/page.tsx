@@ -89,7 +89,7 @@ export default function Projetos() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const { 
-    data: projetos, 
+    data: projetosResponse, 
     isLoading, 
     error 
   } = api.projeto.getAll.useQuery(
@@ -107,10 +107,55 @@ export default function Projetos() {
   );
 
   useEffect(() => {
-    if (projetos) {
-      console.log("Projetos carregados:", projetos);
+    if (projetosResponse) {
+      console.log("Resposta da API:", projetosResponse);
     }
-  }, [projetos]);
+  }, [projetosResponse]);
+
+  // Extrair projetos da resposta da API
+  const projetos = useMemo(() => {
+    if (!projetosResponse) return [];
+    
+    // Se for um array direto, usar como está
+    if (Array.isArray(projetosResponse)) {
+      return projetosResponse;
+    }
+    
+    // Se tiver uma propriedade items, usar essa
+    if (projetosResponse.items && Array.isArray(projetosResponse.items)) {
+      return projetosResponse.items;
+    }
+    
+    // Se tiver uma propriedade data que é um array, usar essa
+    if (projetosResponse.data && Array.isArray(projetosResponse.data)) {
+      return projetosResponse.data;
+    }
+    
+    // Último recurso: tentar converter para array se for objeto
+    if (typeof projetosResponse === 'object' && projetosResponse !== null) {
+      return [projetosResponse];
+    }
+    
+    return [];
+  }, [projetosResponse]);
+
+  // Extrair informações de paginação
+  const paginacao = useMemo(() => {
+    if (!projetosResponse) return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
+    
+    if (projetosResponse.pagination) {
+      return projetosResponse.pagination;
+    }
+    
+    // Se não houver paginação, calcular com base no array
+    const total = Array.isArray(projetos) ? projetos.length : 0;
+    return {
+      total,
+      pages: Math.ceil(total / itemsPerPage),
+      page: currentPage,
+      limit: itemsPerPage
+    };
+  }, [projetosResponse, projetos, currentPage]);
 
   const projetosArray = Array.isArray(projetos) ? projetos : [];
   
@@ -344,8 +389,8 @@ export default function Projetos() {
         itemsPerPage={itemsPerPage}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
-        totalItems={projetos?.pagination?.total || filteredProjects.length}
-        totalPages={projetos?.pagination?.pages || Math.ceil(filteredProjects.length / itemsPerPage)}
+        totalItems={paginacao.total || filteredProjects.length}
+        totalPages={paginacao.pages || Math.ceil(filteredProjects.length / itemsPerPage)}
         onRowClick={handleRowClick}
         clearAllFilters={clearAllFilters}
         emptyStateMessage={{
@@ -354,6 +399,24 @@ export default function Projetos() {
             "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
         }}
       />
+      
+      {/* Componente de depuração para verificar os dados */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <h3 className="font-bold text-yellow-800">Depuração</h3>
+          <p>Tipo de resposta: {typeof projetosResponse}</p>
+          <p>É array? {Array.isArray(projetosResponse) ? 'Sim' : 'Não'}</p>
+          <p>Número de projetos: {projetosArray.length}</p>
+          <details>
+            <summary className="cursor-pointer text-sm text-yellow-700 hover:text-yellow-900">
+              Ver primeiro projeto (clique para expandir)
+            </summary>
+            <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-60">
+              {projetosArray.length > 0 ? JSON.stringify(projetosArray[0], null, 2) : 'Nenhum projeto'}
+            </pre>
+          </details>
+        </div>
+      )}
     </PageLayout>
   );
 }

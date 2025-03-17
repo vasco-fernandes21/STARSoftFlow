@@ -49,7 +49,7 @@ export async function sendEmail({ to, subject, html }: EmailOptions) {
       links.forEach((link, index) => {
         // Verificar se é um link da aplicação
         const isAppLink = 
-          link.includes(process.env.NEXTAUTH_URL || 'localhost') || 
+          link.includes(process.env.AUTH_URL || 'localhost') || 
           link.startsWith('/');
         
         if (isAppLink) {

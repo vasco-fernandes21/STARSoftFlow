@@ -38,10 +38,6 @@ export default function LoginPage() {
           description: "Por favor, verifique o email e a palavra-passe."
         });
       } else {
-        // Mostrar sucesso com Sonner
-        toast.success("Login bem-sucedido", {
-          description: "Bem-vindo!"
-        });
         // Redirecionar para a página inicial
         router.push("/");
       }
@@ -188,18 +184,6 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-azul focus:ring-azul"
-                />
-                <label htmlFor="remember-me" className="ml-3 block text-sm text-gray-700">
-                  Lembrar-me
-                </label>
               </div>
 
               <button

@@ -2,17 +2,53 @@ import NextAuth from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "prisma/prisma"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { compare, hash } from "bcrypt"
+import { compare, hash } from "bcryptjs"
 import { Permissao } from "@prisma/client"
 import { ZodError } from "zod"
 import { loginSchema } from "./api/auth/types"
 import { z } from "zod"
+import { cookies } from "next/headers"
 
 // Schema para validação do token e senha
 const tokenValidationSchema = z.object({
   token: z.string(),
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres")
 });
+
+// Lista de todos os cookies relacionados com autenticação
+export const authCookies = [
+  'next-auth.session-token',
+  'next-auth.csrf-token',
+  'next-auth.callback-url',
+  'authjs.session-token',
+  'authjs.csrf-token',
+  'authjs.callback-url',
+  '__Secure-next-auth.session-token',
+  'username-localhost-8888'
+];
+
+// Função personalizada para limpar cookies
+export async function clearAuthCookies() {
+  'use server';
+  
+  const cookieStore = await cookies();
+  
+  // Limpar todos os cookies de autenticação
+  authCookies.forEach(cookieName => {
+    try {
+      cookieStore.delete(cookieName);
+      console.log(`Cookie ${cookieName} removido com sucesso`);
+    } catch (error) {
+      console.error(`Erro ao remover cookie ${cookieName}:`, error);
+    }
+  });
+  
+  return { success: true };
+}
+
+// Definir tempos de expiração
+const EXPIRY_REMEMBER_ME = 30 * 24 * 60 * 60; // 30 dias em segundos
+const EXPIRY_SESSION_ONLY = null;     // null para ser apenas sessão do navegador (até fechar o separador)
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -21,12 +57,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "Credenciais",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        rememberMe: { label: "Remember Me", type: "boolean" }
       },
       async authorize(credentials) {
         try {
+          // Extrair rememberMe das credenciais
+          const { email, password, rememberMe } = credentials as {
+            email: string;
+            password: string;
+            rememberMe?: string | boolean;
+          };
+          
           // Validar as credenciais usando o loginSchema
-          const { email, password } = await loginSchema.parseAsync(credentials);
+          const validatedData = await loginSchema.parseAsync({ 
+            email, 
+            password,
+            rememberMe: rememberMe === true || rememberMe === "true"
+          });
           
           // Procurar o utilizador pelo email
           const user = await prisma.user.findUnique({
@@ -50,7 +98,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null
           }
 
-          // Retornar apenas os campos necessários para o NextAuth
+          // Retornar o utilizador com a opção rememberMe
           return {
             id: user.id,
             email: user.email,
@@ -60,7 +108,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             atividade: user.atividade,
             regime: user.regime,
             username: user.username,
-            contratacao: user.contratacao
+            contratacao: user.contratacao,
+            rememberMe: validatedData.rememberMe
           }
         } catch (error) {
           // Tratar erros de validação do Zod
@@ -252,34 +301,87 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
+    // Não definimos maxAge aqui, pois será definido dinamicamente
   },
   pages: {
     signIn: "/login",
     verifyRequest: "/verificar-email",
     newUser: "/bem-vindo"
   },
-  callbacks: {
-    session({ session, token }) {
-      console.log("Session callback - Token recebido:", token);
-      
-      if (session.user) {
-        // Campos já existentes
-        (session.user as any).id = token.sub;
-        (session.user as any).permissao = token.permissao;
-        
-        // Adicionar novos campos
-        (session.user as any).atividade = token.atividade;
-        (session.user as any).regime = token.regime;
-        (session.user as any).username = token.username;
-        (session.user as any).contratacao = token.contratacao;
-        
-        console.log("Session callback - Session após modificação:", session);
-      }
-      return session;
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        // Não definir maxAge para que o cookie seja de sessão (expira ao fechar o navegador)
+      },
     },
-    jwt({ token, user }) {
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    pkceCodeVerifier: {
+      name: 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
+  events: {
+    async signOut() {
+      console.log("Evento de signOut acionado");
+      // Não podemos chamar a server action diretamente aqui
+    },
+  },
+  callbacks: {
+    async jwt({ token, user, account, profile, trigger, session }) {
       console.log("JWT callback - User recebido:", user);
+      
+      // Se for um novo login, verificar a opção "Remember Me"
+      if (trigger === "signIn" || trigger === "signUp") {
+        // Verificar se a opção "Remember Me" foi passada na sessão
+        const rememberMe = session?.rememberMe === true;
+        
+        // Definir o tempo de expiração com base na opção "Remember Me"
+        token.rememberMe = rememberMe;
+        
+        if (rememberMe) {
+          // Se "Remember Me" estiver ativo, definir expiração para 30 dias
+          token.expiresAt = Math.floor(Date.now() / 1000) + EXPIRY_REMEMBER_ME;
+        } else {
+          // Se não, não definir expiresAt (será uma sessão de navegador)
+          token.expiresAt = undefined;
+        }
+        
+        console.log(`Login com "Remember Me": ${rememberMe}, ${rememberMe ? `expira em: ${EXPIRY_REMEMBER_ME} segundos` : 'expira ao fechar o separador'}`);
+      }
+      
+      // Verificar se o token expirou (apenas se tiver uma data de expiração)
+      if (token.expiresAt && typeof token.expiresAt === 'number' && Date.now() / 1000 > token.expiresAt) {
+        // Token expirou, forçar logout
+        console.log("Token expirou, sessão inválida");
+        return { ...token, error: "TokenExpired" };
+      }
       
       if (user) {
         token.sub = user.id;
@@ -296,6 +398,54 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         console.log("JWT callback - Token após modificação:", token);
       }
       return token;
+    },
+    
+    async session({ session, token }) {
+      console.log("Session callback - Token recebido:", token);
+      
+      // Se o token tiver expirado, retornar sessão inválida
+      if (token.error === "TokenExpired") {
+        // Retornar uma sessão vazia em vez de null
+        return { ...session, expires: new Date(0).toISOString() };
+      }
+      
+      if (session.user) {
+        // Campos já existentes
+        (session.user as any).id = token.sub;
+        (session.user as any).permissao = token.permissao;
+        
+        // Adicionar novos campos
+        (session.user as any).atividade = token.atividade;
+        (session.user as any).regime = token.regime;
+        (session.user as any).username = token.username;
+        (session.user as any).contratacao = token.contratacao;
+        
+        // Adicionar informação sobre "Remember Me"
+        (session as any).rememberMe = token.rememberMe;
+        
+        console.log("Session callback - Session após modificação:", session);
+      }
+      return session;
     }
-  }
+  },
+  secret: process.env.AUTH_SECRET
 });
+
+// Função personalizada de logout que combina signOut do NextAuth com limpeza manual de cookies
+export async function customSignOut(callbackUrl = '/login') {
+  'use server';
+  
+  try {
+    // Primeiro, usar o signOut padrão do NextAuth
+    await signOut({ redirect: false });
+    
+    // Em seguida, limpar manualmente todos os cookies
+    await clearAuthCookies();
+    
+    // Retornar sucesso e URL de redirecionamento
+    return { success: true, url: callbackUrl };
+  } catch (error) {
+    console.error("Erro ao fazer logout:", error);
+    return { success: false, url: callbackUrl, error };
+  }
+}

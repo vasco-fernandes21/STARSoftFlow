@@ -216,7 +216,7 @@ const Users = () => {
     switch (permissao) {
       case Permissao.ADMIN: return "Administrador";
       case Permissao.GESTOR: return "Gestor";
-      case Permissao.COMUM: return "Utilizador Comum";
+      case Permissao.COMUM: return "Utilizador";
       default: return "Desconhecido";
     }
   };

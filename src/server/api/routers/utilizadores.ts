@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { Permissao, Regime, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { sendEmail } from "@/lib/email";
-import { hash, compare } from "bcrypt";
+import { hash, compare } from "bcryptjs";
 import { z } from "zod";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
@@ -473,7 +473,7 @@ export const utilizadorRouter = createTRPCRouter({
             to: newUser.email,
             subject: "Bem-vindo ao Sistema de Gestão de Projetos",
             html: `
-              <p>Bem-vindo! Para aceder à sua conta, clique no link: ${process.env.NEXTAUTH_URL}/primeiro-login?token=${token}</p>
+              <p>Bem-vindo! Para aceder à sua conta, clique no link: ${process.env.AUTH_URL}/primeiro-login?token=${token}</p>
             `,
           });
         }
