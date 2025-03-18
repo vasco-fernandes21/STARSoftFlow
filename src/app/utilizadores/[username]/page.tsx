@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -34,7 +34,13 @@ import {
   Globe,
   Phone,
   Linkedin,
-  Camera
+  Camera,
+  ExternalLink,
+  Send,
+  Share2,
+  PieChart,
+  Grid3X3,
+  Zap
 } from "lucide-react";
 import { 
   Card, 
@@ -55,7 +61,17 @@ import { AlocacoesDetalhadas } from "./AlocacoesDetalhadas";
 import { TabelaAlocacoes } from "./TabelaAlocacoes";
 
 // Interfaces e mapeamentos
-interface UserWithDetails extends Omit<PrismaUser, 'informacoes'> {
+interface UserWithDetails {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  username?: string | null;
+  permissao: Permissao;
+  regime: Regime;
+  atividade?: string | null;
+  foto?: string | null;
+  contratacao?: Date | null;
+  emailVerified?: Date | null;
   informacoes?: string | null;
 }
 
@@ -115,6 +131,17 @@ interface AlocacaoOriginal {
   };
 }
 
+// Interface para o próximo workpackage
+interface ProximoWorkpackage {
+  id: string;
+  nome: string;
+  dataInicio: Date;
+  projeto: {
+    id: string;
+    nome: string;
+  };
+}
+
 const PERMISSAO_LABELS: Record<string, string> = {
   ADMIN: 'Administrador',
   GESTOR: 'Gestor',
@@ -160,7 +187,7 @@ const InfoItem = ({
 export default function PerfilUtilizador() {
   const router = useRouter();
   const { username } = useParams<{ username: string }>();
-  const [activeTab, setActiveTab] = useState<string>("info");
+  const [activeTab, setActiveTab] = useState<string>("perfil");
   
   // Dados do utilizador
   const { 
@@ -235,18 +262,48 @@ export default function PerfilUtilizador() {
     return Math.floor((hoje.getTime() - new Date(dataContratacao).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
   };
 
+  // Encontrar o próximo workpackage (com data de início mais próxima)
+  const proximoWorkpackage = useMemo<ProximoWorkpackage | null>(() => {
+    if (!projetos || projetos.length === 0) return null;
+    
+    const agora = new Date();
+    let candidato: ProximoWorkpackage | null = null;
+    let menorDiferenca = Infinity;
+    
+    projetos.forEach((projeto: Projeto) => {
+      projeto.workpackages.forEach((wp: Workpackage) => {
+        const dataInicio = new Date(wp.inicio);
+        
+        // Considerar apenas workpackages futuros
+        if (dataInicio > agora) {
+          const diferenca = dataInicio.getTime() - agora.getTime();
+          
+          if (diferenca < menorDiferenca) {
+            menorDiferenca = diferenca;
+            candidato = {
+              id: wp.id,
+              nome: wp.nome,
+              dataInicio: dataInicio,
+              projeto: {
+                id: projeto.id,
+                nome: projeto.nome
+              }
+            };
+          }
+        }
+      });
+    });
+    
+    return candidato;
+  }, [projetos]);
+
   // Estado de carregamento
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center gap-6">
-            <div className="h-24 w-24 rounded-full bg-gray-200 animate-pulse"></div>
-            <div className="space-y-4">
-              <div className="h-8 bg-gray-200 rounded animate-pulse w-48"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
-            </div>
-          </div>
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
+        <div className="w-16 h-16 relative animate-spin">
+          <div className="absolute inset-0 rounded-full border-t-2 border-b-2 border-azul/30"></div>
+          <div className="absolute inset-0 rounded-full border-t-2 border-azul animate-pulse"></div>
         </div>
       </div>
     );
@@ -255,23 +312,25 @@ export default function PerfilUtilizador() {
   // Estado sem utilizador
   if (!utilizador) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
-          <div className="bg-white p-12 rounded-xl shadow-md max-w-2xl mx-auto border">
-            <div className="bg-gray-50 rounded-full p-6 w-28 h-28 mx-auto mb-6">
-              <UserIcon className="h-full w-full text-gray-400" />
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden">
+          <div className="bg-gray-50 p-8 flex flex-col items-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+              <Briefcase className="w-10 h-10 text-gray-300" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Utilizador não encontrado</h2>
-            <p className="text-gray-600 text-lg mb-8">O utilizador que procura não existe ou foi removido do sistema.</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button className="bg-azul text-white hover:bg-azul/90" onClick={() => router.push('/')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar à página inicial
-              </Button>
-              <Button variant="outline">
-                Pesquisar utilizadores
-              </Button>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Utilizador não encontrado</h2>
+            <p className="text-gray-500 text-center mb-6">
+              Não conseguimos encontrar o perfil que procura. O utilizador pode ter sido removido ou o URL está incorreto.
+            </p>
+          </div>
+          <div className="p-6 bg-white">
+            <Button 
+              onClick={() => router.push('/utilizadores')}
+              className="w-full bg-azul hover:bg-azul/90 text-white group"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+              Voltar para a lista de utilizadores
+            </Button>
           </div>
         </div>
       </div>
@@ -287,193 +346,455 @@ export default function PerfilUtilizador() {
 
   const anosExperiencia = calcularAnosExperiencia(utilizador.contratacao);
 
+  // Tratar o utilizador como UserWithDetails para acessar informacoes
+  const utilizadorComDetalhes = utilizador as UserWithDetails;
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-white to-azul/5">
-      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Cabeçalho inspirado no ProjetoHeader */}
-        <div className="flex items-center gap-6 mb-10">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white antialiased">
+      {/* Navegação superior com botão voltar */}
+      <div className="sticky top-0 z-40 backdrop-blur-sm bg-white/80 border-b border-gray-100 shadow-sm">
+        <div className="container mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between">
           <Button
             variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="rounded-full glass-bg hover:bg-white/70 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg hover:scale-105"
+            size="sm"
+            onClick={() => router.push('/utilizadores')}
+            className="text-gray-600 hover:text-azul group flex items-center gap-2"
           >
-            <ArrowLeft className="h-5 w-5 text-gray-600 hover:text-azul transition-colors duration-300 ease-in-out" />
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            <span>Voltar</span>
           </Button>
           
-          {/* Avatar com efeito de destaque */}
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-azul to-azul/50 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
-            <Avatar className="h-20 w-20 border-3 border-white shadow-lg relative">
-              {utilizador.foto ? (
-                <AvatarImage src={utilizador.foto} alt={utilizador.name || ""} />
-              ) : (
-                <AvatarFallback className="bg-gradient-to-br from-azul to-azul/80 text-white text-3xl font-semibold">
-                  {utilizador.name?.slice(0, 2).toUpperCase() || "U"}
-                </AvatarFallback>
-              )}
-            </Avatar>
-            <Button 
-              variant="outline" 
-              size="icon"
-              className="absolute bottom-0 right-0 rounded-full bg-white shadow-sm hover:bg-azul/5 hover:scale-110 transition-all duration-300 w-5 h-5 p-0"
-            >
-              <Camera className="h-3 w-3" />
-            </Button>
+          <div className="text-sm text-gray-500">
+            <span className="font-medium">Perfil de {utilizador.name}</span>
           </div>
           
-          {/* Informações do Utilizador */}
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">
-              {utilizador.name}
-            </h1>
-            <p className="text-gray-600 text-sm">
-              {utilizador.atividade || "Sem atividade definida"}
-            </p>
-            <div className="flex items-center gap-2 flex-wrap mt-2">
-              <Badge variant="outline" className="bg-white/90 border-azul/20 text-azul hover:bg-azul/5 transition-all duration-200 px-2 py-0.5 rounded-full text-xs">
-                <Shield className="h-3 w-3 mr-1" /> {utilizadorFormatado.permissao}
-              </Badge>
-              <Badge variant="outline" className="bg-white/90 border-azul/20 text-azul hover:bg-azul/5 transition-all duration-200 px-2 py-0.5 rounded-full text-xs">
-                <Clock className="h-3 w-3 mr-1" /> {utilizadorFormatado.regime}
-              </Badge>
-              {utilizador.contratacao && (
-                <Badge variant="outline" className="bg-white/90 border-azul/20 text-azul hover:bg-azul/5 transition-all duration-200 px-2 py-0.5 rounded-full text-xs">
-                  <Briefcase className="h-3 w-3 mr-1" /> {anosExperiencia} {anosExperiencia === 1 ? 'ano' : 'anos'} na empresa
-                </Badge>
-              )}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="border-gray-200 text-gray-600 hover:text-azul">
+              <Share2 className="h-4 w-4 mr-1" />
+              Partilhar
+            </Button>
+          </div>
+        </div>
+      </div>
+      
+      <main className="container mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-20">
+        {/* Cabeçalho do perfil */}
+        <div className="relative mb-10">
+          <div className="absolute inset-0 bg-gradient-to-r from-azul/5 to-indigo-50/30 h-48 -z-10 rounded-3xl"></div>
+          
+          <div className="relative pt-12 pb-8 px-6 sm:px-8 md:px-10">
+            <div className="flex flex-col sm:flex-row gap-8 items-center sm:items-start">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-azul to-indigo-400 rounded-full blur opacity-30 group-hover:opacity-60 transition-all duration-500"></div>
+                <Avatar className="h-32 w-32 border-4 border-white shadow-xl relative">
+                  {utilizador.foto ? (
+                    <AvatarImage src={utilizador.foto} alt={utilizador.name || ""} />
+                  ) : (
+                    <AvatarFallback className="bg-gradient-to-br from-azul to-indigo-500 text-white text-4xl font-semibold">
+                      {utilizador.name?.slice(0, 2).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  className="absolute bottom-1 right-1 rounded-full bg-white shadow-md hover:bg-azul/5 hover:scale-110 transition-all duration-300 w-8 h-8"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="text-center sm:text-left">
+                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+                  {utilizador.name}
+                </h1>
+                
+                <p className="text-lg text-gray-600 mb-4 max-w-xl">
+                  {utilizador.atividade || "Sem atividade definida"}
+                </p>
+                
+                <div className="flex flex-wrap gap-2 justify-center sm:justify-start mb-6">
+                  <Badge className="bg-azul/10 hover:bg-azul/20 text-azul py-1.5 px-3 rounded-full text-sm transition-colors duration-200">
+                    <Shield className="h-3.5 w-3.5 mr-1.5" /> 
+                    {utilizadorFormatado.permissao}
+                  </Badge>
+                  
+                  <Badge className="bg-azul/10 hover:bg-azul/20 text-azul py-1.5 px-3 rounded-full text-sm transition-colors duration-200">
+                    <Clock className="h-3.5 w-3.5 mr-1.5" /> 
+                    {utilizadorFormatado.regime}
+                  </Badge>
+                  
+                  {utilizador.contratacao && (
+                    <Badge className="bg-azul/10 hover:bg-azul/20 text-azul py-1.5 px-3 rounded-full text-sm transition-colors duration-200">
+                      <Briefcase className="h-3.5 w-3.5 mr-1.5" /> 
+                      {anosExperiencia} {anosExperiencia === 1 ? 'ano' : 'anos'} de experiência
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="flex gap-3 justify-center sm:justify-start">
+                  <Button className="bg-azul hover:bg-azul/90 text-white">
+                    <Send className="h-4 w-4 mr-2" /> Contactar
+                  </Button>
+                  <Button variant="outline" className="border-gray-200">
+                    <FileText className="h-4 w-4 mr-2" /> Ver CV
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="hidden md:flex flex-col gap-4 items-end ml-auto">
+                <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 flex flex-col items-center transition-all hover:shadow-lg hover:scale-105">
+                  <div className="bg-azul/10 text-azul rounded-full p-2 mb-2">
+                    <Activity className="h-6 w-6" />
+                  </div>
+                  <span className="text-2xl font-bold text-gray-900">
+                    {alocacoesDetalhadas.length > 0 ? Math.round(alocacoesDetalhadas.reduce((sum, a) => sum + a.ocupacao, 0) * 100) / 100 : 0}
+                  </span>
+                  <span className="text-xs text-gray-500">Ocupação Total</span>
+                </div>
+                
+                <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 flex flex-col items-center transition-all hover:shadow-lg hover:scale-105">
+                  <div className="bg-indigo-100 text-indigo-600 rounded-full p-2 mb-2">
+                    <Grid3X3 className="h-6 w-6" />
+                  </div>
+                  <span className="text-2xl font-bold text-gray-900">
+                    {new Set(alocacoesDetalhadas.map(a => a.projeto.id)).size || 0}
+                  </span>
+                  <span className="text-xs text-gray-500">Projetos Ativos</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Grid de Informações - layout aprimorado e mais amplo */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Coluna Principal - 8 colunas em telas grandes */}
-          <div className="lg:col-span-8 space-y-8">
-            {/* Sobre - com transições e efeitos */}
-            <Card className="border-azul/10 hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">
-              <CardHeader className="border-b border-azul/5 bg-gradient-to-r from-white to-azul/5">
-                <CardTitle className="text-xl text-azul flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Sobre
-                </CardTitle>
-                <CardDescription className="text-gray-600">
-                  Informações profissionais e experiência
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {(utilizador as UserWithDetails).informacoes ? (
-                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {(utilizador as UserWithDetails).informacoes}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <div className="bg-azul/5 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                      <FileText className="h-8 w-8 text-azul/40" />
+        
+        {/* Tabs de navegação */}
+        <Tabs defaultValue="perfil" value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <TabsList className="grid grid-cols-3 gap-2 bg-white rounded-xl p-1 border border-gray-100 shadow-sm">
+            <TabsTrigger 
+              value="perfil" 
+              className={cn(
+                "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
+                "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
+                "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
+              )}
+            >
+              <Briefcase className="h-4 w-4 mr-2" />
+              Perfil Profissional
+            </TabsTrigger>
+            <TabsTrigger 
+              value="alocacoes" 
+              className={cn(
+                "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
+                "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
+                "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
+              )}
+            >
+              <BarChart2 className="h-4 w-4 mr-2" />
+              Alocações
+            </TabsTrigger>
+            <TabsTrigger 
+              value="estatisticas" 
+              className={cn(
+                "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
+                "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
+                "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
+              )}
+            >
+              <PieChart className="h-4 w-4 mr-2" />
+              Estatísticas
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Conteúdo: Perfil Profissional */}
+          <TabsContent value="perfil" className="pt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-6">
+                {/* Sobre */}
+                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                    <CardTitle className="text-xl text-gray-800 flex items-center">
+                      <FileText className="h-5 w-5 text-azul mr-2" />
+                      Sobre
+                    </CardTitle>
+                    <CardDescription className="text-gray-500">
+                      Perfil e resumo profissional
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="pt-6">
+                    {utilizadorComDetalhes?.informacoes ? (
+                      <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        {utilizadorComDetalhes.informacoes}
+                      </div>
+                    ) : (
+                      <div className="text-center py-10">
+                        <div className="bg-gray-50 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                          <FileText className="h-8 w-8 text-gray-300" />
+                        </div>
+                        <p className="text-gray-500 mb-4">Este utilizador ainda não tem um currículo resumido definido.</p>
+                        <Button variant="outline" className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200">
+                          <Edit className="h-4 w-4 mr-2" />
+                          Adicionar Informações
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                {/* Projetos */}
+                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                    <CardTitle className="text-xl text-gray-800 flex items-center">
+                      <Building2 className="h-5 w-5 text-azul mr-2" />
+                      Projetos Atuais
+                    </CardTitle>
+                    <CardDescription className="text-gray-500">
+                      Projetos em que o utilizador está alocado
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="pt-6">
+                    {projetos && projetos.length > 0 ? (
+                      <div className="space-y-4">
+                        {projetos.map((projeto: Projeto) => (
+                          <div key={projeto.id} className="group p-4 rounded-xl border border-gray-100 hover:border-azul/20 bg-white hover:bg-azul/5 transition-all duration-200">
+                            <div className="flex justify-between items-start mb-2">
+                              <h3 className="font-medium text-gray-900 group-hover:text-azul transition-colors">{projeto.nome}</h3>
+                              <Badge className="bg-emerald-50 text-emerald-600 text-xs">
+                                {new Date(projeto.inicio) <= new Date() && new Date(projeto.fim) >= new Date() ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{projeto.descricao}</p>
+                            <div className="flex justify-between items-center text-xs text-gray-500">
+                              <div className="flex items-center">
+                                <Calendar className="h-3.5 w-3.5 mr-1" />
+                                <span>
+                                  {formatarData(projeto.inicio)} - {formatarData(projeto.fim)}
+                                </span>
+                              </div>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs text-azul hover:bg-azul/10 px-2 -mr-2">
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-10">
+                        <div className="bg-gray-50 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                          <Building2 className="h-8 w-8 text-gray-300" />
+                        </div>
+                        <p className="text-gray-500 mb-4">Este utilizador não está alocado em nenhum projeto.</p>
+                        <Button variant="outline" className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar a um Projeto
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Sidebar */}
+              <div className="lg:col-span-4 space-y-6">
+                {/* Informação de Contacto */}
+                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                    <CardTitle className="text-xl text-gray-800 flex items-center">
+                      <Mail className="h-5 w-5 text-azul mr-2" />
+                      Contacto
+                    </CardTitle>
+                  </CardHeader>
+                  
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
+                      <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <span className="group-hover:text-azul transition-colors duration-200">{utilizador.email}</span>
                     </div>
-                    <p className="text-gray-500 mb-4">Este utilizador ainda não tem um currículo resumido definido.</p>
-                    <Button variant="outline" className="border-azul/20 hover:bg-azul/5 hover:scale-105 transition-all duration-300">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Adicionar Informações
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Alocações - com scrollbar personalizada */}
-            <Card className="border-azul/10 hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">
-              <CardHeader className="border-b border-azul/5 bg-gradient-to-r from-white to-azul/5">
-                <CardTitle className="text-xl text-azul flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Alocações
-                </CardTitle>
-                <CardDescription className="text-gray-600">
-                  Visão geral da ocupação ao longo do tempo
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-azul/20 scrollbar-track-gray-100">
-                <AlocacoesDetalhadas alocacoes={alocacoesDetalhadas} />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Coluna Lateral - 4 colunas em telas grandes */}
-          <div className="lg:col-span-4 space-y-8">
-            {/* Informações de Contacto - com ícones interativos */}
-            <Card className="border-azul/10 hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">
-              <CardHeader className="border-b border-azul/5 bg-gradient-to-r from-white to-azul/5">
-                <CardTitle className="text-xl text-azul flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Informações de Contacto
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                <div className="p-2 hover:bg-azul/5 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
-                  <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
-                    <Mail className="h-5 w-5" />
-                  </div>
-                  <span className="group-hover:text-azul transition-colors duration-200">{utilizador.email}</span>
+                    <div className="p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
+                      <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
+                        <MapPin className="h-5 w-5" />
+                      </div>
+                      <span className="group-hover:text-azul transition-colors duration-200">Portugal</span>
+                    </div>
+                    <div className="p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
+                      <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <span className="group-hover:text-azul transition-colors duration-200">
+                        {utilizador.contratacao 
+                          ? `Membro desde ${format(new Date(utilizador.contratacao), "MMMM yyyy", { locale: pt })}` 
+                          : "Data não definida"}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Estatísticas Rápidas - Modificada */}
+                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                    <CardTitle className="text-xl text-gray-800 flex items-center">
+                      <Zap className="h-5 w-5 text-azul mr-2" />
+                      Estatísticas Rápidas
+                    </CardTitle>
+                  </CardHeader>
+                  
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 gap-4">
+                      {/* Projetos alocados */}
+                      <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-4 hover:bg-azul/5 hover:shadow-sm transition-all duration-200">
+                        <div className="bg-azul/10 text-azul p-3 rounded-xl">
+                          <Building2 className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-azul">
+                            {new Set(alocacoesDetalhadas.map(a => a.projeto.id)).size || 0}
+                          </p>
+                          <p className="text-xs text-gray-500">Projetos alocados</p>
+                        </div>
+                      </div>
+                      
+                      {/* Workpackages */}
+                      <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-4 hover:bg-azul/5 hover:shadow-sm transition-all duration-200">
+                        <div className="bg-indigo-100 text-indigo-600 p-3 rounded-xl">
+                          <Grid3X3 className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-indigo-600">
+                            {new Set(alocacoesDetalhadas.map(a => a.workpackage.id)).size || 0}
+                          </p>
+                          <p className="text-xs text-gray-500">Workpackages ativos</p>
+                        </div>
+                      </div>
+                      
+                      {/* Próximo workpackage */}
+                      <div className="bg-gray-50 rounded-xl p-4 hover:bg-azul/5 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="bg-emerald-100 text-emerald-600 p-2 rounded-lg">
+                            <Calendar className="h-5 w-5" />
+                          </div>
+                          <p className="font-medium text-gray-700">Próximo workpackage</p>
+                        </div>
+                        
+                        {proximoWorkpackage ? (
+                          <div className="pl-2">
+                            <p className="font-medium text-azul truncate mb-1">{proximoWorkpackage.nome}</p>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-500">
+                                Projeto: <span className="text-gray-700">{proximoWorkpackage.projeto.nome}</span>
+                              </span>
+                              <span className="text-emerald-600 font-medium">
+                                {format(proximoWorkpackage.dataInicio, "dd MMM yyyy", { locale: pt })}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 pl-2">Sem workpackages futuros</p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+          
+          {/* Conteúdo: Alocações */}
+          <TabsContent value="alocacoes" className="pt-6">
+            <div className="grid grid-cols-1 gap-6">
+              {/* Visão Detalhada */}
+              <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                  <CardTitle className="text-xl text-gray-800 flex items-center">
+                    <Calendar className="h-5 w-5 text-azul mr-2" />
+                    Alocações Detalhadas
+                  </CardTitle>
+                  <CardDescription className="text-gray-500">
+                    Visão detalhada por projeto e workpackage
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent className="pt-6 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-azul/20 scrollbar-track-gray-100">
+                  <AlocacoesDetalhadas alocacoes={alocacoesDetalhadas} />
+                </CardContent>
+              </Card>
+              
+              {/* Tabela de Alocações */}
+              <div className="bg-white rounded-2xl shadow-md border-0 overflow-hidden">
+                <div className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 p-6">
+                  <h3 className="text-xl text-gray-800 flex items-center mb-1">
+                    <BarChart2 className="h-5 w-5 text-azul mr-2" />
+                    Relatório de Alocações
+                  </h3>
+                  <p className="text-gray-500">
+                    Tabela detalhada de alocações por projeto e workpackage
+                  </p>
                 </div>
-                <div className="p-2 hover:bg-azul/5 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
-                  <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
-                    <MapPin className="h-5 w-5" />
+                
+                <TabelaAlocacoes alocacoes={alocacoesTabela} />
+              </div>
+            </div>
+          </TabsContent>
+          
+          {/* Conteúdo: Estatísticas */}
+          <TabsContent value="estatisticas" className="pt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                  <CardTitle className="text-xl text-gray-800 flex items-center">
+                    <PieChart className="h-5 w-5 text-azul mr-2" />
+                    Distribuição de Ocupação
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="pt-6 h-60 flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <PieChart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>Dados de gráfico não disponíveis.</p>
+                    <p className="text-sm">Adicione mais informações para visualizar estatísticas.</p>
                   </div>
-                  <span className="group-hover:text-azul transition-colors duration-200">Portugal</span>
-                </div>
-                <div className="p-2 hover:bg-azul/5 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
-                  <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
-                    <Calendar className="h-5 w-5" />
+                </CardContent>
+              </Card>
+              
+              <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                  <CardTitle className="text-xl text-gray-800 flex items-center">
+                    <Activity className="h-5 w-5 text-azul mr-2" />
+                    Tendência de Alocação
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="pt-6 h-60 flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>Dados de gráfico não disponíveis.</p>
+                    <p className="text-sm">Adicione mais informações para visualizar estatísticas.</p>
                   </div>
-                  <span className="group-hover:text-azul transition-colors duration-200">
-                    Membro desde {utilizador.contratacao ? format(new Date(utilizador.contratacao), "MMMM yyyy", { locale: pt }) : "Data não definida"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Finanças - com animação de hover */}
-            <Card className="border-azul/10 hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">
-              <CardHeader className="border-b border-azul/5 bg-gradient-to-r from-white to-azul/5">
-                <CardTitle className="text-xl text-azul flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Finanças
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="text-center py-10">
-                  <div className="bg-azul/5 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                    <DollarSign className="h-8 w-8 text-azul/40" />
+                </CardContent>
+              </Card>
+              
+              <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden lg:col-span-2">
+                <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
+                  <CardTitle className="text-xl text-gray-800 flex items-center">
+                    <Building2 className="h-5 w-5 text-azul mr-2" />
+                    Distribuição por Projeto
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="pt-6 h-60 flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>Dados de gráfico não disponíveis.</p>
+                    <p className="text-sm">Adicione mais informações para visualizar estatísticas.</p>
                   </div>
-                  <p className="text-gray-500 mb-4">Sem dados financeiros disponíveis</p>
-                  <Button variant="outline" className="border-azul/20 hover:bg-azul/5 hover:scale-105 transition-all duration-300">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Dados
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      {/* Relatório de Alocações - Largura Total com efeito de destaque */}
-      <div className="bg-gradient-to-b from-azul/5 to-white py-12 mt-8">
-        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8 text-center">
-            <h2 className="text-2xl font-bold text-azul flex items-center gap-2 justify-center mb-3">
-              <BarChart2 className="h-6 w-6" />
-              Relatório de Alocações
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Tabela detalhada de alocações por projeto e workpackage, mostrando toda a distribuição do tempo ao longo dos meses
-            </p>
-          </div>
-          <div className="bg-white rounded-xl shadow-md border border-azul/10 overflow-hidden">
-            <TabelaAlocacoes alocacoes={alocacoesTabela} />
-          </div>
-        </div>
-      </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 } 

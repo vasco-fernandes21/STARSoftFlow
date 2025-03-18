@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { ProjetoEstado, Prisma, Rubrica } from "@prisma/client";
 import { handlePrismaError, createPaginatedResponse } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
+import { Decimal } from "decimal.js";
 
 // Schema base para projeto
 export const projetoBaseSchema = z.object({
@@ -63,6 +64,7 @@ export const createProjetoCompletoSchema = z.object({
   
   // Workpackages e seus sub-dados
   workpackages: z.array(z.object({
+    id: z.string().optional(), // ID temporário fornecido pelo frontend
     nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
     descricao: z.string().optional(),
     inicio: z.date().optional(),
@@ -87,11 +89,23 @@ export const createProjetoCompletoSchema = z.object({
     
     // Materiais do workpackage
     materiais: z.array(z.object({
+      id: z.number().optional(), // ID temporário fornecido pelo frontend
       nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-      preco: z.number().min(0, "Preço deve ser um valor positivo"),
+      preco: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val),
       quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
       rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
       ano_utilizacao: z.number().int().min(2000, "Ano deve ser válido").max(2100, "Ano deve ser válido"),
+    })).optional().default([]),
+    
+    // Alocações de recursos do workpackage
+    recursos: z.array(z.object({
+      userId: z.string(),
+      mes: z.number().min(1).max(12),
+      ano: z.number().int().min(2000).max(2100),
+      ocupacao: z.union([z.string(), z.number()]).transform(val => 
+        typeof val === 'string' ? parseFloat(val) : val
+      ),
+      workpackageId: z.string().optional(), // Será preenchido após criar o workpackage
     })).optional().default([]),
   })).optional().default([]),
 });
@@ -414,7 +428,7 @@ export const projetoRouter = createTRPCRouter({
       }
     }),
   
-  // Criar projeto completo com workpackages, tarefas, entregáveis e materiais
+  // Criar projeto completo com workpackages, tarefas, entregáveis, materiais e alocações
   createCompleto: protectedProcedure
     .input(z.object({
       // Dados básicos do projeto
@@ -430,6 +444,7 @@ export const projetoRouter = createTRPCRouter({
       
       // Workpackages e seus sub-dados
       workpackages: z.array(z.object({
+        id: z.string().optional(), // ID temporário fornecido pelo frontend
         nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
         descricao: z.string().optional(),
         inicio: z.date().optional(),
@@ -454,11 +469,23 @@ export const projetoRouter = createTRPCRouter({
         
         // Materiais do workpackage
         materiais: z.array(z.object({
+          id: z.number().optional(), // ID temporário fornecido pelo frontend
           nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-          preco: z.number().min(0, "Preço deve ser um valor positivo"),
+          preco: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val),
           quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
           rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
           ano_utilizacao: z.number().int().min(2000, "Ano deve ser válido").max(2100, "Ano deve ser válido"),
+        })).optional().default([]),
+        
+        // Alocações de recursos do workpackage
+        recursos: z.array(z.object({
+          userId: z.string(),
+          mes: z.number().min(1).max(12),
+          ano: z.number().int().min(2000).max(2100),
+          ocupacao: z.union([z.string(), z.number()]).transform(val => 
+            typeof val === 'string' ? parseFloat(val) : val
+          ),
+          workpackageId: z.string().optional(), // Será preenchido após criar o workpackage
         })).optional().default([]),
       })).optional().default([]),
     }))
@@ -596,6 +623,33 @@ export const projetoRouter = createTRPCRouter({
             }
           }
         });
+        
+        // Criar alocações de recursos após criar os workpackages
+        for (const wpInput of input.workpackages) {
+          if (!wpInput.recursos || wpInput.recursos.length === 0) continue;
+          
+          // Encontrar o workpackage criado com base no nome
+          const workpackage = projeto.workpackages.find(w => w.nome === wpInput.nome);
+          if (!workpackage) continue;
+          
+          // Criar alocações para este workpackage
+          for (const recurso of wpInput.recursos) {
+            try {
+              await ctx.db.alocacaoRecurso.create({
+                data: {
+                  workpackageId: workpackage.id,
+                  userId: recurso.userId,
+                  mes: recurso.mes,
+                  ano: recurso.ano,
+                  ocupacao: new Decimal(recurso.ocupacao)
+                }
+              });
+            } catch (error) {
+              console.error(`Erro ao criar alocação: ${error}`);
+              // Continuar com as próximas alocações mesmo em caso de erro
+            }
+          }
+        }
         
         return {
           success: true,

@@ -14,6 +14,7 @@ import { TabelaDados, FilterOption } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { BarraProgresso } from "@/components/common/BarraProgresso";
 import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
+import { AnimatePresence } from "framer-motion";
 
 const ESTADO_LABELS: Record<string, string> = {
   APROVADO: "Aprovado",
@@ -33,46 +34,95 @@ const uniqueEstados = [
 
 const itemsPerPage = 6;
 
+// Skeleton para estado de carregamento
+const TableSkeleton = () => {
+  return (
+    <div className="bg-white rounded-lg shadow p-4 animate-pulse">
+      <div className="flex justify-between items-center mb-4">
+        <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+        <div className="h-8 bg-gray-200 rounded w-1/6"></div>
+      </div>
+      
+      {[...Array(5)].map((_, index) => (
+        <div key={index} className="flex items-center space-x-4 py-3 border-b last:border-0 border-gray-100">
+          <div className="h-4 bg-gray-200 rounded w-40 mb-2"></div>
+          <div className="flex-grow"></div>
+          <div className="h-6 bg-gray-200 rounded w-24"></div>
+          <div className="h-4 bg-gray-200 rounded w-32"></div>
+          <div className="h-4 bg-gray-200 rounded w-24"></div>
+          <div className="flex space-x-2">
+            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Substituir AnimatedActionButton com versão CSS
+const CSSActionButton = ({ 
+  icon: Icon, 
+  onClick, 
+  title, 
+  hoverColor = "text-azul" 
+}: { 
+  icon: React.ComponentType<any>; 
+  onClick: (e: React.MouseEvent) => void; 
+  title: string; 
+  hoverColor?: string;
+}) => {
+  return (
+    <div className="transition-all hover:scale-110 active:scale-95 duration-200">
+      <Button
+        variant="ghost"
+        size="icon"
+        className={`text-gray-500 hover:${hoverColor} hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md z-10`}
+        onClick={onClick}
+        title={title}
+      >
+        <Icon className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
+
+// Substituir AnimatedBarraProgresso com versão CSS
+const CSSBarraProgresso = ({ value }: { value: number }) => {
+  return (
+    <div className="transition-all hover:scale-[1.03] duration-200">
+      <BarraProgresso value={value} />
+    </div>
+  );
+};
+
 const extrairProjetos = (apiResponse: any) => {
   if (!apiResponse) return [];
   
-  if (apiResponse[0]?.result?.data?.json?.items) {
-    return apiResponse[0].result.data.json.items;
-  }
-  
+  // Se tiver items (formato de resposta paginada do servidor)
   if (apiResponse.items && Array.isArray(apiResponse.items)) {
     return apiResponse.items;
   }
   
-  if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
-    return apiResponse.json.items;
-  }
-  
-  if (apiResponse.json && Array.isArray(apiResponse.json)) {
-    return apiResponse.json;
-  }
-  
+  // Se for um array direto, usar como está
   if (Array.isArray(apiResponse)) {
     return apiResponse;
   }
   
-  console.log("Estrutura da resposta:", JSON.stringify(apiResponse, null, 2));
   return [];
 };
 
 const extrairPaginacao = (apiResponse: any) => {
   if (!apiResponse) return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
   
-  if (apiResponse[0]?.result?.data?.json?.pagination) {
-    return apiResponse[0].result.data.json.pagination;
-  }
-  
-  if (apiResponse.pagination) {
-    return apiResponse.pagination;
-  }
-  
-  if (apiResponse.json?.pagination) {
-    return apiResponse.json.pagination;
+  // Usar paginação retornada direto do servidor
+  if (apiResponse.total !== undefined) {
+    return {
+      total: apiResponse.total,
+      pages: apiResponse.totalPages || Math.ceil(apiResponse.total / itemsPerPage),
+      page: apiResponse.page || 1,
+      limit: apiResponse.limit || itemsPerPage
+    };
   }
   
   return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
@@ -125,11 +175,7 @@ export default function Projetos() {
     if (projetosResponse.items && Array.isArray(projetosResponse.items)) {
       return projetosResponse.items;
     }
-    
-    // Se tiver uma propriedade data que é um array, usar essa
-    if (projetosResponse.data && Array.isArray(projetosResponse.data)) {
-      return projetosResponse.data;
-    }
+  
     
     // Último recurso: tentar converter para array se for objeto
     if (typeof projetosResponse === 'object' && projetosResponse !== null) {
@@ -235,14 +281,17 @@ export default function Projetos() {
     router.push(`/projetos/${id}/report`);
   };
 
+  // Configuração das colunas da tabela
   const columns = [
     {
       id: "nome",
       label: "Projeto",
       sortable: true,
       sortField: "nome",
+      width: "25%",
+      align: "left" as const,
       renderCell: (projeto: any) => (
-        <span className="font-medium text-gray-900 group-hover:text-azul transition-colors duration-300 ease-in-out">
+        <span className="font-medium text-gray-900">
           {projeto.nome}
         </span>
       ),
@@ -250,6 +299,8 @@ export default function Projetos() {
     {
       id: "estado",
       label: "Estado",
+      width: "15%",
+      align: "center" as const,
       renderCell: (projeto: any) => (
         <BadgeEstado
           status={projeto.estado}
@@ -263,8 +314,14 @@ export default function Projetos() {
       label: "Progresso",
       sortable: true,
       sortField: "progresso",
+      width: "5%",
+      align: "left" as const,
       renderCell: (projeto: any) => (
-        <BarraProgresso value={Math.round((projeto.progresso || 0) * 100)} />
+        <div className="w-full flex justify-center">
+          <div className="w-full max-w-[180px]">
+            <BarraProgresso value={Math.round((projeto.progresso || 0) * 100)} />
+          </div>
+        </div>
       ),
     },
     {
@@ -272,6 +329,8 @@ export default function Projetos() {
       label: "Prazo",
       sortable: true,
       sortField: "fim",
+      width: "15%",
+      align: "right" as const,
       renderCell: (projeto: any) => (
         <span className="text-gray-600">
           {projeto.fim
@@ -279,36 +338,7 @@ export default function Projetos() {
             : "N/A"}
         </span>
       ),
-    },
-    {
-      id: "acoes",
-      label: "Ações",
-      renderCell: (projeto: any) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-500 hover:text-green-600 hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-            onClick={(e) => handleReportClick(e, projeto.id)}
-            title="Ver relatório"
-          >
-            <BarChart className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-500 hover:text-azul hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Menu de opções adicionais
-            }}
-            title="Mais opções"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
+    }
   ];
 
   const filterOptions: FilterOption[] = [
@@ -360,63 +390,57 @@ export default function Projetos() {
   }, [projetos, searchQuery, estadoFilter, sortField, sortDirection]);
 
   return (
-    <PageLayout>
-      <PaginaHeader
-        title="Projetos"
-        subtitle="Consulte os seus projetos e acompanhe o progresso"
-        action={<NovoProjeto />}
-      />
+    <PageLayout className="h-screen relative">
+      <div className="h-full flex flex-col space-y-6">
+        <PaginaHeader
+          title="Projetos"
+          subtitle="Consulte os seus projetos e acompanhe o progresso"
+          action={<NovoProjeto />}
+        />
 
-      <StatsGrid stats={stats} className="my-4" />
+        <StatsGrid stats={stats} className="my-4" />
 
-      <TabelaDados
-        title=""
-        subtitle=""
-        data={filteredProjects}
-        isLoading={isLoading}
-        columns={columns}
-        searchConfig={{
-          placeholder: "Pesquisar projetos...",
-          value: searchQuery,
-          onChange: setSearchQuery,
-        }}
-        filterConfigs={filterConfigs}
-        sortConfig={{
-          field: sortField,
-          direction: sortDirection,
-          onChange: handleSort,
-        }}
-        itemsPerPage={itemsPerPage}
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        totalItems={paginacao.total || filteredProjects.length}
-        totalPages={paginacao.pages || Math.ceil(filteredProjects.length / itemsPerPage)}
-        onRowClick={handleRowClick}
-        clearAllFilters={clearAllFilters}
-        emptyStateMessage={{
-          title: "Nenhum projeto encontrado",
-          description:
-            "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
-        }}
-      />
-      
-      {/* Componente de depuração para verificar os dados */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-          <h3 className="font-bold text-yellow-800">Depuração</h3>
-          <p>Tipo de resposta: {typeof projetosResponse}</p>
-          <p>É array? {Array.isArray(projetosResponse) ? 'Sim' : 'Não'}</p>
-          <p>Número de projetos: {projetosArray.length}</p>
-          <details>
-            <summary className="cursor-pointer text-sm text-yellow-700 hover:text-yellow-900">
-              Ver primeiro projeto (clique para expandir)
-            </summary>
-            <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-60">
-              {projetosArray.length > 0 ? JSON.stringify(projetosArray[0], null, 2) : 'Nenhum projeto'}
-            </pre>
-          </details>
+        <div className="flex-1 overflow-visible">
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <TableSkeleton />
+            ) : (
+              <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px] rounded-2xl overflow-hidden">
+                <TabelaDados
+                  title=""
+                  subtitle=""
+                  data={filteredProjects}
+                  isLoading={isLoading}
+                  columns={columns}
+                  searchConfig={{
+                    placeholder: "Pesquisar projetos...",
+                    value: searchQuery,
+                    onChange: setSearchQuery,
+                  }}
+                  filterConfigs={filterConfigs}
+                  sortConfig={{
+                    field: sortField,
+                    direction: sortDirection,
+                    onChange: handleSort,
+                  }}
+                  itemsPerPage={itemsPerPage}
+                  currentPage={currentPage}
+                  setCurrentPage={setCurrentPage}
+                  totalItems={paginacao.total || filteredProjects.length}
+                  totalPages={paginacao.pages || Math.ceil(filteredProjects.length / itemsPerPage)}
+                  onRowClick={handleRowClick}
+                  clearAllFilters={clearAllFilters}
+                  emptyStateMessage={{
+                    title: "Nenhum projeto encontrado",
+                    description:
+                      "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
+                  }}
+                />
+              </div>
+            )}
+          </AnimatePresence>
         </div>
-      )}
+      </div>
     </PageLayout>
   );
 }

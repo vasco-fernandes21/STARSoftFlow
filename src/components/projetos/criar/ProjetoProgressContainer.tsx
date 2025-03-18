@@ -67,7 +67,7 @@ export function ProjetoProgressContainer({
       </div>
       
       {/* Navegação por fases */}
-      <div className="mt-8 flex justify-between">
+      <div className="mt-8 grid" style={{ gridTemplateColumns: `repeat(${fasesOrdem.length}, 1fr)` }}>
         {fasesOrdem.map((fase) => {
           const IconComponent = fases[fase].icon;
           const isFaseAtual = fase === faseAtual;
@@ -97,7 +97,7 @@ export function ProjetoProgressContainer({
                 )}
               </div>
               <span className={`
-                text-xs font-medium transition-all duration-300
+                text-xs font-medium transition-all duration-300 text-center px-1
                 ${isFaseAtual ? "text-azul" : "text-gray-500 group-hover:text-gray-900"}
               `}>
                 {fases[fase].titulo}

@@ -1,15 +1,13 @@
 import { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import CountUp from 'react-countup';
 
 type StatCardProps = { 
   icon: LucideIcon, 
   label: string, 
   value: number, 
   iconClassName?: string,
-  iconContainerClassName?: string,
-  duration?: number
+  iconContainerClassName?: string
 };
 
 export const StatCard = ({ 
@@ -17,12 +15,8 @@ export const StatCard = ({
   label, 
   value, 
   iconClassName, 
-  iconContainerClassName,
-  duration
+  iconContainerClassName
 }: StatCardProps) => {
-  // Calcula a duração baseada no valor se não for fornecida
-  const calculatedDuration = duration || value / 10;
-
   return (
     <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px]">
       <div className="p-5 flex items-center gap-4">
@@ -32,15 +26,7 @@ export const StatCard = ({
         <div>
           <p className="text-sm text-gray-500">{label}</p>
           <p className="text-2xl font-semibold">
-            <CountUp 
-              end={value} 
-              duration={calculatedDuration}
-              separator="." 
-              decimal="," 
-              enableScrollSpy 
-              scrollSpyOnce
-              useEasing={false}
-            />
+            {value.toLocaleString('pt-PT')}
           </p>
         </div>
       </div>

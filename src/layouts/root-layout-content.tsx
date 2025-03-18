@@ -24,6 +24,7 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
           </ProjetoFormProvider>
         </PopupConfirmacaoProvider>
       </main>
+   {/* <script src="https://unpkg.com/react-scan/dist/auto.global.js" /> */}
     </div>
   );
 }

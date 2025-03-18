@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
@@ -42,6 +43,40 @@ const uniquePermissoes = ["ADMIN", "GESTOR", "COMUM"] as const;
 const uniqueRegimes = ["INTEGRAL", "PARCIAL"] as const;
 
 const itemsPerPage = 6;
+
+// Skeleton para estado de carregamento
+const TableSkeleton = () => {
+  return (
+    <div className="bg-white rounded-lg shadow p-4 animate-pulse">
+      <div className="flex justify-between items-center mb-4">
+        <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+        <div className="h-8 bg-gray-200 rounded w-1/6"></div>
+      </div>
+      
+      {[...Array(5)].map((_, index) => (
+        <div key={index} className="flex items-center space-x-4 py-3 border-b last:border-0 border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+            <div>
+              <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+              <div className="h-3 bg-gray-100 rounded w-24"></div>
+            </div>
+          </div>
+          <div className="flex-grow"></div>
+          <div className="h-4 bg-gray-200 rounded w-24"></div>
+          <div className="h-6 bg-gray-200 rounded w-16"></div>
+          <div className="h-6 bg-gray-200 rounded w-16"></div>
+          <div className="h-4 bg-gray-200 rounded w-32"></div>
+          <div className="flex space-x-2">
+            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // Função auxiliar para extrair utilizadores da resposta da API
 const extrairUtilizadores = (apiResponse: any) => {
@@ -94,6 +129,45 @@ const extrairPaginacao = (apiResponse: any) => {
   }
   
   return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
+};
+
+// Componente Avatar simplificado sem animações
+const SimpleAvatar = ({ utilizador }: { utilizador: any }) => {
+  return (
+    <Avatar className="h-10 w-10 ring-2 ring-white/30 shadow-md">
+      <AvatarImage src={utilizador?.foto || undefined} />
+      <AvatarFallback className="bg-blue-100 text-azul font-medium">
+        {utilizador?.name?.split(' ').map((n: string) => n[0]).join('')}
+      </AvatarFallback>
+    </Avatar>
+  );
+};
+
+// Componente personalizado para botão de ação com animação
+const AnimatedActionButton = ({ 
+  icon: Icon, 
+  onClick, 
+  title, 
+  hoverColor = "text-azul" 
+}: { 
+  icon: React.ComponentType<any>; 
+  onClick: (e: React.MouseEvent) => void; 
+  title: string; 
+  hoverColor?: string;
+}) => {
+  return (
+    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={`text-gray-500 hover:${hoverColor} hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md`}
+        onClick={onClick}
+        title={title}
+      >
+        <Icon className="h-4 w-4" />
+      </Button>
+    </motion.div>
+  );
 };
 
 const Users = () => {
@@ -230,113 +304,6 @@ const Users = () => {
     }
   };
 
-  // Configuração das colunas da tabela
-  const columns = [
-    {
-      id: 'utilizador',
-      label: 'Utilizador',
-      sortable: true,
-      sortField: 'name',
-      renderCell: (utilizador: any) => (
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 ring-2 ring-white/30 shadow-md group-hover:shadow-lg group-hover:ring-azul/30 transition-all duration-300 ease-in-out">
-            <AvatarImage src={utilizador?.foto || undefined} />
-            <AvatarFallback className="bg-blue-100/80 backdrop-blur-sm text-azul font-medium">
-              {utilizador?.name?.split(' ').map((n: string) => n[0]).join('')}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-medium text-gray-900 group-hover:text-azul transition-colors duration-300 ease-in-out">
-              {utilizador?.name || 'N/A'}
-            </p>
-            <p className="text-sm text-gray-500">{utilizador?.atividade || 'N/A'}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 'email',
-      label: 'Email',
-      renderCell: (utilizador: any) => (
-        <span className="text-gray-600">{utilizador?.email || 'N/A'}</span>
-      ),
-    },
-    {
-      id: 'permissao',
-      label: 'Permissão',
-      renderCell: (utilizador: any) => (
-        <BadgeEstado 
-          status={utilizador.permissao} 
-          label={getPermissaoText(utilizador.permissao)} 
-          variant="permissao" 
-        />
-      ),
-    },
-    {
-      id: 'regime',
-      label: 'Regime',
-      renderCell: (utilizador: any) => (
-        <BadgeEstado 
-          status={utilizador.regime} 
-          label={getRegimeText(utilizador.regime)} 
-          variant="regime" 
-        />
-      ),
-    },
-    {
-      id: 'contratacao',
-      label: 'Data de Contratação',
-      sortable: true,
-      sortField: 'contratacao',
-      renderCell: (utilizador: any) => (
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-600">
-            {utilizador?.contratacao ? new Date(utilizador.contratacao).toLocaleDateString() : 'N/A'}
-          </span>
-        </div>
-      ),
-    },
-    {
-      id: 'acoes',
-      label: 'Ações',
-      renderCell: (utilizador: any) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-500 hover:text-green-600 hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-            onClick={(e) => handleReportClick(e, utilizador.id)}
-            title="Ver alocação"
-          >
-            <BarChart className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-500 hover:text-blue-600 hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-            onClick={(e) => handleGenerateReportClick(e, utilizador.id)}
-            title="Gerar Relatório"
-          >
-            <FileText className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-gray-500 hover:text-azul hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Menu de opções adicionais
-            }}
-            title="Mais opções"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
   // Configuração dos filtros
   const permissaoOptions: FilterOption[] = [
     { id: 'all', label: 'Todas as permissões', value: 'all' },
@@ -422,45 +389,126 @@ const Users = () => {
   }, [queryResult.data]);
 
   return (
-    <PageLayout className="h-screen overflow-hidden ">
-      <PaginaHeader
-        title="Utilizadores"
-        subtitle="Consulte os utilizadores do sistema"
-        action={<NovoUtilizadorModal />}
-      />
-
-      <StatsGrid stats={stats} className="my-4" />
-
-      <div className="flex-1 overflow-auto">
-        <TabelaDados
-          title=""
-          subtitle=""
-          data={filteredUsers}
-          isLoading={queryResult.isLoading}
-          columns={columns}
-          searchConfig={{
-            placeholder: "Procurar utilizadores...",
-            value: search,
-            onChange: setSearch
-          }}
-          filterConfigs={filterConfigs}
-          sortConfig={{
-            field: sortField,
-            direction: sortDirection,
-            onChange: handleSort
-          }}
-          itemsPerPage={itemsPerPage}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          totalItems={paginacao.total || filteredUsers.length}
-          totalPages={paginacao.pages || Math.ceil(filteredUsers.length / itemsPerPage)}
-          onRowClick={handleRowClick}
-          clearAllFilters={clearAllFilters}
-          emptyStateMessage={{
-            title: "Nenhum utilizador encontrado",
-            description: "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa para ver todos os utilizadores."
-          }}
+    <PageLayout className="h-screen overflow-hidden">
+      <div className="space-y-6">
+        <PaginaHeader
+          title="Utilizadores"
+          subtitle="Consulte os utilizadores do sistema"
+          action={<NovoUtilizadorModal />}
         />
+
+        <StatsGrid stats={stats} className="my-4" />
+
+        <div className="flex-1 overflow-visible">
+          {queryResult.isLoading ? (
+            <TableSkeleton />
+          ) : (
+            <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px] rounded-2xl overflow-hidden">
+              <TabelaDados
+                title=""
+                subtitle=""
+                data={filteredUsers}
+                isLoading={queryResult.isLoading}
+                columns={[
+                  {
+                    id: 'utilizador',
+                    label: 'Utilizador',
+                    sortable: true,
+                    sortField: 'name',
+                    width: "30%",
+                    align: "left" as const,
+                    renderCell: (utilizador: any) => (
+                      <div className="flex items-center gap-3">
+                        <SimpleAvatar utilizador={utilizador} />
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {utilizador?.name || 'N/A'}
+                          </p>
+                          <p className="text-sm text-gray-500">{utilizador?.atividade || 'N/A'}</p>
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    id: 'email',
+                    label: 'Email',
+                    width: "25%",
+                    align: "left" as const,
+                    renderCell: (utilizador: any) => (
+                      <span className="text-gray-600">
+                        {utilizador?.email || 'N/A'}
+                      </span>
+                    ),
+                  },
+                  {
+                    id: 'permissao',
+                    label: 'Permissão',
+                    width: "15%",
+                    align: "center" as const,
+                    renderCell: (utilizador: any) => (
+                      <BadgeEstado 
+                        status={utilizador.permissao} 
+                        label={getPermissaoText(utilizador.permissao)} 
+                        variant="permissao" 
+                      />
+                    ),
+                  },
+                  {
+                    id: 'regime',
+                    label: 'Regime',
+                    width: "15%",
+                    align: "center" as const,
+                    renderCell: (utilizador: any) => (
+                      <BadgeEstado 
+                        status={utilizador.regime} 
+                        label={getRegimeText(utilizador.regime)} 
+                        variant="regime" 
+                      />
+                    ),
+                  },
+                  {
+                    id: 'contratacao',
+                    label: 'Data de Contratação',
+                    sortable: true,
+                    sortField: 'contratacao',
+                    width: "15%",
+                    align: "right" as const,
+                    renderCell: (utilizador: any) => (
+                      <div className="flex items-center gap-2 justify-end">
+                        <Clock className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-600">
+                          {utilizador?.contratacao ? new Date(utilizador.contratacao).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </div>
+                    ),
+                  }
+                ]}
+                searchConfig={{
+                  placeholder: "Procurar utilizadores...",
+                  value: search,
+                  onChange: setSearch
+                }}
+                filterConfigs={filterConfigs}
+                sortConfig={{
+                  field: sortField,
+                  direction: sortDirection,
+                  onChange: handleSort
+                }}
+                itemsPerPage={itemsPerPage}
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                totalItems={paginacao.total || filteredUsers.length}
+                totalPages={paginacao.pages || Math.ceil(filteredUsers.length / itemsPerPage)}
+                onRowClick={handleRowClick}
+                clearAllFilters={clearAllFilters}
+                emptyStateMessage={{
+                  title: "Nenhum utilizador encontrado",
+                  description: "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa para ver todos os utilizadores."
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </PageLayout>
   );

@@ -53,6 +53,8 @@ export type ColumnConfig = {
   sortField?: string;
   renderHeader?: () => React.ReactNode;
   renderCell: (item: any) => React.ReactNode;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
 };
 
 type TabelaDadosProps = {
@@ -129,7 +131,7 @@ export const TabelaDados = ({
   }, [data, currentPage, itemsPerPage, totalPages]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100  custom-blue-blur">
+    <div className="h-fit bg-gradient-to-b from-gray-50 to-gray-100 custom-blue-blur">
       <div className="max-w-8xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
@@ -248,7 +250,7 @@ export const TabelaDados = ({
             )}
           </div>
 
-          <div className="p-6 pt-0">
+          <div className="p-6 pt-0 pb-1">
             <div className="relative w-full overflow-auto">
               {isLoading ? (
                 <Table>
@@ -303,27 +305,38 @@ export const TabelaDados = ({
                   <TableHeader>
                     <TableRow className="border-b border-gray-100 hover:bg-transparent">
                       {columns.map((column) => (
-                        <TableHead key={column.id} className="text-sm font-medium text-gray-700 py-4">
-                          {column.renderHeader ? (
-                            column.renderHeader()
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              {column.label}
-                              {column.sortable && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => sortConfig.onChange(column.sortField || column.id)}
-                                  className={cn(
-                                    "h-6 w-6 rounded-full text-gray-400 hover:text-azul",
-                                    sortConfig.field === (column.sortField || column.id) && "text-azul"
-                                  )}
-                                >
-                                  <ArrowUpDown className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          )}
+                        <TableHead 
+                          key={column.id} 
+                          className="text-sm font-medium text-gray-700 py-4"
+                          style={{ 
+                            width: column.width || 'auto',
+                            textAlign: column.align || 'left'
+                          }}
+                        >
+                          <div 
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              justifyContent: column.align === 'center' ? 'center' : 
+                                             column.align === 'right' ? 'flex-end' : 'flex-start'
+                            }}
+                          >
+                            {column.label}
+                            {column.sortable && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => sortConfig.onChange(column.sortField || column.id)}
+                                className={cn(
+                                  "h-6 w-6 rounded-full text-gray-400 hover:text-azul",
+                                  sortConfig.field === (column.sortField || column.id) && "text-azul"
+                                )}
+                              >
+                                <ArrowUpDown className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         </TableHead>
                       ))}
                     </TableRow>
@@ -332,12 +345,25 @@ export const TabelaDados = ({
                     {paginatedData.map((item) => (
                       <TableRow 
                         key={item.id} 
-                        className="group border-b border-white/10 hover:bg-white/40 backdrop-blur-sm transition-all duration-300 ease-in-out hover:shadow-md cursor-pointer"
+                        className="group border-b border-white/10 hover:bg-azul/5 transition-all duration-300 ease-in-out cursor-pointer"
                         onClick={() => onRowClick && onRowClick(item)}
                       >
                         {columns.map((column) => (
-                          <TableCell key={column.id} className="py-4">
-                            {column.renderCell(item)}
+                          <TableCell 
+                            key={column.id} 
+                            className="py-4 text-gray-700 group-hover:text-azul transition-colors duration-300"
+                            style={{ 
+                              width: column.width || 'auto',
+                              textAlign: column.align || 'left'
+                            }}
+                          >
+                            {column.id === 'progresso' ? (
+                              <div className="w-full max-w-[200px] mx-auto">
+                                {column.renderCell(item)}
+                              </div>
+                            ) : (
+                              column.renderCell(item)
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
