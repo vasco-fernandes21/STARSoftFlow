@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,15 +7,23 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, AlertCircle } from "lucide-react";
-import { type Financiamento } from "@prisma/client";
+import { Financiamento } from "@prisma/client";
 import { useConfirmacao } from "@/providers/PopupConfirmacaoProvider";
 import { TextField } from "@/components/projetos/criar/components/FormFields";
 import { DecimalField } from "@/components/projetos/criar/components/FormFields";
 import { MoneyField } from "@/components/projetos/criar/components/FormFields";
+import { Decimal } from "decimal.js";
 
 interface GerirFinanciamentosModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  dadosPreenchidos?: {
+    nome: string;
+    overhead: number | null;
+    taxa_financiamento: number | null;
+    valor_eti: number | null;
+  };
+  onFinanciamentoCriado?: (financiamento: any) => void;
 }
 
 // Tipo para novo financiamento usando number em vez de Decimal
@@ -26,25 +34,54 @@ type NovoFinanciamentoInput = {
   valor_eti: number | null;
 };
 
-export function GerirFinanciamentosModal({ open, onOpenChange }: GerirFinanciamentosModalProps) {
+interface FinanciamentoResponse {
+  items: Financiamento[];
+}
+
+export function GerirFinanciamentosModal({ 
+  open, 
+  onOpenChange, 
+  dadosPreenchidos,
+  onFinanciamentoCriado
+}: GerirFinanciamentosModalProps) {
   const [modoEdicao, setModoEdicao] = useState<number | null>(null);
   const [novoFinanciamento, setNovoFinanciamento] = useState<NovoFinanciamentoInput>({
-    nome: "",
-    overhead: null,
-    taxa_financiamento: null,
-    valor_eti: null
+    nome: dadosPreenchidos?.nome || "",
+    overhead: dadosPreenchidos?.overhead || null,
+    taxa_financiamento: dadosPreenchidos?.taxa_financiamento || null,
+    valor_eti: dadosPreenchidos?.valor_eti || null
   });
+
+  // Atualizar o estado quando os dadosPreenchidos mudarem
+  useEffect(() => {
+    if (dadosPreenchidos) {
+      setNovoFinanciamento({
+        nome: dadosPreenchidos.nome || "",
+        overhead: dadosPreenchidos.overhead || null,
+        taxa_financiamento: dadosPreenchidos.taxa_financiamento || null,
+        valor_eti: dadosPreenchidos.valor_eti || null
+      });
+    }
+  }, [dadosPreenchidos]);
 
   const { confirmar } = useConfirmacao();
   const utils = api.useUtils();
   
-  const { data: financiamentos } = api.financiamento.getAll.useQuery({
-    limit: 10
+  const { data: financiamentosResponse } = api.financiamento.getAll.useQuery({
+    limit: 100
   });
-  
+
+  const financiamentos = financiamentosResponse?.items || [];
+
   const { mutate: criarFinanciamento } = api.financiamento.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Financiamento criado com sucesso!");
+      
+      // Chamar o callback com o financiamento criado, se existir
+      if (onFinanciamentoCriado) {
+        onFinanciamentoCriado(data);
+      }
+      
       limparForm();
       void utils.financiamento.getAll.invalidate();
     },
@@ -170,6 +207,19 @@ export function GerirFinanciamentosModal({ open, onOpenChange }: GerirFinanciame
     }));
   };
 
+  useEffect(() => {
+    if (dadosPreenchidos?.nome && financiamentosResponse?.items) {
+      const tipoNormalizado = dadosPreenchidos.nome.trim().toLowerCase();
+      const financiamentoExistente = financiamentosResponse.items.find(
+        (f: Financiamento) => f.nome.trim().toLowerCase() === tipoNormalizado
+      );
+
+      if (financiamentoExistente && onFinanciamentoCriado) {
+        onFinanciamentoCriado(financiamentoExistente);
+      }
+    }
+  }, [financiamentosResponse, dadosPreenchidos, onFinanciamentoCriado]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl">
@@ -260,7 +310,7 @@ export function GerirFinanciamentosModal({ open, onOpenChange }: GerirFinanciame
             </div>
             
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-              {financiamentos?.items.map((financiamento) => (
+              {financiamentos.map((financiamento: Financiamento) => (
                 <Card 
                   key={financiamento.id} 
                   className="p-4 hover:bg-azul/5 transition-all duration-200 border-azul/10 bg-white/80"

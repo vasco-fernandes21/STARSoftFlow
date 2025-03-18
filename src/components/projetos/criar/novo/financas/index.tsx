@@ -28,7 +28,10 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
   const { state, dispatch } = useProjetoForm();
   const [modalAberto, setModalAberto] = useState(false);
 
-  const { data: financiamentos } = api.financiamento.getAllSimple.useQuery();
+  const { data: financiamentosResponse } = api.financiamento.getAll.useQuery({
+    limit: 100
+  });
+  const financiamentos = financiamentosResponse?.items || [];
 
   const handleOverheadChange = (value: number | null) => {
     dispatch({
@@ -55,7 +58,10 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
   };
 
   const handleFinanciamentoSelect = (value: string) => {
-    const selectedFinanciamento = financiamentos?.find(f => f.id === parseInt(value));
+    const selectedFinanciamento = financiamentos.find(
+      (f: Financiamento) => f.id === parseInt(value)
+    );
+    
     if (selectedFinanciamento) {
       dispatch({
         type: "UPDATE_FIELD",
@@ -87,10 +93,10 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
               value={state.financiamentoId?.toString() ?? ""}
               onChange={handleFinanciamentoSelect}
               options={[
-                ...(financiamentos?.map(f => ({
+                ...financiamentos.map((f: Financiamento) => ({
                   value: f.id.toString(),
                   label: f.nome,
-                })) ?? [])
+                }))
               ]}
               required
               tooltip="Selecione o tipo de financiamento para o projeto"

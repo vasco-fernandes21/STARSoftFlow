@@ -272,6 +272,74 @@ function ImportarExcelContent() {
     return workpackages;
   };
 
+  // Nova função para extrair nome do projeto
+  const extrairDadosProjeto = (dados: any[][]): { nomeProjeto: string } => {
+    let nomeProjeto = "";
+    for (const linha of dados) {
+      if (linha.length >= 2 && linha[0] === "Nome do projeto ") {
+        nomeProjeto = linha[1];
+        break;
+      }
+    }
+    return { nomeProjeto };
+  };
+
+  // Nova função para extrair financiamento
+  const extrairDadosFinanciamento = (dadosBudget: any[][]): { 
+    tipoFinanciamento: string; 
+    taxaFinanciamento: number | null; 
+    overhead: number | null;
+  } => {
+    let tipoFinanciamento = "";
+    let taxaFinanciamento: number | null = null;
+    let overhead: number | null = null;
+
+    for (const linha of dadosBudget) {
+      if (linha && linha.length >= 8) {
+        if (linha[6] === "Tipo de projeto " && linha[7]) {
+          tipoFinanciamento = linha[7];
+        }
+        else if (linha[6] === "Taxa de financiamento" && typeof linha[7] === 'number') {
+          taxaFinanciamento = linha[7] * 100; // Converter para percentagem
+        }
+        else if (linha[6] === "Custos indiretos" && typeof linha[7] === 'number') {
+          overhead = linha[7] * 100; // Converter para percentagem
+        }
+      }
+    }
+
+    return { tipoFinanciamento, taxaFinanciamento, overhead };
+  };
+
+  // Nova função para extrair valor ETI
+  const extrairValorEti = (dadosRH: any[][]): number | null => {
+    for (let i = 0; i < dadosRH.length; i++) {
+      const row = dadosRH[i];
+      if (row && row.length >= 6) {
+        // Verificar se temos um nome na coluna 5 (índice 4) e um valor na coluna 6 (índice 5)
+        if (row[4] && typeof row[4] === 'string' && row[5] && typeof row[5] === 'number') {
+          return row[5]; // Valor ETI logo após o nome
+        }
+      }
+    }
+    return null;
+  };
+
+  // Estado para os dados de projeto e financiamento
+  const [dadosProjeto, setDadosProjeto] = useState<{
+    nomeProjeto: string;
+    tipoFinanciamento: string;
+    taxaFinanciamento: number | null;
+    overhead: number | null;
+    valorEti: number | null;
+  }>({
+    nomeProjeto: "",
+    tipoFinanciamento: "",
+    taxaFinanciamento: null,
+    overhead: null,
+    valorEti: null
+  });
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("Iniciando upload do ficheiro");
     const file = e.target.files?.[0];
@@ -302,6 +370,42 @@ function ImportarExcelContent() {
           }
         });
         
+        // Extrair dados adicionais
+        let nomeProjeto = "";
+        let tipoFinanciamento = "";
+        let taxaFinanciamento: number | null = null;
+        let overhead: number | null = null;
+        let valorEti: number | null = null;
+        
+        if (sheetsData['HOME']) {
+          const dados = extrairDadosProjeto(sheetsData['HOME']);
+          nomeProjeto = dados.nomeProjeto;
+          console.log("Nome do projeto:", nomeProjeto);
+        }
+        
+        if (sheetsData['BUDGET']) {
+          const dados = extrairDadosFinanciamento(sheetsData['BUDGET']);
+          tipoFinanciamento = dados.tipoFinanciamento;
+          taxaFinanciamento = dados.taxaFinanciamento;
+          overhead = dados.overhead;
+          console.log("Financiamento:", tipoFinanciamento, taxaFinanciamento, overhead);
+        }
+        
+        if (sheetsData['RH_Budget_SUBM']) {
+          valorEti = extrairValorEti(sheetsData['RH_Budget_SUBM']);
+          console.log("Valor ETI:", valorEti);
+        }
+        
+        // Guardar os dados extraídos
+        setDadosProjeto({
+          nomeProjeto,
+          tipoFinanciamento,
+          taxaFinanciamento,
+          overhead,
+          valorEti
+        });
+        
+        // Continuar com o processamento existente
         let wps: WorkpackageSimples[] = [];
         let materiais: MaterialImportacao[] = [];
         
@@ -322,6 +426,15 @@ function ImportarExcelContent() {
         setWorkpackages(wps);
         setSheets(sheetsData);
         setSheetNames(names);
+        
+        // Atualizar o nome do projeto no estado global
+        if (nomeProjeto) {
+          dispatch({
+            type: "UPDATE_PROJETO",
+            data: { nome: nomeProjeto }
+          });
+        }
+        
       } catch (error) {
         console.error("Erro detalhado ao processar o ficheiro Excel:", error);
         alert("Ocorreu um erro ao processar o ficheiro Excel. Verifique o formato do ficheiro.");
@@ -454,6 +567,48 @@ function ImportarExcelContent() {
                 Selecione um ficheiro Excel com o formato correto
               </p>
             </div>
+
+            {/* Exibir dados extraídos do projeto */}
+            {dadosProjeto.nomeProjeto && (
+              <Card className="bg-azul/5 p-4">
+                <h3 className="text-lg font-medium text-azul mb-2">Dados do Projeto</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <Briefcase className="h-4 w-4 text-azul mr-2" />
+                    <span className="font-medium">Nome:</span>
+                    <span className="ml-2">{dadosProjeto.nomeProjeto}</span>
+                  </div>
+                  {dadosProjeto.tipoFinanciamento && (
+                    <div className="flex items-center">
+                      <Package className="h-4 w-4 text-azul mr-2" />
+                      <span className="font-medium">Tipo de Financiamento:</span>
+                      <span className="ml-2">{dadosProjeto.tipoFinanciamento}</span>
+                    </div>
+                  )}
+                  {dadosProjeto.taxaFinanciamento !== null && (
+                    <div className="flex items-center">
+                      <Percent className="h-4 w-4 text-azul mr-2" />
+                      <span className="font-medium">Taxa de Financiamento:</span>
+                      <span className="ml-2">{dadosProjeto.taxaFinanciamento}%</span>
+                    </div>
+                  )}
+                  {dadosProjeto.overhead !== null && (
+                    <div className="flex items-center">
+                      <DollarSign className="h-4 w-4 text-azul mr-2" />
+                      <span className="font-medium">Overhead:</span>
+                      <span className="ml-2">{dadosProjeto.overhead}%</span>
+                    </div>
+                  )}
+                  {dadosProjeto.valorEti !== null && (
+                    <div className="flex items-center">
+                      <Users className="h-4 w-4 text-azul mr-2" />
+                      <span className="font-medium">Valor ETI:</span>
+                      <span className="ml-2">{dadosProjeto.valorEti}€</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
 
             {workpackages.length > 0 && (
               <div className="flex justify-end">

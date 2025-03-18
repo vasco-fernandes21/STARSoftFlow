@@ -153,11 +153,4 @@ export const financiamentoRouter = createTRPCRouter({
         throw error;
       }
     }),
-
-  // Obter todos os tipos de financiamento (sem paginação)
-  getAllSimple: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.db.financiamento.findMany({
-      orderBy: { nome: "asc" },
-    });
-  }),
 }); 
