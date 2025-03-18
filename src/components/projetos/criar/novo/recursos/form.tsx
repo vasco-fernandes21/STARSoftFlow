@@ -6,10 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Decimal } from "decimal.js";
-import { ChevronLeft, ChevronRight, Calendar, User, Percent, Save, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, User, Percent, Save, Plus, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gerarMesesEntreDatas } from "@/server/api/utils";
+import { Card } from "@/components/ui/card";
 
 interface FormProps {
   workpackageId: string;
@@ -205,166 +206,236 @@ export function Form({
   };
   
   return (
-    <div className="space-y-5 p-5 bg-white rounded-xl border border-azul/10">
-      {/* Seleção de utilizador */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-azul/60" />
-          <Label htmlFor="user" className="text-sm text-azul/70">
-            Selecione um recurso
-          </Label>
+    <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
+      {/* Cabeçalho do Form */}
+      <div className="p-3 flex justify-between items-start">
+        <div className="flex items-start gap-2">
+          <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center mt-0.5">
+            <User className="h-3.5 w-3.5 text-azul" />
+          </div>
+          <div>
+            <h5 className="text-sm font-medium text-azul">
+              {recursoEmEdicao ? "Editar Recurso" : "Adicionar Recurso"}
+            </h5>
+            <div className="text-xs text-azul/70 mt-0.5">
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] h-4 bg-azul/5 text-azul/80 border-azul/20">
+                {recursoEmEdicao ? "Edição" : "Novo"}
+              </Badge>
+            </div>
+          </div>
         </div>
-        <Select 
-          value={selectedUserId} 
-          onValueChange={setSelectedUserId}
-          disabled={!!recursoEmEdicao}
-        >
-          <SelectTrigger id="user" className="w-full border-azul/20">
-            <SelectValue placeholder="Selecione um utilizador" />
-          </SelectTrigger>
-          <SelectContent>
-            {utilizadores.map(user => (
-              <SelectItem key={user.id} value={user.id}>
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-full bg-azul/10 flex items-center justify-center">
-                    <User className="h-3 w-3 text-azul" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span>{user.name}</span>
-                    <span className="text-xs text-azul/60">{user.regime}</span>
-                  </div>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
-      {selectedUserId && (
-        <>
-          {/* Preencher todos */}
-          <div className="flex items-center gap-2 p-3 bg-azul/5 rounded-lg border border-azul/10">
-            <Label htmlFor="preencherTodos" className="text-xs text-azul/70 whitespace-nowrap">
-              Preencher todos:
+      {/* Conteúdo do Form */}
+      <div className="border-t border-azul/10 bg-azul/5 p-5">
+        {/* Seleção de utilizador */}
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
+              <User className="h-3 w-3 text-azul" />
+            </div>
+            <Label htmlFor="user" className="text-xs font-medium text-azul/80">
+              Selecione um recurso
             </Label>
-            <div className="flex items-center gap-2 flex-1">
-              <Input
-                id="preencherTodos"
-                type="text"
-                value={preencherTodosValue}
-                onChange={(e) => setPreencherTodosValue(e.target.value)}
-                onKeyDown={validarEntrada}
-                className="h-8 text-center w-16"
-                placeholder="0,5"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handlePreencherTodos}
-                className="h-8 ml-auto text-xs"
-              >
-                Aplicar
-              </Button>
-            </div>
           </div>
-
-          {/* Alocações por mês */}
-          <div className="space-y-3">
-            <Tabs defaultValue={anosDisponiveis[0]?.toString()}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-azul/60" />
-                  <span className="text-sm text-azul/70">Anos</span>
-                </div>
-                <TabsList className="h-8">
-                  {anosDisponiveis.map(ano => (
-                    <TabsTrigger key={ano} value={ano.toString()} className="text-xs px-3">
-                      {ano}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </div>
-
-              {anosDisponiveis.map(ano => (
-                <TabsContent key={ano} value={ano.toString()} className="mt-3">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                    {mesesDisponiveis
-                      .filter(mes => mes.ano === ano)
-                      .map(mes => {
-                        const ocupacao = getOcupacao(mes.mesNumero, mes.ano);
-                        let bgColor = "bg-gray-50";
-                        let textColor = "text-gray-600";
-                        let borderColor = "border-gray-200";
-                        
-                        if (ocupacao >= 0.8) {
-                          bgColor = "bg-green-50";
-                          textColor = "text-green-600";
-                          borderColor = "border-green-200";
-                        } else if (ocupacao >= 0.5) {
-                          bgColor = "bg-blue-50";
-                          textColor = "text-blue-600";
-                          borderColor = "border-blue-200";
-                        } else if (ocupacao >= 0.3) {
-                          bgColor = "bg-amber-50";
-                          textColor = "text-amber-600";
-                          borderColor = "border-amber-200";
-                        }
-                        
-                        return (
-                          <div 
-                            key={mes.chave} 
-                            className={`p-2 rounded-lg border ${bgColor} ${borderColor}`}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className={`text-xs font-medium capitalize ${textColor}`}>
-                                {mes.nome}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 mt-1">
-                              <Input
-                                type="text"
-                                value={getInputValue(mes.mesNumero, mes.ano)}
-                                onChange={(e) => handleOcupacaoChange(mes.mesNumero, mes.ano, e.target.value)}
-                                onKeyDown={validarEntrada}
-                                className="h-7 text-xs text-center"
-                                placeholder="0,0"
-                              />
-                              <Percent className="h-3 w-3 text-azul/40 flex-shrink-0" />
-                            </div>
-                          </div>
-                        );
-                      })
-                    }
+          <Select 
+            value={selectedUserId} 
+            onValueChange={setSelectedUserId}
+            disabled={!!recursoEmEdicao}
+          >
+            <SelectTrigger id="user" className="w-full border-azul/20 h-9">
+              <SelectValue placeholder="Selecione um utilizador" />
+            </SelectTrigger>
+            <SelectContent>
+              {utilizadores.map(user => (
+                <SelectItem key={user.id} value={user.id}>
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-azul/10 flex items-center justify-center">
+                      <User className="h-3 w-3 text-azul" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span>{user.name}</span>
+                      <span className="text-xs text-azul/60">{user.regime}</span>
+                    </div>
                   </div>
-                </TabsContent>
+                </SelectItem>
               ))}
-            </Tabs>
-          </div>
-          
-          {/* Legenda */}
-          <div className="flex flex-wrap items-center gap-2 justify-end text-xs text-azul/60 pt-2">
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-full bg-green-50 border border-green-200"></div>
-              <span>&gt;80%</span>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedUserId && (
+          <>
+            {/* Preencher todos */}
+            <div className="flex items-center gap-2 p-3 bg-white/70 rounded-lg border border-azul/10 mb-4">
+              <div className="flex items-center gap-1.5">
+                <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
+                  <Percent className="h-3 w-3 text-azul" />
+                </div>
+                <Label htmlFor="preencherTodos" className="text-xs font-medium text-azul/80 whitespace-nowrap">
+                  Preencher todos:
+                </Label>
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  id="preencherTodos"
+                  type="text"
+                  value={preencherTodosValue}
+                  onChange={(e) => setPreencherTodosValue(e.target.value)}
+                  onKeyDown={validarEntrada}
+                  className="h-8 text-center w-16"
+                  placeholder="0,5"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handlePreencherTodos}
+                  className="h-8 ml-auto text-xs"
+                >
+                  Aplicar
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-full bg-blue-50 border border-blue-200"></div>
-              <span>&gt;50%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-full bg-amber-50 border border-amber-200"></div>
-              <span>&gt;30%</span>
-            </div>
-          </div>
-          
-          {/* Estatísticas e botões */}
-          <div className="flex justify-between items-end border-t border-azul/10 pt-4 mt-4">
-            <div className="text-xs text-azul/60">
-              <div>{alocacoes.filter(a => a.ocupacao > 0).length} meses alocados</div>
-              <div>Média: {(alocacoes.reduce((acc, curr) => acc + curr.ocupacao, 0) / Math.max(1, alocacoes.filter(a => a.ocupacao > 0).length)).toFixed(2).replace('.', ',')} de ocupação</div>
+
+            {/* Alocações por mês */}
+            <div className="mb-4">
+              <Tabs defaultValue={anosDisponiveis[0]?.toString()}>
+                <div className="flex items-center mb-3">
+                  <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center mr-2">
+                    <Calendar className="h-3 w-3 text-azul" />
+                  </div>
+                  <span className="text-xs font-medium text-azul/80 mr-4">Anos</span>
+                  <TabsList className="h-8">
+                    {anosDisponiveis.map(ano => (
+                      <TabsTrigger key={ano} value={ano.toString()} className="text-xs px-3">
+                        {ano}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+
+                {anosDisponiveis.map(ano => (
+                  <TabsContent key={ano} value={ano.toString()} className="mt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                      {mesesDisponiveis
+                        .filter(mes => mes.ano === ano)
+                        .map(mes => {
+                          const ocupacao = getOcupacao(mes.mesNumero, mes.ano) * 100;
+                          let bgColor = "bg-gray-50";
+                          let textColor = "text-gray-600";
+                          let borderColor = "border-gray-200";
+                          let progressClass = "bg-gray-200";
+                          
+                          if (ocupacao >= 80) {
+                            bgColor = "bg-green-50";
+                            textColor = "text-green-600";
+                            borderColor = "border-green-100";
+                            progressClass = "bg-green-400";
+                          } else if (ocupacao >= 50) {
+                            bgColor = "bg-blue-50";
+                            textColor = "text-blue-600";
+                            borderColor = "border-blue-100";
+                            progressClass = "bg-blue-400";
+                          } else if (ocupacao >= 30) {
+                            bgColor = "bg-amber-50";
+                            textColor = "text-amber-600";
+                            borderColor = "border-amber-100";
+                            progressClass = "bg-amber-400";
+                          }
+                          
+                          return (
+                            <div 
+                              key={mes.chave} 
+                              className={`${bgColor} ${borderColor} border rounded-md p-2 ${ocupacao === 0 ? 'opacity-50' : ''}`}
+                            >
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className={textColor}>
+                                  {format(new Date(mes.ano, mes.mesNumero - 1), 'MMM', { locale: pt })}
+                                </span>
+                                <span className={`font-medium ${textColor}`}>{ocupacao.toFixed(0)}%</span>
+                              </div>
+                              <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${progressClass} rounded-full transition-all duration-300`}
+                                  style={{ width: `${ocupacao}%` }}
+                                />
+                              </div>
+                              <div className="mt-2 flex items-center">
+                                <Input
+                                  type="text"
+                                  value={getInputValue(mes.mesNumero, mes.ano)}
+                                  onChange={(e) => handleOcupacaoChange(mes.mesNumero, mes.ano, e.target.value)}
+                                  onKeyDown={validarEntrada}
+                                  className="h-7 text-xs text-center"
+                                  placeholder="0,0"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
             </div>
             
-            <div className="flex gap-2">
+            {/* Estatísticas */}
+            <div className="mt-6 bg-white/70 rounded-lg p-3 border border-azul/10">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
+                  <Briefcase className="h-3 w-3 text-azul" />
+                </div>
+                <h6 className="text-xs font-medium text-azul/80">Estatísticas de Ocupação</h6>
+              </div>
+              
+              <div className="space-y-3 mt-3">
+                <div className="group">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-azul/70">Meses alocados</span>
+                    <span className="text-azul font-medium">
+                      {alocacoes.filter(a => a.ocupacao > 0).length}/{mesesDisponiveis.length}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 bg-azul/5 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-azul/50 rounded-full transition-all duration-500"
+                      style={{ width: `${(alocacoes.filter(a => a.ocupacao > 0).length / mesesDisponiveis.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="group">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-azul/70">Ocupação média</span>
+                    <span className="text-azul font-medium">
+                      {(alocacoes.reduce((acc, curr) => acc + curr.ocupacao, 0) / 
+                       Math.max(1, alocacoes.filter(a => a.ocupacao > 0).length) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 bg-azul/5 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-azul/50 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, alocacoes.reduce((acc, curr) => acc + curr.ocupacao, 0) / 
+                       Math.max(1, alocacoes.filter(a => a.ocupacao > 0).length) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Botões de ação */}
+            <div className="flex justify-end gap-2 mt-6">
               <Button
                 variant="outline"
                 onClick={onCancel}
@@ -389,9 +460,9 @@ export function Form({
                 )}
               </Button>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </Card>
   );
 } 

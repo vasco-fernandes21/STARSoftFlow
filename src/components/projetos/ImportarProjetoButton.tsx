@@ -2,16 +2,16 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  ExternalLink,
-  FileSpreadsheet,
+import { 
+  ExternalLink, 
+  FileSpreadsheet, 
   Upload,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -61,7 +61,7 @@ interface WorkpackageSimples {
 function mapearRubrica(rubricaExcel: string): Rubrica {
   const mapeamento: Record<string, Rubrica> = {
     Materiais: "MATERIAIS",
-    "Serviços Terceiros": "SERVICOS_TERCEIROS",
+    "Serviços Terceiros": "SERVICOS_TERCEIROS", 
     "Outros Serviços": "OUTROS_SERVICOS",
     "Deslocações e Estadas": "DESLOCACAO_ESTADIAS",
     "Outros Custos": "OUTROS_CUSTOS",
@@ -156,20 +156,20 @@ function extrairValorEti(dadosRH: any[][]): number | null {
 
 function extrairMateriais(data: any[][]): MaterialImportacao[] {
   const materiais: MaterialImportacao[] = [];
-
+  
   for (let i = 6; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length === 0 || !row[0]) continue;
-
+    
     const despesa = row[0];
     const atividade = row[1];
     const ano = row[3];
     const rubrica = row[4];
     const custoUnitario = row[5];
     const unidades = row[6];
-
+    
     if (!despesa || !atividade || !custoUnitario || !unidades) continue;
-
+    
     if (typeof custoUnitario === "number" && typeof unidades === "number") {
       materiais.push({
         nome: despesa,
@@ -181,36 +181,36 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
       });
     }
   }
-
+  
   return materiais;
 }
 
 function extrairUtilizadores(apiResponse: any): any[] {
   if (!apiResponse) return [];
-
+  
   if (
     apiResponse.result?.data?.json?.items &&
     Array.isArray(apiResponse.result.data.json.items)
   ) {
     return apiResponse.result.data.json.items;
   }
-
+  
   if (apiResponse.items && Array.isArray(apiResponse.items)) {
     return apiResponse.items;
   }
-
+  
   if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
     return apiResponse.json.items;
   }
-
+  
   if (apiResponse.json && Array.isArray(apiResponse.json)) {
     return apiResponse.json;
   }
-
+  
   if (Array.isArray(apiResponse)) {
     return apiResponse;
   }
-
+  
   return [];
 }
 
@@ -237,7 +237,7 @@ function extrairDadosRH(
   let dataFimProjeto: Date | null = null;
 
   const colunasDatas: { coluna: number; mes: number; ano: number }[] = [];
-
+  
   for (let i = 6; i < linhaMeses.length; i++) {
     if (
       linhaAnos[i] &&
@@ -246,7 +246,7 @@ function extrairDadosRH(
       typeof linhaMeses[i] === "number"
     ) {
       const { mes, ano } = excelDateToJS(linhaMeses[i]);
-
+      
       if (ano === linhaAnos[i]) {
         colunasDatas.push({ coluna: i, mes, ano });
 
@@ -256,7 +256,7 @@ function extrairDadosRH(
         ) {
           dataInicioProjeto = new Date(ano, mes - 1, 1);
         }
-
+        
         if (
           !dataFimProjeto ||
           new Date(ano, mes, 0) > dataFimProjeto
@@ -266,7 +266,7 @@ function extrairDadosRH(
       }
     }
   }
-
+  
   console.log(
     "Colunas de datas mapeadas:",
     colunasDatas.map((d) => `Coluna ${d.coluna}: ${d.mes}/${d.ano}`)
@@ -292,24 +292,24 @@ function extrairDadosRH(
         dataFim: null,
       };
       wps.push(wpAtual);
-
+      
       if (typeof row[4] === "number" && typeof row[5] === "number") {
         const planStart = row[4];
         const planDuration = row[5];
-
+        
         if (planStart > 0 && planDuration > 0 && dataInicioProjeto) {
           const dataInicio = new Date(dataInicioProjeto);
           dataInicio.setMonth(dataInicioProjeto.getMonth() + (planStart - 1));
-
+          
           const dataFim = new Date(dataInicio);
           dataFim.setMonth(dataInicio.getMonth() + (planDuration - 1));
           dataFim.setDate(
             new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()
           );
-
+          
           wpAtual.dataInicio = dataInicio;
           wpAtual.dataFim = dataFim;
-
+          
           console.log(
             `Datas do workpackage ${
               wpAtual.codigo
@@ -322,14 +322,14 @@ function extrairDadosRH(
     } else if (wpAtual && row[3] && typeof row[3] === "string" && !row[1]) {
       const nomeRecurso = row[3];
       console.log(`Processando recurso para ${wpAtual.codigo}: ${nomeRecurso}`);
-
+      
       const utilizador = utilizadores.find(
         (u) =>
-          u.name?.toLowerCase() === nomeRecurso.toLowerCase() ||
-          u.name?.toLowerCase().includes(nomeRecurso.toLowerCase()) ||
-          nomeRecurso.toLowerCase().includes(u.name?.toLowerCase())
+        u.name?.toLowerCase() === nomeRecurso.toLowerCase() ||
+        u.name?.toLowerCase().includes(nomeRecurso.toLowerCase()) ||
+        nomeRecurso.toLowerCase().includes(u.name?.toLowerCase())
       );
-
+      
       if (utilizador) {
         console.log(
           `Associação encontrada: "${nomeRecurso}" -> "${utilizador.name}" (ID: ${utilizador.id})`
@@ -337,16 +337,16 @@ function extrairDadosRH(
       } else {
         console.log(`Nenhuma associação encontrada para "${nomeRecurso}"`);
       }
-
+      
       const recurso: Recurso = {
         nome: nomeRecurso,
         userId: utilizador?.id || null,
         alocacoes: [],
       };
-
+      
       for (const colData of colunasDatas) {
         const valor = row[colData.coluna];
-
+        
         if (
           valor &&
           typeof valor === "number" &&
@@ -381,7 +381,7 @@ function extrairDadosRH(
       );
       wp.dataInicio = dataInicioProjeto;
     }
-
+    
     if (!wp.dataFim || wp.dataFim.getFullYear() > 2100) {
       console.warn(
         `Workpackage ${wp.codigo} tem data de fim inválida: ${wp.dataFim}`
@@ -400,30 +400,30 @@ function atribuirMateriaisAosWorkpackages(
   const wpMap = new Map<string, WorkpackageSimples>();
   workpackages.forEach((wp) => {
     wpMap.set(wp.nome, wp);
-
+    
     const wpCodigo = wp.nome.split(" - ")[0]?.trim();
     if (wpCodigo) {
       wpMap.set(wpCodigo, wp);
     }
   });
-
+  
   materiais.forEach((material) => {
     let wpMatch = wpMap.get(material.workpackageNome);
-
+    
     if (!wpMatch) {
       const codigoMatch = material.workpackageNome.match(/^A\d+/);
       if (codigoMatch) {
         wpMatch = workpackages.find((wp) => wp.codigo === codigoMatch[0]);
       }
     }
-
+    
     if (wpMatch) {
       wpMatch.materiais.push(material);
     } else if (workpackages.length > 0 && workpackages[0]) {
       workpackages[0].materiais.push(material);
     }
   });
-
+  
   return workpackages;
 }
 
@@ -432,11 +432,11 @@ async function verificarFinanciamentoExistente(
   financiamentosExistentes: any[]
 ) {
   const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
-
+  
   const financiamentoEncontrado = financiamentosExistentes.find(
     (f) => f.nome.trim().toLowerCase() === tipoNormalizado
   );
-
+  
   return financiamentoEncontrado;
 }
 
@@ -451,10 +451,10 @@ export default function ImportarProjetoButton() {
     useState(false);
   const [dadosFinanciamento, setDadosFinanciamento] = useState<
     | {
-        nome: string;
-        overhead: number | null;
-        taxa_financiamento: number | null;
-        valor_eti: number | null;
+    nome: string;
+    overhead: number | null;
+    taxa_financiamento: number | null;
+    valor_eti: number | null;
       }
     | null
   >(null);
@@ -466,23 +466,23 @@ export default function ImportarProjetoButton() {
     if (!file) return;
 
     setIsLoading(true);
-
+    
     try {
       // Carregar utilizadores
       const response = await fetch("/api/trpc/utilizador.getAll");
       const responseData = await response.json();
       const utilizadores = extrairUtilizadores(responseData);
-
+      
       console.log("Utilizadores carregados:", utilizadores.length);
-
+      
       const reader = new FileReader();
-
+      
       reader.onload = async (e) => {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
           const sheetsData = converterExcelParaJson(workbook);
-
+          
           let wps: WorkpackageSimples[] = [];
           let materiais: MaterialImportacao[] = [];
           let dataInicioProjeto: Date | null = null;
@@ -534,15 +534,15 @@ export default function ImportarProjetoButton() {
             dataInicioProjeto = resultado.dataInicioProjeto;
             dataFimProjeto = resultado.dataFimProjeto;
           }
-
+          
           if (sheetsData["Outros_Budget"]) {
             materiais = extrairMateriais(sheetsData["Outros_Budget"]);
           }
-
+          
           if (wps.length > 0 && materiais.length > 0) {
             wps = atribuirMateriaisAosWorkpackages(wps, materiais);
           }
-
+          
           console.log(
             `Projeto: Início ${dataInicioProjeto?.toLocaleDateString(
               "pt-PT"
@@ -551,13 +551,13 @@ export default function ImportarProjetoButton() {
 
           // Resetar o estado para iniciar com dados limpos
           dispatch({ type: "RESET" });
-
+          
           // Atualizar os dados do projeto de uma só vez
-          dispatch({
-            type: "UPDATE_PROJETO",
-            data: {
+            dispatch({
+              type: "UPDATE_PROJETO",
+              data: {
               nome: nomeProjeto,
-              inicio: dataInicioProjeto,
+                inicio: dataInicioProjeto,
               fim: dataFimProjeto,
               overhead: overhead ? new Decimal(overhead / 100) : new Decimal(0),
               taxa_financiamento: taxaFinanciamento
@@ -570,7 +570,7 @@ export default function ImportarProjetoButton() {
           // Adicionar workpackages, recursos e materiais
           wps.forEach((wp) => {
             const wpId = generateUUID();
-
+            
             dispatch({
               type: "ADD_WORKPACKAGE",
               workpackage: {
@@ -586,14 +586,14 @@ export default function ImportarProjetoButton() {
                 projetoId: "seu-projeto-id-aqui",
               },
             });
-
+            
             // Adicionar recursos e alocações
             wp.recursos.forEach((recurso) => {
               const userId = recurso.userId || "1";
               console.log(
                 `Adicionando recurso: ${recurso.nome} (ID: ${userId}) ao WP: ${wp.nome}`
               );
-
+              
               recurso.alocacoes.forEach((alocacao) => {
                 dispatch({
                   type: "ADD_ALOCACAO",
@@ -611,7 +611,7 @@ export default function ImportarProjetoButton() {
                 );
               });
             });
-
+            
             // Adicionar materiais
             wp.materiais.forEach((material) => {
               dispatch({
@@ -629,7 +629,7 @@ export default function ImportarProjetoButton() {
               });
             });
           });
-
+          
           // Verificar o financiamento
           if (tipoFinanciamento) {
             try {
@@ -645,29 +645,29 @@ export default function ImportarProjetoButton() {
                   f.nome.trim().toLowerCase() === tipoNormalizado
               );
               
-              if (financiamentoExistente) {
-                dispatch({
-                  type: "UPDATE_PROJETO",
-                  data: {
-                    financiamentoId: financiamentoExistente.id,
-                    overhead: financiamentoExistente.overhead,
-                    taxa_financiamento: financiamentoExistente.taxa_financiamento,
-                    valor_eti: financiamentoExistente.valor_eti
-                  }
-                });
-                
-                toast.success(`Financiamento "${tipoFinanciamento}" encontrado e aplicado ao projeto.`);
+            if (financiamentoExistente) {
+              dispatch({
+                type: "UPDATE_PROJETO",
+                data: {
+                  financiamentoId: financiamentoExistente.id,
+                  overhead: financiamentoExistente.overhead,
+                  taxa_financiamento: financiamentoExistente.taxa_financiamento,
+                  valor_eti: financiamentoExistente.valor_eti
+                }
+              });
+              
+              toast.success(`Financiamento "${tipoFinanciamento}" encontrado e aplicado ao projeto.`);
               } else {
-                setDadosFinanciamento({
-                  nome: tipoFinanciamento,
-                  overhead: overhead,
-                  taxa_financiamento: taxaFinanciamento,
-                  valor_eti: valorEti
-                });
-                
-                setOpen(false);
-                setModalFinanciamentosAberto(true);
-                
+              setDadosFinanciamento({
+                nome: tipoFinanciamento,
+                overhead: overhead,
+                taxa_financiamento: taxaFinanciamento,
+                valor_eti: valorEti
+              });
+              
+              setOpen(false);
+              setModalFinanciamentosAberto(true);
+              
                 toast.error(`Atenção: O financiamento "${tipoFinanciamento}" não foi encontrado no sistema.`, {
                   duration: 10000,
                   description: "Por favor, verifique os dados e crie um novo financiamento com as informações fornecidas.",
@@ -716,10 +716,10 @@ export default function ImportarProjetoButton() {
         valor_eti: financiamento.valor_eti,
       },
     });
-
+    
     setDadosFinanciamento(null);
     setModalFinanciamentosAberto(false);
-
+    
     toast.success("Financiamento criado e aplicado ao projeto");
   };
 
@@ -740,11 +740,11 @@ export default function ImportarProjetoButton() {
               Importar Projeto a partir de Excel
             </DialogTitle>
           </DialogHeader>
-
+          
           <div className="space-y-4 py-4">
             <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-azul/30 rounded-lg">
               <FileSpreadsheet className="h-12 w-12 text-azul/70 mb-3" />
-
+              
               <input
                 type="file"
                 accept=".xlsx, .xls"
@@ -752,8 +752,8 @@ export default function ImportarProjetoButton() {
                 className="hidden"
                 ref={fileInputRef}
               />
-
-              <Button
+              
+              <Button 
                 className="bg-azul hover:bg-azul/90 mt-2"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
@@ -811,17 +811,17 @@ export default function ImportarProjetoButton() {
       
       {/* Garante que dadosPreenchidos não é undefined */}
       {modalFinanciamentosAberto && (
-        <GerirFinanciamentosModal 
-          open={modalFinanciamentosAberto} 
-          onOpenChange={setModalFinanciamentosAberto}
+      <GerirFinanciamentosModal 
+        open={modalFinanciamentosAberto} 
+        onOpenChange={setModalFinanciamentosAberto}
           dadosPreenchidos={{
             nome: dadosFinanciamento?.nome || "",
             overhead: dadosFinanciamento?.overhead || null,
             taxa_financiamento: dadosFinanciamento?.taxa_financiamento || null,
             valor_eti: dadosFinanciamento?.valor_eti || null
           }}
-          onFinanciamentoCriado={handleFinanciamentoCriado}
-        />
+        onFinanciamentoCriado={handleFinanciamentoCriado}
+      />
       )}
     </>
   );

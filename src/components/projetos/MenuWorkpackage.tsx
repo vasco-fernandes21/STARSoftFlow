@@ -38,6 +38,11 @@ import {
 } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Rubrica, type Prisma } from "@prisma/client";
+import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
+import { Item as RecursoItem } from "@/components/projetos/criar/novo/recursos/item";
+import { MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
+import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
+import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
 
 type WorkpackageWithRelations = Prisma.WorkpackageGetPayload<{
   include: {
@@ -62,7 +67,13 @@ type MaterialWithRelations = Prisma.MaterialGetPayload<{
 
 type AlocacaoRecursoWithRelations = Prisma.AlocacaoRecursoGetPayload<{
   include: { user: true }
-}>;
+}> & {
+  alocacoes?: Array<{
+    mes: number;
+    ano: number;
+    ocupacao: any;
+  }>;
+};
 
 interface MenuWorkpackageProps {
   workpackageId: string;
@@ -113,6 +124,48 @@ function gerarMesesEntreDatas(dataInicio: Date, dataFim: Date): {
   return meses;
 }
 
+// Adicionar função para formatar data de forma segura
+function formatarDataSegura(ano: string | number, mes: string | number, formatString: string): string {
+  try {
+    const data = new Date(Number(ano), Number(mes) - 1);
+    return format(data, formatString, { locale: ptBR });
+  } catch (error) {
+    return "Data inválida";
+  }
+}
+
+// Função para agrupar alocações por ano e mês com validação
+function agruparAlocacoesPorAnoMes(alocacoes: Array<{
+  mes: number;
+  ano: number;
+  ocupacao: any;
+}> | undefined) {
+  if (!alocacoes || !Array.isArray(alocacoes)) {
+    return {};
+  }
+
+  return alocacoes.reduce((acc, alocacao) => {
+    if (!alocacao || typeof alocacao.ano === 'undefined' || typeof alocacao.mes === 'undefined') {
+      return acc;
+    }
+
+    const ano = alocacao.ano.toString();
+    if (!acc[ano]) {
+      acc[ano] = {};
+    }
+
+    // Garantir que ocupacao seja um número
+    const ocupacaoNumero = typeof alocacao.ocupacao === 'number' 
+      ? alocacao.ocupacao 
+      : typeof alocacao.ocupacao === 'string'
+        ? parseFloat(alocacao.ocupacao)
+        : Number(alocacao.ocupacao) || 0;
+
+    acc[ano][alocacao.mes] = ocupacaoNumero * 100;
+    return acc;
+  }, {} as Record<string, Record<number, number>>);
+}
+
 export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDate, onUpdate }: MenuWorkpackageProps) {
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -134,6 +187,10 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
     field: 'quantidade' | 'preco';
     value: string;
   } | null>(null);
+  const [addingTarefa, setAddingTarefa] = useState(false);
+
+  // Adicionar estado para expandir/colapsar recursos
+  const [expandedRecursos, setExpandedRecursos] = useState<Record<string, boolean>>({});
 
   const { data: workpackage, refetch: refetchWorkpackage } = api.workpackage.getById.useQuery<WorkpackageWithRelations>(
     { id: workpackageId },
@@ -571,656 +628,215 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                 </Card>
               </div>
 
-              {/* Alocação de Recursos */}
-              <div className="space-y-4">
+              {/* Tarefas */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-gray-100/80 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-gray-700" />
-                    </div>
-                    <h3 className="text-base font-medium text-gray-700">Alocação de Recursos</h3>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setAddingRecurso(true)}
-                    className="rounded-xl bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 border-gray-200"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Adicionar Recurso
-                  </Button>
-                </div>
-
-                {addingRecurso && (
-                  <Card className="border border-gray-100 shadow-lg bg-white/90 backdrop-blur-sm p-6 rounded-xl mb-4">
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-base font-medium text-gray-700">Nova Alocação</h4>
+                  <span className="text-xs text-gray-500 font-medium">Tarefas</span>
+                  {!addingTarefa && (
                         <Button
                           variant="ghost"
-                          onClick={() => {
-                            setAddingRecurso(false);
-                            setNovasAlocacoes({});
-                            setSelectedUserId("");
-                          }}
-                          className="h-8 w-8 rounded-xl hover:bg-red-50 hover:text-red-500"
-                        >
-                          <XIcon className="h-4 w-4" />
+                      onClick={() => setAddingTarefa(true)}
+                      className="h-7 w-7 rounded-md bg-gray-50"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
                         </Button>
+                  )}
                       </div>
 
-                      <div className="space-y-6">
                         <div className="space-y-2">
-                          <Label className="text-sm text-gray-500">Colaborador</Label>
-                          <Select
-                            value={selectedUserId}
-                            onValueChange={setSelectedUserId}
-                          >
-                            <SelectTrigger className="w-full bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl">
-                              <SelectValue placeholder="Selecionar colaborador" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {utilizadores?.items?.map((user) => (
-                                <SelectItem key={user.id} value={user.id}>
-                                  {user.name || user.email || "Sem nome"}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {selectedUserId && (
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <Label className="text-sm text-gray-500">Alocação Mensal (0-1)</Label>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={navegarAnoAnterior}
-                                  disabled={anosDisponiveis.indexOf(anoSelecionado) === 0}
-                                  className="h-7 w-7 p-0 rounded-full"
-                                >
-                                  <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                
-                                <Badge variant="outline" className="bg-white font-semibold">
-                                  {anoSelecionado}
-                                </Badge>
-                                
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={navegarProximoAno}
-                                  disabled={anosDisponiveis.indexOf(anoSelecionado) === anosDisponiveis.length - 1}
-                                  className="h-7 w-7 p-0 rounded-full"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            <div className="relative">
-                              <ScrollArea className="w-full">
-                                <div className="grid grid-cols-6 gap-4">
-                                  {/* Janeiro a Junho */}
-                                  {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero <= 6).map(mes => (
-                                    <div key={mes.chave} className="flex flex-col items-center space-y-1">
-                                      <Label className="text-xs text-gray-500">
-                                        {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
-                                        format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
-                                      </Label>
-                                      <Input
-                                        type="text"
-                                        inputMode="decimal"
-                                        className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                                        value={novasAlocacoes[mes.chave] || ""}
-                                        onChange={(e) => {
-                                          setNovasAlocacoes(prev => ({
-                                            ...prev,
-                                            [mes.chave]: e.target.value
-                                          }));
-                                        }}
-                                        placeholder="0,0"
-                                      />
-                                    </div>
-                                  ))}
-                                  
-                                  {/* Julho a Dezembro */}
-                                  {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero > 6).map(mes => (
-                                    <div key={mes.chave} className="flex flex-col items-center space-y-1">
-                                      <Label className="text-xs text-gray-500">
-                                        {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
-                                        format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
-                                      </Label>
-                                      <Input
-                                        type="text"
-                                        inputMode="decimal"
-                                        className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                                        value={novasAlocacoes[mes.chave] || ""}
-                                        onChange={(e) => {
-                                          setNovasAlocacoes(prev => ({
-                                            ...prev,
-                                            [mes.chave]: e.target.value
-                                          }));
-                                        }}
-                                        placeholder="0,0"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              </ScrollArea>
-                            </div>
-
-                            {/* Resumo de alocação */}
-                            <div className="flex flex-wrap gap-2">
-                              {mesesEntreDatas
-                                .filter(mes => parseFloat(novasAlocacoes[mes.chave] || "0") > 0)
-                                .map(mes => (
-                                  <Badge 
-                                    key={mes.chave}
-                                    className="rounded-full px-2 py-1 text-xs bg-blue-50/70 text-azul border-blue-200"
-                                  >
-                                    {mes.formatado}: {(novasAlocacoes[mes.chave] || "0").replace('.', ',')}
-                                  </Badge>
-                                ))
-                              }
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-end gap-2 pt-4">
-                          <Button
-                            variant="ghost"
-                            onClick={() => {
-                              setAddingRecurso(false);
-                              setNovasAlocacoes({});
-                              setSelectedUserId("");
-                            }}
-                            className="text-gray-500 hover:text-gray-700 rounded-xl"
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            onClick={handleAddAlocacao}
-                            disabled={!selectedUserId || Object.values(novasAlocacoes).every(v => v === "0")}
-                            className="bg-gray-900 text-white hover:bg-gray-800 rounded-xl"
-                          >
-                            Adicionar Alocação
-                          </Button>
-                        </div>
-                      </div>
+                  {addingTarefa && (
+                    <div className="bg-gray-50/50 rounded-md p-3">
+                      <TarefaForm
+                        workpackageId={workpackageId}
+                        workpackageInicio={workpackage.inicio || new Date()}
+                        workpackageFim={workpackage.fim || new Date()}
+                        onSubmit={(workpackageId, tarefa) => {
+                          setAddingTarefa(false);
+                          refetchWorkpackage();
+                        }}
+                        onCancel={() => setAddingTarefa(false)}
+                      />
                     </div>
-                  </Card>
-                )}
+                  )}
 
-                <Card className="border border-gray-100 shadow-lg bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
-                  {/* Agrupar recursos por utilizador */}
-                  <div className="divide-y divide-gray-100">
-                    {(workpackage?.recursos ?? []).length > 0 ? (
-                      Object.entries(
-                        (workpackage?.recursos ?? []).reduce((acc, alocacao) => {
-                          acc[alocacao.userId] = acc[alocacao.userId] || { user: alocacao.user, alocacoes: {} };
-                          acc[alocacao.userId].alocacoes[`${alocacao.mes}-${alocacao.ano}`] = Number(alocacao.ocupacao);
-                          return acc;
-                        }, {} as Record<string, { user: any; alocacoes: Record<string, number> }>)
-                      ).map(([userId, { user, alocacoes }]) => (
-                        <div key={userId} className="p-6 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
-                                <Users className="h-4 w-4 text-gray-600" />
-                              </div>
-                              <span className="font-medium text-gray-800">
-                                {user?.name || "Utilizador não encontrado"}
-                              </span>
+                  {workpackage.tarefas.map((tarefa) => (
+                    <TarefaItem
+                      key={tarefa.id}
+                      tarefa={tarefa}
+                      workpackageId={workpackageId}
+                      handlers={{
+                        addEntregavel: (workpackageId, tarefaId, entregavel) => {
+                          refetchWorkpackage();
+                        },
+                        removeEntregavel: (workpackageId, tarefaId, entregavelId) => {
+                          refetchWorkpackage();
+                        },
+                        removeTarefa: (workpackageId, tarefaId) => {
+                          refetchWorkpackage();
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
                             </div>
+
+              {/* Recursos */}
+              <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 font-medium">Recursos</span>
+                  {!addingRecurso && (
                             <Button
                               variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                const confirmed = window.confirm("Tem a certeza que deseja remover todas as alocações deste recurso?");
-                                if (confirmed) {
-                                  Object.entries(alocacoes).forEach(([mesAno, _]) => {
-                                    const [mes, ano] = mesAno.split("-").map(Number);
-                                    handleRemoveAlocacao(
-                                      userId, 
-                                      mes || 1, 
-                                      ano || new Date().getFullYear()
-                                    );
-                                  });
-                                }
-                              }}
-                              className="h-7 w-7 p-0 rounded-full hover:bg-red-50 hover:text-red-500"
-                            >
-                              <XIcon className="h-4 w-4" />
+                      onClick={() => setAddingRecurso(true)}
+                      className="h-7 w-7 rounded-md bg-gray-50"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
                             </Button>
-                          </div>
-
-                          {/* Alocação mensal para este utilizador */}
-                          <div className="bg-gray-50/50 p-4 rounded-lg space-y-4">
-                            <div className="flex justify-between items-center">
-                              <h4 className="text-sm font-medium text-gray-700">Alocação Mensal (0-1)</h4>
-                              
-                              {anosDisponiveis.length > 0 && (
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={navegarAnoAnterior}
-                                    disabled={anosDisponiveis.indexOf(anoSelecionado) === 0}
-                                    className="h-7 w-7 p-0 rounded-full"
-                                  >
-                                    <ChevronLeft className="h-4 w-4" />
-                                  </Button>
-                                  
-                                  <Badge variant="outline" className="bg-white font-semibold">
-                                    {anoSelecionado}
-                                  </Badge>
-                                  
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={navegarProximoAno}
-                                    disabled={anosDisponiveis.indexOf(anoSelecionado) === anosDisponiveis.length - 1}
-                                    className="h-7 w-7 p-0 rounded-full"
-                                  >
-                                    <ChevronRight className="h-4 w-4" />
-                                  </Button>
-                                </div>
                               )}
                             </div>
                             
-                            <div className="relative">
-                              <ScrollArea className="w-full">
-                                <div className="grid grid-cols-6 gap-4">
-                                  {/* Janeiro a Junho */}
-                                  {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero <= 6).map(mes => (
-                                    <div key={mes.chave} className="flex flex-col items-center space-y-1">
-                                      <Label className="text-xs text-gray-500">
-                                        {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
-                                        format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
-                                      </Label>
-                                      <Input
-                                        type="text"
-                                        inputMode="decimal"
-                                        className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                                        value={alocacoes[mes.chave]?.toString().replace('.', ',') || ""}
-                                        onChange={(e) => {
-                                          const valor = e.target.value.replace(',', '.');
-                                          
-                                          // Se estiver vazio, remove a alocação
-                                          if (valor === "") {
-                                            handleRemoveAlocacao(
-                                              userId, 
-                                              mes.mesNumero || 1, 
-                                              mes.ano || new Date().getFullYear()
-                                            );
-                                            return;
-                                          }
+                <div className="space-y-2">
+                  {addingRecurso && (
+                    <div className="bg-gray-50/50 rounded-md p-3">
+                      <RecursoForm
+                        workpackageId={workpackageId}
+                        inicio={workpackage.inicio || new Date()}
+                        fim={workpackage.fim || new Date()}
+                        onCancel={() => setAddingRecurso(false)}
+                        onAddAlocacao={handleAddAlocacao}
+                        utilizadores={(utilizadores?.items || []).map(u => ({
+                          id: u.id,
+                          name: u.name || "",
+                          email: u.email || "",
+                          regime: u.regime as string
+                        }))}
+                      />  
+                    </div>
+                  )}
 
-                                          // Permite apenas números e um ponto decimal
-                                          if (/^\d*\.?\d*$/.test(valor)) {
-                                            const numeroValido = parseFloat(valor);
-                                            // Se for um número válido entre 0 e 1, atualiza
-                                            if (!isNaN(numeroValido) && numeroValido > 0 && numeroValido <= 1) {
-                                              addAlocacaoMutation.mutate({
-                                                workpackageId,
-                                                userId,
-                                                mes: mes.mesNumero || 1,
-                                                ano: mes.ano || new Date().getFullYear(),
-                                                ocupacao: numeroValido
-                                              });
-                                            }
-                                          }
-                                        }}
-                                        placeholder="0,0"
-                                      />
-                                    </div>
-                                  ))}
-                                  
-                                  {/* Julho a Dezembro */}
-                                  {mesesPorAno[anoSelecionado]?.filter(mes => mes.mesNumero > 6).map(mes => (
-                                    <div key={mes.chave} className="flex flex-col items-center space-y-1">
-                                      <Label className="text-xs text-gray-500">
-                                        {format(mes.data, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + 
-                                        format(mes.data, 'MMM', { locale: ptBR }).slice(1, 3)}/{String(mes.ano).slice(2)}
-                                      </Label>
-                                      <Input
-                                        type="text"
-                                        inputMode="decimal"
-                                        className="text-center h-9 w-20 text-sm bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                                        value={alocacoes[mes.chave]?.toString().replace('.', ',') || ""}
-                                        onChange={(e) => {
-                                          const valor = e.target.value.replace(',', '.');
-                                          
-                                          // Se estiver vazio, remove a alocação
-                                          if (valor === "") {
-                                            handleRemoveAlocacao(
-                                              userId, 
-                                              mes.mesNumero || 1, 
-                                              mes.ano || new Date().getFullYear()
-                                            );
-                                            return;
-                                          }
+                  {workpackage.recursos?.map((recurso, index) => {
+                    if (!recurso) return null;
 
-                                          // Permite apenas números e um ponto decimal
-                                          if (/^\d*\.?\d*$/.test(valor)) {
-                                            const numeroValido = parseFloat(valor);
-                                            // Se for um número válido entre 0 e 1, atualiza
-                                            if (!isNaN(numeroValido) && numeroValido > 0 && numeroValido <= 1) {
-                                              addAlocacaoMutation.mutate({
-                                                workpackageId,
-                                                userId,
-                                                mes: mes.mesNumero || 1,
-                                                ano: mes.ano || new Date().getFullYear(),
-                                                ocupacao: numeroValido
-                                              });
-                                            }
-                                          }
-                                        }}
-                                        placeholder="0,0"
-                                      />
+                    // Construir alocações manualmente se não estiverem disponíveis diretamente
+                    const alocacoes = Array.isArray((recurso as any).alocacoes) 
+                      ? (recurso as any).alocacoes 
+                      : [
+                          // Estrutura básica se não existirem alocações
+                          { 
+                            userId: recurso.userId, 
+                            mes: (new Date()).getMonth() + 1, 
+                            ano: (new Date()).getFullYear(),
+                            ocupacao: 0
+                          }
+                        ];
+
+                    const alocacoesPorAnoMes = agruparAlocacoesPorAnoMes(alocacoes);
+                    const isExpanded = expandedRecursos[recurso.userId] || false;
+
+                    return (
+                      <RecursoItem
+                        key={`${recurso.user.id}-${index}`}
+                        userId={recurso.user.id}
+                        recurso={{
+                          userId: recurso.user.id,
+                          alocacoes: alocacoes
+                        }}
+                        membroEquipa={utilizadores?.items.find(u => u.id === recurso.user.id)}
+                        isExpanded={isExpanded}
+                        workpackageId={workpackageId}
+                        onToggleExpand={() => {
+                          setExpandedRecursos(prev => ({
+                            ...prev,
+                            [recurso.user.id]: !isExpanded
+                          }));
+                        }}
+                        onEdit={() => {
+                          // Lógica para editar
+                        }}
+                        onRemove={() => {
+                          // Lógica para remover
+                        }}
+                        formatarDataSegura={formatarDataSegura}
+                        alocacoesPorAnoMes={alocacoesPorAnoMes}
+                      />
+                    );
+                  })}
                                     </div>
-                                  ))}
-                                </div>
-                              </ScrollArea>
-                            </div>
-                            
-                            {/* Resumo de alocação */}
-                            <div className="flex flex-wrap gap-2">
-                              {mesesEntreDatas
-                                .filter(mes => Number(alocacoes[mes.chave] ?? 0) > 0)
-                                .map(mes => (
-                                  <Badge 
-                                    key={mes.chave}
-                                    className="rounded-full px-2 py-1 text-xs bg-blue-50/70 text-azul border-blue-200"
-                                  >
-                                    {mes.formatado}: {Number(alocacoes[mes.chave] ?? 0).toFixed(1)}
-                                  </Badge>
-                                ))
-                              }
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-8 text-center text-gray-500">
-                        <div className="flex flex-col items-center gap-2">
-                          <Users className="h-8 w-8 text-gray-400" />
-                          <p>Nenhum recurso alocado</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Card>
               </div>
 
               {/* Materiais */}
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-gray-100/80 flex items-center justify-center">
-                      <Package className="h-5 w-5 text-gray-700" />
-                    </div>
-                    <h3 className="text-base font-medium text-gray-700">Materiais</h3>
-                  </div>
+                  <span className="text-xs text-gray-500 font-medium">Materiais</span>
+                  {!addingMaterial && (
                   <Button
-                    variant="outline"
+                      variant="ghost"
                     onClick={() => setAddingMaterial(true)}
-                    className="rounded-xl bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 border-gray-200"
+                      className="h-7 w-7 rounded-md bg-gray-50"
                   >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Adicionar Material
+                      <PlusIcon className="h-3.5 w-3.5" />
                   </Button>
+                  )}
                 </div>
 
+                <div className="space-y-2">
                 {addingMaterial && (
-                  <Card className="border border-gray-100 shadow-lg bg-white/90 backdrop-blur-sm p-6 rounded-xl mb-4">
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-base font-medium text-gray-700">Novo Material</h4>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setAddingMaterial(false)}
-                          className="h-8 w-8 rounded-xl hover:bg-red-50 hover:text-red-500"
-                        >
-                          <XIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2 space-y-2">
-                          <Label className="text-sm text-gray-500">Nome do Material</Label>
-                          <Input
-                            value={newMaterial.nome}
-                            onChange={(e) => setNewMaterial({ ...newMaterial, nome: e.target.value })}
-                            className="w-full bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                            placeholder="Ex: Computador Portátil"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm text-gray-500">Quantidade</Label>
-                          <Input
-                            type="number"
-                            value={newMaterial.quantidade || ""}
-                            onChange={(e) => setNewMaterial({ 
-                              ...newMaterial, 
-                              quantidade: parseFloat(e.target.value) || 0 
-                            })}
-                            className="w-full bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                            placeholder="Ex: 1"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm text-gray-500">Preço Unitário (€)</Label>
-                          <Input
-                            type="number"
-                            value={newMaterial.preco || ""}
-                            onChange={(e) => setNewMaterial({ 
-                              ...newMaterial, 
-                              preco: parseFloat(e.target.value) || 0 
-                            })}
-                            className="w-full bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                            placeholder="Ex: 1000.00"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm text-gray-500">Rubrica</Label>
-                          <Select
-                            value={newMaterial.rubrica}
-                            onValueChange={(value) => setNewMaterial({ 
-                              ...newMaterial, 
-                              rubrica: value as Rubrica 
-                            })}
-                          >
-                            <SelectTrigger className="w-full bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl">
-                              <SelectValue placeholder="Selecione a rubrica" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="MATERIAIS">Materiais</SelectItem>
-                              <SelectItem value="SERVICOS_TERCEIROS">Serviços de Terceiros</SelectItem>
-                              <SelectItem value="OUTROS_SERVICOS">Outros Serviços</SelectItem>
-                              <SelectItem value="DESLOCACAO_ESTADIAS">Deslocação e Estadias</SelectItem>
-                              <SelectItem value="OUTROS_CUSTOS">Outros Custos</SelectItem>
-                              <SelectItem value="CUSTOS_ESTRUTURA">Custos de Estrutura</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm text-gray-500">Ano de Utilização</Label>
-                          <Input
-                            type="number"
-                            value={newMaterial.ano_utilizacao}
-                            onChange={(e) => setNewMaterial({ 
-                              ...newMaterial, 
-                              ano_utilizacao: parseInt(e.target.value) || new Date().getFullYear() 
-                            })}
-                            className="w-full bg-white border-gray-200 focus:border-gray-300 focus:ring-gray-200/20 rounded-xl"
-                            placeholder={new Date().getFullYear().toString()}
-                          />
-                        </div>
-
-                        <div className="col-span-2 flex items-center justify-between pt-4">
-                          <div className="flex items-center gap-2">
-                            <Euro className="h-5 w-5 text-gray-500" />
-                            <span className="text-sm font-medium text-gray-700">
-                              Total: {(newMaterial.quantidade * newMaterial.preco).toLocaleString("pt-PT", {
-                                style: "currency",
-                                currency: "EUR"
-                              })}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              onClick={() => setAddingMaterial(false)}
-                              className="text-gray-500 hover:text-gray-700 rounded-xl"
-                            >
-                              Cancelar
-                            </Button>
-                            <Button
-                              onClick={handleAddMaterial}
-                              className="bg-gray-900 text-white hover:bg-gray-800 rounded-xl"
-                            >
-                              Adicionar Material
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                    <div className="bg-gray-50/50 rounded-md p-3">
+                      <MaterialForm
+                        workpackageId={workpackageId}
+                        onSubmit={(workpackageId, material) => {
+                          setAddingMaterial(false);
+                          refetchWorkpackage();
+                        }}
+                        onCancel={() => setAddingMaterial(false)}
+                      />
                     </div>
-                  </Card>
-                )}
+                  )}
 
-                <Card className="border border-gray-100 shadow-lg bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-gray-50/80">
-                      <TableRow className="hover:bg-transparent border-gray-100">
-                        <TableHead className="py-4 text-sm font-medium text-gray-700">Nome</TableHead>
-                        <TableHead className="py-4 text-sm font-medium text-gray-700">Rubrica</TableHead>
-                        <TableHead className="py-4 text-sm font-medium text-gray-700 text-right">Quantidade</TableHead>
-                        <TableHead className="py-4 text-sm font-medium text-gray-700 text-right">Preço Unit.</TableHead>
-                        <TableHead className="py-4 text-sm font-medium text-gray-700 text-right">Total</TableHead>
-                        <TableHead className="w-[70px]"></TableHead>
+                    <TableHeader className="bg-gray-50/50">
+                      <TableRow>
+                        <TableHead className="text-xs">Nome</TableHead>
+                        <TableHead className="text-xs">Rubrica</TableHead>
+                        <TableHead className="text-xs text-right">Qtd.</TableHead>
+                        <TableHead className="text-xs text-right">Preço</TableHead>
+                        <TableHead className="text-xs text-right">Total</TableHead>
+                        <TableHead className="w-8"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {workpackage?.materiais?.map(material => (
-                        <TableRow key={material.id} className="border-gray-100 hover:bg-gray-50/50">
-                          <TableCell className="py-4 text-gray-600">{material.nome}</TableCell>
-                          <TableCell className="py-4 text-gray-500">{material.rubrica.replace(/_/g, " ")}</TableCell>
-                          <TableCell className="py-4 text-right">
-                            {editingMaterial?.id === material.id.toString() ? (
-                              <div className="flex items-center gap-2 justify-end">
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={editingMaterial.value}
-                                  onChange={(e) => handleMaterialValueChange(material.id.toString(), 'quantidade', e.target.value)}
-                                  className="w-24 text-right"
-                                  autoFocus
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSaveMaterial(material.id.toString())}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <CheckIcon className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setEditingMaterial({ 
-                                  id: material.id.toString(), 
-                                  field: 'quantidade',
-                                  value: material.quantidade.toString().replace('.', ',')
-                                })}
-                                className="hover:text-azul"
-                              >
-                                {material.quantidade}
-                              </button>
-                            )}
+                      {workpackage.materiais.map((material) => (
+                        <TableRow key={material.id}>
+                          <TableCell className="text-xs">{material.nome}</TableCell>
+                          <TableCell className="text-xs">{material.rubrica}</TableCell>
+                          <TableCell className="text-xs text-right">{material.quantidade}</TableCell>
+                          <TableCell className="text-xs text-right">
+                            {Number(material.preco).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                           </TableCell>
-                          <TableCell className="py-4 text-right">
-                            {editingMaterial?.id === material.id.toString() ? (
-                              <div className="flex items-center gap-2 justify-end">
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={editingMaterial.value}
-                                  onChange={(e) => handleMaterialValueChange(material.id.toString(), 'preco', e.target.value)}
-                                  className="w-24 text-right"
-                                  autoFocus
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSaveMaterial(material.id.toString())}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <CheckIcon className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setEditingMaterial({ 
-                                  id: material.id.toString(), 
-                                  field: 'preco',
-                                  value: material.preco.toString().replace('.', ',')
-                                })}
-                                className="hover:text-azul"
-                              >
-                                {Number(material.preco).toLocaleString('pt-PT', { 
+                          <TableCell className="text-xs text-right font-medium">
+                            {(material.quantidade * Number(material.preco)).toLocaleString('pt-PT', {
                                   style: 'currency', 
                                   currency: 'EUR' 
                                 })}
-                              </button>
-                            )}
                           </TableCell>
-                          <TableCell className="py-4 text-right font-medium text-gray-900">
-                            {(material.quantidade * Number(material.preco)).toLocaleString("pt-PT", {
-                              style: "currency",
-                              currency: "EUR"
-                            })}
-                          </TableCell>
-                          <TableCell className="py-4">
+                          <TableCell>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const confirmed = window.confirm("Tem a certeza que deseja remover este material?");
-                                if (confirmed) {
-                                  deleteMaterialMutation.mutate({
+                              size="sm"
+                              onClick={() => deleteMaterialMutation.mutate({
                                     workpackageId,
-                                    materialId: Number(material.id)
-                                  });
-                                }
-                              }}
-                              className="h-9 w-9 rounded-xl hover:bg-red-50 hover:text-red-500"
+                                materialId: material.id
+                              })}
+                              className="h-6 w-6 p-0 rounded-md hover:bg-red-50 hover:text-red-500"
                             >
-                              <TrashIcon className="h-4 w-4" />
+                              <TrashIcon className="h-3.5 w-3.5" />
                             </Button>
                           </TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="border-t-2 border-gray-100 bg-gray-50/80">
-                        <TableCell colSpan={4} className="py-4 text-right font-medium text-gray-700">
-                          Total
-                        </TableCell>
-                        <TableCell className="py-4 text-right font-semibold text-gray-900">
-                          {(workpackage?.materiais ?? []).reduce(
-                            (total, material) => total + (material.quantidade * Number(material.preco)),
-                            0
-                          ).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                        </TableCell>
-                        <TableCell />
-                      </TableRow>
                     </TableBody>
                   </Table>
-                </Card>
+                </div>
               </div>
             </div>
           </ScrollArea>
