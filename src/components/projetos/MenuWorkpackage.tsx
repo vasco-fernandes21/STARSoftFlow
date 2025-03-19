@@ -705,12 +705,23 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
 
                     return (
                       <RecursoItem
-                        key={recurso.user.id}
+                        key={recurso.id || `${recurso.userId}-${workpackageId}`}
                         recurso={{
                           userId: recurso.user.id,
                           alocacoes: recurso.alocacoes || []
                         }}
-                        onUpdate={() => refetchWorkpackage()}
+                        userId={recurso.userId}
+                        membroEquipa={recurso.user}
+                        isExpanded={isExpanded}
+                        workpackageId={workpackageId}
+                        onToggleExpand={() => setExpandedRecursos(prev => ({
+                          ...prev,
+                          [recurso.userId]: !isExpanded
+                        }))}
+                        onEdit={() => {}}
+                        onRemove={() => {}}
+                        formatarDataSegura={formatarDataSegura}
+                        alocacoesPorAnoMes={alocacoesPorAnoMes}
                       />
                     );
                   })}

@@ -798,4 +798,74 @@ export const utilizadorRouter = createTRPCRouter({
         return handlePrismaError(error);
       }
     }),
+
+  getByProjeto: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input: projetoId }) => {
+      try {
+        const workpackages = await ctx.db.workpackage.findMany({
+          where: {
+            projetoId: projetoId
+          },
+          select: {
+            id: true
+          }
+        });
+
+        const workpackageIds = workpackages.map(wp => wp.id);
+
+        const users = await ctx.db.user.findMany({
+          where: {
+            workpackages: {
+              some: {
+                workpackageId: {
+                  in: workpackageIds
+                }
+              }
+            }
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            foto: true,
+            atividade: true,
+            regime: true,
+            workpackages: {
+              where: {
+                workpackageId: {
+                  in: workpackageIds
+                }
+              },
+              select: {
+                mes: true,
+                ano: true,
+                ocupacao: true,
+                workpackageId: true
+              },
+              orderBy: [
+                { ano: 'asc' },
+                { mes: 'asc' }
+              ]
+            }
+          }
+        });
+
+        return users.map(user => ({
+          ...user,
+          alocacoes: user.workpackages.map(wp => ({
+            mes: wp.mes,
+            ano: wp.ano,
+            ocupacao: wp.ocupacao,
+            workpackageId: wp.workpackageId
+          }))
+        }));
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter utilizadores do projeto",
+          cause: error,
+        });
+      }
+    }),
 });
