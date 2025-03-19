@@ -476,7 +476,7 @@ function ProjetoFormContent() {
         workpackageId: workpackageId,
         mes: recurso.mes,
         ano: recurso.ano,
-        ocupacao: new Decimal(recurso.ocupacao?.toString() || "0"),
+        ocupacao: new Decimal(recurso.ocupacao.toString()),
         userId: recurso.userId
       };
 
@@ -636,8 +636,7 @@ function ProjetoFormContent() {
   const calcularCustos = (workpackage: WorkpackageWithRelations) => {
     // Custos de recursos humanos
     const custosRH = workpackage.recursos.reduce((total, recurso) => {
-      // Lógica de cálculo dos custos de RH
-      return total + recurso.ocupacao.toNumber();
+      return total + new Decimal(recurso.ocupacao.toString()).toNumber();
     }, 0);
 
     // Custos de materiais
@@ -683,13 +682,12 @@ function ProjetoFormContent() {
         descricao: state.descricao || undefined,
         inicio: state.inicio instanceof Date ? state.inicio : state.inicio ? new Date(state.inicio) : undefined,
         fim: state.fim instanceof Date ? state.fim : state.fim ? new Date(state.fim) : undefined,
-        estado: ProjetoEstado.PENDENTE, // Definir estado como PENDENTE conforme solicitado
+        estado: ProjetoEstado.PENDENTE,
         overhead: Number(state.overhead),
         taxa_financiamento: Number(state.taxa_financiamento),
         valor_eti: Number(state.valor_eti),
         financiamentoId: typeof state.financiamentoId === 'number' ? state.financiamentoId : undefined,
         
-        // Mapear workpackages para o formato esperado pela API
         workpackages: state.workpackages?.map(wp => ({
           nome: wp.nome || "",
           descricao: wp.descricao || undefined,
@@ -697,15 +695,12 @@ function ProjetoFormContent() {
           fim: wp.fim instanceof Date ? wp.fim : wp.fim ? new Date(wp.fim) : undefined,
           estado: Boolean(wp.estado),
           
-          // Mapear tarefas
           tarefas: wp.tarefas?.map(t => ({
             nome: t.nome || "",
             descricao: t.descricao || undefined,
             inicio: t.inicio instanceof Date ? t.inicio : t.inicio ? new Date(t.inicio) : undefined,
             fim: t.fim instanceof Date ? t.fim : t.fim ? new Date(t.fim) : undefined,
             estado: Boolean(t.estado),
-            
-            // Mapear entregáveis
             entregaveis: t.entregaveis?.map(e => ({
               nome: e.nome || "",
               descricao: e.descricao || undefined,
@@ -713,13 +708,19 @@ function ProjetoFormContent() {
             })) || []
           })) || [],
           
-          // Mapear materiais
           materiais: wp.materiais?.map(m => ({
             nome: m.nome || "",
             preco: Number(m.preco),
             quantidade: Number(m.quantidade),
             rubrica: m.rubrica || Rubrica.MATERIAIS,
             ano_utilizacao: Number(m.ano_utilizacao)
+          })) || [],
+
+          recursos: wp.recursos?.map(r => ({
+            userId: r.userId,
+            mes: r.mes,
+            ano: r.ano,
+            ocupacao: Number(r.ocupacao instanceof Decimal ? r.ocupacao.toNumber() : r.ocupacao)
           })) || []
         })) || []
       };

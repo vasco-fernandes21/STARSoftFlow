@@ -427,18 +427,8 @@ function atribuirMateriaisAosWorkpackages(
   return workpackages;
 }
 
-async function verificarFinanciamentoExistente(
-  tipoFinanciamento: string,
-  financiamentosExistentes: any[]
-) {
-  const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
-  
-  const financiamentoEncontrado = financiamentosExistentes.find(
-    (f) => f.nome.trim().toLowerCase() === tipoNormalizado
-  );
-  
-  return financiamentoEncontrado;
-}
+// Adicionar o hook useQuery do tRPC
+const { data: financiamentosData } = api.financiamento.getAll.useQuery({ limit: 100 });
 
 // Componente Principal
 export default function ImportarProjetoButton() {
@@ -633,9 +623,7 @@ export default function ImportarProjetoButton() {
           // Verificar o financiamento
           if (tipoFinanciamento) {
             try {
-              const response = await fetch("/api/trpc/financiamento.getAll?input=" + JSON.stringify({ limit: 100 }));
-              const responseData = await response.json();
-              const financiamentos = responseData?.result?.data?.items || [];
+              const financiamentos = financiamentosData?.items || [];
               console.log("Financiamentos carregados:", financiamentos.length);
               
               const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
@@ -645,29 +633,29 @@ export default function ImportarProjetoButton() {
                   f.nome.trim().toLowerCase() === tipoNormalizado
               );
               
-            if (financiamentoExistente) {
-              dispatch({
-                type: "UPDATE_PROJETO",
-                data: {
-                  financiamentoId: financiamentoExistente.id,
-                  overhead: financiamentoExistente.overhead,
-                  taxa_financiamento: financiamentoExistente.taxa_financiamento,
-                  valor_eti: financiamentoExistente.valor_eti
-                }
-              });
-              
-              toast.success(`Financiamento "${tipoFinanciamento}" encontrado e aplicado ao projeto.`);
+              if (financiamentoExistente) {
+                dispatch({
+                  type: "UPDATE_PROJETO",
+                  data: {
+                    financiamentoId: financiamentoExistente.id,
+                    overhead: financiamentoExistente.overhead,
+                    taxa_financiamento: financiamentoExistente.taxa_financiamento,
+                    valor_eti: financiamentoExistente.valor_eti
+                  }
+                });
+                
+                toast.success(`Financiamento "${tipoFinanciamento}" encontrado e aplicado ao projeto.`);
               } else {
-              setDadosFinanciamento({
-                nome: tipoFinanciamento,
-                overhead: overhead,
-                taxa_financiamento: taxaFinanciamento,
-                valor_eti: valorEti
-              });
-              
-              setOpen(false);
-              setModalFinanciamentosAberto(true);
-              
+                setDadosFinanciamento({
+                  nome: tipoFinanciamento,
+                  overhead: overhead,
+                  taxa_financiamento: taxaFinanciamento,
+                  valor_eti: valorEti
+                });
+                
+                setOpen(false);
+                setModalFinanciamentosAberto(true);
+                
                 toast.error(`Atenção: O financiamento "${tipoFinanciamento}" não foi encontrado no sistema.`, {
                   duration: 10000,
                   description: "Por favor, verifique os dados e crie um novo financiamento com as informações fornecidas.",
@@ -678,7 +666,7 @@ export default function ImportarProjetoButton() {
                 });
               }
             } catch (error) {
-              console.error("Erro ao buscar financiamentos:", error);
+              console.error("Erro ao processar financiamentos:", error);
               toast.error("Erro ao verificar financiamentos existentes.");
             }
           }

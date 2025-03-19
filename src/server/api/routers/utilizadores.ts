@@ -599,7 +599,7 @@ export const utilizadorRouter = createTRPCRouter({
       try {
         const { userId, ano } = input;
         
-        // Buscar alocações do ano
+        // Buscar alocações do ano com relações necessárias
         const alocacoes = await ctx.db.alocacaoRecurso.findMany({
           where: {
             userId: userId,
@@ -608,65 +608,39 @@ export const utilizadorRouter = createTRPCRouter({
           select: {
             mes: true,
             ocupacao: true,
-            workpackageId: true
-          },
-          orderBy: { mes: 'asc' }
-        });
-        
-        // Buscar workpackages relacionados
-        const workpackageIds = alocacoes.map(a => a.workpackageId);
-        const workpackages = await ctx.db.workpackage.findMany({
-          where: {
-            id: { in: workpackageIds }
-          },
-          select: {
-            id: true,
-            nome: true,
-            projetoId: true,
-            projeto: {
+            workpackage: {
               select: {
-                id: true,
-                nome: true,
-                descricao: true,
-                inicio: true,
-                fim: true
+                projeto: {
+                  select: {
+                    estado: true
+                  }
+                }
               }
             }
           }
         });
-        
-        // Mapear workpackages por ID para fácil acesso
-        const workpackageMap = new Map();
-        workpackages.forEach(wp => {
-          workpackageMap.set(wp.id, {
-            nome: wp.nome,
-            projetoNome: wp.projeto.nome
-          });
-        });
-        
+
         // Organizar por mês
         const meses = Array.from({ length: 12 }, (_, i) => i + 1);
         const ocupacaoPorMes = meses.map(mes => {
           const alocacoesMes = alocacoes.filter(a => a.mes === mes);
           
-          // Calcular ocupação total do mês
-          const ocupacaoTotal = alocacoesMes.reduce((sum, a) => sum + Number(a.ocupacao), 0);
-          
-          // Detalhes das alocações
-          const detalhes = alocacoesMes.map(a => {
-            const wpInfo = workpackageMap.get(a.workpackageId) || { nome: 'Desconhecido', projetoNome: 'Desconhecido' };
-            return {
-              ocupacao: Number(a.ocupacao),
-              workpackage: wpInfo.nome,
-              projeto: wpInfo.projetoNome
-            };
-          });
-          
+          // Separar ocupações por estado do projeto
+          const ocupacaoAprovada = alocacoesMes
+            .filter(a => 
+              a.workpackage.projeto.estado === "APROVADO" || 
+              a.workpackage.projeto.estado === "EM_DESENVOLVIMENTO"
+            )
+            .reduce((sum, a) => sum + Number(a.ocupacao), 0);
+
+          const ocupacaoPendente = alocacoesMes
+            .filter(a => a.workpackage.projeto.estado === "PENDENTE")
+            .reduce((sum, a) => sum + Number(a.ocupacao), 0);
+
           return {
             mes,
-            mesNome: format(new Date(ano, mes - 1, 1), 'MMMM', { locale: pt }),
-            ocupacaoTotal,
-            detalhes
+            ocupacaoAprovada,
+            ocupacaoPendente
           };
         });
         

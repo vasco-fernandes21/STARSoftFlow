@@ -41,6 +41,13 @@ type NovaAlocacao = {
   ocupacao: number;
 };
 
+// Atualizar a interface para as ocupações validadas
+type OcupacaoMensal = {
+  mes: number;
+  ocupacaoAprovada: number;  // projetos com estado true
+  ocupacaoPendente: number;  // projetos com estado false
+};
+
 // Função para converter valor para número
 function parseValorOcupacao(valor: string): number {
   const valorNormalizado = valor.replace(',', '.');
@@ -66,10 +73,39 @@ export function Form({
   const [alocacoes, setAlocacoes] = useState<NovaAlocacao[]>([]);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [preencherTodosValue, setPreencherTodosValue] = useState<string>("");
+  const [ocupacoesMensais, setOcupacoesMensais] = useState<OcupacaoMensal[]>([]);
   
-  // Gerar lista de meses e anos
+  // Gerar lista de meses e anos (mover para fora do useEffect)
   const mesesDisponiveis = gerarMesesEntreDatas(inicio, fim);
   const anosDisponiveis = Array.from(new Set(mesesDisponiveis.map(mes => mes.ano))).sort();
+  
+  // Atualizar o useEffect para buscar os dois tipos de ocupação
+  useEffect(() => {
+    if (selectedUserId) {
+      const anoAtual = anosDisponiveis[0] || new Date().getFullYear();
+      
+      fetch(`/api/trpc/utilizador.getOcupacaoMensal?input=${JSON.stringify({
+        userId: selectedUserId,
+        ano: anoAtual
+      })}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data?.result?.data) {
+            setOcupacoesMensais(data.result.data.map((o: any) => ({
+              mes: o.mes,
+              ocupacaoAprovada: o.ocupacaoAprovada || 0,
+              ocupacaoPendente: o.ocupacaoPendente || 0
+            })));
+          } else {
+            setOcupacoesMensais([]);
+          }
+        })
+        .catch(error => {
+          console.error("Erro ao buscar ocupações:", error);
+          setOcupacoesMensais([]);
+        });
+    }
+  }, [selectedUserId]);
   
   // Carregar dados do recurso em edição
   useEffect(() => {
@@ -109,6 +145,16 @@ export function Form({
     
     // Converter valor
     const ocupacao = parseValorOcupacao(valor);
+    
+    // Verificar ocupação total
+    const ocupacaoValidada = ocupacoesMensais.find(
+      o => o.mes === mes
+    )?.ocupacaoAprovada || 0;
+    
+    // Se a ocupação total ultrapassar 100%, alertar o utilizador
+    if (ocupacao + ocupacaoValidada > 1) {
+      alert(`Atenção: A ocupação total para ${format(new Date(ano, mes - 1), 'MMMM', { locale: pt })} será de ${((ocupacao + ocupacaoValidada) * 100).toFixed(0)}%`);
+    }
     
     setAlocacoes(prev => {
       const index = prev.findIndex(a => 
@@ -205,6 +251,29 @@ export function Form({
     }
   };
   
+  // Atualizar a função que calcula a ocupação total
+  const calcularOcupacoes = (mes: number, ano: number) => {
+    const ocupacaoAtual = getOcupacao(mes, ano);
+    const dadosMes = ocupacoesMensais.find(o => o.mes === mes) || {
+      ocupacaoAprovada: 0,
+      ocupacaoPendente: 0
+    };
+
+    return {
+      atual: ocupacaoAtual,
+      aprovada: dadosMes.ocupacaoAprovada,
+      pendente: dadosMes.ocupacaoPendente,
+      total: ocupacaoAtual + dadosMes.ocupacaoAprovada + dadosMes.ocupacaoPendente
+    };
+  };
+
+  // Função para determinar o status da ocupação
+  const getOcupacaoStatus = (ocupacaoTotal: number) => {
+    if (ocupacaoTotal > 1) return "sobre-alocado";
+    if (ocupacaoTotal >= 0.8) return "limite";
+    return "normal";
+  };
+
   return (
     <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
       {/* Cabeçalho do Form */}
@@ -331,53 +400,98 @@ export function Form({
                       {mesesDisponiveis
                         .filter(mes => mes.ano === ano)
                         .map(mes => {
-                          const ocupacao = getOcupacao(mes.mesNumero, mes.ano) * 100;
-                          let bgColor = "bg-gray-50";
-                          let textColor = "text-gray-600";
-                          let borderColor = "border-gray-200";
-                          let progressClass = "bg-gray-200";
+                          const ocupacoes = calcularOcupacoes(mes.mesNumero, mes.ano);
+                          const status = getOcupacaoStatus(ocupacoes.total);
                           
-                          if (ocupacao >= 80) {
-                            bgColor = "bg-green-50";
-                            textColor = "text-green-600";
-                            borderColor = "border-green-100";
-                            progressClass = "bg-green-400";
-                          } else if (ocupacao >= 50) {
-                            bgColor = "bg-blue-50";
-                            textColor = "text-blue-600";
-                            borderColor = "border-blue-100";
-                            progressClass = "bg-blue-400";
-                          } else if (ocupacao >= 30) {
-                            bgColor = "bg-amber-50";
-                            textColor = "text-amber-600";
-                            borderColor = "border-amber-100";
-                            progressClass = "bg-amber-400";
-                          }
-                          
+                          // Classes condicionais baseadas no status
+                          const statusClasses = {
+                            "sobre-alocado": {
+                              bg: "bg-red-50",
+                              text: "text-red-600",
+                              border: "border-red-100",
+                              progress: "bg-red-400"
+                            },
+                            "limite": {
+                              bg: "bg-amber-50",
+                              text: "text-amber-600",
+                              border: "border-amber-100",
+                              progress: "bg-amber-400"
+                            },
+                            "normal": {
+                              bg: ocupacoes.atual >= 0.8 ? "bg-green-50" : 
+                                  ocupacoes.atual >= 0.5 ? "bg-blue-50" : 
+                                  ocupacoes.atual >= 0.3 ? "bg-amber-50" : "bg-gray-50",
+                              text: ocupacoes.atual >= 0.8 ? "text-green-600" :
+                                    ocupacoes.atual >= 0.5 ? "text-blue-600" :
+                                    ocupacoes.atual >= 0.3 ? "text-amber-600" : "text-gray-600",
+                              border: ocupacoes.atual >= 0.8 ? "border-green-100" :
+                                      ocupacoes.atual >= 0.5 ? "border-blue-100" :
+                                      ocupacoes.atual >= 0.3 ? "border-amber-100" : "border-gray-200",
+                              progress: ocupacoes.atual >= 0.8 ? "bg-green-400" :
+                                        ocupacoes.atual >= 0.5 ? "bg-blue-400" :
+                                        ocupacoes.atual >= 0.3 ? "bg-amber-400" : "bg-gray-200"
+                            }
+                          }[status];
+
                           return (
                             <div 
                               key={mes.chave} 
-                              className={`${bgColor} ${borderColor} border rounded-md p-2 ${ocupacao === 0 ? 'opacity-50' : ''}`}
+                              className={`${statusClasses.bg} ${statusClasses.border} border rounded-md p-2`}
                             >
                               <div className="flex justify-between text-xs mb-1.5">
-                                <span className={textColor}>
+                                <span className={statusClasses.text}>
                                   {format(new Date(mes.ano, mes.mesNumero - 1), 'MMM', { locale: pt })}
                                 </span>
-                                <span className={`font-medium ${textColor}`}>{ocupacao.toFixed(0)}%</span>
+                                <div className="flex flex-col items-end">
+                                  <span className={`font-medium ${statusClasses.text}`}>
+                                    {(ocupacoes.atual * 100).toFixed(0)}%
+                                  </span>
+                                  <span className="text-[10px] text-green-600">
+                                    Aprovado: {(ocupacoes.aprovada * 100).toFixed(0)}%
+                                  </span>
+                                  <span className="text-[10px] text-amber-600">
+                                    Pendente: {(ocupacoes.pendente * 100).toFixed(0)}%
+                                  </span>
+                                  <span className="text-[10px] text-azul/60">
+                                    Total: {(ocupacoes.total * 100).toFixed(0)}%
+                                  </span>
+                                </div>
                               </div>
-                              <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full ${progressClass} rounded-full transition-all duration-300`}
-                                  style={{ width: `${ocupacao}%` }}
-                                />
+
+                              {/* Barras de progresso */}
+                              <div className="space-y-1">
+                                {/* Ocupação atual (sendo inserida) */}
+                                <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full ${statusClasses.progress} rounded-full transition-all duration-300`}
+                                    style={{ width: `${ocupacoes.atual * 100}%` }}
+                                  />
+                                </div>
+                                {/* Ocupação aprovada */}
+                                <div className="h-1 bg-white/50 rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-green-400 rounded-full transition-all duration-300"
+                                    style={{ width: `${ocupacoes.aprovada * 100}%` }}
+                                  />
+                                </div>
+                                {/* Ocupação pendente */}
+                                <div className="h-1 bg-white/50 rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                                    style={{ width: `${ocupacoes.pendente * 100}%` }}
+                                  />
+                                </div>
                               </div>
+
                               <div className="mt-2 flex items-center">
                                 <Input
                                   type="text"
                                   value={getInputValue(mes.mesNumero, mes.ano)}
                                   onChange={(e) => handleOcupacaoChange(mes.mesNumero, mes.ano, e.target.value)}
                                   onKeyDown={validarEntrada}
-                                  className="h-7 text-xs text-center"
+                                  className={`h-7 text-xs text-center ${
+                                    status === "sobre-alocado" ? "border-red-300 focus:border-red-500" : ""
+                                  }`}
                                   placeholder="0,0"
                                 />
                               </div>
@@ -388,6 +502,22 @@ export function Form({
                   </TabsContent>
                 ))}
               </Tabs>
+            </div>
+            
+            {/* Adicionar legenda */}
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-azul/60">
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-azul/30" />
+                <span>Ocupação total (todos os projetos)</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-red-400" />
+                <span>Sobre-alocação (&gt;100%)</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-amber-400" />
+                <span>Próximo do limite (&gt;80%)</span>
+              </div>
             </div>
             
             {/* Estatísticas */}

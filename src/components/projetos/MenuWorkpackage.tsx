@@ -67,13 +67,7 @@ type MaterialWithRelations = Prisma.MaterialGetPayload<{
 
 type AlocacaoRecursoWithRelations = Prisma.AlocacaoRecursoGetPayload<{
   include: { user: true }
-}> & {
-  alocacoes?: Array<{
-    mes: number;
-    ano: number;
-    ocupacao: any;
-  }>;
-};
+}>;
 
 interface MenuWorkpackageProps {
   workpackageId: string;
@@ -650,7 +644,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                         workpackageId={workpackageId}
                         workpackageInicio={workpackage.inicio || new Date()}
                         workpackageFim={workpackage.fim || new Date()}
-                        onSubmit={(workpackageId, tarefa) => {
+                        onSubmit={() => {
                           setAddingTarefa(false);
                           refetchWorkpackage();
                         }}
@@ -665,15 +659,9 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                       tarefa={tarefa}
                       workpackageId={workpackageId}
                       handlers={{
-                        addEntregavel: (workpackageId, tarefaId, entregavel) => {
-                          refetchWorkpackage();
-                        },
-                        removeEntregavel: (workpackageId, tarefaId, entregavelId) => {
-                          refetchWorkpackage();
-                        },
-                        removeTarefa: (workpackageId, tarefaId) => {
-                          refetchWorkpackage();
-                        }
+                        addEntregavel: () => {},
+                        removeEntregavel: () => {},
+                        removeTarefa: () => {}
                       }}
                     />
                   ))}
@@ -704,60 +692,25 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                         fim={workpackage.fim || new Date()}
                         onCancel={() => setAddingRecurso(false)}
                         onAddAlocacao={handleAddAlocacao}
-                        utilizadores={(utilizadores?.items || []).map(u => ({
-                          id: u.id,
-                          name: u.name || "",
-                          email: u.email || "",
-                          regime: u.regime as string
-                        }))}
+                        utilizadores={utilizadores?.data || []}
                       />  
                     </div>
                   )}
 
-                  {workpackage.recursos?.map((recurso, index) => {
+                  {workpackage.recursos?.map((recurso) => {
                     if (!recurso) return null;
 
-                    // Construir alocações manualmente se não estiverem disponíveis diretamente
-                    const alocacoes = Array.isArray((recurso as any).alocacoes) 
-                      ? (recurso as any).alocacoes 
-                      : [
-                          // Estrutura básica se não existirem alocações
-                          { 
-                            userId: recurso.userId, 
-                            mes: (new Date()).getMonth() + 1, 
-                            ano: (new Date()).getFullYear(),
-                            ocupacao: 0
-                          }
-                        ];
-
-                    const alocacoesPorAnoMes = agruparAlocacoesPorAnoMes(alocacoes);
+                    const alocacoesPorAnoMes = agruparAlocacoesPorAnoMes(recurso.alocacoes);
                     const isExpanded = expandedRecursos[recurso.userId] || false;
 
                     return (
                       <RecursoItem
-                        key={`${recurso.user.id}-${index}`}
-                        userId={recurso.user.id}
+                        key={recurso.user.id}
                         recurso={{
                           userId: recurso.user.id,
-                          alocacoes: alocacoes
+                          alocacoes: recurso.alocacoes || []
                         }}
-                        membroEquipa={utilizadores?.items.find(u => u.id === recurso.user.id)}
-                        isExpanded={isExpanded}
-                        workpackageId={workpackageId}
-                        onToggleExpand={() => {
-                          setExpandedRecursos(prev => ({
-                            ...prev,
-                            [recurso.user.id]: !isExpanded
-                          }));
-                        }}
-                        onEdit={() => {
-                          // Lógica para editar
-                        }}
-                        onRemove={() => {
-                          // Lógica para remover
-                        }}
-                        formatarDataSegura={formatarDataSegura}
-                        alocacoesPorAnoMes={alocacoesPorAnoMes}
+                        onUpdate={() => refetchWorkpackage()}
                       />
                     );
                   })}
@@ -784,13 +737,13 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                     <div className="bg-gray-50/50 rounded-md p-3">
                       <MaterialForm
                         workpackageId={workpackageId}
-                        onSubmit={(workpackageId, material) => {
+                        onCancel={() => setAddingMaterial(false)}
+                        onSuccess={() => {
                           setAddingMaterial(false);
                           refetchWorkpackage();
                         }}
-                        onCancel={() => setAddingMaterial(false)}
-                      />
-                    </div>
+                          />
+                        </div>
                   )}
 
                   <Table>
@@ -811,7 +764,7 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                           <TableCell className="text-xs">{material.rubrica}</TableCell>
                           <TableCell className="text-xs text-right">{material.quantidade}</TableCell>
                           <TableCell className="text-xs text-right">
-                            {Number(material.preco).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                            {material.preco.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                           </TableCell>
                           <TableCell className="text-xs text-right font-medium">
                             {(material.quantidade * Number(material.preco)).toLocaleString('pt-PT', {
