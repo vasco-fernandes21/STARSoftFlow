@@ -206,6 +206,18 @@ export const projetoRouter = createTRPCRouter({
                   include: {
                     entregaveis: true
                   }
+                },
+                materiais: true,
+                recursos: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        salario: true
+                      }
+                    },
+                  }
                 }
               }
             }
@@ -228,15 +240,146 @@ export const projetoRouter = createTRPCRouter({
           tarefasConcluidas += wp.tarefas.filter(tarefa => tarefa.estado === true).length;
         });
 
-        const progresso = totalTarefas > 0 ? tarefasConcluidas / totalTarefas : 0;
-        
-        return {
-          ...projeto,
-          progresso,
-        };
+       const progresso = totalTarefas > 0 ? tarefasConcluidas / totalTarefas : 0;
+       
+       return {
+        ...projeto,
+        progresso,
+       };
       } catch (error) {
         return handlePrismaError(error);
       }
+    }),
+
+  getFinancas: publicProcedure
+    .input(z.object({
+      projetoId: z.string().uuid("ID do projeto inválido"),
+      ano: z.number().int().min(2000).optional(),
+      mes: z.number().int().min(1).max(12).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const { projetoId, ano, mes } = input;
+      
+      // Obter dados do projeto para acessar o valor_eti
+      const projeto = await ctx.db.projeto.findUnique({
+        where: { id: projetoId },
+        select: {
+          valor_eti: true,
+          overhead: true
+        }
+      });
+
+      if (!projeto) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Projeto não encontrado"
+        });
+      }
+
+      // 1. Obter alocações com dados dos utilizadores
+      const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+        where: {
+          workpackage: { projetoId },
+          ...(ano && { ano }),
+          ...(mes && { mes }),
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              salario: true,
+            }
+          }
+        }
+      });
+
+      // 2. Obter materiais do projeto
+      const materiais = await ctx.db.material.findMany({
+        where: {
+          workpackage: { projetoId },
+          ...(ano && { ano_utilizacao: ano })
+        }
+      });
+
+      // 3. Calcular totais por utilizador
+      const custosPorUser = alocacoes.reduce((acc, alocacao) => {
+        const user = alocacao.user;
+        if (!acc[user.id]) {
+          acc[user.id] = {
+            user: {
+              id: user.id,
+              name: user.name ?? "Nome Desconhecido",
+              salario: user.salario
+            },
+            totalAlocacao: new Decimal(0),
+            custoTotal: new Decimal(0)
+          };
+        }
+        
+        // Adicionar alocação ao total
+        if (alocacao.ocupacao) {
+          acc[user.id].totalAlocacao = acc[user.id].totalAlocacao.plus(alocacao.ocupacao);
+          
+          // Calcular custo real (salário × alocação)
+          if (user.salario) {
+            const custo = alocacao.ocupacao.times(user.salario);
+            acc[user.id].custoTotal = acc[user.id].custoTotal.plus(custo);
+          }
+        }
+        
+        return acc;
+      }, {} as Record<string, {
+        user: { id: string; name: string; salario: Decimal | null };
+        totalAlocacao: Decimal;
+        custoTotal: Decimal;
+      }>);
+
+      // 4. Calcular totais de alocação e custos
+      const totalAlocacao = Object.values(custosPorUser).reduce(
+        (sum, item) => sum.plus(item.totalAlocacao), 
+        new Decimal(0)
+      );
+      
+      const totalCustoRecursos = Object.values(custosPorUser).reduce(
+        (sum, item) => sum.plus(item.custoTotal), 
+        new Decimal(0)
+      );
+      
+      // 5. Calcular custo total de materiais
+      const totalCustoMateriais = materiais.reduce(
+        (sum, material) => {
+          const custoTotal = material.preco.times(new Decimal(material.quantidade));
+          return sum.plus(custoTotal);
+        },
+        new Decimal(0)
+      );
+      
+      // 6. Calcular orçamento estimado (alocação total × valor_eti do projeto)
+      const orcamentoEstimado = totalAlocacao.times(projeto.valor_eti || new Decimal(0));
+      
+      // 7. Calcular orçamento real (custo recursos + custo materiais)
+      const orcamentoReal = totalCustoRecursos.plus(totalCustoMateriais);
+
+      // 8. Processar resultados
+      return {
+        detalhesPorUser: Object.values(custosPorUser).map(item => ({
+          user: item.user,
+          totalAlocacao: item.totalAlocacao.toNumber(),
+          custoTotal: item.custoTotal.toNumber()
+        })),
+        resumo: {
+          totalAlocacao: totalAlocacao.toNumber(),
+          orcamento: {
+            estimado: orcamentoEstimado.toNumber(),
+            real: {
+              totalRecursos: totalCustoRecursos.toNumber(),
+              totalMateriais: totalCustoMateriais.toNumber(),
+              total: orcamentoReal.toNumber()
+            }
+          }
+        }
+      };
     }),
   
   // Criar projeto

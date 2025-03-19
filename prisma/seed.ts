@@ -9,19 +9,34 @@ async function main() {
 
   // Limpar dados existentes
   console.log('🧹 A limpar tabelas existentes...');
-  await prisma.alocacaoRecurso.deleteMany();
-  await prisma.entregavel.deleteMany(); 
-  await prisma.tarefa.deleteMany();
-  await prisma.material.deleteMany();
-  await prisma.workpackage.deleteMany();
-  await prisma.projeto.deleteMany();
-  await prisma.financiamento.deleteMany();
-  await prisma.verificationToken.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.account.deleteMany();
-  await prisma.password.deleteMany();
-  await prisma.passwordReset.deleteMany();
-  await prisma.user.deleteMany();
+  
+  const deleteIfExists = async (deleteFunction: () => Promise<any>) => {
+    try {
+      await deleteFunction();
+    } catch (error: any) {
+      // Ignorar apenas erros de tabela não existente (P2021)
+      if (error.code === 'P2021') {
+        console.warn(`⚠️ Tabela não existe, a ignorar... (${error.meta?.table})`);
+      } else {
+        console.error(`❌ Erro grave ao limpar dados: ${error.message}`);
+        throw error; // Relançar outros erros
+      }
+    }
+  };
+
+  await deleteIfExists(() => prisma.alocacaoRecurso.deleteMany());
+  await deleteIfExists(() => prisma.entregavel.deleteMany());
+  await deleteIfExists(() => prisma.tarefa.deleteMany());
+  await deleteIfExists(() => prisma.material.deleteMany());
+  await deleteIfExists(() => prisma.workpackage.deleteMany());
+  await deleteIfExists(() => prisma.projeto.deleteMany());
+  await deleteIfExists(() => prisma.financiamento.deleteMany());
+  await deleteIfExists(() => prisma.verificationToken.deleteMany());
+  await deleteIfExists(() => prisma.session.deleteMany());
+  await deleteIfExists(() => prisma.account.deleteMany());
+  await deleteIfExists(() => prisma.password.deleteMany());
+  await deleteIfExists(() => prisma.passwordReset.deleteMany());
+  await deleteIfExists(() => prisma.user.deleteMany());
 
   // Criar Utilizadores
   console.log('👤 A criar utilizadores...');
@@ -36,7 +51,8 @@ async function main() {
       contratacao: new Date("2020-01-01"),
       username: "admin",
       permissao: Permissao.ADMIN,
-      regime: Regime.INTEGRAL
+      regime: Regime.INTEGRAL,
+      salario: new Decimal(5000.00) // Valor de pagamento para o admin
     }
   });
 
@@ -62,7 +78,8 @@ async function main() {
       contratacao: new Date("2020-03-15"),
       username: "helga.carvalho",
       permissao: Permissao.GESTOR,
-      regime: Regime.INTEGRAL
+      regime: Regime.INTEGRAL,
+      salario: new Decimal(4500.00) // Valor de pagamento para o gestor
     }
   });
 
@@ -86,7 +103,8 @@ async function main() {
         contratacao: new Date("2021-01-10"),
         username: "ricardo.correia",
         permissao: Permissao.COMUM,
-        regime: Regime.PARCIAL
+        regime: Regime.PARCIAL,
+        salario: new Decimal(3000.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -99,7 +117,8 @@ async function main() {
         contratacao: new Date("2021-03-22"),
         username: "ana.i.carvalho",
         permissao: Permissao.COMUM,
-        regime: Regime.PARCIAL
+        regime: Regime.PARCIAL,
+        salario: new Decimal(3200.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -112,7 +131,8 @@ async function main() {
         contratacao: new Date("2022-01-05"),
         username: "ana.c.carvalho",
         permissao: Permissao.COMUM,
-        regime: Regime.INTEGRAL
+        regime: Regime.INTEGRAL,
+        salario: new Decimal(3500.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -125,7 +145,8 @@ async function main() {
         contratacao: new Date("2022-06-12"),
         username: "joao.lopes",
         permissao: Permissao.COMUM,
-        regime: Regime.INTEGRAL
+        regime: Regime.INTEGRAL,
+        salario: new Decimal(3400.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -138,7 +159,8 @@ async function main() {
         contratacao: new Date("2023-02-01"),
         username: "filipe.coutinho",
         permissao: Permissao.COMUM,
-        regime: Regime.INTEGRAL
+        regime: Regime.INTEGRAL,
+        salario: new Decimal(3600.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -151,7 +173,8 @@ async function main() {
         contratacao: new Date("2023-02-01"),
         username: "rui.coimbra",
         permissao: Permissao.COMUM,
-        regime: Regime.INTEGRAL
+        regime: Regime.INTEGRAL,
+        salario: new Decimal(3700.00) // Valor de pagamento para o utilizador
       }
     })
   ]);
@@ -837,7 +860,7 @@ async function main() {
     workpackages: await prisma.workpackage.count(),
     tarefas: await prisma.tarefa.count(),
     alocacoes: await prisma.alocacaoRecurso.count(),
-    entregaveis: await prisma.entregavel.count() // Adicionar contagem de entregáveis
+    entregaveis: await prisma.entregavel.count()
   };
 
   console.log('📊 Estatísticas:');

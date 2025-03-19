@@ -179,8 +179,12 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
         rubrica: mapearRubrica(rubrica),
         workpackageNome: atividade,
       });
+      
+      console.log(`📝 Material encontrado: ${despesa} (${atividade}) - ${custoUnitario}€ x ${unidades} = ${custoUnitario * unidades}€`);
     }
   }
+  
+  console.log(`📝 Total de materiais encontrados: ${materiais.length}`);
   
   return materiais;
 }
@@ -233,6 +237,7 @@ function extrairDadosRH(
 
   const colunasDatas: { coluna: number; mes: number; ano: number }[] = [];
   
+  // Extrair datas das colunas
   for (let i = 6; i < linhaMeses.length; i++) {
     if (
       linhaAnos[i] &&
@@ -261,11 +266,13 @@ function extrairDadosRH(
       }
     }
   }
-
+  
+  // Processar linhas para encontrar workpackages e recursos
   for (let i = 6; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length === 0) continue;
 
+    // Verificar se é um workpackage
     if (
       row[1] &&
       typeof row[1] === "string" &&
@@ -282,6 +289,10 @@ function extrairDadosRH(
       };
       wps.push(wpAtual);
       
+      // Log de workpackage encontrado
+      console.log(`📦 WP: ${wpAtual.codigo} - ${wpAtual.nome}`);
+      
+      // Extrair datas do workpackage
       if (typeof row[4] === "number" && typeof row[5] === "number") {
         const planStart = row[4];
         const planDuration = row[5];
@@ -298,11 +309,17 @@ function extrairDadosRH(
           
           wpAtual.dataInicio = dataInicio;
           wpAtual.dataFim = dataFim;
+          
+          // Log de datas do workpackage
+          console.log(`   📅 Período: ${dataInicio.toLocaleDateString()} até ${dataFim.toLocaleDateString()}`);
         }
       }
-    } else if (wpAtual && row[3] && typeof row[3] === "string" && !row[1]) {
+    } 
+    // Verificar se é um recurso/utilizador
+    else if (wpAtual && row[3] && typeof row[3] === "string" && !row[1]) {
       const nomeRecurso = row[3];
       
+      // Encontrar utilizador correspondente
       const utilizador = utilizadores.find(
         (u) =>
         u.name?.toLowerCase() === nomeRecurso.toLowerCase() ||
@@ -316,6 +333,7 @@ function extrairDadosRH(
         alocacoes: [],
       };
       
+      // Extrair alocações do recurso
       for (const colData of colunasDatas) {
         const valor = row[colData.coluna];
         
@@ -329,24 +347,24 @@ function extrairDadosRH(
           recurso.alocacoes.push({
             mes: colData.mes,
             ano: colData.ano,
-            percentagem: valor * 100, // Converter para percentagem (0-100)
+            percentagem: valor * 100,
           });
         }
       }
 
       if (recurso.alocacoes.length > 0) {
         wpAtual.recursos.push(recurso);
+        
+        // Log do utilizador
+        console.log(`   👤 ${nomeRecurso}${utilizador ? ` (ID: ${utilizador.id})` : ' (não encontrado)'} - ${recurso.alocacoes.length} alocações:`);
+        
+        // Log de todas as alocações em ordem cronológica
+        recurso.alocacoes
+          .sort((a, b) => a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes)
+          .forEach(a => {
+            console.log(`      📊 ${a.mes}/${a.ano}: ${a.percentagem.toFixed(1)}%`);
+          });
       }
-    }
-  }
-
-  for (const wp of wps) {
-    if (!wp.dataInicio || wp.dataInicio.getFullYear() > 2100) {
-      wp.dataInicio = dataInicioProjeto;
-    }
-    
-    if (!wp.dataFim || wp.dataFim.getFullYear() > 2100) {
-      wp.dataFim = dataFimProjeto;
     }
   }
 
@@ -367,6 +385,9 @@ function atribuirMateriaisAosWorkpackages(
     }
   });
   
+  let materiaisAtribuidos = 0;
+  let materiaisPadrão = 0;
+  
   materiais.forEach((material) => {
     let wpMatch = wpMap.get(material.workpackageNome);
     
@@ -379,10 +400,16 @@ function atribuirMateriaisAosWorkpackages(
     
     if (wpMatch) {
       wpMatch.materiais.push(material);
+      materiaisAtribuidos++;
+      console.log(`✅ Material atribuído: "${material.nome}" ao workpackage "${wpMatch.nome}"`);
     } else if (workpackages.length > 0 && workpackages[0]) {
       workpackages[0].materiais.push(material);
+      materiaisPadrão++;
+      console.log(`⚠️ Material sem correspondência: "${material.nome}" atribuído ao primeiro workpackage`);
     }
   });
+  
+  console.log(`📊 Materiais atribuídos: ${materiaisAtribuidos} diretamente, ${materiaisPadrão} ao workpackage padrão`);
   
   return workpackages;
 }
@@ -418,6 +445,8 @@ export default function ImportarProjetoButton() {
       const response = await fetch("/api/trpc/utilizador.getAll");
       const responseData = await response.json();
       const utilizadores = extrairUtilizadores(responseData);
+      
+      console.log(`👥 Utilizadores carregados: ${utilizadores.length}`);
       
       const reader = new FileReader();
       
@@ -513,25 +542,28 @@ export default function ImportarProjetoButton() {
             });
             
             // Adicionar recursos e alocações
+            console.log(`📊 Processando recursos para: ${wp.nome} (${wp.recursos.length} recursos)`);
+            
             wp.recursos.forEach((recurso) => {
               const userId = recurso.userId || "1";
+              console.log(`👤 Processando alocações para: ${recurso.nome} (${recurso.alocacoes.length} alocações)`);
               
-              recurso.alocacoes.forEach((alocacao) => {
-                dispatch({
-                  type: "ADD_ALOCACAO",
+              dispatch({
+                type: "ADD_ALOCACAO",
+                workpackageId: wpId,
+                alocacao: {
+                  userId,
+                  mes: recurso.alocacoes[0].mes,
+                  ano: recurso.alocacoes[0].ano,
+                  ocupacao: new Decimal(recurso.alocacoes[0].percentagem / 100),
                   workpackageId: wpId,
-                  alocacao: {
-                    userId,
-                    mes: alocacao.mes,
-                    ano: alocacao.ano,
-                    ocupacao: new Decimal(alocacao.percentagem / 100),
-                    workpackageId: wpId,
-                  },
-                });
+                },
               });
             });
             
             // Adicionar materiais
+            console.log(`📝 Processando materiais para: ${wp.nome} (${wp.materiais.length} materiais)`);
+            
             wp.materiais.forEach((material) => {
               dispatch({
                 type: "ADD_MATERIAL",
@@ -598,10 +630,15 @@ export default function ImportarProjetoButton() {
             }
           }
 
+          // Registar informações gerais
+          console.log(`📋 Projeto: "${nomeProjeto}" - Período: ${dataInicioProjeto?.toLocaleDateString()} até ${dataFimProjeto?.toLocaleDateString()}`);
+          console.log(`📋 Financiamento: ${tipoFinanciamento || "Não definido"} (ETI: ${valorEti || 0}€, Overhead: ${overhead || 0}%, Taxa: ${taxaFinanciamento || 0}%)`);
+          console.log(`📋 Total: ${wps.length} workpackages, ${materiais.length} materiais`);
+
           setOpen(false);
         } catch (error) {
+          console.error("Erro na importação:", error);
           toast.error("Ocorreu um erro ao processar o ficheiro Excel.");
-        } finally {
           setIsLoading(false);
         }
       };
@@ -613,6 +650,7 @@ export default function ImportarProjetoButton() {
 
       reader.readAsArrayBuffer(file);
     } catch (error) {
+      console.error("Erro na importação:", error);
       toast.error("Ocorreu um erro ao buscar utilizadores.");
       setIsLoading(false);
     }

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Projeto, ProjetoEstado } from "@prisma/client";
 import { Cronograma } from "@/components/projetos/Cronograma";
+import { ProjetoFinancas } from "@/components/projetos/tabs/ProjetoFinancas";
 
 export default function DetalheProjeto() {
   const router = useRouter();
@@ -263,25 +264,10 @@ export default function DetalheProjeto() {
               <CardHeader className="border-b border-white/10 px-6 py-4 bg-white/70 backdrop-blur-sm">
                 <CardTitle className="text-lg font-semibold text-gray-900">Finanças</CardTitle>
               </CardHeader>
-              <CardContent className="p-6 overflow-y-auto h-[440px]">
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Tipo de projeto: <span className="font-medium">{projeto.financiamento?.nome || "N/A"}</span>
-                  </p>
-                  {projeto.financiamento && (
-                    <>
-                      <p className="text-sm text-gray-600">
-                        Overhead: <span className="font-medium">{Number(projeto.financiamento.overhead)}%</span>
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Taxa de Financiamento: <span className="font-medium">{Number(projeto.financiamento.taxa_financiamento)}%</span>
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Valor ETI: <span className="font-medium">{Number(projeto.financiamento.valor_eti)}€</span>
-                      </p>
-                    </>
-                  )}
-                </div>
+              <CardContent className="p-6">
+                <ProjetoFinancas
+                  projetoId={projeto.id}
+                />
               </CardContent>
             </Card>
           </TabsContent>

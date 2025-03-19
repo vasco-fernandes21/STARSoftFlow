@@ -19,7 +19,7 @@ interface CronogramaOptions {
 interface EntregavelType {
   id: string;
   nome: string;
-  data: string;
+  data: Date | null;
 }
 
 interface TarefaWithEntregaveis extends Tarefa {
@@ -168,7 +168,8 @@ export function Cronograma({
         if (!tarefa.entregaveis?.length) return;
         
         tarefa.entregaveis.forEach(entregavel => {
-          const entregavelDate = new Date(entregavel.data);
+          if (!entregavel.data) return;
+          const entregavelDate = entregavel.data;
           if (entregavelDate.getMonth() === date.getMonth() && 
               entregavelDate.getFullYear() === date.getFullYear()) {
             entregaveis.push({ entregavel, tarefaId: tarefa.id });
@@ -338,8 +339,8 @@ export function Cronograma({
                             )}
                           >
                             {tarefa.entregaveis?.map((entregavel) => {
-                              if (!tarefa.inicio || !tarefa.fim) return null;
-                              const entregavelDate = new Date(entregavel.data);
+                              if (!tarefa.inicio || !tarefa.fim || !entregavel.data) return null;
+                              const entregavelDate = entregavel.data;
                               const startDate = new Date(tarefa.inicio);
                               const endDate = new Date(tarefa.fim);
                               const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);

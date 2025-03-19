@@ -18,6 +18,9 @@ CREATE TABLE "Projetos" (
     "inicio" DATE,
     "fim" DATE,
     "estado" "ProjetoEstado" NOT NULL DEFAULT 'RASCUNHO',
+    "overhead" DECIMAL(5,2) DEFAULT 0,
+    "taxa_financiamento" DECIMAL(5,2) DEFAULT 0,
+    "valor_eti" DECIMAL(10,2) DEFAULT 0,
     "financiamento_id" INTEGER,
 
     CONSTRAINT "Projetos_pkey" PRIMARY KEY ("id")
@@ -39,6 +42,7 @@ CREATE TABLE "Workpackages" (
     "id" UUID NOT NULL,
     "projeto_id" UUID NOT NULL,
     "nome" VARCHAR(255) NOT NULL,
+    "descricao" TEXT,
     "inicio" DATE,
     "fim" DATE,
     "estado" BOOLEAN NOT NULL DEFAULT false,
@@ -51,6 +55,7 @@ CREATE TABLE "Tarefas" (
     "id" UUID NOT NULL,
     "workpackage_id" UUID NOT NULL,
     "nome" VARCHAR(255) NOT NULL,
+    "descricao" TEXT,
     "inicio" DATE,
     "fim" DATE,
     "estado" BOOLEAN NOT NULL DEFAULT false,
@@ -66,6 +71,7 @@ CREATE TABLE "Entregaveis" (
     "descricao" TEXT,
     "data" DATE,
     "anexo" TEXT,
+    "estado" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Entregaveis_pkey" PRIMARY KEY ("id")
 );
@@ -75,6 +81,7 @@ CREATE TABLE "Materiais" (
     "id" SERIAL NOT NULL,
     "nome" VARCHAR(255) NOT NULL,
     "preco" DECIMAL(10,2) NOT NULL,
+    "ano_utilizacao" INTEGER NOT NULL,
     "quantidade" INTEGER NOT NULL,
     "rubrica" "Rubrica" NOT NULL DEFAULT 'MATERIAIS',
     "workpackage_id" UUID,
@@ -94,19 +101,21 @@ CREATE TABLE "users" (
     "username" VARCHAR(255),
     "permissao" "Permissao" NOT NULL DEFAULT 'COMUM',
     "regime" "Regime" NOT NULL DEFAULT 'INTEGRAL',
+    "informacoes" TEXT,
+    "salario" DECIMAL(10,2),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "WorkpackageUser" (
+CREATE TABLE "alocacoes_recursos" (
     "workpackage_id" UUID NOT NULL,
     "user_id" TEXT NOT NULL,
     "mes" INTEGER NOT NULL,
     "ano" INTEGER NOT NULL,
-    "ocupacao" DECIMAL(2,1) NOT NULL,
+    "ocupacao" DECIMAL(3,2) NOT NULL,
 
-    CONSTRAINT "WorkpackageUser_pkey" PRIMARY KEY ("workpackage_id","user_id","mes","ano")
+    CONSTRAINT "alocacoes_recursos_pkey" PRIMARY KEY ("workpackage_id","user_id","mes","ano")
 );
 
 -- CreateTable
@@ -164,6 +173,18 @@ CREATE TABLE "passwords" (
     CONSTRAINT "passwords_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "rascunhos" (
+    "id" UUID NOT NULL,
+    "userId" TEXT NOT NULL,
+    "titulo" VARCHAR(255) NOT NULL,
+    "conteudo" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "rascunhos_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Financiamentos_nome_key" ON "Financiamentos"("nome");
 
@@ -172,6 +193,12 @@ CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
+
+-- CreateIndex
+CREATE INDEX "alocacoes_recursos_user_id_ano_mes_idx" ON "alocacoes_recursos"("user_id", "ano", "mes");
+
+-- CreateIndex
+CREATE INDEX "alocacoes_recursos_workpackage_id_ano_mes_idx" ON "alocacoes_recursos"("workpackage_id", "ano", "mes");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "accounts_provider_providerAccountId_key" ON "accounts"("provider", "providerAccountId");
@@ -207,10 +234,10 @@ ALTER TABLE "Entregaveis" ADD CONSTRAINT "Entregaveis_tarefa_id_fkey" FOREIGN KE
 ALTER TABLE "Materiais" ADD CONSTRAINT "Materiais_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WorkpackageUser" ADD CONSTRAINT "WorkpackageUser_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "alocacoes_recursos" ADD CONSTRAINT "alocacoes_recursos_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WorkpackageUser" ADD CONSTRAINT "WorkpackageUser_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "alocacoes_recursos" ADD CONSTRAINT "alocacoes_recursos_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -220,3 +247,6 @@ ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userI
 
 -- AddForeignKey
 ALTER TABLE "passwords" ADD CONSTRAINT "passwords_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rascunhos" ADD CONSTRAINT "rascunhos_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

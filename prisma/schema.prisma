@@ -151,6 +151,7 @@ model User {
     permissao     Permissao @default(COMUM)
     regime        Regime    @default(INTEGRAL)
     informacoes   String?   @db.Text
+    salario     Decimal?  @default(0) @db.Decimal(10, 2)
 
     // Relações NextAuth
     accounts      Account[]
@@ -164,7 +165,7 @@ model User {
     @@map("users")
 }
 
-// Novo modelo que substitui o WorkpackageUser
+
 model AlocacaoRecurso {
     workpackageId  String   @map("workpackage_id") @db.Uuid
     userId         String   @map("user_id")
