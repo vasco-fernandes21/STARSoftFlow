@@ -225,11 +225,6 @@ function extrairDadosRH(
   const wps: WorkpackageSimples[] = [];
   let wpAtual: WorkpackageSimples | null = null;
 
-  console.log(
-    "Utilizadores disponíveis:",
-    utilizadores.map((u) => `${u.name} (ID: ${u.id})`)
-  );
-
   const linhaAnos = data[3] || [];
   const linhaMeses = data[4] || [];
 
@@ -266,11 +261,6 @@ function extrairDadosRH(
       }
     }
   }
-  
-  console.log(
-    "Colunas de datas mapeadas:",
-    colunasDatas.map((d) => `Coluna ${d.coluna}: ${d.mes}/${d.ano}`)
-  );
 
   for (let i = 6; i < data.length; i++) {
     const row = data[i];
@@ -282,7 +272,6 @@ function extrairDadosRH(
       row[1].match(/^A\d+$/) &&
       row[2]
     ) {
-      console.log("Encontrado workpackage:", row[1], row[2]);
       wpAtual = {
         codigo: row[1],
         nome: row[2],
@@ -309,19 +298,10 @@ function extrairDadosRH(
           
           wpAtual.dataInicio = dataInicio;
           wpAtual.dataFim = dataFim;
-          
-          console.log(
-            `Datas do workpackage ${
-              wpAtual.codigo
-            }: Início ${dataInicio.toLocaleDateString(
-              "pt-PT"
-            )}, Fim ${dataFim.toLocaleDateString("pt-PT")}`
-          );
         }
       }
     } else if (wpAtual && row[3] && typeof row[3] === "string" && !row[1]) {
       const nomeRecurso = row[3];
-      console.log(`Processando recurso para ${wpAtual.codigo}: ${nomeRecurso}`);
       
       const utilizador = utilizadores.find(
         (u) =>
@@ -329,14 +309,6 @@ function extrairDadosRH(
         u.name?.toLowerCase().includes(nomeRecurso.toLowerCase()) ||
         nomeRecurso.toLowerCase().includes(u.name?.toLowerCase())
       );
-      
-      if (utilizador) {
-        console.log(
-          `Associação encontrada: "${nomeRecurso}" -> "${utilizador.name}" (ID: ${utilizador.id})`
-        );
-      } else {
-        console.log(`Nenhuma associação encontrada para "${nomeRecurso}"`);
-      }
       
       const recurso: Recurso = {
         nome: nomeRecurso,
@@ -359,12 +331,6 @@ function extrairDadosRH(
             ano: colData.ano,
             percentagem: valor * 100, // Converter para percentagem (0-100)
           });
-
-          console.log(
-            `Alocação encontrada para ${nomeRecurso}: ${colData.mes}/${colData.ano} = ${
-              valor * 100
-            }%`
-          );
         }
       }
 
@@ -376,16 +342,10 @@ function extrairDadosRH(
 
   for (const wp of wps) {
     if (!wp.dataInicio || wp.dataInicio.getFullYear() > 2100) {
-      console.warn(
-        `Workpackage ${wp.codigo} tem data de início inválida: ${wp.dataInicio}`
-      );
       wp.dataInicio = dataInicioProjeto;
     }
     
     if (!wp.dataFim || wp.dataFim.getFullYear() > 2100) {
-      console.warn(
-        `Workpackage ${wp.codigo} tem data de fim inválida: ${wp.dataFim}`
-      );
       wp.dataFim = dataFimProjeto;
     }
   }
@@ -427,9 +387,6 @@ function atribuirMateriaisAosWorkpackages(
   return workpackages;
 }
 
-// Adicionar o hook useQuery do tRPC
-const { data: financiamentosData } = api.financiamento.getAll.useQuery({ limit: 100 });
-
 // Componente Principal
 export default function ImportarProjetoButton() {
   const router = useRouter();
@@ -437,17 +394,16 @@ export default function ImportarProjetoButton() {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [modalFinanciamentosAberto, setModalFinanciamentosAberto] =
-    useState(false);
-  const [dadosFinanciamento, setDadosFinanciamento] = useState<
-    | {
+  const [modalFinanciamentosAberto, setModalFinanciamentosAberto] = useState(false);
+  const [dadosFinanciamento, setDadosFinanciamento] = useState<{
     nome: string;
     overhead: number | null;
     taxa_financiamento: number | null;
     valor_eti: number | null;
-      }
-    | null
-  >(null);
+  } | null>(null);
+
+  // Adicionar o hook aqui dentro do componente
+  const { data: financiamentosData } = api.financiamento.getAll.useQuery({ limit: 100 });
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -462,8 +418,6 @@ export default function ImportarProjetoButton() {
       const response = await fetch("/api/trpc/utilizador.getAll");
       const responseData = await response.json();
       const utilizadores = extrairUtilizadores(responseData);
-      
-      console.log("Utilizadores carregados:", utilizadores.length);
       
       const reader = new FileReader();
       
@@ -487,7 +441,6 @@ export default function ImportarProjetoButton() {
           if (sheetsData["HOME"]) {
             const dadosProjeto = extrairDadosProjeto(sheetsData["HOME"]);
             nomeProjeto = dadosProjeto.nomeProjeto;
-            console.log("Nome do projeto importado:", nomeProjeto);
           }
 
           if (sheetsData["BUDGET"]) {
@@ -497,24 +450,12 @@ export default function ImportarProjetoButton() {
             taxaFinanciamento = dadosFinanciamento.taxaFinanciamento;
             overhead = dadosFinanciamento.overhead;
             valorEti = dadosFinanciamento.valorEti;
-
-            console.log("Dados de financiamento importados:", {
-              tipo: tipoFinanciamento,
-              taxaFinanciamento: taxaFinanciamento
-                ? `${taxaFinanciamento}%`
-                : "Não especificado",
-              overhead: overhead ? `${overhead}%` : "Não especificado",
-            });
           }
 
           if (sheetsData["RH_Budget_SUBM"]) {
             if (!valorEti) {
               valorEti = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
             }
-            console.log(
-              "Valor ETI importado:",
-              valorEti ? `${valorEti}€` : "Não especificado"
-            );
 
             const resultado = extrairDadosRH(
               sheetsData["RH_Budget_SUBM"],
@@ -532,12 +473,6 @@ export default function ImportarProjetoButton() {
           if (wps.length > 0 && materiais.length > 0) {
             wps = atribuirMateriaisAosWorkpackages(wps, materiais);
           }
-          
-          console.log(
-            `Projeto: Início ${dataInicioProjeto?.toLocaleDateString(
-              "pt-PT"
-            )}, Fim ${dataFimProjeto?.toLocaleDateString("pt-PT")}`
-          );
 
           // Resetar o estado para iniciar com dados limpos
           dispatch({ type: "RESET" });
@@ -580,9 +515,6 @@ export default function ImportarProjetoButton() {
             // Adicionar recursos e alocações
             wp.recursos.forEach((recurso) => {
               const userId = recurso.userId || "1";
-              console.log(
-                `Adicionando recurso: ${recurso.nome} (ID: ${userId}) ao WP: ${wp.nome}`
-              );
               
               recurso.alocacoes.forEach((alocacao) => {
                 dispatch({
@@ -596,9 +528,6 @@ export default function ImportarProjetoButton() {
                     workpackageId: wpId,
                   },
                 });
-                console.log(
-                  `  Alocação: ${alocacao.mes}/${alocacao.ano} - ${alocacao.percentagem}%`
-                );
               });
             });
             
@@ -624,7 +553,6 @@ export default function ImportarProjetoButton() {
           if (tipoFinanciamento) {
             try {
               const financiamentos = financiamentosData?.items || [];
-              console.log("Financiamentos carregados:", financiamentos.length);
               
               const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
               
@@ -666,14 +594,12 @@ export default function ImportarProjetoButton() {
                 });
               }
             } catch (error) {
-              console.error("Erro ao processar financiamentos:", error);
               toast.error("Erro ao verificar financiamentos existentes.");
             }
           }
 
           setOpen(false);
         } catch (error) {
-          console.error("Erro ao processar o ficheiro Excel:", error);
           toast.error("Ocorreu um erro ao processar o ficheiro Excel.");
         } finally {
           setIsLoading(false);
@@ -681,14 +607,12 @@ export default function ImportarProjetoButton() {
       };
 
       reader.onerror = (error) => {
-        console.error("Erro ao ler o ficheiro:", error);
         toast.error("Ocorreu um erro ao ler o ficheiro.");
         setIsLoading(false);
       };
 
       reader.readAsArrayBuffer(file);
     } catch (error) {
-      console.error("Erro ao buscar utilizadores:", error);
       toast.error("Ocorreu um erro ao buscar utilizadores.");
       setIsLoading(false);
     }
