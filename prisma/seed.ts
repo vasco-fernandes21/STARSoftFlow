@@ -280,8 +280,8 @@ async function main() {
     data: {
       nome: "INOVC+",
       descricao: "O INOVC+ é um projeto-piloto estratégico para Região Centro que consiste na implementação e consolidação de um Ecossistema de Inovação para a Transferência de Conhecimento e Tecnologia que, num contexto de trabalho em rede, potencia a valorização e a transferência de conhecimento e de resultados de I&D+I para a economia da região centro.",
-      inicio: new Date("2023-03-01"),
-      fim: new Date("2025-02-28"),
+      inicio: new Date("2025-01-01"),
+      fim: new Date("2026-12-31"),
       estado: ProjetoEstado.APROVADO,
       financiamentoId: fct.id,
     }
@@ -292,9 +292,9 @@ async function main() {
     data: {
       projetoId: projeto1.id,
       nome: "WP1 - Recolha e Processamento de Dados",
-      inicio: new Date("2023-03-01"),
-      fim: new Date("2023-08-31"),
-      estado: true // Já concluído
+      inicio: new Date("2025-01-01"),
+      fim: new Date("2025-06-30"),
+      estado: true
     }
   });
 
@@ -302,9 +302,9 @@ async function main() {
     data: {
       projetoId: projeto1.id,
       nome: "WP2 - Desenvolvimento de Algoritmos",
-      inicio: new Date("2023-07-01"),
-      fim: new Date("2024-06-30"),
-      estado: false // Em andamento
+      inicio: new Date("2025-07-01"),
+      fim: new Date("2026-06-30"),
+      estado: false
     }
   });
 
@@ -312,9 +312,9 @@ async function main() {
     data: {
       projetoId: projeto1.id,
       nome: "WP3 - Validação e Testes",
-      inicio: new Date("2024-04-01"),
-      fim: new Date("2024-12-31"),
-      estado: false // Ainda não iniciado completamente
+      inicio: new Date("2026-04-01"),
+      fim: new Date("2026-09-30"),
+      estado: false
     }
   });
 
@@ -322,9 +322,9 @@ async function main() {
     data: {
       projetoId: projeto1.id,
       nome: "WP4 - Divulgação e Integração",
-      inicio: new Date("2024-10-01"),
-      fim: new Date("2025-02-28"),
-      estado: false // Ainda não iniciado
+      inicio: new Date("2026-10-01"),
+      fim: new Date("2026-12-31"),
+      estado: false
     }
   });
 
@@ -334,22 +334,22 @@ async function main() {
       {
         workpackageId: wp1Projeto1.id,
         nome: "T1.1 - Definição de protocolos de recolha",
-        inicio: new Date("2023-03-01"),
-        fim: new Date("2023-04-15"),
+        inicio: new Date("2025-01-01"),
+        fim: new Date("2025-02-28"),
         estado: true
       },
       {
         workpackageId: wp1Projeto1.id,
         nome: "T1.2 - Recolha de dados clínicos",
-        inicio: new Date("2023-04-16"),
-        fim: new Date("2023-07-31"),
+        inicio: new Date("2025-03-01"),
+        fim: new Date("2025-05-31"),
         estado: true
       },
       {
         workpackageId: wp1Projeto1.id,
         nome: "T1.3 - Processamento e anotação de datasets",
-        inicio: new Date("2023-06-01"),
-        fim: new Date("2023-08-31"),
+        inicio: new Date("2025-05-01"),
+        fim: new Date("2025-06-30"),
         estado: true
       }
     ]
@@ -361,22 +361,22 @@ async function main() {
       {
         workpackageId: wp2Projeto1.id,
         nome: "T2.1 - Estado da arte e definição de requisitos",
-        inicio: new Date("2023-07-01"),
-        fim: new Date("2023-09-30"),
+        inicio: new Date("2025-07-01"),
+        fim: new Date("2025-09-30"),
         estado: true
       },
       {
         workpackageId: wp2Projeto1.id,
         nome: "T2.2 - Implementação de modelos de ML/DL",
-        inicio: new Date("2023-10-01"),
-        fim: new Date("2024-03-31"),
+        inicio: new Date("2025-10-01"),
+        fim: new Date("2026-03-31"),
         estado: false
       },
       {
         workpackageId: wp2Projeto1.id,
         nome: "T2.3 - Otimização e avaliação de performance",
-        inicio: new Date("2024-04-01"),
-        fim: new Date("2024-06-30"),
+        inicio: new Date("2026-04-01"),
+        fim: new Date("2026-06-30"),
         estado: false
       }
     ]
@@ -434,8 +434,8 @@ async function main() {
     data: {
       nome: "SMART-CITY - Plataforma Integrada para Cidades Inteligentes",
       descricao: "Desenvolvimento de uma plataforma de código aberto para integração e gestão de serviços urbanos inteligentes, focando em mobilidade, energia e ambiente.",
-      inicio: new Date("2024-09-01"),
-      fim: new Date("2026-08-31"),
+      inicio: new Date("2026-01-01"),
+      fim: new Date("2027-12-31"),
       estado: ProjetoEstado.PENDENTE,
       financiamentoId: portugal2030.id,
     }
@@ -446,8 +446,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP1 - Levantamento de Requisitos e Especificação",
-      inicio: new Date("2024-09-01"),
-      fim: new Date("2025-02-28"),
+      inicio: new Date("2026-01-01"),
+      fim: new Date("2026-06-30"),
       estado: false
     }
   });
@@ -456,8 +456,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP2 - Arquitetura e Desenvolvimento",
-      inicio: new Date("2025-01-01"),
-      fim: new Date("2026-02-28"),
+      inicio: new Date("2026-07-01"),
+      fim: new Date("2027-06-30"),
       estado: false
     }
   });
@@ -466,8 +466,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP3 - Pilotos e Validação",
-      inicio: new Date("2025-09-01"),
-      fim: new Date("2026-06-30"),
+      inicio: new Date("2027-01-01"),
+      fim: new Date("2027-09-30"),
       estado: false
     }
   });
@@ -476,8 +476,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP4 - Disseminação e Exploração",
-      inicio: new Date("2025-03-01"),
-      fim: new Date("2026-08-31"),
+      inicio: new Date("2027-07-01"),
+      fim: new Date("2027-12-31"),
       estado: false
     }
   });
@@ -514,20 +514,20 @@ async function main() {
     data: {
       nome: "ECO-MANUFATURA - Sistemas de Manufatura Sustentável",
       descricao: "Pesquisa e desenvolvimento de metodologias e ferramentas para otimização de processos de manufatura visando redução de consumo energético e impacto ambiental.",
-      inicio: new Date("2024-11-01"),
-      fim: new Date("2026-10-31"),
+      inicio: new Date("2027-01-01"),
+      fim: new Date("2028-12-31"),
       estado: ProjetoEstado.RASCUNHO,
       financiamentoId: horizonteEuropa.id,
     }
   });
 
-  // Workpackages básicos para Projeto 3 (ainda em rascunho)
+  // Workpackages básicos para Projeto 3
   const wp1Projeto3 = await prisma.workpackage.create({
     data: {
       projetoId: projeto3.id,
       nome: "WP1 - Coordenação e Gestão",
-      inicio: new Date("2024-11-01"),
-      fim: new Date("2026-10-31"),
+      inicio: new Date("2027-01-01"),
+      fim: new Date("2028-12-31"),
       estado: false
     }
   });
@@ -536,8 +536,8 @@ async function main() {
     data: {
       projetoId: projeto3.id,
       nome: "WP2 - Análise e Modelação",
-      inicio: new Date("2024-11-01"),
-      fim: new Date("2025-08-31"),
+      inicio: new Date("2027-01-01"),
+      fim: new Date("2027-12-31"),
       estado: false
     }
   });
@@ -547,8 +547,8 @@ async function main() {
     data: {
       nome: "EDUSEC - Segurança Cibernética em Ambientes Educacionais",
       descricao: "Desenvolvimento de um framework e conjunto de boas práticas para proteção de dados e implementação de segurança cibernética em instituições de ensino.",
-      inicio: new Date("2022-01-15"),
-      fim: new Date("2023-07-31"),
+      inicio: new Date("2025-01-01"),
+      fim: new Date("2025-12-31"),
       estado: ProjetoEstado.CONCLUIDO,
       financiamentoId: privado.id,
     }
@@ -559,8 +559,8 @@ async function main() {
     data: {
       projetoId: projeto4.id,
       nome: "WP1 - Levantamento de Vulnerabilidades",
-      inicio: new Date("2022-01-15"),
-      fim: new Date("2022-04-30"),
+      inicio: new Date("2025-01-01"),
+      fim: new Date("2025-04-30"),
       estado: true
     }
   });
@@ -569,8 +569,8 @@ async function main() {
     data: {
       projetoId: projeto4.id,
       nome: "WP2 - Desenvolvimento de Framework",
-      inicio: new Date("2022-05-01"),
-      fim: new Date("2023-01-31"),
+      inicio: new Date("2025-05-01"),
+      fim: new Date("2025-09-30"),
       estado: true
     }
   });
@@ -579,8 +579,8 @@ async function main() {
     data: {
       projetoId: projeto4.id,
       nome: "WP3 - Implementação e Formação",
-      inicio: new Date("2023-02-01"),
-      fim: new Date("2023-07-31"),
+      inicio: new Date("2025-10-01"),
+      fim: new Date("2025-12-31"),
       estado: true
     }
   });
@@ -591,15 +591,15 @@ async function main() {
       {
         workpackageId: wp1Projeto4.id,
         nome: "T1.1 - Auditoria inicial de segurança",
-        inicio: new Date("2022-01-15"),
-        fim: new Date("2022-02-28"),
+        inicio: new Date("2025-01-01"),
+        fim: new Date("2025-02-28"),
         estado: true
       },
       {
         workpackageId: wp1Projeto4.id,
         nome: "T1.2 - Análise de protocolos existentes",
-        inicio: new Date("2022-03-01"),
-        fim: new Date("2022-04-30"),
+        inicio: new Date("2025-03-01"),
+        fim: new Date("2025-04-30"),
         estado: true
       }
     ]
@@ -611,22 +611,22 @@ async function main() {
       {
         workpackageId: wp2Projeto4.id,
         nome: "T2.1 - Definição de arquitetura de segurança",
-        inicio: new Date("2022-05-01"),
-        fim: new Date("2022-07-31"),
+        inicio: new Date("2025-05-01"),
+        fim: new Date("2025-06-30"),
         estado: true
       },
       {
         workpackageId: wp2Projeto4.id,
         nome: "T2.2 - Desenvolvimento de protocolos",
-        inicio: new Date("2022-08-01"),
-        fim: new Date("2022-11-30"),
+        inicio: new Date("2025-07-01"),
+        fim: new Date("2025-08-31"),
         estado: true
       },
       {
         workpackageId: wp2Projeto4.id,
         nome: "T2.3 - Desenvolvimento de ferramentas de monitorização",
-        inicio: new Date("2022-10-01"),
-        fim: new Date("2023-01-31"),
+        inicio: new Date("2025-09-01"),
+        fim: new Date("2025-09-30"),
         estado: true
       }
     ]
@@ -638,22 +638,22 @@ async function main() {
       {
         workpackageId: wp3Projeto4.id,
         nome: "T3.1 - Implementação piloto",
-        inicio: new Date("2023-02-01"),
-        fim: new Date("2023-04-30"),
+        inicio: new Date("2025-10-01"),
+        fim: new Date("2025-10-31"),
         estado: true
       },
       {
         workpackageId: wp3Projeto4.id,
         nome: "T3.2 - Formação técnica",
-        inicio: new Date("2023-05-01"),
-        fim: new Date("2023-06-30"),
+        inicio: new Date("2025-11-01"),
+        fim: new Date("2025-11-30"),
         estado: true
       },
       {
         workpackageId: wp3Projeto4.id,
         nome: "T3.3 - Documentação e entrega final",
-        inicio: new Date("2023-06-01"),
-        fim: new Date("2023-07-31"),
+        inicio: new Date("2025-12-01"),
+        fim: new Date("2025-12-31"),
         estado: true
       }
     ]
@@ -792,15 +792,12 @@ async function main() {
     const numEntregaveis = Math.floor(Math.random() * 3) + 1;
     
     for (let i = 0; i < numEntregaveis; i++) {
-      const dataEntrega = tarefa.fim ? new Date(tarefa.fim) : new Date();
-      dataEntrega.setDate(dataEntrega.getDate() - Math.floor(Math.random() * 30)); // Data aleatória nos últimos 30 dias da tarefa
-      
       await prisma.entregavel.create({
         data: {
           tarefaId: tarefa.id,
           nome: `Entregável ${i+1} - ${tarefa.nome}`,
           descricao: `Descrição detalhada do entregável ${i+1} para a tarefa "${tarefa.nome}"`,
-          data: dataEntrega,
+          data: tarefa.fim!, // Usar a data final da tarefa
           anexo: i === 0 ? "https://example.com/docs/entregavel.pdf" : null
         }
       });
@@ -813,14 +810,12 @@ async function main() {
   for (const tarefa of tarefasEmAndamento) {
     // 50% de chance de ter um entregável parcial
     if (Math.random() > 0.5) {
-      const hoje = new Date();
-      
       await prisma.entregavel.create({
         data: {
           tarefaId: tarefa.id,
           nome: `Versão preliminar - ${tarefa.nome}`,
           descricao: "Este é um entregável parcial ou preliminar que ainda está a ser desenvolvido.",
-          data: hoje,
+          data: tarefa.fim!, // Usar a data final da tarefa
           anexo: null
         }
       });

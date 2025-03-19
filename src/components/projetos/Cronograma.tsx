@@ -83,9 +83,11 @@ export function Cronograma({
     const current = new Date(start);
     
     while (current <= end) {
+      const daysInMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
       months.push({
         label: format(current, "MMM/yy", { locale: ptBR }),
         date: new Date(current),
+        days: daysInMonth
       });
       current.setMonth(current.getMonth() + 1);
     }
@@ -94,16 +96,15 @@ export function Cronograma({
   };
 
   const months = getMonthsBetweenDates(startDate, endDate);
+  const totalDays = months.reduce((acc, month) => acc + month.days, 0);
+  
+  const getMonthGridTemplate = () => {
+    return months.map(month => `${month.days}fr`).join(" ");
+  };
 
-  const getCurrentDayPosition = () => {
-    const today = new Date();
-    if (today < startDate || today > endDate) return null;
-
-    const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    const daysSinceStart = (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    const percentage = (daysSinceStart / totalDays) * 100;
-
-    return percentage;
+  const getDayPosition = (date: Date) => {
+    const daysSinceStart = Math.floor((date.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    return (daysSinceStart / totalDays) * 100;
   };
 
   const getTarefaPosition = (tarefa: TarefaWithEntregaveis) => {
@@ -112,19 +113,21 @@ export function Cronograma({
     
     if (!tarefaStart || !tarefaEnd) return null;
     
-    const startDiff = (tarefaStart.getFullYear() - startDate.getFullYear()) * 12 + 
-                     (tarefaStart.getMonth() - startDate.getMonth());
-    const endDiff = (tarefaEnd.getFullYear() - startDate.getFullYear()) * 12 + 
-                   (tarefaEnd.getMonth() - startDate.getMonth());
+    const startPosition = getDayPosition(tarefaStart);
+    const endPosition = getDayPosition(tarefaEnd);
     
-    const duration = endDiff - startDiff + 1;
-    
-    if (startDiff < 0 || endDiff >= months.length) return null;
+    if (startPosition < 0 || endPosition > 100) return null;
     
     return {
-      gridColumnStart: startDiff + 2,
-      gridColumnEnd: `span ${duration}`,
+      left: `${startPosition}%`,
+      width: `${endPosition - startPosition}%`,
     };
+  };
+
+  const getCurrentDayPosition = () => {
+    const today = new Date();
+    if (today < startDate || today > endDate) return null;
+    return getDayPosition(today);
   };
 
   const handleTarefaClick = (tarefa: TarefaWithEntregaveis) => {
@@ -259,15 +262,15 @@ export function Cronograma({
           ref={timelineRef} 
           className="overflow-x-auto flex-1 overflow-y-scroll scrollbar-none bg-slate-50/30"
         >
-          <div className="inline-block min-w-max relative">
+          <div className="h-full w-full relative">
             <div className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 z-10">
-              <div className="grid" style={{ gridTemplateColumns: `repeat(${months.length}, minmax(90px, 1fr))` }}>
+              <div className="grid w-full" style={{ gridTemplateColumns: getMonthGridTemplate() }}>
                 {months.map((month) => {
                   const entregaveisNoMes = getEntregaveisForMonth(month.date);
                   return (
                     <div 
                       key={month.label}
-                      className="relative py-3 px-2 text-center border-r border-slate-200/70"
+                      className="relative py-3 px-4 text-center border-r border-slate-200/70"
                     >
                       <div className="text-xs font-medium text-slate-600">
                         {month.label}
@@ -275,16 +278,15 @@ export function Cronograma({
                       {entregaveisNoMes.length > 0 && (
                         <div className="absolute bottom-1 left-1 right-1 flex">
                           {entregaveisNoMes.map(({ entregavel }) => {
-                            const data = new Date(entregavel.data);
-                            const daysInMonth = new Date(data.getFullYear(), data.getMonth() + 1, 0).getDate();
-                            const percentageOfMonth = ((data.getDate() - 1) / daysInMonth) * 100;
+                            const entregavelDate = new Date(entregavel.data);
+                            const position = getDayPosition(entregavelDate);
                             
                             return (
                               <div 
                                 key={entregavel.id}
                                 className="absolute w-1 h-1 rounded-full bg-blue-500/70"
                                 style={{
-                                  left: `${percentageOfMonth}%`
+                                  left: `${position}%`
                                 }}
                               />
                             );
@@ -312,10 +314,10 @@ export function Cronograma({
                 {sortedWorkpackages.map((wp) => (
                   <div key={wp.id} className="relative">
                     <div className="h-10 relative flex items-center border-b border-slate-100 bg-slate-50/50">
-                      <div className="absolute inset-0 grid" 
-                        style={{ gridTemplateColumns: `repeat(${months.length}, 1fr)` }}
+                      <div className="absolute inset-0 grid w-full" 
+                        style={{ gridTemplateColumns: getMonthGridTemplate() }}
                       >
-                        {Array.from({ length: months.length }).map((_, i) => (
+                        {months.map((_, i) => (
                           <div key={i} className="border-r border-slate-200/50 h-full" />
                         ))}
                       </div>
@@ -325,14 +327,12 @@ export function Cronograma({
                       const position = getTarefaPosition(tarefa);
                       if (!position) return null;
                       
-                      const duration = parseInt(position.gridColumnEnd.split(' ')[1] || '1');
-                      
                       return (
                         <div key={tarefa.id} className="h-10 relative group">
-                          <div className="absolute inset-0 grid" 
-                            style={{ gridTemplateColumns: `repeat(${months.length}, 1fr)` }}
+                          <div className="absolute inset-0 grid w-full" 
+                            style={{ gridTemplateColumns: getMonthGridTemplate() }}
                           >
-                            {Array.from({ length: months.length }).map((_, i) => (
+                            {months.map((_, i) => (
                               <div key={i} className="border-r border-slate-200/50 h-full" />
                             ))}
                           </div>
@@ -344,8 +344,8 @@ export function Cronograma({
                             whileHover={{ y: -1 }}
                             style={{
                               position: 'absolute',
-                              left: `${((position.gridColumnStart - 2) / months.length) * 100}%`,
-                              width: `${(duration / months.length) * 100}%`,
+                              left: position.left,
+                              width: position.width,
                               height: '16px',
                               top: '50%',
                               marginTop: '0px',
@@ -362,11 +362,12 @@ export function Cronograma({
                             {tarefa.entregaveis?.map((entregavel) => {
                               if (!tarefa.inicio || !tarefa.fim) return null;
                               const entregavelDate = new Date(entregavel.data);
-                              const startDate = new Date(tarefa.inicio);
-                              const endDate = new Date(tarefa.fim);
-                              const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-                              const daysSinceStart = (entregavelDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-                              const percentage = (daysSinceStart / totalDays) * 100;
+                              const tarefaStart = new Date(tarefa.inicio);
+                              const tarefaEnd = new Date(tarefa.fim);
+                              
+                              const tarefaDays = Math.floor((tarefaEnd.getTime() - tarefaStart.getTime()) / (1000 * 60 * 60 * 24));
+                              const daysSinceTarefaStart = Math.floor((entregavelDate.getTime() - tarefaStart.getTime()) / (1000 * 60 * 60 * 24));
+                              const percentage = (daysSinceTarefaStart / tarefaDays) * 100;
                               
                               return (
                                 <div
