@@ -1,7 +1,22 @@
 import { useState } from "react";
-import { Decimal } from "decimal.js";
 import { Item } from "./item";
 import { Form } from "./form";
+import { Decimal } from "decimal.js";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  regime: string;
+}
+
+interface Alocacao {
+  userId: string;
+  mes: number;
+  ano: number;
+  ocupacao: string;
+  user: User;
+}
 
 interface DetailsProps {
   userId: string;
@@ -10,15 +25,14 @@ interface DetailsProps {
     alocacoes: Array<{
       mes: number;
       ano: number;
-      ocupacao: any;
+      ocupacao: number;
     }>;
   };
   membroEquipa: {
     id: string;
-    name?: string | null;
-    email?: string | null;
-    regime?: string;
-    [key: string]: any;
+    name: string | null;
+    email: string | null;
+    regime: string;
   } | undefined;
   isExpanded: boolean;
   workpackageId: string;
@@ -27,17 +41,17 @@ interface DetailsProps {
   onRemove: () => void;
   formatarDataSegura: (ano: string | number, mes: string | number, formatString: string) => string;
   alocacoesPorAnoMes: Record<string, Record<number, number>>;
-  isEditing?: boolean;
-  onCancelEdit?: () => void;
-  onSaveEdit?: (workpackageId: string, alocacoes: Array<{
+  isEditing: boolean;
+  onCancelEdit: () => void;
+  onSaveEdit: (workpackageId: string, alocacoes: Array<{
     userId: string;
     mes: number;
     ano: number;
     ocupacao: Decimal;
   }>) => void;
-  utilizadores?: Array<{ id: string; name: string; email: string; regime: string }>;
-  inicio?: Date;
-  fim?: Date;
+  utilizadores: Array<{ id: string; name: string; email: string; regime: string }>;
+  inicio: Date;
+  fim: Date;
 }
 
 export function Details({
@@ -51,66 +65,49 @@ export function Details({
   onRemove,
   formatarDataSegura,
   alocacoesPorAnoMes,
-  isEditing = false,
-  onCancelEdit = () => {},
-  onSaveEdit = () => {},
-  utilizadores = [],
-  inicio = new Date(),
-  fim = new Date()
+  isEditing,
+  onCancelEdit,
+  onSaveEdit,
+  utilizadores,
+  inicio,
+  fim
 }: DetailsProps) {
-  const [editingMode, setEditingMode] = useState(isEditing);
-  
-  // Função para iniciar a edição
-  const handleEdit = () => {
-    setEditingMode(true);
-    onEdit();
-  };
-  
-  // Função para cancelar a edição
-  const handleCancelEdit = () => {
-    setEditingMode(false);
-    onCancelEdit();
-  };
-  
-  // Função para salvar as alterações
-  const handleSaveEdit = (workpackageId: string, alocacoes: Array<{
-    userId: string;
-    mes: number;
-    ano: number;
-    ocupacao: Decimal;
-  }>) => {
-    onSaveEdit(workpackageId, alocacoes);
-    setEditingMode(false);
-  };
-  
+  // Se estiver editando, mostrar o formulário
+  if (isEditing) {
+    return (
+      <Form
+        key={`form-${userId}`}
+        workpackageId={workpackageId}
+        inicio={inicio}
+        fim={fim}
+        utilizadores={utilizadores}
+        onAddAlocacao={onSaveEdit}
+        onCancel={onCancelEdit}
+        recursoEmEdicao={recurso}
+      />
+    );
+  }
+
+  // Caso contrário, mostrar o item normal
   return (
-    <div className="relative">
-      {editingMode ? (
-        // Mostrar o Form quando estiver no modo de edição
-        <Form
-          workpackageId={workpackageId}
-          inicio={inicio}
-          fim={fim}
-          utilizadores={utilizadores}
-          onAddAlocacao={handleSaveEdit}
-          onCancel={handleCancelEdit}
-          recursoEmEdicao={recurso}
-        />
-      ) : (
-        // Mostrar o Item quando não estiver no modo de edição
-        <Item
-          userId={userId}
-          recurso={recurso}
-          membroEquipa={membroEquipa}
-          isExpanded={isExpanded}
-          workpackageId={workpackageId}
-          onToggleExpand={onToggleExpand}
-          onEdit={handleEdit}
-          onRemove={onRemove}
-          formatarDataSegura={formatarDataSegura}
-          alocacoesPorAnoMes={alocacoesPorAnoMes}
-        />
-      )}
-    </div>
+    <Item
+      key={userId}
+      user={membroEquipa ? {
+        id: membroEquipa.id,
+        name: membroEquipa.name || "",
+        email: membroEquipa.email || "",
+        regime: membroEquipa.regime
+      } : {
+        id: userId,
+        name: "Utilizador não encontrado",
+        email: "",
+        regime: "N/A"
+      }}
+      alocacoesPorAnoMes={alocacoesPorAnoMes}
+      isExpanded={isExpanded}
+      onToggleExpand={onToggleExpand}
+      onEdit={onEdit}
+      onRemove={onRemove}
+    />
   );
 } 

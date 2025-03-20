@@ -545,19 +545,21 @@ export default function ImportarProjetoButton() {
             console.log(`📊 Processando recursos para: ${wp.nome} (${wp.recursos.length} recursos)`);
             
             wp.recursos.forEach((recurso) => {
-              const userId = recurso.userId || "1";
-              console.log(`👤 Processando alocações para: ${recurso.nome} (${recurso.alocacoes.length} alocações)`);
+              if (!recurso.userId) return;
               
-              dispatch({
-                type: "ADD_ALOCACAO",
-                workpackageId: wpId,
-                alocacao: {
-                  userId,
-                  mes: recurso.alocacoes[0].mes,
-                  ano: recurso.alocacoes[0].ano,
-                  ocupacao: new Decimal(recurso.alocacoes[0].percentagem / 100),
+              // Adicionar todas as alocações do recurso
+              recurso.alocacoes.forEach(alocacao => {
+                dispatch({
+                  type: "ADD_ALOCACAO",
                   workpackageId: wpId,
-                },
+                  alocacao: {
+                    userId: recurso.userId!,
+                    mes: alocacao.mes,
+                    ano: alocacao.ano,
+                    ocupacao: new Decimal(alocacao.percentagem / 100),
+                    workpackageId: wpId,
+                  },
+                });
               });
             });
             

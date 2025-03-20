@@ -6,7 +6,7 @@ import { pt } from "date-fns/locale";
 import { Calendar, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
+import { formatarDataSegura } from "@/lib/utils";
 interface WorkpackageInfo {
   id: string;
   nome: string;
@@ -57,15 +57,6 @@ const getSubtleColor = (ocupacao: number): string => {
   return "from-slate-50 to-slate-100 text-slate-700";
 };
 
-// Função auxiliar para formatar datas
-const formatarDataSegura = (ano: string | number, mes: string | number, formatString: string): string => {
-  try {
-    const data = new Date(Number(ano), Number(mes) - 1, 1);
-    return format(data, formatString, { locale: pt });
-  } catch (error) {
-    return `${mes}/${ano}`;
-  }
-};
 
 export function AlocacoesDetalhadas({ alocacoes }: AlocacoesDetalhadasProps) {
   const [mesSelecionado, setMesSelecionado] = useState<{ano: string, mes: number} | null>(null);

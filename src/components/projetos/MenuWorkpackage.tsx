@@ -7,20 +7,15 @@ import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { gerarMesesEntreDatas } from "@/lib/utils";
+
 import { 
-  CalendarIcon, 
   FileIcon, 
   XIcon, 
-  ClockIcon, 
   CheckIcon, 
   PencilIcon, 
   TrashIcon, 
   PlusIcon,
-  Package,
-  Euro,
-  Users,
-  ChevronLeft,
-  ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -39,12 +34,11 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Rubrica, type Prisma } from "@prisma/client";
 import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
-import { Item as RecursoItem } from "@/components/projetos/criar/novo/recursos/item";
 import { MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
 import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
-import { Details } from "@/components/projetos/criar/novo/recursos/details";
-
+import { Details as RecursoDetails } from "@/components/projetos/criar/novo/recursos/details";
+import { formatarDataSegura } from "@/lib/utils";
 type WorkpackageWithRelations = Prisma.WorkpackageGetPayload<{
   include: {
     projeto: true;
@@ -86,48 +80,6 @@ type NovaAlocacao = {
   ocupacao: number;
 };
 
-// Função para gerar meses entre datas
-function gerarMesesEntreDatas(dataInicio: Date, dataFim: Date): {
-  chave: string;
-  nome: string;
-  mesNumero: number;
-  ano: number;
-  data: Date;
-  formatado: string;
-}[] {
-  const meses = [];
-  const numMeses = differenceInMonths(dataFim, dataInicio) + 1;
-  
-  for (let i = 0; i < numMeses; i++) {
-    const data = addMonths(dataInicio, i);
-    const mesNumero = data.getMonth() + 1;
-    const ano = data.getFullYear();
-    const nome = format(data, 'MMM', { locale: ptBR });
-    const chave = `${mesNumero}-${ano}`;
-    const formatado = `${nome.charAt(0).toUpperCase() + nome.slice(1, 3)}/${String(ano).slice(2)}`;
-    
-    meses.push({
-      chave,
-      nome,
-      mesNumero,
-      ano,
-      data,
-      formatado
-    });
-  }
-  
-  return meses;
-}
-
-// Adicionar função para formatar data de forma segura
-function formatarDataSegura(ano: string | number, mes: string | number, formatString: string): string {
-  try {
-    const data = new Date(Number(ano), Number(mes) - 1);
-    return format(data, formatString, { locale: ptBR });
-  } catch (error) {
-    return "Data inválida";
-  }
-}
 
 // Função para agrupar alocações por ano e mês com validação
 function agruparAlocacoesPorAnoMes(alocacoes: Array<{
@@ -191,8 +143,6 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
     { id: workpackageId },
     { enabled: !!workpackageId && open }
   );
-
-  const utils = api.useContext();
 
   const updateWorkpackageMutation = api.workpackage.update.useMutation({
     onSuccess: async () => {
@@ -712,18 +662,18 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
 
               {/* Recursos */}
               <div className="space-y-2">
-                          <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500 font-medium">Recursos</span>
                   {!addingRecurso && (
-                            <Button
-                              variant="ghost"
+                    <Button
+                      variant="ghost"
                       onClick={() => setAddingRecurso(true)}
                       className="h-7 w-7 rounded-md bg-gray-50"
                     >
                       <PlusIcon className="h-3.5 w-3.5" />
-                            </Button>
-                              )}
-                            </div>
+                    </Button>
+                  )}
+                </div>
                             
                 <div className="space-y-2">
                   {addingRecurso && (
@@ -734,91 +684,52 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                         fim={workpackage.fim || new Date()}
                         onCancel={() => setAddingRecurso(false)}
                         onAddAlocacao={handleAddAlocacao}
-                        utilizadores={utilizadores?.data || []}
+                        utilizadores={(utilizadores?.items || []).map(user => ({
+                          id: user.id,
+                          name: user.name || '',
+                          email: user.email || '',
+                          regime: user.regime
+                        }))}
                       />  
                     </div>
                   )}
 
-                  {/* Agrupar recursos por userId para evitar duplicação */}
-                  {(() => {
-                    // Criar um mapa para agrupar recursos pelo userId
-                    const recursosAgrupados = new Map();
-                    
-                    // Agrupar recursos pelo userId
-                    workpackage.recursos?.forEach(recurso => {
-                      if (!recurso) return;
-                      
-                      if (!recursosAgrupados.has(recurso.userId)) {
-                        recursosAgrupados.set(recurso.userId, {
-                          userId: recurso.userId,
-                          user: recurso.user,
-                          alocacoes: []
-                        });
-                      }
-                      
-                      // Adicionar alocações ao recurso agrupado
-                      if ('alocacoes' in recurso && Array.isArray(recurso.alocacoes)) {
-                        const recursoAgrupado = recursosAgrupados.get(recurso.userId);
-                        recursoAgrupado.alocacoes = [
-                          ...recursoAgrupado.alocacoes,
-                          ...recurso.alocacoes
-                        ];
-                      }
-                    });
-                    
-                    // Converter mapa para array e renderizar
-                    return Array.from(recursosAgrupados.values()).map(recurso => {
-                      const alocacoesPorAnoMes = agruparAlocacoesPorAnoMes(recurso.alocacoes);
-                      const isExpanded = expandedRecursos[recurso.userId] || false;
-                      
-                      return (
-                        <Details
-                          key={`${recurso.userId}-${workpackageId}`}
-                          userId={recurso.userId}
-                          recurso={{
-                            userId: recurso.userId,
-                            alocacoes: recurso.alocacoes || []
-                          }}
-                          membroEquipa={recurso.user}
-                          isExpanded={isExpanded}
-                          workpackageId={workpackageId}
-                          onToggleExpand={() => {
-                            setExpandedRecursos(prev => ({
-                              ...prev,
-                              [recurso.userId]: !isExpanded
-                            }));
-                          }}
-                          onEdit={() => {
-                            // Lógica adicional se necessário
-                          }}
-                          onRemove={() => {
-                            handleRemoveRecurso(recurso.userId);
-                          }}
-                          formatarDataSegura={formatarDataSegura}
-                          alocacoesPorAnoMes={alocacoesPorAnoMes}
-                          utilizadores={utilizadores?.data || []}
-                          inicio={workpackage.inicio || new Date()}
-                          fim={workpackage.fim || new Date()}
-                          onSaveEdit={(workpackageId, alocacoes) => {
-                            Promise.all(
-                              alocacoes.map(alocacao => 
-                                addAlocacaoMutation.mutate({
-                                  workpackageId,
-                                  userId: alocacao.userId,
-                                  mes: alocacao.mes,
-                                  ano: alocacao.ano,
-                                  ocupacao: Number(alocacao.ocupacao)
-                                })
-                              )
-                            ).then(() => {
-                              refetchWorkpackage();
-                            });
-                          }}
-                        />
+                  {/* As alocações vêm diretamente como itens em workpackage.recursos */}
+                  <RecursoDetails
+                    key={`recursos-${workpackageId}`}
+                    alocacoes={(workpackage.recursos || []).map((recurso: any) => ({
+                      userId: recurso.userId,
+                      mes: recurso.mes,
+                      ano: recurso.ano,
+                      ocupacao: typeof recurso.ocupacao === 'string' 
+                        ? recurso.ocupacao 
+                        : String(recurso.ocupacao > 1 ? recurso.ocupacao : recurso.ocupacao * 100),
+                      user: recurso.user
+                    }))}
+                    workpackage={{
+                      id: workpackageId,
+                      inicio: workpackage.inicio || new Date(),
+                      fim: workpackage.fim || new Date()
+                    }}
+                    onRemove={handleRemoveRecurso}
+                    onSaveAlocacoes={async (alocacoes) => {
+                      await Promise.all(
+                        alocacoes.map(alocacao => 
+                          addAlocacaoMutation.mutate({
+                            workpackageId,
+                            userId: alocacao.userId,
+                            mes: alocacao.mes,
+                            ano: alocacao.ano,
+                            ocupacao: Number(alocacao.ocupacao) > 1 
+                              ? Number(alocacao.ocupacao) / 100 
+                              : Number(alocacao.ocupacao)
+                          })
+                        )
                       );
-                    });
-                  })()}
-                                    </div>
+                      await refetchWorkpackage();
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Materiais */}
@@ -842,12 +753,12 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                       <MaterialForm
                         workpackageId={workpackageId}
                         onCancel={() => setAddingMaterial(false)}
-                        onSuccess={() => {
+                        onSubmit={() => {
                           setAddingMaterial(false);
                           refetchWorkpackage();
                         }}
-                          />
-                        </div>
+                      />
+                    </div>
                   )}
 
                   <Table>

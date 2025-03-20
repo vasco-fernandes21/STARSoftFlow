@@ -9,7 +9,7 @@ import { Decimal } from "decimal.js";
 import { ChevronLeft, ChevronRight, Calendar, User, Percent, Save, Plus, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { gerarMesesEntreDatas } from "@/server/api/utils";
+import { gerarMesesEntreDatas } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 
 interface FormProps {
@@ -22,6 +22,7 @@ interface FormProps {
     mes: number;
     ano: number;
     ocupacao: Decimal;
+    user?: any;
   }>) => void;
   onCancel: () => void;
   recursoEmEdicao?: {
@@ -121,16 +122,19 @@ export function Form({
           : typeof alocacao.ocupacao === 'string' 
             ? parseFloat(alocacao.ocupacao) 
             : Number(alocacao.ocupacao);
+
+        // Se a ocupação já estiver em percentagem (> 1), não multiplicar por 100
+        const ocupacaoFinal = ocupacao > 1 ? ocupacao : ocupacao * 100;
         
         novasAlocacoes.push({
           userId: recursoEmEdicao.userId,
           mes: alocacao.mes,
           ano: alocacao.ano,
-          ocupacao
+          ocupacao: ocupacaoFinal / 100 // Armazenar como decimal (0-1)
         });
         
         const chave = `${alocacao.mes}-${alocacao.ano}`;
-        novosInputValues[chave] = ocupacao.toString().replace('.', ',');
+        novosInputValues[chave] = ocupacaoFinal.toString().replace('.', ',');
       });
       
       setAlocacoes(novasAlocacoes);
@@ -232,12 +236,16 @@ export function Form({
       return;
     }
     
+    // Encontrar o utilizador selecionado
+    const userSelecionado = utilizadores.find(user => user.id === selectedUserId);
+    
     // Converter para o formato esperado pelo onAddAlocacao
     const alocacoesFormatadas = alocacoesValidas.map(a => ({
       userId: selectedUserId,
       mes: a.mes,
       ano: a.ano,
-      ocupacao: new Decimal(a.ocupacao)
+      ocupacao: new Decimal(a.ocupacao),
+      user: userSelecionado
     }));
     
     onAddAlocacao(workpackageId, alocacoesFormatadas);
@@ -277,126 +285,127 @@ export function Form({
   return (
     <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
       {/* Cabeçalho do Form */}
-      <div className="p-3 flex justify-between items-start">
-        <div className="flex items-start gap-2">
-          <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center mt-0.5">
-            <User className="h-3.5 w-3.5 text-azul" />
+      <div className="p-4 flex justify-between items-start border-b border-azul/10">
+        <div className="flex items-start gap-3">
+          <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
+            <User className="h-4 w-4 text-azul" />
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">
-              {recursoEmEdicao ? "Editar Recurso" : "Adicionar Recurso"}
+              {recursoEmEdicao ? "Editar Alocação" : "Adicionar Recurso"}
             </h5>
-            <div className="text-xs text-azul/70 mt-0.5">
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px] h-4 bg-azul/5 text-azul/80 border-azul/20">
+            <div className="text-xs text-azul/70 mt-1">
+              <Badge variant="outline" className="px-2 py-0 text-[10px] h-4 bg-azul/5 text-azul/80 border-azul/20">
                 {recursoEmEdicao ? "Edição" : "Novo"}
               </Badge>
             </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-            className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          className="h-8 w-8 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Conteúdo do Form */}
-      <div className="border-t border-azul/10 bg-azul/5 p-5">
-        {/* Seleção de utilizador */}
-        <div className="space-y-2 mb-4">
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
-              <User className="h-3 w-3 text-azul" />
+      <div className="p-6 bg-azul/5 space-y-6">
+        {/* Seleção de utilizador - só mostrar se não estiver em edição */}
+        {!recursoEmEdicao && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
+                <User className="h-3 w-3 text-azul" />
+              </div>
+              <Label htmlFor="user" className="text-xs font-medium text-azul/80">
+                Selecione um recurso
+              </Label>
             </div>
-            <Label htmlFor="user" className="text-xs font-medium text-azul/80">
-              Selecione um recurso
-            </Label>
+            <Select 
+              value={selectedUserId} 
+              onValueChange={setSelectedUserId}
+            >
+              <SelectTrigger id="user" className="w-full border-azul/20 h-10">
+                <SelectValue placeholder="Selecione um utilizador" />
+              </SelectTrigger>
+              <SelectContent>
+                {utilizadores.map(user => (
+                  <SelectItem key={user.id} value={user.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full bg-azul/10 flex items-center justify-center">
+                        <User className="h-3 w-3 text-azul" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{user.name}</span>
+                        <span className="text-xs text-azul/60">{user.regime}</span>
+                      </div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select 
-            value={selectedUserId} 
-            onValueChange={setSelectedUserId}
-            disabled={!!recursoEmEdicao}
-          >
-            <SelectTrigger id="user" className="w-full border-azul/20 h-9">
-              <SelectValue placeholder="Selecione um utilizador" />
-            </SelectTrigger>
-            <SelectContent>
-              {utilizadores.map(user => (
-                <SelectItem key={user.id} value={user.id}>
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full bg-azul/10 flex items-center justify-center">
-                      <User className="h-3 w-3 text-azul" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span>{user.name}</span>
-                      <span className="text-xs text-azul/60">{user.regime}</span>
-                    </div>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        )}
 
-        {selectedUserId && (
+        {/* Mostrar o resto do conteúdo apenas se houver um utilizador selecionado ou estiver em edição */}
+        {(selectedUserId || recursoEmEdicao) && (
           <>
             {/* Preencher todos */}
-            <div className="flex items-center gap-2 p-3 bg-white/70 rounded-lg border border-azul/10 mb-4">
-              <div className="flex items-center gap-1.5">
+            <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-3">
+              <div className="flex items-center gap-2">
                 <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
                   <Percent className="h-3 w-3 text-azul" />
                 </div>
-                <Label htmlFor="preencherTodos" className="text-xs font-medium text-azul/80 whitespace-nowrap">
-                  Preencher todos:
+                <Label htmlFor="preencherTodos" className="text-xs font-medium text-azul/80">
+                  Preencher todos os meses
                 </Label>
               </div>
-              <div className="flex items-center gap-2 flex-1">
+              <div className="flex items-center gap-3">
                 <Input
                   id="preencherTodos"
                   type="text"
                   value={preencherTodosValue}
                   onChange={(e) => setPreencherTodosValue(e.target.value)}
                   onKeyDown={validarEntrada}
-                  className="h-8 text-center w-16"
+                  className="h-9 text-center w-20 border-azul/20"
                   placeholder="0,5"
                 />
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handlePreencherTodos}
-                  className="h-8 ml-auto text-xs"
+                  className="h-9 px-4"
                 >
-                  Aplicar
+                  Aplicar a todos
                 </Button>
               </div>
             </div>
 
             {/* Alocações por mês */}
-            <div className="mb-4">
-              <Tabs defaultValue={anosDisponiveis[0]?.toString()}>
-                <div className="flex items-center mb-3">
-                  <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center mr-2">
-                    <Calendar className="h-3 w-3 text-azul" />
-                  </div>
-                  <span className="text-xs font-medium text-azul/80 mr-4">Anos</span>
-                  <TabsList className="h-8">
-                    {anosDisponiveis.map(ano => (
-                      <TabsTrigger key={ano} value={ano.toString()} className="text-xs px-3">
-                        {ano}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
+                  <Calendar className="h-3 w-3 text-azul" />
                 </div>
+                <span className="text-xs font-medium text-azul/80">Alocações mensais</span>
+              </div>
+
+              <Tabs defaultValue={anosDisponiveis[0]?.toString()} className="bg-white rounded-lg p-4 border border-azul/10">
+                <TabsList className="h-8 mb-4">
+                  {anosDisponiveis.map(ano => (
+                    <TabsTrigger key={ano} value={ano.toString()} className="text-xs px-3">
+                      {ano}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
                 {anosDisponiveis.map(ano => (
                   <TabsContent key={ano} value={ano.toString()} className="mt-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                       {mesesDisponiveis
                         .filter(mes => mes.ano === ano)
                         .map(mes => {
@@ -504,40 +513,49 @@ export function Form({
               </Tabs>
             </div>
             
-            {/* Adicionar legenda */}
-            <div className="mt-4 flex flex-wrap gap-3 text-xs text-azul/60">
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-azul/30" />
-                <span>Ocupação total (todos os projetos)</span>
+            {/* Legenda */}
+            <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
+                  <Briefcase className="h-3 w-3 text-azul" />
+                </div>
+                <h6 className="text-xs font-medium text-azul/80">Legenda</h6>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-red-400" />
-                <span>Sobre-alocação (&gt;100%)</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-amber-400" />
-                <span>Próximo do limite (&gt;80%)</span>
+              
+              <div className="flex flex-wrap gap-4 text-xs text-azul/60">
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full bg-azul/30" />
+                  <span>Ocupação total</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
+                  <span>Sobre-alocação</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  <span>Próximo do limite</span>
+                </div>
               </div>
             </div>
             
             {/* Estatísticas */}
-            <div className="mt-6 bg-white/70 rounded-lg p-3 border border-azul/10">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-4">
+              <div className="flex items-center gap-2">
                 <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
                   <Briefcase className="h-3 w-3 text-azul" />
                 </div>
                 <h6 className="text-xs font-medium text-azul/80">Estatísticas de Ocupação</h6>
               </div>
               
-              <div className="space-y-3 mt-3">
-                <div className="group">
+              <div className="space-y-4">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-azul/70">Meses alocados</span>
                     <span className="text-azul font-medium">
                       {alocacoes.filter(a => a.ocupacao > 0).length}/{mesesDisponiveis.length}
                     </span>
                   </div>
-                  <div className="mt-1.5 h-1.5 bg-azul/5 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-azul/5 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-azul/50 rounded-full transition-all duration-500"
                       style={{ width: `${(alocacoes.filter(a => a.ocupacao > 0).length / mesesDisponiveis.length) * 100}%` }}
@@ -545,7 +563,7 @@ export function Form({
                   </div>
                 </div>
                 
-                <div className="group">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-azul/70">Ocupação média</span>
                     <span className="text-azul font-medium">
@@ -553,7 +571,7 @@ export function Form({
                        Math.max(1, alocacoes.filter(a => a.ocupacao > 0).length) * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="mt-1.5 h-1.5 bg-azul/5 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-azul/5 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-azul/50 rounded-full transition-all duration-500"
                       style={{ width: `${Math.min(100, alocacoes.reduce((acc, curr) => acc + curr.ocupacao, 0) / 
@@ -565,27 +583,27 @@ export function Form({
             </div>
             
             {/* Botões de ação */}
-            <div className="flex justify-end gap-2 mt-6">
+            <div className="flex justify-end gap-3 pt-2">
               <Button
                 variant="outline"
                 onClick={onCancel}
-                className="h-9 rounded-lg"
+                className="h-10 px-4 rounded-lg"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleAddAlocacao}
-                className="h-9 rounded-lg bg-azul hover:bg-azul/90"
+                className="h-10 px-4 rounded-lg bg-azul hover:bg-azul/90"
               >
                 {recursoEmEdicao ? (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    Guardar
+                    Guardar Alterações
                   </>
                 ) : (
                   <>
                     <Plus className="h-4 w-4 mr-2" />
-                    Adicionar
+                    Adicionar Recurso
                   </>
                 )}
               </Button>

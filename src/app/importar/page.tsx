@@ -453,8 +453,6 @@ function ImportarExcelContent() {
     
     workpackages.forEach(wp => {
       const wpId = crypto.randomUUID();
-      
-      // Verificar se state.id existe e fornecer um valor padrão se não existir
       const projetoId = state.id || crypto.randomUUID();
       
       dispatch({
@@ -473,20 +471,34 @@ function ImportarExcelContent() {
         }
       });
       
-      wp.recursos.forEach(recurso => {
-        recurso.alocacoes.forEach(alocacao => {
-          const userId = "1";
-          
+      // Agrupar alocações por utilizador
+      const alocacoesPorUser = wp.recursos.reduce((acc, recurso) => {
+        // Aqui vais precisar de mapear o nome do recurso para o userId correto
+        const userId = "1"; // Substitui isto pela lógica de mapeamento correta
+        
+        if (!acc[userId]) {
+          acc[userId] = [];
+        }
+        
+        // Adicionar todas as alocações deste recurso
+        acc[userId].push(...recurso.alocacoes.map(alocacao => ({
+          userId,
+          mes: alocacao.mes,
+          ano: alocacao.ano,
+          ocupacao: new Decimal(alocacao.percentagem / 100),
+          workpackageId: wpId
+        })));
+        
+        return acc;
+      }, {} as Record<string, any[]>);
+      
+      // Adicionar todas as alocações para cada utilizador
+      Object.values(alocacoesPorUser).forEach(alocacoes => {
+        alocacoes.forEach(alocacao => {
           dispatch({
             type: "ADD_ALOCACAO",
             workpackageId: wpId,
-            alocacao: {
-              userId,
-              mes: alocacao.mes,
-              ano: alocacao.ano,
-              ocupacao: new Decimal(alocacao.percentagem / 100),
-              workpackageId: wpId
-            }
+            alocacao
           });
         });
       });
