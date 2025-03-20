@@ -43,6 +43,7 @@ import { Item as RecursoItem } from "@/components/projetos/criar/novo/recursos/i
 import { MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
 import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
+import { Details } from "@/components/projetos/criar/novo/recursos/details";
 
 type WorkpackageWithRelations = Prisma.WorkpackageGetPayload<{
   include: {
@@ -424,6 +425,47 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
     });
   };
 
+  // Função para remover todas as alocações de um recurso
+  const handleRemoveRecurso = async (userId: string) => {
+    try {
+      const recurso = workpackage.recursos?.find(r => r.userId === userId);
+      if (!recurso) return;
+      
+      // Obter todas as alocações do recurso, se existirem
+      const alocacoes = workpackage.recursos
+        .filter(r => r.userId === userId)
+        .flatMap(r => {
+          // Verificar se o recurso tem a propriedade alocacoes
+          if ('alocacoes' in r && Array.isArray(r.alocacoes)) {
+            return r.alocacoes.map(a => ({
+              mes: a.mes,
+              ano: a.ano
+            }));
+          }
+          return [];
+        });
+      
+      // Remover todas as alocações do recurso
+      if (alocacoes.length > 0) {
+        await Promise.all(
+          alocacoes.map(({mes, ano}) => 
+            removeAlocacaoMutation.mutate({
+              workpackageId,
+              userId,
+              mes,
+              ano
+            })
+          )
+        );
+      }
+      
+      toast.success("Recurso removido com sucesso");
+      await refetchWorkpackage();
+    } catch (error) {
+      toast.error("Erro ao remover recurso");
+    }
+  };
+
   // Atualizar o handleMaterialValueChange para não enviar para a API imediatamente
   const handleMaterialValueChange = (
     materialId: string,
@@ -697,34 +739,85 @@ export function MenuWorkpackage({ workpackageId, open, onClose, startDate, endDa
                     </div>
                   )}
 
-                  {workpackage.recursos?.map((recurso) => {
-                    if (!recurso) return null;
-
-                    const alocacoesPorAnoMes = agruparAlocacoesPorAnoMes(recurso.alocacoes);
-                    const isExpanded = expandedRecursos[recurso.userId] || false;
-
-                    return (
-                      <RecursoItem
-                        key={recurso.id || `${recurso.userId}-${workpackageId}`}
-                        recurso={{
-                          userId: recurso.user.id,
-                          alocacoes: recurso.alocacoes || []
-                        }}
-                        userId={recurso.userId}
-                        membroEquipa={recurso.user}
-                        isExpanded={isExpanded}
-                        workpackageId={workpackageId}
-                        onToggleExpand={() => setExpandedRecursos(prev => ({
-                          ...prev,
-                          [recurso.userId]: !isExpanded
-                        }))}
-                        onEdit={() => {}}
-                        onRemove={() => {}}
-                        formatarDataSegura={formatarDataSegura}
-                        alocacoesPorAnoMes={alocacoesPorAnoMes}
-                      />
-                    );
-                  })}
+                  {/* Agrupar recursos por userId para evitar duplicação */}
+                  {(() => {
+                    // Criar um mapa para agrupar recursos pelo userId
+                    const recursosAgrupados = new Map();
+                    
+                    // Agrupar recursos pelo userId
+                    workpackage.recursos?.forEach(recurso => {
+                      if (!recurso) return;
+                      
+                      if (!recursosAgrupados.has(recurso.userId)) {
+                        recursosAgrupados.set(recurso.userId, {
+                          userId: recurso.userId,
+                          user: recurso.user,
+                          alocacoes: []
+                        });
+                      }
+                      
+                      // Adicionar alocações ao recurso agrupado
+                      if ('alocacoes' in recurso && Array.isArray(recurso.alocacoes)) {
+                        const recursoAgrupado = recursosAgrupados.get(recurso.userId);
+                        recursoAgrupado.alocacoes = [
+                          ...recursoAgrupado.alocacoes,
+                          ...recurso.alocacoes
+                        ];
+                      }
+                    });
+                    
+                    // Converter mapa para array e renderizar
+                    return Array.from(recursosAgrupados.values()).map(recurso => {
+                      const alocacoesPorAnoMes = agruparAlocacoesPorAnoMes(recurso.alocacoes);
+                      const isExpanded = expandedRecursos[recurso.userId] || false;
+                      
+                      return (
+                        <Details
+                          key={`${recurso.userId}-${workpackageId}`}
+                          userId={recurso.userId}
+                          recurso={{
+                            userId: recurso.userId,
+                            alocacoes: recurso.alocacoes || []
+                          }}
+                          membroEquipa={recurso.user}
+                          isExpanded={isExpanded}
+                          workpackageId={workpackageId}
+                          onToggleExpand={() => {
+                            setExpandedRecursos(prev => ({
+                              ...prev,
+                              [recurso.userId]: !isExpanded
+                            }));
+                          }}
+                          onEdit={() => {
+                            // Lógica adicional se necessário
+                          }}
+                          onRemove={() => {
+                            handleRemoveRecurso(recurso.userId);
+                          }}
+                          formatarDataSegura={formatarDataSegura}
+                          alocacoesPorAnoMes={alocacoesPorAnoMes}
+                          utilizadores={utilizadores?.data || []}
+                          inicio={workpackage.inicio || new Date()}
+                          fim={workpackage.fim || new Date()}
+                          onSaveEdit={(workpackageId, alocacoes) => {
+                            Promise.all(
+                              alocacoes.map(alocacao => 
+                                addAlocacaoMutation.mutate({
+                                  workpackageId,
+                                  userId: alocacao.userId,
+                                  mes: alocacao.mes,
+                                  ano: alocacao.ano,
+                                  ocupacao: Number(alocacao.ocupacao)
+                                })
+                              )
+                            ).then(() => {
+                              refetchWorkpackage();
+                            });
+                          }}
+                        />
+                      );
+                    });
+                  })()}
                                     </div>
               </div>
 
