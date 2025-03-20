@@ -305,6 +305,7 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
         isLastStep={true}
         isSubmitting={isSubmitting}
         isSubmitDisabled={!isProjetoValido}
+        className="pt-4 border-t border-azul/10"
       />
     </div>
   );

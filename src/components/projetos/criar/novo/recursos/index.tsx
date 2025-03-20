@@ -217,8 +217,8 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[calc(100vh-4rem)]">
-      <div className="flex-1 flex">
+    <div className="flex flex-col">
+      <div className="flex">
         {/* Painel lateral de seleção de workpackage */}
         <div className="w-72 border-r border-azul/10 bg-white/90 p-4">
           <div className="mb-4 flex items-center">
@@ -227,7 +227,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
           </div>
           
           {hasWorkpackages ? (
-            <ScrollArea className="h-[calc(100vh-10rem)]">
+            <ScrollArea className="h-[600px]">
               <div className="space-y-1">
                 {state.workpackages?.map(wp => (
                   <div 
@@ -354,116 +354,118 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
               </div>
               
               {/* Conteúdo principal */}
-              <div className="flex-1 overflow-hidden">
-                {/* Formulário para adicionar novo recurso */}
-                {addingRecurso && !editingRecursoId && selectedWorkpackage && (
-                  <div className="border-b border-azul/10 bg-slate-50 sticky top-[57px] z-10">
-                    <Form 
-                      workpackageId={selectedWorkpackage.id}
-                      inicio={selectedWorkpackage.inicio ? new Date(selectedWorkpackage.inicio) : new Date()}
-                      fim={selectedWorkpackage.fim ? new Date(selectedWorkpackage.fim) : new Date(new Date().setMonth(new Date().getMonth() + 6))}
-                      utilizadores={membrosEquipa.map((u): { id: string; name: string; email: string; regime: string } => ({
-                        id: u.id,
-                        name: u.name || "",
-                        email: u.email || "",
-                        regime: u.regime as string
-                      }))}
-                      onAddAlocacao={handleAddAlocacao}
-                      onCancel={() => {
-                        setAddingRecurso(false);
-                        setRecursoEmEdicao(null);
-                      }}
-                      recursoEmEdicao={null}
-                    />
-                  </div>
-                )}
-                
+              <div className="flex-1">
                 {/* Lista de recursos */}
-                <ScrollArea className="h-[calc(100vh-12rem)]">
-                  {Object.entries(recursosAgrupados).length > 0 ? (
-                    <div className="p-4">
-                      {/* Cabeçalho da tabela */}
-                      <div className="bg-azul/5 py-3 px-4 rounded-t-lg border border-azul/10 mb-1 hidden md:flex">
-                        <div className="flex-1 text-xs font-medium text-azul/70">Recurso</div>
-                        <div className="flex-[2] text-xs font-medium text-azul/70">Alocações</div>
-                        <div className="flex-none w-24 text-xs font-medium text-azul/70 text-right">Ações</div>
+                <ScrollArea className="h-[600px]">
+                  <div className="p-4 space-y-3">
+                    {/* Formulário para adicionar novo recurso */}
+                    {addingRecurso && !editingRecursoId && selectedWorkpackage && (
+                      <div className="mb-4">
+                        <Form 
+                          workpackageId={selectedWorkpackage.id}
+                          inicio={selectedWorkpackage.inicio ? new Date(selectedWorkpackage.inicio) : new Date()}
+                          fim={selectedWorkpackage.fim ? new Date(selectedWorkpackage.fim) : new Date(new Date().setMonth(new Date().getMonth() + 6))}
+                          utilizadores={membrosEquipa.map((u): { id: string; name: string; email: string; regime: string } => ({
+                            id: u.id,
+                            name: u.name || "",
+                            email: u.email || "",
+                            regime: u.regime as string
+                          }))}
+                          onAddAlocacao={handleAddAlocacao}
+                          onCancel={() => {
+                            setAddingRecurso(false);
+                            setRecursoEmEdicao(null);
+                          }}
+                          recursoEmEdicao={null}
+                        />
                       </div>
-                      
-                      {/* Linhas de recursos */}
-                      <div className="space-y-1">
-                        {Object.entries(recursosAgrupados).map(([userId, recurso]) => {
-                          const membroEquipa = membrosEquipa.find((u: MembroEquipa) => u.id === userId);
-                          const isExpanded = expandedRecursoId === userId;
-                          const isEditing = editingRecursoId === userId;
-                          const alocacoesPorAnoMes = getAlocacoesPorAnoMes(recurso.alocacoes);
-                          
-                          return (
-                            <Details
-                              key={userId}
-                              userId={userId}
-                              recurso={recurso}
-                              membroEquipa={membroEquipa}
-                              isExpanded={isExpanded}
-                              workpackageId={selectedWorkpackage?.id ?? ""}
-                              onToggleExpand={() => {
-                                if (isEditing) return; // Não permitir expandir durante edição
-                                if (expandedRecursoId === userId) {
+                    )}
+                    
+                    {Object.entries(recursosAgrupados).length > 0 ? (
+                      <>
+                        {/* Cabeçalho da tabela */}
+                        <div className="bg-azul/5 py-3 px-4 rounded-t-lg border border-azul/10 mb-1 hidden md:flex">
+                          <div className="flex-1 text-xs font-medium text-azul/70">Recurso</div>
+                          <div className="flex-[2] text-xs font-medium text-azul/70">Alocações</div>
+                          <div className="flex-none w-24 text-xs font-medium text-azul/70 text-right">Ações</div>
+                        </div>
+                        
+                        {/* Linhas de recursos */}
+                        <div className="space-y-3">
+                          {Object.entries(recursosAgrupados).map(([userId, recurso]) => {
+                            const membroEquipa = membrosEquipa.find((u: MembroEquipa) => u.id === userId);
+                            const isExpanded = expandedRecursoId === userId;
+                            const isEditing = editingRecursoId === userId;
+                            const alocacoesPorAnoMes = getAlocacoesPorAnoMes(recurso.alocacoes);
+                            
+                            return (
+                              <Details
+                                key={userId}
+                                userId={userId}
+                                recurso={recurso}
+                                membroEquipa={membroEquipa}
+                                isExpanded={isExpanded}
+                                workpackageId={selectedWorkpackage?.id ?? ""}
+                                onToggleExpand={() => {
+                                  if (isEditing) return; // Não permitir expandir durante edição
+                                  if (expandedRecursoId === userId) {
+                                    setExpandedRecursoId(null);
+                                  } else {
+                                    setExpandedRecursoId(userId);
+                                  }
+                                }}
+                                onEdit={() => {
+                                  setRecursoEmEdicao(recurso);
+                                  setEditingRecursoId(userId);
                                   setExpandedRecursoId(null);
-                                } else {
-                                  setExpandedRecursoId(userId);
-                                }
-                              }}
-                              onEdit={() => {
-                                setRecursoEmEdicao(recurso);
-                                setEditingRecursoId(userId);
-                                setExpandedRecursoId(null);
-                              }}
-                              onRemove={() => {
-                                if (selectedWorkpackage) {
-                                  handleRemoveRecurso(selectedWorkpackage.id, userId, recurso.alocacoes);
-                                }
-                              }}
-                              formatarDataSegura={formatarDataSegura}
-                              alocacoesPorAnoMes={alocacoesPorAnoMes}
-                              isEditing={isEditing}
-                              onCancelEdit={() => {
-                                setEditingRecursoId(null);
-                                setRecursoEmEdicao(null);
-                              }}
-                              onSaveEdit={handleAddAlocacao}
-                              utilizadores={membrosEquipa.map((u): { id: string; name: string; email: string; regime: string } => ({
-                                id: u.id,
-                                name: u.name || "",
-                                email: u.email || "",
-                                regime: u.regime as string
-                              }))}
-                              inicio={selectedWorkpackage?.inicio ? new Date(selectedWorkpackage.inicio) : new Date()}
-                              fim={selectedWorkpackage?.fim ? new Date(selectedWorkpackage.fim) : new Date(new Date().setMonth(new Date().getMonth() + 6))}
-                            />
-                          );
-                        })}
+                                }}
+                                onRemove={() => {
+                                  if (selectedWorkpackage) {
+                                    handleRemoveRecurso(selectedWorkpackage.id, userId, recurso.alocacoes);
+                                  }
+                                }}
+                                formatarDataSegura={formatarDataSegura}
+                                alocacoesPorAnoMes={alocacoesPorAnoMes}
+                                isEditing={isEditing}
+                                onCancelEdit={() => {
+                                  setEditingRecursoId(null);
+                                  setRecursoEmEdicao(null);
+                                }}
+                                onSaveEdit={handleAddAlocacao}
+                                utilizadores={membrosEquipa.map((u): { id: string; name: string; email: string; regime: string } => ({
+                                  id: u.id,
+                                  name: u.name || "",
+                                  email: u.email || "",
+                                  regime: u.regime as string
+                                }))}
+                                inicio={selectedWorkpackage?.inicio ? new Date(selectedWorkpackage.inicio) : new Date()}
+                                fim={selectedWorkpackage?.fim ? new Date(selectedWorkpackage.fim) : new Date(new Date().setMonth(new Date().getMonth() + 6))}
+                              />
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+                        {!addingRecurso && (
+                          <>
+                            <Users className="h-12 w-12 text-azul/30 mb-4" />
+                            <p className="text-azul/60 mb-6 max-w-md">
+                              Este workpackage ainda não tem recursos alocados. 
+                              Clique em "Adicionar Recurso" para começar.
+                            </p>
+                            <Button
+                              onClick={() => setAddingRecurso(true)}
+                              className="bg-azul text-white hover:bg-azul/90 rounded-lg"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Adicionar Recurso
+                            </Button>
+                          </>
+                        )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
-                      {!addingRecurso && (
-                        <>
-                          <Users className="h-12 w-12 text-azul/30 mb-4" />
-                          <p className="text-azul/60 mb-6 max-w-md">
-                            Este workpackage ainda não tem recursos alocados. 
-                            Clique em "Adicionar Recurso" para começar.
-                          </p>
-                          <Button
-                            onClick={() => setAddingRecurso(true)}
-                            className="bg-azul text-white hover:bg-azul/90 rounded-lg"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Adicionar Recurso
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </ScrollArea>
               </div>
             </>
@@ -472,14 +474,14 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
       </div>
 
       {/* Navegação entre etapas */}
-      <div className="border-t border-azul/10 bg-white/80 backdrop-blur-sm mt-auto">
+      <div className="border-t border-azul/10 bg-white/80 backdrop-blur-sm">
         <TabNavigation
           onBack={onNavigateBack}
           onNext={onNavigateForward}
           isNextDisabled={!isValid}
           nextLabel="Avançar para Orçamento"
           backLabel="Voltar para Workpackages"
-          className="max-w-screen-2xl mx-auto px-6"
+          className="pt-4"
         />
       </div>
     </div>

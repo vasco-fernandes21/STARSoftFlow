@@ -108,6 +108,8 @@ export function Details({
       onToggleExpand={onToggleExpand}
       onEdit={onEdit}
       onRemove={onRemove}
+      inicio={inicio}
+      fim={fim}
     />
   );
 } 

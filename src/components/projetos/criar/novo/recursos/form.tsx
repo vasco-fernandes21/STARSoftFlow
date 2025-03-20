@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Decimal } from "decimal.js";
-import { ChevronLeft, ChevronRight, Calendar, User, Percent, Save, Plus, Briefcase } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, User, Percent, Save, Plus, Briefcase, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gerarMesesEntreDatas } from "@/lib/utils";
@@ -123,18 +123,19 @@ export function Form({
             ? parseFloat(alocacao.ocupacao) 
             : Number(alocacao.ocupacao);
 
-        // Se a ocupação já estiver em percentagem (> 1), não multiplicar por 100
-        const ocupacaoFinal = ocupacao > 1 ? ocupacao : ocupacao * 100;
+        // Garantir que o valor está entre 0 e 1
+        const ocupacaoFinal = ocupacao > 1 ? ocupacao / 100 : ocupacao;
         
         novasAlocacoes.push({
           userId: recursoEmEdicao.userId,
           mes: alocacao.mes,
           ano: alocacao.ano,
-          ocupacao: ocupacaoFinal / 100 // Armazenar como decimal (0-1)
+          ocupacao: ocupacaoFinal // Armazenar como decimal (0-1)
         });
         
         const chave = `${alocacao.mes}-${alocacao.ano}`;
-        novosInputValues[chave] = ocupacaoFinal.toString().replace('.', ',');
+        // Formatar com 2 casas decimais
+        novosInputValues[chave] = ocupacaoFinal.toFixed(2).replace('.', ',');
       });
       
       setAlocacoes(novasAlocacoes);
@@ -142,10 +143,67 @@ export function Form({
     }
   }, [recursoEmEdicao]);
   
+  // Validar entrada apenas com números, vírgulas e pontos
+  const validarEntrada = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Teclas de navegação e edição sempre permitidas
+    const teclasSistema = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+    
+    // Se for tecla de sistema, sempre permitir
+    if (teclasSistema.includes(e.key)) {
+      return;
+    }
+    
+    // Números, vírgulas e pontos
+    const caracteresPermitidos = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '.'];
+    
+    // Se não for caracter permitido, bloquear
+    if (!caracteresPermitidos.includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Se for o primeiro caractere, só permitir 0 ou 1
+    if (e.currentTarget.value.length === 0 && !['0', '1'].includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Se já tiver o primeiro dígito e não for vírgula ou ponto, bloquear segundo dígito
+    if (e.currentTarget.value.length === 1 && !/^[01]$/.test(e.currentTarget.value) && !['0', '1', ',', '.'].includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+  };
+  
   // Manipular alteração de ocupação
   const handleOcupacaoChange = (mes: number, ano: number, valor: string) => {
     const chave = `${mes}-${ano}`;
+    
+    // Sempre atualizar o valor de exibição do input, independentemente do valor
     setInputValues(prev => ({ ...prev, [chave]: valor }));
+    
+    // Se for vazio, remover a alocação e retornar
+    if (valor === "") {
+      setAlocacoes(prev => 
+        prev.filter(a => !(a.userId === selectedUserId && a.mes === mes && a.ano === ano))
+      );
+      return;
+    }
+    
+    // Validar o valor antes de atualizar
+    const valorNormalizado = valor.replace(',', '.');
+    const num = parseFloat(valorNormalizado);
+    
+    // Se não for um número válido, não atualizar a alocação mas manter o texto no input
+    if (isNaN(num)) {
+      return;
+    }
+    
+    // Se o valor for maior que 1, limitar a 1
+    if (num > 1) {
+      setInputValues(prev => ({ ...prev, [chave]: "1,00" }));
+    } 
+    // Nota: Removemos a formatação automática aqui para permitir edição completa
     
     // Converter valor
     const ocupacao = parseValorOcupacao(valor);
@@ -193,7 +251,10 @@ export function Form({
     
     mesesDisponiveis.forEach(mes => {
       const chave = `${mes.mesNumero}-${mes.ano}`;
-      novosInputValues[chave] = preencherTodosValue;
+      // Formatar com 2 casas decimais
+      novosInputValues[chave] = typeof ocupacao === 'number' ? 
+        ocupacao.toFixed(2).replace('.', ',') : 
+        "0,00";
       
       novasAlocacoes.push({
         userId: selectedUserId,
@@ -251,54 +312,64 @@ export function Form({
     onAddAlocacao(workpackageId, alocacoesFormatadas);
   };
   
-  // Validar entrada apenas com números, vírgulas e pontos
-  const validarEntrada = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const permitidos = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '.', 'Backspace', 'ArrowLeft', 'ArrowRight', 'Tab', 'Delete'];
-    if (!permitidos.includes(e.key)) {
-      e.preventDefault();
-    }
-  };
-  
   // Atualizar a função que calcula a ocupação total
   const calcularOcupacoes = (mes: number, ano: number) => {
-    const ocupacaoAtual = getOcupacao(mes, ano);
+    const ocupacaoAtual = getOcupacao(mes, ano) * 100; // Converter para percentagem
     const dadosMes = ocupacoesMensais.find(o => o.mes === mes) || {
       ocupacaoAprovada: 0,
       ocupacaoPendente: 0
     };
 
+    // Multiplicar valores por 100 para converter em percentagem
     return {
       atual: ocupacaoAtual,
-      aprovada: dadosMes.ocupacaoAprovada,
-      pendente: dadosMes.ocupacaoPendente,
-      total: ocupacaoAtual + dadosMes.ocupacaoAprovada + dadosMes.ocupacaoPendente
+      aprovada: dadosMes.ocupacaoAprovada * 100,
+      pendente: dadosMes.ocupacaoPendente * 100,
+      total: ocupacaoAtual + (dadosMes.ocupacaoAprovada * 100) + (dadosMes.ocupacaoPendente * 100)
     };
   };
 
   // Função para determinar o status da ocupação
   const getOcupacaoStatus = (ocupacaoTotal: number) => {
-    if (ocupacaoTotal > 1) return "sobre-alocado";
-    if (ocupacaoTotal >= 0.8) return "limite";
+    if (ocupacaoTotal > 100) return "sobre-alocado";
+    if (ocupacaoTotal >= 80) return "limite";
     return "normal";
+  };
+
+  // Formatar o valor ao perder o foco
+  const handleInputBlur = (mes: number, ano: number) => {
+    const chave = `${mes}-${ano}`;
+    const valorAtual = inputValues[chave];
+    
+    // Se estiver vazio, não fazer nada
+    if (!valorAtual) return;
+    
+    // Validar e formatar o valor
+    const valorNormalizado = valorAtual.replace(',', '.');
+    const num = parseFloat(valorNormalizado);
+    
+    if (!isNaN(num)) {
+      // Formatar com 2 casas decimais
+      const valorFormatado = (num > 1 ? 1 : num).toFixed(2).replace('.', ',');
+      setInputValues(prev => ({ ...prev, [chave]: valorFormatado }));
+    }
   };
 
   return (
     <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
       {/* Cabeçalho do Form */}
-      <div className="p-4 flex justify-between items-start border-b border-azul/10">
-        <div className="flex items-start gap-3">
-          <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
-            <User className="h-4 w-4 text-azul" />
+      <div className="p-3 flex justify-between items-center border-b border-azul/10">
+        <div className="flex items-center gap-3">
+          <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center">
+            <User className="h-3.5 w-3.5 text-azul" />
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">
               {recursoEmEdicao ? "Editar Alocação" : "Adicionar Recurso"}
             </h5>
-            <div className="text-xs text-azul/70 mt-1">
-              <Badge variant="outline" className="px-2 py-0 text-[10px] h-4 bg-azul/5 text-azul/80 border-azul/20">
-                {recursoEmEdicao ? "Edição" : "Novo"}
-              </Badge>
-            </div>
+            <Badge variant="outline" className="px-1 py-0 text-[10px] h-4 bg-azul/5 text-azul/80 border-azul/20">
+              {recursoEmEdicao ? "Edição" : "Novo"}
+            </Badge>
           </div>
         </div>
         
@@ -306,17 +377,17 @@ export function Form({
           variant="ghost"
           size="sm"
           onClick={onCancel}
-          className="h-8 w-8 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
+          className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </Button>
       </div>
 
       {/* Conteúdo do Form */}
-      <div className="p-6 bg-azul/5 space-y-6">
+      <div className="p-4 bg-azul/5 space-y-4">
         {/* Seleção de utilizador - só mostrar se não estiver em edição */}
         {!recursoEmEdicao && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
                 <User className="h-3 w-3 text-azul" />
@@ -329,7 +400,7 @@ export function Form({
               value={selectedUserId} 
               onValueChange={setSelectedUserId}
             >
-              <SelectTrigger id="user" className="w-full border-azul/20 h-10">
+              <SelectTrigger id="user" className="w-full border-azul/20 h-9">
                 <SelectValue placeholder="Selecione um utilizador" />
               </SelectTrigger>
               <SelectContent>
@@ -354,39 +425,8 @@ export function Form({
         {/* Mostrar o resto do conteúdo apenas se houver um utilizador selecionado ou estiver em edição */}
         {(selectedUserId || recursoEmEdicao) && (
           <>
-            {/* Preencher todos */}
-            <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
-                  <Percent className="h-3 w-3 text-azul" />
-                </div>
-                <Label htmlFor="preencherTodos" className="text-xs font-medium text-azul/80">
-                  Preencher todos os meses
-                </Label>
-              </div>
-              <div className="flex items-center gap-3">
-                <Input
-                  id="preencherTodos"
-                  type="text"
-                  value={preencherTodosValue}
-                  onChange={(e) => setPreencherTodosValue(e.target.value)}
-                  onKeyDown={validarEntrada}
-                  className="h-9 text-center w-20 border-azul/20"
-                  placeholder="0,5"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handlePreencherTodos}
-                  className="h-9 px-4"
-                >
-                  Aplicar a todos
-                </Button>
-              </div>
-            </div>
-
             {/* Alocações por mês */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
                   <Calendar className="h-3 w-3 text-azul" />
@@ -394,18 +434,39 @@ export function Form({
                 <span className="text-xs font-medium text-azul/80">Alocações mensais</span>
               </div>
 
-              <Tabs defaultValue={anosDisponiveis[0]?.toString()} className="bg-white rounded-lg p-4 border border-azul/10">
-                <TabsList className="h-8 mb-4">
-                  {anosDisponiveis.map(ano => (
-                    <TabsTrigger key={ano} value={ano.toString()} className="text-xs px-3">
-                      {ano}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              <Tabs defaultValue={anosDisponiveis[0]?.toString()} className="bg-white rounded-lg p-3 border border-azul/10">
+                <div className="flex items-center justify-between mb-3">
+                  <TabsList className="h-8">
+                    {anosDisponiveis.map(ano => (
+                      <TabsTrigger key={ano} value={ano.toString()} className="text-xs px-3">
+                        {ano}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      value={preencherTodosValue}
+                      onChange={(e) => setPreencherTodosValue(e.target.value)}
+                      onKeyDown={validarEntrada}
+                      className="h-8 text-center w-16 border-azul/20 text-xs"
+                      placeholder="0,5"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handlePreencherTodos}
+                      className="h-8 px-2 text-xs"
+                    >
+                      Aplicar a todos
+                    </Button>
+                  </div>
+                </div>
 
                 {anosDisponiveis.map(ano => (
-                  <TabsContent key={ano} value={ano.toString()} className="mt-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  <TabsContent key={ano} value={ano.toString()} className="mt-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                       {mesesDisponiveis
                         .filter(mes => mes.ano === ano)
                         .map(mes => {
@@ -427,18 +488,22 @@ export function Form({
                               progress: "bg-amber-400"
                             },
                             "normal": {
-                              bg: ocupacoes.atual >= 0.8 ? "bg-green-50" : 
-                                  ocupacoes.atual >= 0.5 ? "bg-blue-50" : 
-                                  ocupacoes.atual >= 0.3 ? "bg-amber-50" : "bg-gray-50",
-                              text: ocupacoes.atual >= 0.8 ? "text-green-600" :
-                                    ocupacoes.atual >= 0.5 ? "text-blue-600" :
-                                    ocupacoes.atual >= 0.3 ? "text-amber-600" : "text-gray-600",
-                              border: ocupacoes.atual >= 0.8 ? "border-green-100" :
-                                      ocupacoes.atual >= 0.5 ? "border-blue-100" :
-                                      ocupacoes.atual >= 0.3 ? "border-amber-100" : "border-gray-200",
-                              progress: ocupacoes.atual >= 0.8 ? "bg-green-400" :
-                                        ocupacoes.atual >= 0.5 ? "bg-blue-400" :
-                                        ocupacoes.atual >= 0.3 ? "bg-amber-400" : "bg-gray-200"
+                              bg: ocupacoes.atual > 100 ? "bg-red-50" :
+                                  ocupacoes.atual >= 80 ? "bg-green-50" : 
+                                  ocupacoes.atual >= 50 ? "bg-blue-50" : 
+                                  ocupacoes.atual >= 1 ? "bg-amber-50" : "bg-gray-50",
+                              text: ocupacoes.atual > 100 ? "text-red-600" :
+                                    ocupacoes.atual >= 80 ? "text-green-600" :
+                                    ocupacoes.atual >= 50 ? "text-blue-600" :
+                                    ocupacoes.atual >= 1 ? "text-amber-600" : "text-gray-600",
+                              border: ocupacoes.atual > 100 ? "border-red-100" :
+                                      ocupacoes.atual >= 80 ? "border-green-100" :
+                                      ocupacoes.atual >= 50 ? "border-blue-100" :
+                                      ocupacoes.atual >= 1 ? "border-amber-100" : "border-gray-200",
+                              progress: ocupacoes.atual > 100 ? "bg-red-400" :
+                                        ocupacoes.atual >= 80 ? "bg-green-400" :
+                                        ocupacoes.atual >= 50 ? "bg-blue-400" :
+                                        ocupacoes.atual >= 1 ? "bg-amber-400" : "bg-gray-200"
                             }
                           }[status];
 
@@ -453,16 +518,16 @@ export function Form({
                                 </span>
                                 <div className="flex flex-col items-end">
                                   <span className={`font-medium ${statusClasses.text}`}>
-                                    {(ocupacoes.atual * 100).toFixed(0)}%
+                                    {ocupacoes.atual.toFixed(0)}%
                                   </span>
                                   <span className="text-[10px] text-green-600">
-                                    Aprovado: {(ocupacoes.aprovada * 100).toFixed(0)}%
+                                    Aprovado: {ocupacoes.aprovada.toFixed(0)}%
                                   </span>
                                   <span className="text-[10px] text-amber-600">
-                                    Pendente: {(ocupacoes.pendente * 100).toFixed(0)}%
+                                    Pendente: {ocupacoes.pendente.toFixed(0)}%
                                   </span>
                                   <span className="text-[10px] text-azul/60">
-                                    Total: {(ocupacoes.total * 100).toFixed(0)}%
+                                    Total: {ocupacoes.total.toFixed(0)}%
                                   </span>
                                 </div>
                               </div>
@@ -473,21 +538,21 @@ export function Form({
                                 <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
                                   <div 
                                     className={`h-full ${statusClasses.progress} rounded-full transition-all duration-300`}
-                                    style={{ width: `${ocupacoes.atual * 100}%` }}
+                                    style={{ width: `${ocupacoes.atual}%` }}
                                   />
                                 </div>
                                 {/* Ocupação aprovada */}
                                 <div className="h-1 bg-white/50 rounded-full overflow-hidden">
                                   <div 
                                     className="h-full bg-green-400 rounded-full transition-all duration-300"
-                                    style={{ width: `${ocupacoes.aprovada * 100}%` }}
+                                    style={{ width: `${ocupacoes.aprovada}%` }}
                                   />
                                 </div>
                                 {/* Ocupação pendente */}
                                 <div className="h-1 bg-white/50 rounded-full overflow-hidden">
                                   <div 
                                     className="h-full bg-amber-400 rounded-full transition-all duration-300"
-                                    style={{ width: `${ocupacoes.pendente * 100}%` }}
+                                    style={{ width: `${ocupacoes.pendente}%` }}
                                   />
                                 </div>
                               </div>
@@ -497,11 +562,12 @@ export function Form({
                                   type="text"
                                   value={getInputValue(mes.mesNumero, mes.ano)}
                                   onChange={(e) => handleOcupacaoChange(mes.mesNumero, mes.ano, e.target.value)}
+                                  onBlur={() => handleInputBlur(mes.mesNumero, mes.ano)}
                                   onKeyDown={validarEntrada}
                                   className={`h-7 text-xs text-center ${
                                     status === "sobre-alocado" ? "border-red-300 focus:border-red-500" : ""
                                   }`}
-                                  placeholder="0,0"
+                                  placeholder="0,00"
                                 />
                               </div>
                             </div>
@@ -512,105 +578,9 @@ export function Form({
                 ))}
               </Tabs>
             </div>
-            
-            {/* Legenda */}
-            <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
-                  <Briefcase className="h-3 w-3 text-azul" />
-                </div>
-                <h6 className="text-xs font-medium text-azul/80">Legenda</h6>
-              </div>
-              
-              <div className="flex flex-wrap gap-4 text-xs text-azul/60">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-azul/30" />
-                  <span>Ocupação total</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
-                  <span>Sobre-alocação</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                  <span>Próximo do limite</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Estatísticas */}
-            <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded-md bg-azul/10 flex items-center justify-center">
-                  <Briefcase className="h-3 w-3 text-azul" />
-                </div>
-                <h6 className="text-xs font-medium text-azul/80">Estatísticas de Ocupação</h6>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-azul/70">Meses alocados</span>
-                    <span className="text-azul font-medium">
-                      {alocacoes.filter(a => a.ocupacao > 0).length}/{mesesDisponiveis.length}
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-azul/5 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-azul/50 rounded-full transition-all duration-500"
-                      style={{ width: `${(alocacoes.filter(a => a.ocupacao > 0).length / mesesDisponiveis.length) * 100}%` }}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-azul/70">Ocupação média</span>
-                    <span className="text-azul font-medium">
-                      {(alocacoes.reduce((acc, curr) => acc + curr.ocupacao, 0) / 
-                       Math.max(1, alocacoes.filter(a => a.ocupacao > 0).length) * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-azul/5 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-azul/50 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, alocacoes.reduce((acc, curr) => acc + curr.ocupacao, 0) / 
-                       Math.max(1, alocacoes.filter(a => a.ocupacao > 0).length) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Botões de ação */}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                variant="outline"
-                onClick={onCancel}
-                className="h-10 px-4 rounded-lg"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleAddAlocacao}
-                className="h-10 px-4 rounded-lg bg-azul hover:bg-azul/90"
-              >
-                {recursoEmEdicao ? (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Guardar Alterações
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar Recurso
-                  </>
-                )}
-              </Button>
-            </div>
           </>
         )}
       </div>
     </Card>
   );
-} 
+}

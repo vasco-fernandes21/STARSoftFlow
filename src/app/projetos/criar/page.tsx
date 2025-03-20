@@ -801,7 +801,7 @@ function ProjetoFormContent() {
 
 export default function CriarProjetoPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8 custom-blue-blur">
+    <div className="h-fit bg-gradient-to-b from-gray-50 to-gray-100 p-8 custom-blue-blur">
       <div className="max-w-8xl mx-auto space-y-8">
         {/* Cabeçalho modificado para incluir o botão de importação */}
         <div className="flex flex-col md:flex-row gap-6 justify-between items-center">

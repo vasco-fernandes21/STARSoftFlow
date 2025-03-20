@@ -19,6 +19,8 @@ interface ItemProps {
   onToggleExpand: () => void;
   onEdit: () => void;
   onRemove: () => void;
+  inicio: Date;
+  fim: Date;
 }
 
 export function Item({
@@ -27,7 +29,9 @@ export function Item({
   isExpanded,
   onToggleExpand,
   onEdit,
-  onRemove
+  onRemove,
+  inicio,
+  fim
 }: ItemProps) {
   return (
     <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
@@ -91,49 +95,77 @@ export function Item({
       </div>
       
       {isExpanded && (
-        <AlocacoesGrid alocacoesPorAnoMes={alocacoesPorAnoMes} />
+        <AlocacoesGrid 
+          alocacoesPorAnoMes={alocacoesPorAnoMes} 
+          inicio={inicio}
+          fim={fim}
+        />
       )}
     </Card>
   );
 }
 
-function AlocacoesGrid({ alocacoesPorAnoMes }: { alocacoesPorAnoMes: Record<string, Record<number, number>> }) {
+function AlocacoesGrid({ 
+  alocacoesPorAnoMes,
+  inicio,
+  fim
+}: { 
+  alocacoesPorAnoMes: Record<string, Record<number, number>>;
+  inicio: Date;
+  fim: Date;
+}) {
+  // Gerar array de anos entre início e fim
+  const anos = Array.from(
+    { length: fim.getFullYear() - inicio.getFullYear() + 1 },
+    (_, i) => inicio.getFullYear() + i
+  );
+
   return (
     <div className="border-t border-azul/10 bg-azul/5">
       <div className="p-3">
         <div className="space-y-4">
-          {Object.entries(alocacoesPorAnoMes).sort().map(([ano, meses]) => (
-            <div key={ano} className="space-y-2">
-              <h6 className="text-xs font-medium text-azul/80 mb-2">{ano}</h6>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
-                  const ocupacao = meses[mes] || 0;
-                  const { badgeClass, progressClass } = getOcupacaoStyles(ocupacao);
-                  
-                  return (
-                    <div 
-                      key={`${ano}-${mes}`} 
-                      className={`${badgeClass} border rounded-md p-2 ${ocupacao === 0 ? 'opacity-50' : ''}`}
-                    >
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span>
-                          {format(new Date(Number(ano), mes - 1), 'MMMM', { locale: pt })}
-                        </span>
-                        <span className="font-medium">{ocupacao}%</span>
+          {anos.map(ano => {
+            const meses = alocacoesPorAnoMes[ano] || {};
+            
+            return (
+              <div key={ano} className="space-y-2">
+                <h6 className="text-xs font-medium text-azul/80 mb-2">{ano}</h6>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
+                    // Verificar se o mês está dentro do período do workpackage
+                    const dataAtual = new Date(ano, mes - 1);
+                    const isMesValido = dataAtual >= inicio && dataAtual <= fim;
+                    
+                    if (!isMesValido) return null;
+                    
+                    const ocupacao = meses[mes] || 0;
+                    const { badgeClass, progressClass } = getOcupacaoStyles(ocupacao);
+                    
+                    return (
+                      <div 
+                        key={`${ano}-${mes}`} 
+                        className={`${badgeClass} border rounded-md p-2 ${ocupacao === 0 ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span>
+                            {format(new Date(ano, mes - 1), 'MMMM', { locale: pt })}
+                          </span>
+                          <span className="font-medium">{ocupacao}%</span>
+                        </div>
+                        <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${progressClass} rounded-full transition-all duration-300`}
+                            style={{ width: `${ocupacao}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${progressClass} rounded-full transition-all duration-300`}
-                          style={{ width: `${ocupacao}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -141,7 +173,12 @@ function AlocacoesGrid({ alocacoesPorAnoMes }: { alocacoesPorAnoMes: Record<stri
 }
 
 function getOcupacaoStyles(ocupacao: number) {
-  if (ocupacao >= 80) {
+  if (ocupacao > 100) {
+    return {
+      badgeClass: "bg-red-50 text-red-600 border-red-200",
+      progressClass: "bg-red-400"
+    };
+  } else if (ocupacao >= 80) {
     return {
       badgeClass: "bg-emerald-50 text-emerald-600 border-emerald-200",
       progressClass: "bg-emerald-400"
@@ -151,7 +188,7 @@ function getOcupacaoStyles(ocupacao: number) {
       badgeClass: "bg-blue-50 text-blue-600 border-blue-100",
       progressClass: "bg-blue-400"
     };
-  } else if (ocupacao >= 30) {
+  } else if (ocupacao >= 1) {
     return {
       badgeClass: "bg-amber-50 text-amber-600 border-amber-100",
       progressClass: "bg-amber-400"

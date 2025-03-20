@@ -113,7 +113,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Formulários de adição/edição */}
       {addingWorkpackage && (
         <WorkpackageForm

@@ -50,7 +50,7 @@ export function InformacoesTab({ onNavigateForward }: InformacoesTabProps) {
   const duracaoProjeto = getDuracaoProjeto();
 
   return (
-    <div className="flex flex-col space-y-6">
+    <div className="flex flex-col space-y-6 p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Coluna da Esquerda - Identificação */}
         <div className="flex flex-col space-y-6">
