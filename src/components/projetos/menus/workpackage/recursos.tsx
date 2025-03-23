@@ -1,148 +1,280 @@
-import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
-import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
-import { Details as RecursoDetails } from "@/components/projetos/criar/novo/recursos/details";
-import { type Prisma } from "@prisma/client";
-import { formatarDataSegura } from "@/lib/utils";
 import { useState } from "react";
-import { agruparAlocacoesPorAnoMes } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { PlusIcon, Users } from "lucide-react";
+import { WorkpackageCompleto } from "@/components/projetos/types";
+import { useWorkpackageMutations } from "@/hooks/useWorkpackageMutations";
+import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { api } from "@/trpc/react";
-import { WorkpackageCompleto, AlocacaoRecursoWithRelations } from "@/components/projetos/types";
+import { Details } from "@/components/projetos/criar/novo/recursos/details";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { Decimal } from "decimal.js";
 
-type WorkpackageRecursosProps = {
+interface WorkpackageRecursosProps {
   workpackage: WorkpackageCompleto;
   workpackageId: string;
-  addingRecurso: boolean;
-  setAddingRecurso: (value: boolean) => void;
-  onAddAlocacao: () => Promise<void>;
-  onRemoveRecurso: (userId: string) => Promise<void>;
-};
+}
 
-export function WorkpackageRecursos({
+export function WorkpackageRecursos({ 
   workpackage,
-  workpackageId,
-  addingRecurso,
-  setAddingRecurso,
-  onAddAlocacao,
-  onRemoveRecurso
+  workpackageId
 }: WorkpackageRecursosProps) {
-  // estados locais
-  const [expandedRecursos, setExpandedRecursos] = useState<Record<string, boolean>>({});
-  const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
-
-  // obter dados de utilizadores
-  const { data: utilizadores } = api.utilizador.getAll.useQuery(
-    { limit: 100 },
-    { staleTime: 5 * 60 * 1000 }
-  );
-
+  // Estado para controlar adição de recurso
+  const [addingRecurso, setAddingRecurso] = useState(false);
+  const [editingUsuarioId, setEditingUsuarioId] = useState<string | null>(null);
+  const [expandedUsuarioId, setExpandedUsuarioId] = useState<string | null>(null);
+  
+  // Obter as mutações através do hook global
+  const { 
+    invalidateQueries
+  } = useWorkpackageMutations(() => Promise.resolve());
+  
+  // Definir mutações específicas para recursos
+  const createAlocacaoMutation = api.workpackage.addAlocacao.useMutation({
+    onSuccess: async () => {
+      await invalidateQueries(workpackageId);
+    }
+  });
+  
+  const removeAlocacaoMutation = api.workpackage.removeAlocacao.useMutation({
+    onSuccess: async () => {
+      await invalidateQueries(workpackageId);
+    }
+  });
+  
+  // Query para obter todos os utilizadores
+  const { data: utilizadores = { items: [] } } = api.utilizador.getAll.useQuery({ limit: 100 });
+  
+  // Mapear utilizadores para o formato esperado pelo componente
+  const utilizadoresList = (utilizadores?.items || []).map(user => ({
+    id: user.id,
+    name: user.name || "",
+    email: user.email || "",
+    regime: user.regime
+  }));
+  
+  // Handler para adicionar recursos
+  const handleAddRecurso = (workpackageId: string, alocacoes: Array<{
+    userId: string;
+    mes: number;
+    ano: number;
+    ocupacao: Decimal;
+    user?: any;
+  }>) => {
+    // Para cada alocação no array, criar uma alocação individual
+    alocacoes.forEach(alocacao => {
+      createAlocacaoMutation.mutate({
+        workpackageId: workpackageId,
+        userId: alocacao.userId,
+        mes: alocacao.mes,
+        ano: alocacao.ano,
+        ocupacao: Number(alocacao.ocupacao)
+      });
+    });
+    
+    setAddingRecurso(false);
+    setEditingUsuarioId(null);
+  };
+  
+  // Handler para remover recurso
+  const handleRemoveRecurso = (userId: string) => {
+    if (confirm("Tem certeza que deseja remover este recurso e todas as suas alocações?")) {
+      // Encontrar todas as alocações deste utilizador
+      const alocacoesUsuario = workpackage.recursos?.filter(r => r.userId === userId) || [];
+      
+      // Remover cada alocação individualmente
+      alocacoesUsuario.forEach(alocacao => {
+        removeAlocacaoMutation.mutate({
+          workpackageId,
+          userId: alocacao.userId,
+          mes: alocacao.mes,
+          ano: alocacao.ano
+        });
+      });
+    }
+  };
+  
+  // Função para formatar data de forma segura
+  const formatarDataSegura = (ano: string | number, mes: string | number, formatString: string): string => {
+    try {
+      return format(new Date(Number(ano), Number(mes) - 1), formatString, { locale: pt });
+    } catch (error) {
+      return `${mes}/${ano}`;
+    }
+  };
+  
+  // Agrupar recursos por utilizador
+  const agruparRecursosPorUtilizador = () => {
+    if (!workpackage.recursos || workpackage.recursos.length === 0) return [];
+    
+    const usuariosMap = new Map<string, {
+      userId: string;
+      alocacoes: Array<{
+        mes: number;
+        ano: number;
+        ocupacao: number;
+      }>;
+      total: number;
+    }>();
+    
+    workpackage.recursos.forEach(recurso => {
+      const userId = recurso.userId;
+      
+      if (!usuariosMap.has(userId)) {
+        usuariosMap.set(userId, {
+          userId,
+          alocacoes: [],
+          total: 0
+        });
+      }
+      
+      const usuario = usuariosMap.get(userId)!;
+      usuario.alocacoes.push({
+        mes: recurso.mes,
+        ano: recurso.ano,
+        ocupacao: Number(recurso.ocupacao)
+      });
+      
+      usuario.total += Number(recurso.ocupacao);
+    });
+    
+    return Array.from(usuariosMap.values());
+  };
+  
+  // Processar alocações por utilizador para formato esperado pelo componente Details
+  const processarAlocacoesPorUsuario = (userId: string) => {
+    if (!workpackage.recursos) return {};
+    
+    const alocacoesUsuario = workpackage.recursos.filter(r => r.userId === userId);
+    const alocacoesPorAnoMes: Record<string, Record<number, number>> = {};
+    
+    alocacoesUsuario.forEach(alocacao => {
+      const ano = alocacao.ano.toString();
+      if (!alocacoesPorAnoMes[ano]) {
+        alocacoesPorAnoMes[ano] = {};
+      }
+      
+      // Armazenar o valor em percentagem (0-100)
+      alocacoesPorAnoMes[ano][alocacao.mes] = Number(alocacao.ocupacao) * 100;
+    });
+    
+    return alocacoesPorAnoMes;
+  };
+  
+  const recursosPorUtilizador = agruparRecursosPorUtilizador();
+  const totalRecursos = workpackage.recursos?.length || 0;
+  const pessoasAlocadas = recursosPorUtilizador.length;
+  
   return (
-    <div className="space-y-2">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500 font-medium">Recursos</span>
+        <div>
+          <h2 className="text-xl font-semibold text-azul">Recursos</h2>
+          <p className="text-sm text-azul/60 mt-1">Gerir alocações de recursos humanos no workpackage</p>
+        </div>
+        
         {!addingRecurso && (
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={() => setAddingRecurso(true)}
-            className="h-7 w-7 rounded-md bg-gray-50"
+            className="h-10 border-azul/20 text-azul hover:bg-azul/10"
           >
-            <PlusIcon className="h-3.5 w-3.5" />
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Novo Recurso
           </Button>
         )}
       </div>
-                    
-      <div className="space-y-2">
-        {addingRecurso && (
-          <div className="bg-gray-50/50 rounded-md p-3">
-            <RecursoForm
-              workpackageId={workpackageId}
-              inicio={workpackage.inicio || new Date()}
-              fim={workpackage.fim || new Date()}
-              onCancel={() => setAddingRecurso(false)}
-              onAddAlocacao={onAddAlocacao}
-              utilizadores={(utilizadores?.items || []).map(user => ({
-                id: user.id,
-                name: user.name || '',
-                email: user.email || '',
-                regime: user.regime
-              }))}
-            />  
+      
+      {/* Resumo de recursos */}
+      {workpackage.recursos && workpackage.recursos.length > 0 && (
+        <Card className="p-5 border border-azul/10 bg-azul/5 shadow-sm rounded-xl">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center">
+                <Users className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-azul/70">Pessoas alocadas</p>
+                <p className="text-2xl font-semibold text-azul">{pessoasAlocadas}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-6">
+              <div>
+                <p className="text-sm text-azul/70">Alocações</p>
+                <p className="text-lg font-medium text-azul">{totalRecursos}</p>
+              </div>
+              <div>
+                <p className="text-sm text-azul/70">Meses alocados</p>
+                <p className="text-lg font-medium text-azul">
+                  {workpackage.recursos ? new Set(workpackage.recursos.map(r => `${r.mes}-${r.ano}`)).size : 0}
+                </p>
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* Processa e agrupa os recursos por utilizador */}
-        {(() => {
-          // Agrupa as alocações por userId
-          const recursosPorUser: Record<string, any> = {};
-          
-          // Para cada recurso no array de recursos
-          workpackage.recursos.forEach(recurso => {
-            const userId = recurso.userId;
-            
-            // Se esse userId ainda não existe no objeto, criamos
-            if (!recursosPorUser[userId]) {
-              recursosPorUser[userId] = {
-                userId: userId,
-                alocacoes: [],
-                expandido: expandedRecursos[userId] || false,
-                user: recurso.user
-              };
-            }
-            
-            // Adicionamos a alocação atual ao array de alocações deste utilizador
-            recursosPorUser[userId].alocacoes.push({
-              mes: recurso.mes,
-              ano: recurso.ano,
-              ocupacao: recurso.ocupacao
-            });
-          });
-          
-          // Renderiza um Details para cada utilizador único
-          return Object.values(recursosPorUser).map((recurso: any) => {
-            // Agrupa as alocações por ano e mês
-            const alocacoesPorAnoMes = agruparAlocacoesPorAnoMes(recurso.alocacoes);
+        </Card>
+      )}
+      
+      {/* Formulário para adicionar novo recurso */}
+      {addingRecurso && (
+        <Card className="p-6 border border-azul/10 bg-white shadow-sm rounded-xl animate-in fade-in-50 slide-in-from-top-5 duration-200">
+          <h3 className="text-lg font-medium text-azul mb-5">Novo Recurso</h3>
+          <RecursoForm
+            workpackageId={workpackage.id}
+            inicio={workpackage.inicio || new Date()}
+            fim={workpackage.fim || new Date()}
+            utilizadores={utilizadoresList} 
+            onAddAlocacao={handleAddRecurso}
+            onCancel={() => setAddingRecurso(false)}
+          />
+        </Card>
+      )}
+      
+      {/* Lista de recursos agrupados por utilizador */}
+      {recursosPorUtilizador.length > 0 ? (
+        <div className="space-y-2">
+          {recursosPorUtilizador.map((usuario) => {
+            // Encontrar o utilizador a partir do userId
+            const membroEquipa = utilizadoresList.find(u => u.id === usuario.userId);
             
             return (
-              <RecursoDetails
-                key={recurso.userId}
-                userId={recurso.userId}
-                recurso={recurso}
-                membroEquipa={recurso.user}
-                isExpanded={recurso.expandido}
+              <Details
+                key={usuario.userId}
+                userId={usuario.userId}
+                recurso={usuario}
+                membroEquipa={membroEquipa}
+                isExpanded={expandedUsuarioId === usuario.userId}
                 workpackageId={workpackageId}
                 onToggleExpand={() => {
-                  setExpandedRecursos(prev => ({
-                    ...prev,
-                    [recurso.userId]: !prev[recurso.userId]
-                  }));
+                  if (expandedUsuarioId === usuario.userId) {
+                    setExpandedUsuarioId(null);
+                  } else {
+                    setExpandedUsuarioId(usuario.userId);
+                  }
                 }}
-                onEdit={() => {
-                  // Definir qual recurso está sendo editado
-                  setEditingResourceId(recurso.userId);
-                }}
-                onRemove={() => onRemoveRecurso(recurso.userId)}
+                onEdit={() => setEditingUsuarioId(usuario.userId)}
+                onRemove={() => handleRemoveRecurso(usuario.userId)}
                 formatarDataSegura={formatarDataSegura}
-                alocacoesPorAnoMes={alocacoesPorAnoMes}
-                isEditing={editingResourceId === recurso.userId}
-                onCancelEdit={() => {
-                  setEditingResourceId(null);
-                }}
-                onSaveEdit={(workpackageId, alocacoes) => {
-                  // lógica de salvar edição
-                }}
-                utilizadores={(utilizadores?.items || []).map(user => ({
-                  id: user.id,
-                  name: user.name || '',
-                  email: user.email || '',
-                  regime: user.regime
-                }))}
+                alocacoesPorAnoMes={processarAlocacoesPorUsuario(usuario.userId)}
+                isEditing={editingUsuarioId === usuario.userId}
+                onCancelEdit={() => setEditingUsuarioId(null)}
+                onSaveEdit={handleAddRecurso}
+                utilizadores={utilizadoresList}
                 inicio={workpackage.inicio || new Date()}
                 fim={workpackage.fim || new Date()}
               />
             );
-          });
-        })()}
-      </div>
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-white rounded-lg border border-azul/10 shadow-sm">
+          <Users className="h-12 w-12 text-azul/20 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-azul mb-2">Nenhum recurso alocado</h3>
+          <p className="text-sm text-azul/60 max-w-md mx-auto">Clique em "Novo Recurso" para alocar recursos humanos a este workpackage</p>
+        </div>
+      )}
     </div>
   );
 }

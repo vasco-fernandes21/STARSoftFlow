@@ -40,6 +40,7 @@ interface WorkpackageSimples {
   materiais: MaterialImportacao[];
   dataInicio: Date | null;
   dataFim: Date | null;
+  id?: string;
 }
 
 function mapearRubrica(rubricaExcel: string): Rubrica {
@@ -253,7 +254,7 @@ function ImportarExcelContent() {
     materiais.forEach(material => {
       let wpMatch = wpMap.get(material.workpackageNome);
       
-      if (!wpMatch) {
+      if (!wpMatch && material.workpackageNome) {
         const codigoMatch = material.workpackageNome.match(/^A\d+/);
         if (codigoMatch) {
           wpMatch = workpackages.find(wp => wp.codigo === codigoMatch[0]) || undefined;
@@ -261,9 +262,14 @@ function ImportarExcelContent() {
       }
       
       if (wpMatch) {
+        // Inicializar o array se não existir
+        wpMatch.materiais = wpMatch.materiais || [];
         wpMatch.materiais.push(material);
-      } else {
-        if (workpackages.length > 0) {
+      } else if (workpackages.length > 0) {
+        // verificar se existe workpackage antes de aceder
+        if (workpackages[0]) {
+          // inicializar array de materiais se não existir
+          workpackages[0].materiais = workpackages[0].materiais || [];
           workpackages[0].materiais.push(material);
         }
       }
@@ -453,7 +459,6 @@ function ImportarExcelContent() {
     
     workpackages.forEach(wp => {
       const wpId = crypto.randomUUID();
-      const projetoId = state.id || crypto.randomUUID();
       
       dispatch({
         type: "ADD_WORKPACKAGE",
@@ -464,7 +469,7 @@ function ImportarExcelContent() {
           inicio: wp.dataInicio,
           fim: wp.dataFim,
           estado: false,
-          projetoId: projetoId,
+          projetoId: crypto.randomUUID(),
           tarefas: [],
           materiais: [],
           recursos: []
@@ -510,7 +515,7 @@ function ImportarExcelContent() {
           material: {
             id: Math.floor(Math.random() * 1000000),
             nome: material.nome,
-            preco: new Decimal(material.preco), // Converter para Decimal
+            preco: new Decimal(material.preco),
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
             rubrica: material.rubrica,
@@ -536,9 +541,12 @@ function ImportarExcelContent() {
         });
         
         Object.keys(mesesPorAno).forEach(ano => {
-          mesesPorAno[Number(ano)].sort((a, b) => a.mes - b.mes);
+          // garantir que o array existe antes de ordenar
+          const mesesDoAno = mesesPorAno[Number(ano)];
+          if (mesesDoAno) {
+            mesesDoAno.sort((a, b) => a.mes - b.mes);
+          }
         });
-        
         return {
           ...recurso,
           mesesPorAno,
@@ -635,10 +643,10 @@ function ImportarExcelContent() {
 
             <div className="mb-4">
               <p className="text-sm text-azul">
-                Início do Projeto: {state.inicio?.toLocaleDateString('pt-PT')}
+                Início do Projeto: {state.inicio ? state.inicio.toLocaleDateString('pt-PT') : 'Não definido'}
               </p>
               <p className="text-sm text-azul">
-                Fim do Projeto: {state.fim?.toLocaleDateString('pt-PT')}
+                Fim do Projeto: {state.fim instanceof Date ? state.fim.toLocaleDateString('pt-PT') : 'Não definido'}
               </p>
             </div>
 
