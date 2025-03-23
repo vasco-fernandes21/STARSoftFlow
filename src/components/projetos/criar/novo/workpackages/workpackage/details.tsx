@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Clock, Package, FileText } from "lucide-react";
-import { WorkpackageWithRelations } from "../../../types";
+import { WorkpackageWithRelations } from "../../../../types";
 import { TarefaForm } from "../tarefas/form";
 import { MaterialForm } from "../material/form";
 import { TarefaItem } from "../tarefas/item";

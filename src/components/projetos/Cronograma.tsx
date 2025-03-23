@@ -5,9 +5,9 @@ import { useState, useRef, useEffect } from "react";
 import { MenuTarefa } from "@/components/projetos/MenuTarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MenuWorkpackage } from "@/components/projetos/MenuWorkpackage";
 import { api } from "@/trpc/react";
 import { motion } from "framer-motion";
+import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
 
 interface CronogramaOptions {
   leftColumnWidth?: number;

@@ -108,4 +108,17 @@ export const entregavelRouter = createTRPCRouter({
         data: { anexo: input.anexo },
       });
     }),
+
+  // Adicionar novo procedimento para toggle do estado
+  toggleEstado: protectedProcedure
+    .input(z.object({
+      id: z.string().uuid("ID do entregável inválido"),
+      estado: z.boolean()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.entregavel.update({
+        where: { id: input.id },
+        data: { estado: input.estado },
+      });
+    }),
 });

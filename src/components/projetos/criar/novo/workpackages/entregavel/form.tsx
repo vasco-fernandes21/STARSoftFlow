@@ -16,18 +16,28 @@ interface EntregavelFormProps {
     inicio: Date;
     fim: Date;
   };
+  initialData?: {
+    id?: string;
+    nome: string;
+    data?: Date | null;
+    estado?: boolean;
+  };
 }
 
 export function EntregavelForm({ 
   tarefaId, 
   onSubmit, 
   onCancel,
-  tarefaDates
+  tarefaDates,
+  initialData
 }: EntregavelFormProps) {
   const [formData, setFormData] = useState({
-    nome: '',
-    data: new Date()
+    nome: initialData?.nome || '',
+    data: initialData?.data || tarefaDates.fim
   });
+
+  // Título dinâmico com base em criação/edição
+  const isEditing = !!initialData;
 
   const handleSubmit = () => {
     if (!formData.nome) {
@@ -59,7 +69,9 @@ export function EntregavelForm({
         <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
           <FileText className="h-4 w-4 text-azul" />
         </div>
-        <h4 className="text-base font-medium text-azul">Novo Entregável</h4>
+        <h4 className="text-base font-medium text-azul">
+          {isEditing ? "Editar Entregável" : "Novo Entregável"}
+        </h4>
       </div>
 
       <div className="grid gap-3">
@@ -77,7 +89,7 @@ export function EntregavelForm({
         <div>
           <Label htmlFor="data-entrega" className="text-azul/80 text-sm">Data de Entrega</Label>
           <DatePicker
-            value={formData.data || tarefaDates.fim}
+            value={formData.data}
             onChange={(date: Date | undefined) => date && setFormData({ ...formData, data: date })}
             minDate={tarefaDates.inicio}
             maxDate={tarefaDates.fim}
@@ -98,7 +110,7 @@ export function EntregavelForm({
             className="bg-azul hover:bg-azul/90 text-white"
           >
             <Save className="h-4 w-4 mr-2" />
-            Guardar
+            {isEditing ? "Atualizar" : "Guardar"}
           </Button>
         </div>
       </div>

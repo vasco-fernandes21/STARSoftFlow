@@ -1,4 +1,4 @@
-import { FaseType, fases } from "./types";
+import { FaseType, fases } from "../types";
 
 interface ProjetoFormPanelProps {
   faseAtual: FaseType;

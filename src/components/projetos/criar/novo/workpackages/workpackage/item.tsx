@@ -4,7 +4,7 @@ import { Briefcase, Edit, Trash, ChevronDown, ChevronUp, ListTodo, Package, Cale
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import { WorkpackageWithRelations } from "../../../types";
+import { WorkpackageWithRelations } from "../../../../types";
 import { WorkpackageDetails } from "./details";
 import { WorkpackageHandlers } from "@/app/projetos/criar/page";
 

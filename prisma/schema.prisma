@@ -112,8 +112,8 @@ model Entregavel {
     nome        String    @db.VarChar(255)
     descricao   String?   @db.Text
     data        DateTime? @db.Date
-    anexo    String?   @db.Text
-    estado    Boolean   @default(false)
+    anexo       String?   @db.Text
+    estado      Boolean   @default(false)
     
     // Relação com Tarefa
     tarefa      Tarefa    @relation(fields: [tarefaId], references: [id], onDelete: Cascade)

@@ -8,7 +8,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Clock, X, Save, Calendar } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { toast } from "sonner";
-import { TarefaWithRelations } from "../../../types";
+import { TarefaWithRelations } from "../../../../types";
 
 interface TarefaFormProps {
   workpackageId: string;

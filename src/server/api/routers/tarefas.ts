@@ -306,10 +306,16 @@ export const tarefaRouter = createTRPCRouter({
     }),
     
   // Atualizar entregável
-  updateEntregavel: protectedProcedure
+  updateEntregavel: publicProcedure
     .input(z.object({
       id: z.string(),
-      data: updateEntregavelSchema,
+      data: z.object({
+        nome: z.string().optional(),
+        descricao: z.string().optional(),
+        data: z.date().optional(),
+        anexo: z.string().optional(),
+        estado: z.boolean().optional()
+      })
     }))
     .mutation(async ({ ctx, input }) => {
       try {

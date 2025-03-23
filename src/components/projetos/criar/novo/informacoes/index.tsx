@@ -1,7 +1,7 @@
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabNavigation } from "../../components/TabNavigation";
 import { TextField, TextareaField, DateField } from "../../components/FormFields";
-import { type ProjetoCreateInput } from "../../types";
+import { type ProjetoCreateInput } from "../../../types";
 import { Card } from "@/components/ui/card";
 import { differenceInDays, differenceInMonths, differenceInYears, addDays } from "date-fns";
 import { pt } from "date-fns/locale";

@@ -1,7 +1,7 @@
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabNavigation } from "../../components/TabNavigation";
 import { DateField } from "../../components/FormFields";
-import { type ProjetoCreateInput } from "../../types";
+import { type ProjetoCreateInput } from "../../../types";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, CalendarClock } from "lucide-react";
 

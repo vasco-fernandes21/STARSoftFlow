@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
-import { pt } from "date-fns/locale";
+import { id, pt } from "date-fns/locale";
 import { User, Calendar, Percent, Users, BarChart2, Package, Briefcase, DollarSign } from "lucide-react";
 import { Decimal } from "decimal.js";
 import { Rubrica, type Material as PrismaMaterial, type Workpackage as PrismaWorkpackage, type AlocacaoRecurso as PrismaAlocacaoRecurso } from "@prisma/client";

@@ -1,11 +1,16 @@
-import { type Prisma } from "@prisma/client";
+import { type Prisma, Rubrica } from "@prisma/client";
 import { FileText, Calendar, Euro, Briefcase, Users, CheckCircle, LucideIcon } from "lucide-react";
+import { Decimal } from "@prisma/client/runtime/library";
 
 // Usamos o tipo base do Prisma e estendemos apenas o que precisamos
 export type ProjetoCreateInput = Omit<Prisma.ProjetoCreateInput, 'workpackages' | 'financiamento'> & {
   id?: string;
   workpackages?: WorkpackageWithRelations[];
   financiamento?: Prisma.ProjetoCreateInput['financiamento'];
+  overhead?: Decimal | number;
+  taxa_financiamento?: Decimal | number;
+  valor_eti?: Decimal | number;
+  financiamentoId?: number;
 };
 
 export type WorkpackageWithRelations = Omit<Prisma.WorkpackageGetPayload<{
@@ -16,13 +21,19 @@ export type WorkpackageWithRelations = Omit<Prisma.WorkpackageGetPayload<{
       }
     }
     materiais: true
-    recursos: true
+    recursos: {
+      include: {
+        user: true
+      }
+    }
   }
 }>, "projeto"> & {
   projetoId: string;
   tarefas: Array<Omit<Prisma.TarefaGetPayload<{ include: { entregaveis: true } }>, "workpackage">>;
   materiais: Array<Omit<Prisma.MaterialGetPayload<{}>, "workpackage">>;
-  recursos: Array<Omit<Prisma.AlocacaoRecursoGetPayload<{}>, "workpackage" | "user">>;
+  recursos: Array<Omit<Prisma.AlocacaoRecursoGetPayload<{
+    include: { user: true }
+  }>, "workpackage">>;
 };
 
 export type TarefaWithRelations = Prisma.TarefaGetPayload<{
@@ -33,19 +44,47 @@ export type TarefaWithRelations = Prisma.TarefaGetPayload<{
 
 export type EntregavelWithRelations = Omit<Prisma.EntregavelCreateInput, 'tarefa'> & {
   id: string;
+  estado?: boolean;
+  data?: Date | null;
+  anexo?: string | null;
 };
 
 export type MaterialWithRelations = Omit<Prisma.MaterialCreateInput, 'workpackage'> & {
-  id: string;
+  id: number;
+  nome: string;
+  preco: Decimal | number;
+  quantidade: number;
+  ano_utilizacao: number;
+  rubrica: Rubrica;
 };
 
-export type AlocacaoRecursoWithRelations = {
-  id: string;
+// Atualizado para corresponder à estrutura real da tabela com chave composta
+export type AlocacaoRecursoWithRelations = Omit<Prisma.AlocacaoRecursoCreateInput, 'workpackage' | 'user'> & {
   userId: string;
+  workpackageId: string;
   mes: number;
   ano: number;
-  ocupacao: number;
+  ocupacao: Decimal | number;
+  user?: Prisma.UserGetPayload<{}>;
 };
+
+// Tipo completo do Workpackage com todas as relações (para uso em componentes)
+export type WorkpackageCompleto = Prisma.WorkpackageGetPayload<{
+  include: {
+    projeto: true;
+    tarefas: {
+      include: {
+        entregaveis: true;
+      };
+    };
+    materiais: true;
+    recursos: {
+      include: {
+        user: true;
+      };
+    };
+  };
+}>;
 
 // Tipos
 export type FaseType = 

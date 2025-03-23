@@ -9,7 +9,7 @@ import { ProjetoHeader } from "@/components/projetos/criar/ProjetoHeader";
 import { ProjetoProgressContainer } from "@/components/projetos/criar/ProjetoProgressContainer";
 import { ProjetoFormPanel } from "@/components/projetos/criar/ProjetoFormPanel";
 import { ProjetoCronograma } from "@/components/projetos/criar/ProjetoCronograma";
-import { FaseType, fasesOrdem } from "@/components/projetos/criar/types";
+import { FaseType, fasesOrdem } from "@/components/projetos/types";
 import { api } from "@/trpc/react";
 import { ProjetoEstado, Rubrica, type Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
@@ -26,7 +26,7 @@ import {
   RecursosTab,
   ResumoTab 
 } from "@/components/projetos/criar/novo";
-import { TarefaWithRelations } from "@/components/projetos/criar/types";
+import { TarefaWithRelations } from "@/components/projetos/types";
 
 // Tipo para workpackage com todas as relações
 type WorkpackageWithRelations = Prisma.WorkpackageGetPayload<{

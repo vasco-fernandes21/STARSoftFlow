@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gerarMesesEntreDatas } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { api } from "@/trpc/react";
 
 interface FormProps {
   workpackageId: string;
@@ -76,37 +77,43 @@ export function Form({
   const [preencherTodosValue, setPreencherTodosValue] = useState<string>("");
   const [ocupacoesMensais, setOcupacoesMensais] = useState<OcupacaoMensal[]>([]);
   
-  // Gerar lista de meses e anos (mover para fora do useEffect)
+  // Gerar lista de meses e anos
   const mesesDisponiveis = gerarMesesEntreDatas(inicio, fim);
   const anosDisponiveis = Array.from(new Set(mesesDisponiveis.map(mes => mes.ano))).sort();
   
-  // Atualizar o useEffect para buscar os dois tipos de ocupação
-  useEffect(() => {
-    if (selectedUserId) {
-      const anoAtual = anosDisponiveis[0] || new Date().getFullYear();
-      
-      fetch(`/api/trpc/utilizador.getOcupacaoMensal?input=${JSON.stringify({
-        userId: selectedUserId,
-        ano: anoAtual
-      })}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data?.result?.data) {
-            setOcupacoesMensais(data.result.data.map((o: any) => ({
-              mes: o.mes,
-              ocupacaoAprovada: o.ocupacaoAprovada || 0,
-              ocupacaoPendente: o.ocupacaoPendente || 0
-            })));
-          } else {
-            setOcupacoesMensais([]);
-          }
-        })
-        .catch(error => {
-          console.error("Erro ao buscar ocupações:", error);
-          setOcupacoesMensais([]);
-        });
+  // Definir o ano atual
+  const anoAtual = anosDisponiveis[0] || new Date().getFullYear();
+  
+  // Buscar ocupações mensais usando tRPC
+  const { data: ocupacoesMensaisData, error: ocupacoesMensaisError } = api.utilizador.getOcupacaoMensal.useQuery(
+    { 
+      userId: selectedUserId, 
+      ano: anoAtual 
+    },
+    { 
+      enabled: !!selectedUserId
     }
-  }, [selectedUserId]);
+  );
+  
+  // Lidar com erro separadamente no useEffect
+  useEffect(() => {
+    if (ocupacoesMensaisError) {
+      console.error("Erro ao buscar ocupações:", ocupacoesMensaisError);
+    }
+  }, [ocupacoesMensaisError]);
+  
+  // Atualizar o estado de ocupações quando os dados forem carregados
+  useEffect(() => {
+    if (ocupacoesMensaisData) {
+      setOcupacoesMensais(ocupacoesMensaisData.map(o => ({
+        mes: o.mes,
+        ocupacaoAprovada: o.ocupacaoAprovada || 0,
+        ocupacaoPendente: o.ocupacaoPendente || 0
+      })));
+    } else {
+      setOcupacoesMensais([]);
+    }
+  }, [ocupacoesMensaisData]);
   
   // Carregar dados do recurso em edição
   useEffect(() => {
@@ -179,33 +186,35 @@ export function Form({
   const handleOcupacaoChange = (mes: number, ano: number, valor: string) => {
     const chave = `${mes}-${ano}`;
     
-    // Sempre atualizar o valor de exibição do input, independentemente do valor
-    setInputValues(prev => ({ ...prev, [chave]: valor }));
-    
-    // Se for vazio, remover a alocação e retornar
-    if (valor === "") {
+    // Permite entrada vazia para remover alocação completamente
+    if (valor === "" || valor === "0" || valor === "0,0" || valor === "0,00") {
+      setInputValues(prev => {
+        const newValues = { ...prev };
+        delete newValues[chave];
+        return newValues;
+      });
+      
+      // Remover alocação do array quando o valor for vazio ou zero
       setAlocacoes(prev => 
         prev.filter(a => !(a.userId === selectedUserId && a.mes === mes && a.ano === ano))
       );
+      
       return;
     }
     
-    // Validar o valor antes de atualizar
+    // Atualizar sempre o valor do input diretamente
+    setInputValues(prev => ({ ...prev, [chave]: valor }));
+    
+    // Validar o valor antes de atualizar alocações
     const valorNormalizado = valor.replace(',', '.');
     const num = parseFloat(valorNormalizado);
     
-    // Se não for um número válido, não atualizar a alocação mas manter o texto no input
+    // Se não for um número válido, não atualizar a alocação
     if (isNaN(num)) {
       return;
     }
     
-    // Se o valor for maior que 1, limitar a 1
-    if (num > 1) {
-      setInputValues(prev => ({ ...prev, [chave]: "1,00" }));
-    } 
-    // Nota: Removemos a formatação automática aqui para permitir edição completa
-    
-    // Converter valor
+    // Converter valor limitando a 1 (100%)
     const ocupacao = parseValorOcupacao(valor);
     
     // Verificar ocupação total
@@ -218,6 +227,7 @@ export function Form({
       alert(`Atenção: A ocupação total para ${format(new Date(ano, mes - 1), 'MMMM', { locale: pt })} será de ${((ocupacao + ocupacaoValidada) * 100).toFixed(0)}%`);
     }
     
+    // Atualizar alocações
     setAlocacoes(prev => {
       const index = prev.findIndex(a => 
         a.userId === selectedUserId && a.mes === mes && a.ano === ano
@@ -284,7 +294,10 @@ export function Form({
   
   // Adicionar alocações
   const handleAddAlocacao = () => {
-    if (!selectedUserId) {
+    // Usar o ID do utilizador em edição ou do selecionado no dropdown
+    const activeUserId = recursoEmEdicao?.userId || selectedUserId;
+    
+    if (!activeUserId) {
       alert("Por favor, selecione um utilizador");
       return;
     }
@@ -298,11 +311,11 @@ export function Form({
     }
     
     // Encontrar o utilizador selecionado
-    const userSelecionado = utilizadores.find(user => user.id === selectedUserId);
+    const userSelecionado = utilizadores.find(user => user.id === activeUserId);
     
     // Converter para o formato esperado pelo onAddAlocacao
     const alocacoesFormatadas = alocacoesValidas.map(a => ({
-      userId: selectedUserId,
+      userId: activeUserId,
       mes: a.mes,
       ano: a.ano,
       ocupacao: new Decimal(a.ocupacao),
@@ -334,25 +347,6 @@ export function Form({
     if (ocupacaoTotal > 100) return "sobre-alocado";
     if (ocupacaoTotal >= 80) return "limite";
     return "normal";
-  };
-
-  // Formatar o valor ao perder o foco
-  const handleInputBlur = (mes: number, ano: number) => {
-    const chave = `${mes}-${ano}`;
-    const valorAtual = inputValues[chave];
-    
-    // Se estiver vazio, não fazer nada
-    if (!valorAtual) return;
-    
-    // Validar e formatar o valor
-    const valorNormalizado = valorAtual.replace(',', '.');
-    const num = parseFloat(valorNormalizado);
-    
-    if (!isNaN(num)) {
-      // Formatar com 2 casas decimais
-      const valorFormatado = (num > 1 ? 1 : num).toFixed(2).replace('.', ',');
-      setInputValues(prev => ({ ...prev, [chave]: valorFormatado }));
-    }
   };
 
   return (
@@ -562,7 +556,6 @@ export function Form({
                                   type="text"
                                   value={getInputValue(mes.mesNumero, mes.ano)}
                                   onChange={(e) => handleOcupacaoChange(mes.mesNumero, mes.ano, e.target.value)}
-                                  onBlur={() => handleInputBlur(mes.mesNumero, mes.ano)}
                                   onKeyDown={validarEntrada}
                                   className={`h-7 text-xs text-center ${
                                     status === "sobre-alocado" ? "border-red-300 focus:border-red-500" : ""
@@ -578,9 +571,36 @@ export function Form({
                 ))}
               </Tabs>
             </div>
+            
+            {/* Botões de ação */}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={onCancel}
+                className="h-8 px-4 rounded-lg"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleAddAlocacao}
+                className="h-8 px-4 rounded-lg bg-azul hover:bg-azul/90"
+              >
+                {recursoEmEdicao ? (
+                  <>
+                    <Save className="h-3.5 w-3.5 mr-2" />
+                    Guardar Alterações
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-3.5 w-3.5 mr-2" />
+                    Adicionar Recurso
+                  </>
+                )}
+              </Button>
+            </div>
           </>
         )}
       </div>
     </Card>
   );
-}
+} 

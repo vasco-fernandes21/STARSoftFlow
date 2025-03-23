@@ -48,3 +48,35 @@ export const formatarDataSegura = (ano: string | number, mes: string | number, f
     return `${mes}/${ano}`;
   }
 };
+
+// Função para agrupar alocações por ano e mês com validação
+export function agruparAlocacoesPorAnoMes(alocacoes: Array<{
+  mes: number;
+  ano: number;
+  ocupacao: any;
+}> | undefined) {
+  if (!alocacoes || !Array.isArray(alocacoes)) {
+    return {};
+  }
+
+  return alocacoes.reduce((acc, alocacao) => {
+    if (!alocacao || typeof alocacao.ano === 'undefined' || typeof alocacao.mes === 'undefined') {
+      return acc;
+    }
+
+    const ano = alocacao.ano.toString();
+    if (!acc[ano]) {
+      acc[ano] = {};
+    }
+
+    // Garantir que ocupacao seja um número
+    const ocupacaoNumero = typeof alocacao.ocupacao === 'number' 
+      ? alocacao.ocupacao 
+      : typeof alocacao.ocupacao === 'string'
+        ? parseFloat(alocacao.ocupacao)
+        : Number(alocacao.ocupacao) || 0;
+
+    acc[ano][alocacao.mes] = ocupacaoNumero * 100;
+    return acc;
+  }, {} as Record<string, Record<number, number>>);
+}
