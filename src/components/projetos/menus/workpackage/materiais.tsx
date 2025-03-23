@@ -1,59 +1,192 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
+import { Plus, Package, XCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { WorkpackageCompleto } from "@/components/projetos/types";
 import { useWorkpackageMutations } from "@/hooks/useWorkpackageMutations";
-import { MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
+import { Form as MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Trash, PackageOpen, DollarSign } from "lucide-react";
-
-// Função para formatar valores monetários
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('pt-PT', { 
-    style: 'currency', 
-    currency: 'EUR' 
-  }).format(value);
-};
+import { Trash } from "lucide-react";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/trpc/react";
+import { Rubrica, Material } from "@prisma/client";
+import { motion } from "framer-motion";
+import { Item as MaterialItem } from "@/components/projetos/criar/novo/workpackages/material/item";
+import { formatCurrency } from "@/lib/utils";
+import Decimal from "decimal.js";
+import { cn } from "@/lib/utils";
 
 interface WorkpackageMateriaisProps {
   workpackage: WorkpackageCompleto;
-  workpackageId: string;
 }
 
-export function WorkpackageMateriais({ 
-  workpackage,
-  workpackageId
-}: WorkpackageMateriaisProps) {
-  // Estado para controlar adição de material
-  const [addingMaterial, setAddingMaterial] = useState(false);
+// Mapeamento de rubricas para variantes de badge
+const rubricaParaVariante: Record<Rubrica, "blue" | "purple" | "indigo" | "orange" | "red" | "default"> = {
+  MATERIAIS: "blue",
+  SERVICOS_TERCEIROS: "purple",
+  OUTROS_SERVICOS: "indigo",
+  DESLOCACAO_ESTADIAS: "orange",
+  OUTROS_CUSTOS: "red",
+  CUSTOS_ESTRUTURA: "default" // emerald (verde) já é o default
+};
+
+export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps) {
+  const [showForm, setShowForm] = useState(false);
+  const [expandedRubricas, setExpandedRubricas] = useState<Record<string, boolean>>({});
+  const [localWorkpackage, setLocalWorkpackage] = useState<WorkpackageCompleto>(workpackage);
+  // Adicionamos um contador para forçar re-renderização
+  const [refreshCounter, setRefreshCounter] = useState(0);
   
-  // Hooks para mutações
+  // atualizar o localWorkpackage quando o workpackage props mudar
+  useEffect(() => {
+    setLocalWorkpackage(workpackage);
+  }, [workpackage]);
+  
+  const queryClient = useQueryClient();
+  
+  // Função para invalidar as queries relevantes
+  const invalidateQueries = useCallback(() => {
+    // invalida as queries
+    queryClient.invalidateQueries({ queryKey: ["workpackage.getById", { id: workpackage.id }] });
+    queryClient.invalidateQueries({ queryKey: ["projeto.getById"] });
+    
+    // atualiza os dados locais a partir da cache
+    const updatedData = queryClient.getQueryData(["workpackage.getById", { id: workpackage.id }]);
+    if (updatedData) {
+      // força a atualização do state local usando os dados da cache
+      setLocalWorkpackage(updatedData as WorkpackageCompleto);
+    }
+    
+    // Incrementar o contador para forçar re-renderização
+    setRefreshCounter(prev => prev + 1);
+    
+    console.log("invalidateQueries chamado, forçando re-renderização");
+  }, [queryClient, workpackage.id]);
+  
+  // Usar o hook de mutações do workpackage
   const { 
-    createMaterialMutation,
-    deleteMaterialMutation
+    createMaterialMutation, 
+    updateMaterialMutation, 
+    deleteMaterialMutation 
   } = useWorkpackageMutations();
   
-  // Handler para adicionar material
-  const handleAddMaterial = (workpackageId: string, material: any) => {
-    createMaterialMutation.mutate({
-      workpackageId: workpackageId,
-      nome: material.nome,
-      preco: material.preco,
-      quantidade: material.quantidade,
-      rubrica: material.rubrica,
-      ano_utilizacao: material.ano_utilizacao
-    });
-    
-    setAddingMaterial(false);
-  };
+  // Handler para adicionar/atualizar material
+  const handleSubmitMaterial = useCallback((workpackageId: string, material: {
+    id?: number;
+    nome: string;
+    descricao?: string;
+    preco: number;
+    quantidade: number;
+    ano_utilizacao: number;
+    rubrica: Material['rubrica'];
+  }) => {
+    if (material.id) {
+      // Atualizar material existente no estado local
+      setLocalWorkpackage((prev) => {
+        // Criar cópia profunda para evitar problemas de referência
+        const novosLocais = JSON.parse(JSON.stringify(prev));
+        // Encontrar e atualizar o material
+        const materialIndex = novosLocais.materiais.findIndex((m: any) => m.id === material.id);
+        if (materialIndex !== -1) {
+          novosLocais.materiais[materialIndex] = {
+            ...novosLocais.materiais[materialIndex],
+            nome: material.nome,
+            descricao: material.descricao || null, // Importante: null em vez de undefined
+            preco: material.preco,
+            quantidade: material.quantidade,
+            ano_utilizacao: material.ano_utilizacao,
+            rubrica: material.rubrica
+          };
+        }
+        return novosLocais;
+      });
+      
+      // Forçar re-renderização
+      setRefreshCounter(prev => prev + 1);
+      
+      // Fazer a mutação no servidor
+      updateMaterialMutation.mutate({
+        id: material.id,
+        workpackageId,
+        nome: material.nome,
+        descricao: material.descricao,
+        preco: material.preco,
+        quantidade: material.quantidade,
+        ano_utilizacao: material.ano_utilizacao,
+        rubrica: material.rubrica
+      }, {
+        onSuccess: () => {
+          invalidateQueries();
+        }
+      });
+      setShowForm(false);
+    } else {
+      // Criar um ID temporário para o material novo
+      const tempId = Date.now();
+      
+      // Adicionar ao estado local
+      setLocalWorkpackage((prev) => {
+        // Criar cópia profunda
+        const novosLocais = JSON.parse(JSON.stringify(prev));
+        // Adicionar novo material com campos garantidos
+        novosLocais.materiais.push({
+          id: tempId,
+          nome: material.nome,
+          descricao: material.descricao || null, // Importante: null em vez de undefined
+          preco: material.preco,
+          quantidade: material.quantidade,
+          ano_utilizacao: material.ano_utilizacao,
+          rubrica: material.rubrica,
+          workpackageId: workpackageId
+        });
+        return novosLocais;
+      });
+      
+      // Forçar re-renderização
+      setRefreshCounter(prev => prev + 1);
+      
+      // Adicionar ao servidor
+      createMaterialMutation.mutate({
+        workpackageId,
+        nome: material.nome,
+        descricao: material.descricao,
+        preco: material.preco,
+        quantidade: material.quantidade,
+        ano_utilizacao: material.ano_utilizacao,
+        rubrica: material.rubrica
+      }, {
+        onSuccess: () => {
+          invalidateQueries();
+        }
+      });
+      setShowForm(false);
+    }
+  }, [createMaterialMutation, updateMaterialMutation, invalidateQueries]);
   
   // Handler para remover material
-  const handleRemoveMaterial = (materialId: number) => {
+  const handleRemoveMaterial = useCallback((materialId: number) => {
     if (confirm("Tem certeza que deseja remover este material?")) {
-      deleteMaterialMutation.mutate(materialId);
+      // Remover do estado local
+      setLocalWorkpackage((prev) => {
+        // Criar cópia profunda
+        const novosLocais = JSON.parse(JSON.stringify(prev));
+        // Filtrar o material
+        novosLocais.materiais = novosLocais.materiais.filter((m: any) => m.id !== materialId);
+        return novosLocais;
+      });
+      
+      // Forçar re-renderização
+      setRefreshCounter(prev => prev + 1);
+      
+      // Remover do servidor
+      deleteMaterialMutation.mutate(materialId, {
+        onSuccess: () => {
+          invalidateQueries();
+        }
+      });
     }
-  };
+  }, [deleteMaterialMutation, invalidateQueries]);
   
   const formatarRubrica = (rubrica: string) => {
     switch (rubrica) {
@@ -68,27 +201,28 @@ export function WorkpackageMateriais({
   };
   
   // Calcular o valor total (preço x quantidade) com segurança
-  const calcularTotal = (preco: any, quantidade: number): number => {
-    const precoNum = typeof preco === 'number' ? preco : 
-      typeof preco === 'string' ? parseFloat(preco) : 0;
+  const calcularTotal = (preco: Decimal | number, quantidade: number): number => {
+    const precoNum = typeof preco === 'number' ? preco : Number(preco.toString());
     return precoNum * quantidade;
   };
 
-  // Calcular o total geral
+  // Calcular o total geral - usa o localWorkpackage aqui em vez do workpackage props
   const calcularTotalGeral = (): number => {
-    if (!workpackage.materiais || workpackage.materiais.length === 0) return 0;
-    return workpackage.materiais.reduce((total, material) => {
+    if (!localWorkpackage.materiais || localWorkpackage.materiais.length === 0) return 0;
+    return localWorkpackage.materiais.reduce((total, material) => {
       return total + calcularTotal(material.preco, material.quantidade);
     }, 0);
   };
   
-  // Agrupar materiais por rubrica para visualização
+  // Agrupar materiais por rubrica para visualização - usa o localWorkpackage
   const agruparPorRubrica = () => {
-    if (!workpackage.materiais || workpackage.materiais.length === 0) return [];
+    if (!localWorkpackage.materiais || localWorkpackage.materiais.length === 0) return [];
+    
+    console.log("Recalculando grupos, refreshCounter:", refreshCounter);
     
     const grupos: Record<string, any[]> = {};
     
-    workpackage.materiais.forEach(material => {
+    localWorkpackage.materiais.forEach(material => {
       const rubrica = material.rubrica;
       if (!grupos[rubrica]) {
         grupos[rubrica] = [];
@@ -103,170 +237,152 @@ export function WorkpackageMateriais({
     }));
   };
   
+  // Calculamos a cada renderização, o refreshCounter força isto
   const gruposMateriais = agruparPorRubrica();
-  const totalMateriais = workpackage.materiais?.length || 0;
+  const totalGeral = calcularTotalGeral();
   
-  // Contar recursos por mês/ano
-  const agruparRecursosPorPeriodo = () => {
-    if (!workpackage.recursos || workpackage.recursos.length === 0) return [];
-    
-    const periodos: Record<string, { 
-      mes: number, 
-      ano: number, 
-      alocacoes: typeof workpackage.recursos,
-      totalOcupacao: number
-    }> = {};
-    
-    workpackage.recursos.forEach(recurso => {
-      const key = `${recurso.mes}-${recurso.ano}`;
-      if (!periodos[key]) {
-        periodos[key] = { 
-          mes: recurso.mes, 
-          ano: recurso.ano, 
-          alocacoes: [],
-          totalOcupacao: 0
-        };
-      }
-      periodos[key].alocacoes.push(recurso);
-      periodos[key].totalOcupacao += Number(recurso.ocupacao);
-    });
-    
-    return Object.values(periodos).sort((a, b) => {
-      return a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes;
-    });
+  // Alternar expansão de uma rubrica
+  const toggleRubrica = (rubrica: string) => {
+    setExpandedRubricas(prev => ({
+      ...prev,
+      [rubrica]: !prev[rubrica]
+    }));
   };
   
-  const recursosPorPeriodo = agruparRecursosPorPeriodo();
-  const totalRecursos = workpackage.recursos?.length || 0;
-  const pessoasAlocadas = workpackage.recursos && workpackage.recursos.length > 0 
-    ? new Set(workpackage.recursos.map(r => r.userId)).size 
-    : 0;
+  useEffect(() => {
+    console.log("Componente re-renderizado, refreshCounter:", refreshCounter);
+  }, [refreshCounter]);
   
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-azul">Materiais e Serviços</h2>
-          <p className="text-sm text-azul/60 mt-1">Gerir materiais, serviços e custos do workpackage</p>
+          <h2 className="text-xl font-semibold text-gray-800">Materiais e Custos</h2>
+          <p className="text-sm text-gray-500">
+            Gerencie os materiais e custos associados a este workpackage
+          </p>
         </div>
         
-        {!addingMaterial && (
-          <Button
-            variant="outline"
-            onClick={() => setAddingMaterial(true)}
-            className="h-10 border-azul/20 text-azul hover:bg-azul/10"
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Novo Material/Serviço
-          </Button>
-        )}
+        <Button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-azul hover:bg-azul/90 text-white"
+        >
+          {showForm ? (
+            <>
+              <XCircle className="mr-2 h-4 w-4" />
+              Cancelar
+            </>
+          ) : (
+            <>
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Material
+            </>
+          )}
+        </Button>
       </div>
       
-      {/* Resumo de custos */}
-      {workpackage.materiais && workpackage.materiais.length > 0 && (
-        <Card className="p-5 border border-azul/10 bg-azul/5 shadow-sm">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-azul/10 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-azul" />
-              </div>
-              <div>
-                <p className="text-sm text-azul/70">Custo total</p>
-                <p className="text-2xl font-semibold text-azul">{formatCurrency(calcularTotalGeral())}</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-6">
-              <div>
-                <p className="text-sm text-azul/70">Materiais</p>
-                <p className="text-lg font-medium text-azul">{totalMateriais}</p>
-              </div>
-              <div>
-                <p className="text-sm text-azul/70">Categorias</p>
-                <p className="text-lg font-medium text-azul">{gruposMateriais.length}</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-      
-      {/* Formulário para adicionar novo material */}
-      {addingMaterial && (
-        <Card className="p-6 border border-azul/10 bg-white shadow-sm animate-in fade-in-50 slide-in-from-top-5 duration-200">
-          <h3 className="text-lg font-medium text-azul mb-5">Novo Material/Serviço</h3>
+      {showForm && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.2 }}
+          key={`form-${refreshCounter}`} // Forçar recriação do componente
+        >
           <MaterialForm
             workpackageId={workpackage.id}
-            onSubmit={handleAddMaterial}
-            onCancel={() => setAddingMaterial(false)}
+            onSubmit={handleSubmitMaterial}
+            onCancel={() => setShowForm(false)}
+            onUpdate={invalidateQueries}
           />
-        </Card>
+        </motion.div>
       )}
       
-      {/* Lista de materiais agrupada por rubrica */}
-      {workpackage.materiais && workpackage.materiais.length > 0 ? (
-        <div className="space-y-6">
-          {gruposMateriais.map(grupo => (
-            <div key={grupo.rubrica} className="space-y-3">
-              <div className="flex justify-between items-center">
-                <h3 className="text-md font-medium text-azul flex items-center gap-2">
-                  <Badge variant="outline" className="text-sm py-0.5 px-2.5 bg-azul/5 border-azul/20">
-                    {formatarRubrica(grupo.rubrica)}
-                  </Badge>
-                  <span className="text-azul/60">{grupo.materiais.length} {grupo.materiais.length > 1 ? 'itens' : 'item'}</span>
-                </h3>
-                <span className="text-sm font-medium text-azul">{formatCurrency(grupo.total)}</span>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-3">
-                {grupo.materiais.map((material) => (
-                  <Card key={material.id} className="p-4 border-azul/10 bg-white shadow-sm hover:border-azul/20 transition-all">
-                    <div className="flex justify-between">
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-azul/10 flex items-center justify-center flex-shrink-0">
-                          <Package className="h-5 w-5 text-azul" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-azul">{material.nome}</h4>
-                          <div className="flex flex-wrap gap-2 mt-1.5 items-center">
-                            <span className="text-xs text-azul/70">
-                              {material.quantidade} {material.quantidade > 1 ? "unidades" : "unidade"} x {formatCurrency(Number(material.preco))}
-                            </span>
-                            <Badge 
-                              variant="outline" 
-                              className="bg-gray-50 text-gray-600 border-gray-200 text-xs"
-                            >
-                              {material.ano_utilizacao}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="font-medium text-azul mr-3">
-                          {formatCurrency(calcularTotal(material.preco, material.quantidade))}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveMaterial(material.id)}
-                          className="h-8 w-8 p-0 rounded-full hover:bg-red-50 hover:text-red-500"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+      <Card className="p-4 bg-gray-50 border border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
+              <Package className="h-4 w-4 text-azul" />
             </div>
-          ))}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700">Custo Total</h4>
+              <p className="text-lg font-semibold text-azul">{formatCurrency(totalGeral)}</p>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="text-center py-16 bg-white rounded-lg border border-azul/10 shadow-sm">
-          <PackageOpen className="h-12 w-12 text-azul/20 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-azul mb-2">Nenhum material adicionado</h3>
-          <p className="text-sm text-azul/60 max-w-md mx-auto">Clique em "Novo Material/Serviço" para adicionar materiais, serviços ou outros custos a este workpackage</p>
-        </div>
-      )}
+      </Card>
+      
+      <div className="space-y-4 mt-6">
+        {gruposMateriais.length === 0 ? (
+          <div className="text-center py-8 bg-gray-50 border border-gray-100 rounded-lg">
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-gray-700 mb-1">Sem materiais</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Adicione materiais a este workpackage para visualizá-los aqui.
+            </p>
+            <Button
+              onClick={() => setShowForm(true)}
+              className="bg-azul hover:bg-azul/90 text-white"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Material
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {gruposMateriais.map(grupo => (
+              <div key={`${grupo.rubrica}-${refreshCounter}`} className="border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+                <div 
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => toggleRubrica(grupo.rubrica)}
+                >
+                  <div className="flex items-center gap-2">
+                    {expandedRubricas[grupo.rubrica] ? 
+                      <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                      <ChevronRight className="h-4 w-4 text-gray-500" />
+                    }
+                    <Badge 
+                      variant={rubricaParaVariante[grupo.rubrica as Rubrica]}
+                      className="rounded-md"
+                    >
+                      {formatarRubrica(grupo.rubrica)}
+                    </Badge>
+                    <span className="text-sm text-gray-500">
+                      ({grupo.materiais.length} {grupo.materiais.length === 1 ? 'item' : 'itens'})
+                    </span>
+                  </div>
+                  <div className="font-medium text-azul">
+                    {formatCurrency(grupo.total)}
+                  </div>
+                </div>
+                
+                {expandedRubricas[grupo.rubrica] && (
+                  <div className="p-3 space-y-3 bg-white border-t border-gray-100">
+                    {grupo.materiais.map((material: any) => (
+                      <MaterialItem
+                        key={`${material.id}-${refreshCounter}`}
+                        material={{
+                          id: material.id,
+                          nome: material.nome,
+                          descricao: material.descricao,
+                          preco: Number(material.preco),
+                          quantidade: material.quantidade,
+                          ano_utilizacao: material.ano_utilizacao,
+                          rubrica: material.rubrica,
+                          workpackageId: workpackage.id
+                        }}
+                        onEdit={handleSubmitMaterial}
+                        onRemove={() => handleRemoveMaterial(material.id)}
+                        onUpdate={invalidateQueries}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -61,6 +61,7 @@ interface TextFieldProps extends BaseFieldProps {
   onChange: (value: string) => void;
   placeholder?: string;
   type?: "text" | "email" | "tel" | "url";
+  onBlur?: () => void;
 }
 
 export function TextField({
@@ -75,7 +76,8 @@ export function TextField({
   id,
   icon,
   tooltip,
-  disabled
+  disabled,
+  onBlur
 }: TextFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -94,8 +96,18 @@ export function TextField({
         className="border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30"
         required={required}
         disabled={disabled}
+        onBlur={onBlur}
       />
-      {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
+      {helpText && (
+        <p className={cn(
+          "text-xs mt-1",
+          helpText.includes("deve ter") || helpText.includes("obrigatório") 
+            ? "text-red-500" 
+            : "text-azul/60"
+        )}>
+          {helpText}
+        </p>
+      )}
     </div>
   );
 }

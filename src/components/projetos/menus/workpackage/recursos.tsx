@@ -168,54 +168,23 @@ export function WorkpackageRecursos({
   const pessoasAlocadas = recursosPorUtilizador.length;
   
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-azul">Recursos</h2>
-          <p className="text-sm text-azul/60 mt-1">Gerir alocações de recursos humanos no workpackage</p>
+          <h2 className="text-lg font-semibold text-gray-900">Recursos</h2>
+          <p className="text-sm text-gray-500">Gerir recursos alocados</p>
         </div>
         
         {!addingRecurso && (
           <Button
-            variant="outline"
             onClick={() => setAddingRecurso(true)}
-            className="h-10 border-azul/20 text-azul hover:bg-azul/10"
+            className="h-10 bg-azul hover:bg-azul/90 text-white"
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             Novo Recurso
           </Button>
         )}
       </div>
-      
-      {/* Resumo de recursos */}
-      {workpackage.recursos && workpackage.recursos.length > 0 && (
-        <Card className="p-5 border border-azul/10 bg-azul/5 shadow-sm rounded-xl">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center">
-                <Users className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-azul/70">Pessoas alocadas</p>
-                <p className="text-2xl font-semibold text-azul">{pessoasAlocadas}</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-6">
-              <div>
-                <p className="text-sm text-azul/70">Alocações</p>
-                <p className="text-lg font-medium text-azul">{totalRecursos}</p>
-              </div>
-              <div>
-                <p className="text-sm text-azul/70">Meses alocados</p>
-                <p className="text-lg font-medium text-azul">
-                  {workpackage.recursos ? new Set(workpackage.recursos.map(r => `${r.mes}-${r.ano}`)).size : 0}
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
       
       {/* Formulário para adicionar novo recurso */}
       {addingRecurso && (

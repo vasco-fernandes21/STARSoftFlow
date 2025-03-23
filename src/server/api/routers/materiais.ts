@@ -6,6 +6,7 @@ import { z } from "zod";
 // Schema base para materiais
 const materialBaseSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
+  descricao: z.string().optional(),
   preco: z.number().min(0, "Preço deve ser positivo"),
   quantidade: z.number().int().min(1, "Quantidade deve ser pelo menos 1"),
   rubrica: z.nativeEnum(Rubrica),
@@ -41,6 +42,7 @@ export const materialRouter = createTRPCRouter({
         const material = await ctx.db.material.create({
           data: {
             nome: input.nome,
+            descricao: input.descricao,
             preco: input.preco,
             quantidade: input.quantidade,
             rubrica: input.rubrica,
@@ -63,11 +65,17 @@ export const materialRouter = createTRPCRouter({
   update: protectedProcedure
     .input(z.object({
       id: z.number(),
-      data: updateMaterialSchema,
+      workpackageId: z.string().uuid("ID de workpackage inválido"),
+      nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres").optional(),
+      descricao: z.string().optional().nullable(),
+      preco: z.number().min(0, "Preço deve ser positivo").optional(),
+      quantidade: z.number().int().min(1, "Quantidade deve ser pelo menos 1").optional(),
+      rubrica: z.nativeEnum(Rubrica).optional(),
+      ano_utilizacao: z.number().int().min(2024, "Ano de utilização inválido").optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       try {
-        const { id, data } = input;
+        const { id, ...data } = input;
         
         // Verificar se o material existe
         const materialExistente = await ctx.db.material.findUnique({

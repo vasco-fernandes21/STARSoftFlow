@@ -2,95 +2,257 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, ChevronDown, ChevronUp, Trash } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp, Trash, Circle, Check } from "lucide-react";
 import { format } from "date-fns";
 import { TarefaWithRelations } from "../../../../types";
 import { EntregavelForm } from "../entregavel/form";
 import { EntregavelItem } from "../entregavel/item";
-import { WorkpackageHandlers } from "@/app/projetos/criar/page";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-
-interface WorkpackageHandlers {
-  addEntregavel: (workpackageId: string, tarefaId: string, entregavel: any) => void;
-  removeEntregavel: (workpackageId: string, tarefaId: string, entregavelId: string) => void;
-  removeTarefa: (workpackageId: string, tarefaId: string) => void;
-  toggleEntregavelEstado: (entregavelId: string, estado: boolean) => Promise<void>;
-}
+import { cn } from "@/lib/utils";
 
 interface TarefaItemProps {
   tarefa: TarefaWithRelations;
   workpackageId: string;
-  handlers: Pick<WorkpackageHandlers, 
-    "addEntregavel" | 
-    "removeEntregavel" | 
-    "removeTarefa" | 
-    "toggleEntregavelEstado"
-  >;
 }
 
 export function TarefaItem({ 
   tarefa, 
-  workpackageId, 
-  handlers
+  workpackageId
 }: TarefaItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
   const queryClient = useQueryClient();
+  
+  // Estados locais
+  const [localTarefaEstado, setLocalTarefaEstado] = useState(tarefa.estado);
   const [entregaveisEstado, setEntregaveisEstado] = useState<Record<string, boolean>>({});
 
+  // Sincronizar estados quando a tarefa mudar
   useEffect(() => {
+    setLocalTarefaEstado(tarefa.estado);
+    
     const estadoMap: Record<string, boolean> = {};
     tarefa.entregaveis?.forEach(e => {
       estadoMap[e.id] = e.estado;
     });
     setEntregaveisEstado(estadoMap);
-  }, [tarefa.entregaveis]);
+  }, [tarefa]);
 
-  const toggleEntregavelMutation = api.entregavel.toggleEstado.useMutation({
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["workpackage.getById"] });
-      await queryClient.invalidateQueries({ queryKey: ["tarefa.getById"] });
-      toast.success("Estado atualizado com sucesso");
+  // Mutations
+  const toggleTarefaMutation = api.tarefa.toggleEstado.useMutation({
+    onMutate: async (tarefaId) => {
+      // Atualização otimista
+      const novoEstado = !localTarefaEstado;
+      setLocalTarefaEstado(novoEstado);
+      
+      // Cancelar queries relacionadas - formato correto
+      await queryClient.cancelQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      
+      // Backup do estado anterior - formato correto
+      const previousData = queryClient.getQueryData(
+        ["workpackage.getById", { id: workpackageId }]
+      );
+      
+      // Atualizar o cache
+      queryClient.setQueryData(
+        ["workpackage.getById", { id: workpackageId }],
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            tarefas: old.tarefas?.map((t: any) => 
+              t.id === tarefaId ? { ...t, estado: novoEstado } : t
+            )
+          };
+        }
+      );
+      
+      return { previousData };
+    },
+    onError: (err, tarefaId, context) => {
+      // Reverter a mudança local em caso de erro
+      setLocalTarefaEstado(!localTarefaEstado);
+      
+      // Reverter o cache
+      if (context?.previousData) {
+        queryClient.setQueryData(
+          ["workpackage.getById", { id: workpackageId }],
+          context.previousData
+        );
+      }
+      
+      toast.error("Erro ao atualizar estado da tarefa");
+    },
+    onSettled: () => {
+      // Revalidar queries após a conclusão - formato correto
+      queryClient.invalidateQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["projeto.getById"] 
+      });
     }
   });
+
+  const toggleEntregavelMutation = api.entregavel.toggleEstado.useMutation({
+    onMutate: async (data) => {
+      const { id: entregavelId, estado: novoEstado } = data;
+      
+      // Atualização otimista local
+      setEntregaveisEstado(prev => ({
+        ...prev,
+        [entregavelId]: novoEstado
+      }));
+      
+      // Cancelar queries relacionadas - formato correto
+      await queryClient.cancelQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      
+      // Backup do estado anterior
+      const previousData = queryClient.getQueryData(
+        ["workpackage.getById", { id: workpackageId }]
+      );
+      
+      return { previousData, entregavelId, estadoAnterior: !novoEstado };
+    },
+    onError: (err, data, context) => {
+      if (context) {
+        // Reverter a mudança local
+        setEntregaveisEstado(prev => ({
+          ...prev,
+          [context.entregavelId]: context.estadoAnterior
+        }));
+        
+        // Reverter o cache
+        if (context.previousData) {
+          queryClient.setQueryData(
+            ["workpackage.getById", { id: workpackageId }],
+            context.previousData
+          );
+        }
+      }
+      
+      toast.error("Erro ao atualizar estado do entregável");
+    },
+    onSettled: () => {
+      // Formato correto
+      queryClient.invalidateQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+    }
+  });
+
+  const createEntregavelMutation = api.entregavel.create.useMutation({
+    onSuccess: () => {
+      // Formato correto
+      queryClient.invalidateQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      toast.success("Entregável adicionado com sucesso");
+      setAddingEntregavel(false);
+    },
+    onError: () => {
+      toast.error("Erro ao adicionar entregável");
+    }
+  });
+
+  const deleteEntregavelMutation = api.entregavel.delete.useMutation({
+    onSuccess: () => {
+      // Formato correto
+      queryClient.invalidateQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      toast.success("Entregável removido com sucesso");
+    },
+    onError: () => {
+      toast.error("Erro ao remover entregável");
+    }
+  });
+
+  const deleteTarefaMutation = api.tarefa.delete.useMutation({
+    onSuccess: () => {
+      // Formato correto
+      queryClient.invalidateQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      toast.success("Tarefa removida com sucesso");
+    },
+    onError: () => {
+      toast.error("Erro ao remover tarefa");
+    }
+  });
+
+  // Handlers
+  const handleToggleTarefaEstado = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleTarefaMutation.mutate(tarefa.id);
+  };
+
+  const handleToggleEntregavelEstado = (entregavelId: string, novoEstado: boolean) => {
+    toggleEntregavelMutation.mutate({ 
+      id: entregavelId, 
+      estado: novoEstado 
+    });
+  };
+
+  const handleAddEntregavel = (tarefaId: string, entregavel: any) => {
+    createEntregavelMutation.mutate({
+      nome: entregavel.nome,
+      tarefaId,
+      descricao: entregavel.descricao || null,
+      data: entregavel.data,
+      anexo: null
+    });
+  };
+
+  const handleRemoveEntregavel = (entregavelId: string) => {
+    if (confirm("Tem certeza que deseja remover este entregável?")) {
+      deleteEntregavelMutation.mutate(entregavelId);
+    }
+  };
+
+  const handleRemoveTarefa = () => {
+    if (confirm("Tem certeza que deseja remover esta tarefa?")) {
+      deleteTarefaMutation.mutate(tarefa.id);
+    }
+  };
 
   const calcularProgresso = () => {
     if (!tarefa.entregaveis || tarefa.entregaveis.length === 0) return 0;
     
     const total = tarefa.entregaveis.length;
-    const concluidos = tarefa.entregaveis.filter(e => entregaveisEstado[e.id]).length;
+    const concluidos = tarefa.entregaveis.filter(e => 
+      entregaveisEstado[e.id] !== undefined ? entregaveisEstado[e.id] : e.estado
+    ).length;
     
     return Math.round((concluidos / total) * 100);
-  };
-
-  const handleToggleEntregavelEstado = (entregavelId: string, novoEstado: boolean) => {
-    setEntregaveisEstado(prev => ({
-      ...prev,
-      [entregavelId]: novoEstado
-    }));
-    
-    handlers.toggleEntregavelEstado(entregavelId, novoEstado);
   };
 
   return (
     <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
       {/* Cabeçalho da Tarefa */}
       <div 
-        className="p-3 flex justify-between items-center cursor-pointer"
+        className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center">
-            <CalendarClock className="h-3.5 w-3.5 text-azul" />
+          <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+            <CalendarClock className="h-3 w-3 text-azul" />
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">{tarefa.nome}</h5>
             <div className="flex items-center gap-2">
-              <Badge variant={tarefa.estado ? "default" : "outline"} className="px-1 py-0 text-[10px] h-4">
-                {tarefa.estado ? "Concluída" : "Pendente"}
+              <Badge 
+                variant={localTarefaEstado ? "default" : "secondary"} 
+                className="px-1.5 py-0 text-[10px] h-4"
+              >
+                {localTarefaEstado ? "Concluída" : "Pendente"}
               </Badge>
               <span className="text-xs text-gray-500">
                 {tarefa.inicio ? format(new Date(tarefa.inicio), "dd/MM/yyyy") : "-"} - {tarefa.fim ? format(new Date(tarefa.fim), "dd/MM/yyyy") : "-"}
@@ -98,33 +260,57 @@ export function TarefaItem({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={(e) => {
-              e.stopPropagation();
-              handlers.removeTarefa(workpackageId, tarefa.id);
+              e.stopPropagation(); // Impedir que o clique se propague para o container
+              handleToggleTarefaEstado(e);
             }}
-            className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
+            className={`h-6 px-2 rounded-md ${
+              localTarefaEstado 
+                ? 'bg-green-50 text-green-600 hover:bg-green-100' 
+                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+            }`}
           >
-            <Trash className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-            className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10"
-          >
-            {expanded ? (
-              <ChevronUp className="h-3.5 w-3.5 text-azul/70" />
+            {localTarefaEstado ? (
+              <Check className="h-3 w-3 mr-1" />
             ) : (
-              <ChevronDown className="h-3.5 w-3.5 text-azul/70" />
+              <Circle className="h-3 w-3 mr-1" />
             )}
+            {localTarefaEstado ? "Concluído" : "Pendente"}
           </Button>
+          
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation(); // Impedir que o clique se propague para o container
+                handleRemoveTarefa();
+              }}
+              className="h-6 w-6 p-0 rounded-md hover:bg-red-50 text-red-500"
+            >
+              <Trash className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation(); // Impedir que o clique se propague para o container
+                setExpanded(!expanded);
+              }}
+              className="h-6 w-6 p-0 rounded-md hover:bg-azul/10 text-azul"
+            >
+              {expanded ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -170,14 +356,13 @@ export function TarefaItem({
                     fim: tarefa.fim || new Date()
                   }}
                   onSubmit={(tarefaId, entregavel) => {
-                    handlers.addEntregavel(workpackageId, tarefaId, entregavel);
-                    setAddingEntregavel(false);
+                    handleAddEntregavel(tarefaId, entregavel);
                   }}
                   onCancel={() => setAddingEntregavel(false)}
                 />
               )}
 
-              {/* Lista de Entregáveis usando EntregavelItem */}
+              {/* Lista de Entregáveis */}
               <div className="space-y-2">
                 {tarefa.entregaveis?.map(entregavel => (
                   <EntregavelItem
@@ -191,10 +376,8 @@ export function TarefaItem({
                       descricao: entregavel.descricao
                     }}
                     onToggleEstado={(novoEstado) => handleToggleEntregavelEstado(entregavel.id, novoEstado)}
-                    onEdit={() => {
-                      // Lógica para editar entregável
-                    }}
-                    onRemove={() => handlers.removeEntregavel(workpackageId, tarefa.id, entregavel.id)}
+                    onEdit={() => {}}
+                    onRemove={() => handleRemoveEntregavel(entregavel.id)}
                   />
                 ))}
               </div>

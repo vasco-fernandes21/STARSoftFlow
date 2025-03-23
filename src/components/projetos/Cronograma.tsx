@@ -2,7 +2,7 @@ import type { Workpackage, Tarefa } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
-import { MenuTarefa } from "@/components/projetos/MenuTarefa";
+import { MenuTarefa } from "@/components/projetos/menus/tarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { api } from "@/trpc/react";

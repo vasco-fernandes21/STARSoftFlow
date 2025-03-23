@@ -46,10 +46,6 @@ export async function clearAuthCookies() {
   return { success: true };
 }
 
-// Definir tempos de expiração
-const EXPIRY_REMEMBER_ME = 30 * 24 * 60 * 60; // 30 dias em segundos
-const EXPIRY_SESSION_ONLY = null;     // null para ser apenas sessão do navegador (até fechar o separador)
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     CredentialsProvider({
@@ -57,23 +53,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "Credenciais",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        rememberMe: { label: "Remember Me", type: "boolean" }
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         try {
-          // Extrair rememberMe das credenciais
-          const { email, password, rememberMe } = credentials as {
+          // Extrair apenas email e password
+          const { email, password } = credentials as {
             email: string;
             password: string;
-            rememberMe?: string | boolean;
           };
           
           // Validar as credenciais usando o loginSchema
           const validatedData = await loginSchema.parseAsync({ 
             email, 
-            password,
-            rememberMe: rememberMe === true || rememberMe === "true"
+            password
           });
           
           // Procurar o utilizador pelo email
@@ -98,7 +91,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null
           }
 
-          // Retornar o utilizador com a opção rememberMe
+          // Retornar o utilizador sem a opção rememberMe
           return {
             id: user.id,
             email: user.email,
@@ -108,8 +101,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             atividade: user.atividade,
             regime: user.regime,
             username: user.username,
-            contratacao: user.contratacao,
-            rememberMe: validatedData.rememberMe
+            contratacao: user.contratacao
           }
         } catch (error) {
           // Tratar erros de validação do Zod
@@ -357,32 +349,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user, account, profile, trigger, session }) {
       console.log("JWT callback - User recebido:", user);
       
-      // Se for um novo login, verificar a opção "Remember Me"
-      if (trigger === "signIn" || trigger === "signUp") {
-        // Verificar se a opção "Remember Me" foi passada na sessão
-        const rememberMe = session?.rememberMe === true;
-        
-        // Definir o tempo de expiração com base na opção "Remember Me"
-        token.rememberMe = rememberMe;
-        
-        if (rememberMe) {
-          // Se "Remember Me" estiver ativo, definir expiração para 30 dias
-          token.expiresAt = Math.floor(Date.now() / 1000) + EXPIRY_REMEMBER_ME;
-        } else {
-          // Se não, não definir expiresAt (será uma sessão de navegador)
-          token.expiresAt = undefined;
-        }
-        
-        console.log(`Login com "Remember Me": ${rememberMe}, ${rememberMe ? `expira em: ${EXPIRY_REMEMBER_ME} segundos` : 'expira ao fechar o separador'}`);
-      }
-      
-      // Verificar se o token expirou (apenas se tiver uma data de expiração)
-      if (token.expiresAt && typeof token.expiresAt === 'number' && Date.now() / 1000 > token.expiresAt) {
-        // Token expirou, forçar logout
-        console.log("Token expirou, sessão inválida");
-        return { ...token, error: "TokenExpired" };
-      }
-      
       if (user) {
         token.sub = user.id;
         
@@ -403,12 +369,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       console.log("Session callback - Token recebido:", token);
       
-      // Se o token tiver expirado, retornar sessão inválida
-      if (token.error === "TokenExpired") {
-        // Retornar uma sessão vazia em vez de null
-        return { ...session, expires: new Date(0).toISOString() };
-      }
-      
       if (session.user) {
         // Campos já existentes
         (session.user as any).id = token.sub;
@@ -419,9 +379,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as any).regime = token.regime;
         (session.user as any).username = token.username;
         (session.user as any).contratacao = token.contratacao;
-        
-        // Adicionar informação sobre "Remember Me"
-        (session as any).rememberMe = token.rememberMe;
         
         console.log("Session callback - Session após modificação:", session);
       }

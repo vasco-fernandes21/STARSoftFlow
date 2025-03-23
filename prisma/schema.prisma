@@ -124,6 +124,7 @@ model Entregavel {
 model Material {
     id            Int         @id @default(autoincrement())
     nome          String      @db.VarChar(255)
+    descricao     String?     @db.Text
     preco         Decimal     @db.Decimal(10, 2)
     ano_utilizacao Int         @db.Integer
     quantidade    Int

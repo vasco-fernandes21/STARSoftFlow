@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import type { UseMutationResult } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
+import { TextField, TextareaField, DateField } from "@/components/projetos/criar/components/FormFields";
 
 // Componente de círculo de progresso
 function ProgressCircle({
@@ -196,13 +197,31 @@ export function WorkpackageInformacoes({
   mutations
 }: WorkpackageInformacoesProps) {
   // estados locais
-  const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState(workpackage.nome || "");
-  const [editingDescription, setEditingDescription] = useState(false);
-  const [newDescription, setNewDescription] = useState(workpackage.descricao || "");
+  const [nome, setNome] = useState(workpackage.nome || "");
+  const [descricao, setDescricao] = useState(workpackage.descricao || "");
+  const [dataInicio, setDataInicio] = useState<Date | null>(workpackage.inicio ? new Date(workpackage.inicio) : null);
+  const [dataFim, setDataFim] = useState<Date | null>(workpackage.fim ? new Date(workpackage.fim) : null);
+  
+  // estado para erros de validação
+  const [erros, setErros] = useState<{
+    nome?: string;
+    descricao?: string;
+    dataInicio?: string;
+    dataFim?: string;
+  }>({});
+  
+  // referências para timeout
+  const descricaoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // setup do TanStack Query
   const queryClient = useQueryClient();
+  
+  // Limpar timeouts na desmontagem do componente
+  useEffect(() => {
+    return () => {
+      if (descricaoTimeoutRef.current) clearTimeout(descricaoTimeoutRef.current);
+    };
+  }, []);
   
   // Mutações internas ou recebidas por props
   const localUpdateMutation = api.workpackage.update.useMutation({
@@ -210,60 +229,98 @@ export function WorkpackageInformacoes({
       queryClient.invalidateQueries({ queryKey: ["workpackage"] });
       queryClient.invalidateQueries({ queryKey: ["projeto"] });
       queryClient.invalidateQueries({ queryKey: ["cronograma"] });
-      toast.success("Workpackage atualizado com sucesso");
       
       if (onUpdate) {
         onUpdate();
       }
     },
-    onError: () => {
-      toast.error("Erro ao atualizar workpackage");
+    onError: (error: any) => {
+      // Tentar extrair erros específicos de campos da mensagem de erro
+      try {
+        const errorData = JSON.parse(error.message);
+        if (Array.isArray(errorData)) {
+          errorData.forEach(err => {
+            if (err.path[0] === "nome") {
+              setErros(prev => ({ ...prev, nome: err.message }));
+            }
+          });
+        } else {
+          toast.error("Erro ao atualizar workpackage");
+        }
+      } catch {
+        toast.error("Erro ao atualizar workpackage");
+      }
     }
   });
   
   // Usar mutação do pai ou a local
   const updateMutation = mutations?.updateWorkpackage || localUpdateMutation;
   
-  // Função para lidar com mudanças de data
-  const handleDateChange = async (field: 'inicio' | 'fim', date: Date | undefined) => {
-    try {
-      await updateMutation.mutateAsync({
+  // validação local
+  const validarNome = (valor: string) => {
+    if (!valor.trim()) {
+      return "O nome é obrigatório";
+    }
+    if (valor.trim().length < 3) {
+      return "Nome deve ter pelo menos 3 caracteres";
+    }
+    return undefined;
+  };
+  
+  // handlers para atualização de campos
+  const handleNameChange = (novoNome: string) => {
+    setNome(novoNome);
+    
+    // Limpar erro quando o utilizador está a editar
+    if (erros.nome) {
+      setErros(prev => ({ ...prev, nome: undefined }));
+    }
+  };
+  
+  // Só atualizar quando o campo perder o foco
+  const handleNameBlur = () => {
+    const erro = validarNome(nome);
+    setErros(prev => ({ ...prev, nome: erro }));
+    
+    if (!erro) {
+      updateMutation.mutate({
         id: workpackageId,
-        [field]: date
+        nome: nome
       });
-      
-      if (onUpdate) {
-        await onUpdate();
-      }
-      
-      toast.success(`Data de ${field === 'inicio' ? 'início' : 'fim'} atualizada com sucesso`);
-    } catch (error) {
-      toast.error(`Erro ao atualizar data de ${field === 'inicio' ? 'início' : 'fim'}`);
     }
   };
   
-  // handlers
-  const handleNameSave = () => {
-    if (!newName.trim()) {
-      toast.error("O nome não pode estar vazio");
-      return;
+  const handleDescriptionChange = (novaDescricao: string) => {
+    setDescricao(novaDescricao);
+    
+    // Limpar o timeout anterior se existir
+    if (descricaoTimeoutRef.current) {
+      clearTimeout(descricaoTimeoutRef.current);
     }
     
-    updateMutation.mutate({
-      id: workpackageId,
-      nome: newName
-    });
-    
-    setEditingName(false);
+    // Definir um novo timeout para atualizar apenas quando o utilizador parar de escrever
+    descricaoTimeoutRef.current = setTimeout(() => {
+      updateMutation.mutate({
+        id: workpackageId,
+        descricao: novaDescricao
+      });
+    }, 1000); // 1 segundo de delay
   };
   
-  const handleDescriptionSave = () => {
+  const handleStartDateChange = (novaData: Date | null) => {
+    setDataInicio(novaData);
     updateMutation.mutate({
       id: workpackageId,
-      descricao: newDescription
+      inicio: novaData
     });
-    
-    setEditingDescription(false);
+  };
+  
+  const handleEndDateChange = (novaData: Date | null) => {
+    setDataFim(novaData);
+    updateMutation.mutate({
+      id: workpackageId,
+      fim: novaData
+    });
   };
   
   // calcular estatísticas
@@ -291,192 +348,53 @@ export function WorkpackageInformacoes({
   }
   
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-azul">Informações</h2>
-          <p className="text-sm text-azul/60 mt-1">Detalhes e configurações do workpackage</p>
-        </div>
+    <div className="space-y-6">
+      {/* Cabeçalho */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">Informações</h2>
+        <p className="text-sm text-gray-500">Detalhes do workpackage</p>
+      </div>
+
+      {/* Nome */}
+      <TextField
+        label="Nome"
+        value={nome}
+        onChange={handleNameChange}
+        placeholder="Nome do workpackage"
+        required
+        helpText={erros.nome || ""}
+        className={erros.nome ? "error" : ""}
+        onBlur={handleNameBlur}
+      />
+
+      {/* Datas */}
+      <div className="grid grid-cols-2 gap-4">
+        <DateField
+          label="Data de início"
+          value={dataInicio}
+          onChange={handleStartDateChange}
+          helpText={erros.dataInicio || ""}
+          required
+        />
         
-        <Button
-          variant="outline"
-          onClick={() => setEditingName(true)}
-          className="h-10 border-azul/20 text-azul hover:bg-azul/10"
-        >
-          <PencilIcon className="h-4 w-4 mr-2" />
-          Editar Nome
-        </Button>
+        <DateField
+          label="Data de conclusão"
+          value={dataFim}
+          onChange={handleEndDateChange}
+          helpText={erros.dataFim || ""}
+          required
+        />
       </div>
-      
-      {/* Resumo do workpackage */}
-      <div className="bg-azul/5 border border-azul/10 shadow-sm rounded-xl p-5">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-azul/10 flex items-center justify-center">
-              <Activity className="h-5 w-5 text-azul" />
-            </div>
-            <div>
-              <p className="text-sm text-azul/70">Progresso global</p>
-              <p className="text-2xl font-semibold text-azul">{porcentagemConcluido}%</p>
-            </div>
-          </div>
-          
-          <div className="flex gap-6">
-            <div>
-              <p className="text-sm text-azul/70">Tarefas</p>
-              <p className="text-lg font-medium text-azul">{tarefasConcluidas} de {totalTarefas}</p>
-            </div>
-            <div>
-              <p className="text-sm text-azul/70">Duração</p>
-              <p className="text-lg font-medium text-azul">{calcularDuracaoDias()} dias</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Nome do workpackage (forma editável) */}
-      {editingName ? (
-        <div className="bg-white border border-azul/10 shadow-sm rounded-xl p-5 animate-in fade-in-50 slide-in-from-top-5 duration-200">
-          <h3 className="text-lg font-medium text-azul mb-3">Editar Nome</h3>
-          <div className="flex gap-2 items-center">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="flex-1 border-azul/20 focus:border-azul focus:ring-1 focus:ring-azul/30 py-2 rounded-lg"
-              placeholder="Nome do workpackage"
-              autoFocus
-            />
-            <Button
-              onClick={handleNameSave}
-              className="bg-azul hover:bg-azul/90 text-white h-10"
-            >
-              <CheckIcon className="h-4 w-4 mr-1" />
-              Guardar
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNewName(workpackage.nome || "");
-                setEditingName(false);
-              }}
-              className="h-10 border-gray-200"
-            >
-              <XIcon className="h-4 w-4 mr-1" />
-              Cancelar
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          <p className="text-sm text-azul/70">Nome atual</p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">{workpackage.nome}</h3>
-          </div>
-        </div>
-      )}
-      
-      {/* Período do workpackage */}
-      <div className="space-y-5">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-azul" />
-          <h3 className="text-lg font-medium text-azul">Período</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-sm text-azul/70">Data de início</Label>
-            <DatePicker
-              value={workpackage.inicio ? new Date(workpackage.inicio) : undefined}
-              onChange={(date) => handleDateChange('inicio', date)}
-              className="w-full"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label className="text-sm text-azul/70">Data de conclusão</Label>
-            <DatePicker
-              value={workpackage.fim ? new Date(workpackage.fim) : undefined}
-              onChange={(date) => handleDateChange('fim', date)}
-              className="w-full"
-            />
-          </div>
-        </div>
-      </div>
-      
-      {/* Descrição do workpackage */}
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileIcon className="h-5 w-5 text-azul" />
-            <h3 className="text-lg font-medium text-azul">Descrição</h3>
-          </div>
-          {!editingDescription && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNewDescription(workpackage.descricao || "");
-                setEditingDescription(true);
-              }}
-              size="sm"
-              className="h-9 border-azul/20 text-azul hover:bg-azul/10"
-            >
-              <PencilIcon className="h-3.5 w-3.5 mr-1" />
-              Editar
-            </Button>
-          )}
-        </div>
-        
-        {editingDescription ? (
-          <div className="space-y-3">
-            <Textarea
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="min-h-[200px] border-azul/20 focus:border-azul focus:ring-1 focus:ring-azul/30 rounded-lg resize-none"
-              placeholder="Adicione uma descrição detalhada sobre este workpackage..."
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditingDescription(false)}
-                className="h-9 rounded-lg border-gray-200"
-              >
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDescriptionSave}
-                className="h-9 bg-azul text-white hover:bg-azul/90 rounded-lg"
-              >
-                Guardar
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="min-h-[150px]">
-            {workpackage.descricao?.trim() ? (
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {workpackage.descricao}
-              </p>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                <FileIcon className="h-6 w-6 text-gray-400 mb-2" />
-                <p className="text-gray-500 mb-3">Nenhuma descrição adicionada</p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setNewDescription("");
-                    setEditingDescription(true);
-                  }}
-                  className="border-azul/20 text-azul hover:bg-azul/5"
-                >
-                  Adicionar descrição
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+
+      {/* Descrição */}
+      <TextareaField
+        label="Descrição"
+        value={descricao}
+        onChange={handleDescriptionChange}
+        placeholder="Descreva este pacote de trabalho"
+        rows={4}
+        helpText={erros.descricao || ""}
+      />
     </div>
   );
 } 

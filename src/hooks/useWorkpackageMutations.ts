@@ -94,7 +94,6 @@ export function useWorkpackageMutations(onUpdate?: () => Promise<void>) {
   const updateWorkpackageMutation = updateWorkpackage.useMutation({
     onSuccess: async (_, variables) => {
       await invalidateQueries(variables.id);
-      toast.success("Workpackage atualizado com sucesso");
     },
     onError: (error) => {
       toast.error(`Erro ao atualizar: ${error.message}`);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, CheckSquare, ClipboardList, XIcon } from "lucide-react";
 import { WorkpackageCompleto } from "@/components/projetos/types";
@@ -8,6 +8,8 @@ import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefa
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
+import { api } from "@/trpc/react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface WorkpackageTarefasProps {
   workpackage: WorkpackageCompleto;
@@ -22,6 +24,9 @@ export function WorkpackageTarefas({
   addingTarefa,
   setAddingTarefa
 }: WorkpackageTarefasProps) {
+  const queryClient = useQueryClient();
+  const [localTarefaEstados, setLocalTarefaEstados] = useState<Record<string, boolean>>({});
+
   // Hooks para mutações
   const { 
     createEntregavelMutation, 
@@ -31,6 +36,68 @@ export function WorkpackageTarefas({
   
   // Estado para controlar edição/visualização de tarefas
   const [editingTarefaId, setEditingTarefaId] = useState<string | null>(null);
+  
+  // Inicializar estados locais quando o workpackage mudar
+  useEffect(() => {
+    const estadosMap: Record<string, boolean> = {};
+    workpackage.tarefas?.forEach(tarefa => {
+      estadosMap[tarefa.id] = tarefa.estado;
+    });
+    setLocalTarefaEstados(estadosMap);
+  }, [workpackage]);
+
+  // Mutation para alternar estado da tarefa com optimistic updates
+  const toggleTarefaMutation = api.tarefa.toggleEstado.useMutation({
+    // Atualização otimista - modifica o cache antes da resposta do servidor
+    onMutate: async (tarefaId) => {
+      // Cancelar queries relacionadas para evitar sobrescrever nossa atualização otimista
+      await queryClient.cancelQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      
+      // Salvar o estado anterior
+      const previousWorkpackage = queryClient.getQueryData(["workpackage.getById", { id: workpackageId }]);
+      
+      // Atualizar o cache diretamente com a nova tarefa
+      queryClient.setQueryData(
+        ["workpackage.getById", { id: workpackageId }],
+        (old: any) => {
+          if (!old) return old;
+          
+          const novoEstado = !localTarefaEstados[tarefaId];
+          
+          return {
+            ...old,
+            tarefas: old.tarefas?.map((t: any) => 
+              t.id === tarefaId ? { ...t, estado: novoEstado } : t
+            )
+          };
+        }
+      );
+      
+      // Retornar o contexto para uso em onError
+      return { previousWorkpackage };
+    },
+    
+    onError: (err, tarefaId, context) => {
+      // Reverter para o estado anterior em caso de erro
+      queryClient.setQueryData(
+        ["workpackage.getById", { id: workpackageId }],
+        context?.previousWorkpackage
+      );
+      toast.error("Erro ao atualizar estado da tarefa");
+    },
+    
+    onSettled: () => {
+      // Após conclusão (sucesso ou erro), revalidar os dados
+      queryClient.invalidateQueries({ 
+        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["projeto.getById"] 
+      });
+    }
+  });
   
   // Handlers para as operações com entregáveis e tarefas
   const addEntregavelHandler = (workpackageId: string, tarefaId: string, entregavel: any) => {
@@ -74,39 +141,30 @@ export function WorkpackageTarefas({
     setAddingTarefa(false);
   };
 
-  // Calcular estatísticas das tarefas
-  const calcularEstatisticas = () => {
-    if (!workpackage.tarefas || workpackage.tarefas.length === 0) {
-      return { total: 0, concluidas: 0, porcentagem: 0 };
+  // Handler para alternar estado com atualização local imediata
+  const handleToggleTarefaEstado = async (tarefaId: string, estado: boolean) => {
+    try {
+      // Atualizar o estado local imediatamente
+      setLocalTarefaEstados(prev => ({
+        ...prev,
+        [tarefaId]: !prev[tarefaId]
+      }));
+      
+      // Chamar a mutation
+      await toggleTarefaMutation.mutateAsync(tarefaId);
+    } catch (error) {
+      // O onError da mutation já trata o caso de erro
+      console.error(error);
     }
-
-    let totalEntregaveis = 0;
-    let entregaveisConcluidos = 0;
-
-    workpackage.tarefas.forEach(tarefa => {
-      if (tarefa.entregaveis && tarefa.entregaveis.length > 0) {
-        totalEntregaveis += tarefa.entregaveis.length;
-        entregaveisConcluidos += tarefa.entregaveis.filter(e => e.estado).length;
-      }
-    });
-
-    const porcentagem = totalEntregaveis === 0 ? 0 : 
-      Math.round((entregaveisConcluidos / totalEntregaveis) * 100);
-
-    return {
-      total: totalEntregaveis,
-      concluidas: entregaveisConcluidos,
-      porcentagem
-    };
   };
-
-  const estatisticas = calcularEstatisticas();
-  const totalTarefas = workpackage.tarefas?.length || 0;
   
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-azul">Tarefas</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Tarefas</h2>
+          <p className="text-sm text-gray-500">Gerir tarefas do workpackage</p>
+        </div>
         
         {!addingTarefa && (
           <Button
@@ -118,51 +176,6 @@ export function WorkpackageTarefas({
           </Button>
         )}
       </div>
-
-      {/* Resumo das tarefas */}
-      {workpackage.tarefas && workpackage.tarefas.length > 0 && (
-        <motion.div 
-          className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-azul/10 flex items-center justify-center flex-shrink-0">
-                <ClipboardList className="h-5 w-5 text-azul" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Total de tarefas</p>
-                <p className="text-xl font-semibold text-azul">{totalTarefas}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
-                <CheckSquare className="h-5 w-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Entregáveis concluídos</p>
-                <p className="text-xl font-semibold text-azul">{estatisticas.concluidas}/{estatisticas.total}</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col justify-center">
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-sm text-gray-500">Progresso</p>
-                <span className="text-sm font-medium text-azul">{estatisticas.porcentagem}%</span>
-              </div>
-              <div className="w-full bg-azul/10 rounded-full h-3">
-                <div 
-                  className="bg-azul h-3 rounded-full transition-all duration-300" 
-                  style={{ width: `${estatisticas.porcentagem}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
       
       {/* Formulário para adicionar nova tarefa */}
       {addingTarefa && (
@@ -195,44 +208,25 @@ export function WorkpackageTarefas({
       
       {/* Lista de tarefas */}
       {workpackage.tarefas && workpackage.tarefas.length > 0 ? (
-        <motion.div
-          className="space-y-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <h3 className="text-lg font-medium text-azul">Lista de Tarefas</h3>
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             {workpackage.tarefas.map((tarefa, index) => (
-              <motion.div 
-                key={tarefa.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.1 + index * 0.05 }}
-              >
-                <Card className="p-0 overflow-hidden border-gray-100 shadow-sm hover:shadow transition-shadow duration-200">
-                  <TarefaItem
-                    tarefa={tarefa}
-                    workpackageId={workpackage.id}
-                    handlers={{
-                      addEntregavel: addEntregavelHandler,
-                      removeEntregavel: removeEntregavelHandler,
-                      removeTarefa: removeTarefaHandler,
-                      toggleEntregavelEstado: toggleEntregavelEstadoHandler
-                    }}
-                  />
-                </Card>
-              </motion.div>
+              <Card key={tarefa.id} className="p-0 overflow-hidden border-gray-100 shadow-sm hover:shadow transition-shadow duration-200">
+                <TarefaItem
+                  tarefa={{
+                    ...tarefa,
+                    // Substituir o estado da tarefa pelo nosso estado local quando disponível
+                    estado: localTarefaEstados[tarefa.id] ?? tarefa.estado
+                  }}
+                  workpackageId={workpackage.id}
+                  // Remover a prop handlers que não existe na interface TarefaItemProps
+                />
+              </Card>
             ))}
           </div>
-        </motion.div>
+        </div>
       ) : (
-        <motion.div 
-          className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
+        <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm">
           <ClipboardList className="h-16 w-16 text-azul/20 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-azul mb-2">Nenhuma tarefa adicionada</h3>
           <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
@@ -246,7 +240,7 @@ export function WorkpackageTarefas({
             <PlusIcon className="h-4 w-4 mr-2" />
             Adicionar primeira tarefa
           </Button>
-        </motion.div>
+        </div>
       )}
     </div>
   );

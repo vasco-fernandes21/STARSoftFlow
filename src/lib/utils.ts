@@ -80,3 +80,12 @@ export function agruparAlocacoesPorAnoMes(alocacoes: Array<{
     return acc;
   }, {} as Record<string, Record<number, number>>);
 }
+
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('pt-PT', { 
+    style: 'currency', 
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+}

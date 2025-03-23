@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,41 +7,110 @@ import { Package, X, Save } from "lucide-react";
 import { Prisma, Rubrica } from "@prisma/client";
 import { toast } from "sonner";
 import { DropdownField, NumberField } from "../../../components/FormFields";
+import { TextField, TextareaField, MoneyField, SelectField } from "@/components/projetos/criar/components/FormFields";
+
+interface MaterialData {
+  nome: string;
+  descricao?: string;
+  preco: number;
+  quantidade: number;
+  ano_utilizacao: number;
+  rubrica: Rubrica;
+}
 
 interface MaterialFormProps {
   workpackageId: string;
-  onSubmit: (workpackageId: string, material: Omit<Prisma.MaterialCreateInput, "workpackage">) => void;
+  initialValues?: MaterialData;
+  onSubmit: (workpackageId: string, material: MaterialData) => void;
   onCancel: () => void;
+  onUpdate?: () => void;
 }
 
-export function MaterialForm({ 
+// Opções para o campo de rubrica
+const rubricaOptions = [
+  { value: "MATERIAIS", label: "Materiais" },
+  { value: "SERVICOS_TERCEIROS", label: "Serviços de Terceiros" },
+  { value: "OUTROS_SERVICOS", label: "Outros Serviços" },
+  { value: "DESLOCACAO_ESTADIAS", label: "Deslocação e Estadias" },
+  { value: "OUTROS_CUSTOS", label: "Outros Custos" },
+  { value: "CUSTOS_ESTRUTURA", label: "Custos de Estrutura" },
+];
+
+export function Form({ 
   workpackageId, 
+  initialValues, 
   onSubmit, 
-  onCancel 
+  onCancel, 
+  onUpdate 
 }: MaterialFormProps) {
-  const [formData, setFormData] = useState({
-    nome: '',
-    quantidade: 1,
-    preco: '',
-    ano_utilizacao: new Date().getFullYear(),
-    rubrica: 'MATERIAIS' as Rubrica
-  });
-
-  const handleSubmit = () => {
-    if (!formData.nome || formData.quantidade <= 0 || !formData.preco) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
+  // Estado do formulário
+  const [nome, setNome] = useState(initialValues?.nome || "");
+  const [descricao, setDescricao] = useState(initialValues?.descricao || "");
+  const [preco, setPreco] = useState<number>(initialValues?.preco || 0);
+  const [quantidade, setQuantidade] = useState(initialValues?.quantidade || 1);
+  const [anoUtilizacao, setAnoUtilizacao] = useState(initialValues?.ano_utilizacao || new Date().getFullYear());
+  const [rubrica, setRubrica] = useState<Rubrica>(initialValues?.rubrica || "MATERIAIS");
+  
+  // Estado de validação
+  const [erros, setErros] = useState<{
+    nome?: string;
+    preco?: string;
+    quantidade?: string;
+    anoUtilizacao?: string;
+  }>({});
+  
+  // Atualizar estados quando initialValues mudar
+  useEffect(() => {
+    if (initialValues) {
+      setNome(initialValues.nome);
+      setDescricao(initialValues.descricao || "");
+      setPreco(initialValues.preco);
+      setQuantidade(initialValues.quantidade);
+      setAnoUtilizacao(initialValues.ano_utilizacao);
+      setRubrica(initialValues.rubrica);
     }
-
-    onSubmit(workpackageId, {
-      nome: formData.nome,
-      quantidade: formData.quantidade,
-      preco: Number(formData.preco.replace(',', '.')),
-      ano_utilizacao: formData.ano_utilizacao,
-      rubrica: formData.rubrica
-    });
+  }, [initialValues]);
+  
+  // Função para validar o formulário
+  const validarFormulario = () => {
+    const novosErros: typeof erros = {};
+    
+    if (!nome.trim()) {
+      novosErros.nome = "O nome é obrigatório";
+    }
+    
+    if (preco <= 0) {
+      novosErros.preco = "O preço deve ser maior que zero";
+    }
+    
+    if (quantidade <= 0) {
+      novosErros.quantidade = "A quantidade deve ser maior que zero";
+    }
+    
+    setErros(novosErros);
+    return Object.keys(novosErros).length === 0;
   };
-
+  
+  // Função para lidar com o envio do formulário
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (validarFormulario()) {
+      onSubmit(workpackageId, {
+        nome,
+        descricao: descricao || undefined,
+        preco,
+        quantidade,
+        ano_utilizacao: anoUtilizacao,
+        rubrica
+      });
+      
+      if (onUpdate) {
+        onUpdate();
+      }
+    }
+  };
+  
   return (
     <Card className="p-4 border border-azul/10 shadow-sm bg-white/70 backdrop-blur-sm mt-2">
       <div className="flex items-center gap-2 mb-3">
@@ -51,89 +120,76 @@ export function MaterialForm({
         <h4 className="text-base font-medium text-azul">Novo Material</h4>
       </div>
 
-      <div className="grid gap-3">
-        <div>
-          <Label htmlFor="nome-material" className="text-azul/80 text-sm">Nome do Material</Label>
-          <Input
-            id="nome-material"
-            placeholder="Ex: Computador Portátil"
-            value={formData.nome}
-            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-            className="mt-1"
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <TextField
+          label="Nome do Material"
+          value={nome}
+          onChange={setNome}
+          placeholder="Ex: Servidor para processamento de dados"
+          required
+          helpText={erros.nome}
+        />
+        
+        <TextareaField
+          label="Descrição"
+          value={descricao}
+          onChange={setDescricao}
+          placeholder="Descreva o material em detalhes..."
+          rows={3}
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MoneyField
+            label="Preço Unitário"
+            value={preco}
+            onChange={(value) => value !== null && setPreco(value)}
+            required
+            helpText={erros.preco}
           />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+          
           <NumberField
             label="Quantidade"
-            value={formData.quantidade}
-            onChange={(value) => setFormData({ ...formData, quantidade: value })}
+            value={quantidade}
+            onChange={setQuantidade}
             min={1}
-            id="quantidade-material"
-            tooltip="Quantidade de unidades do material"
             required
+            helpText={erros.quantidade}
           />
-          
-          <div>
-            <Label htmlFor="valor-material" className="text-azul/80 text-sm">Preço Unitário (€)</Label>
-            <Input
-              id="valor-material"
-              placeholder="Ex: 1200,00"
-              value={formData.preco}
-              onChange={(e) => setFormData({ ...formData, preco: e.target.value })}
-              className="mt-1"
-            />
-          </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-3">
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <NumberField
             label="Ano de Utilização"
-            value={formData.ano_utilizacao}
-            onChange={(value) => setFormData({ ...formData, ano_utilizacao: value })}
-            min={new Date().getFullYear()}
-            max={new Date().getFullYear() + 10}
-            id="ano-material"
-            tooltip="Ano em que o material será utilizado"
+            value={anoUtilizacao}
+            onChange={setAnoUtilizacao}
+            min={2000}
+            max={2100}
             required
+            helpText={erros.anoUtilizacao}
           />
           
-          <DropdownField
+          <SelectField
             label="Rubrica"
-            value={formData.rubrica}
-            onChange={(value) => setFormData({ ...formData, rubrica: value as Rubrica })}
-            options={[
-              { value: "MATERIAIS", label: "Materiais" },
-              { value: "SERVICOS_TERCEIROS", label: "Serviços de Terceiros" },
-              { value: "OUTROS_SERVICOS", label: "Outros Serviços" },
-              { value: "DESLOCACAO_ESTADIAS", label: "Deslocação e Estadias" },
-              { value: "OUTROS_CUSTOS", label: "Outros Custos" },
-              { value: "CUSTOS_ESTRUTURA", label: "Custos de Estrutura" }
-            ]}
-            id="rubrica-material"
-            tooltip="Categoria orçamental do material"
+            value={rubrica}
+            onChange={(value) => setRubrica(value as Rubrica)}
+            options={rubricaOptions}
             required
           />
         </div>
-
-        <div className="flex justify-end gap-2 mt-2">
+        
+        <div className="flex justify-end gap-2 pt-2">
           <Button
-            variant="ghost"
+            type="button"
+            variant="outline"
             onClick={onCancel}
-            className="text-gray-500 hover:text-gray-700"
           >
-            <X className="h-4 w-4 mr-2" />
             Cancelar
           </Button>
-          <Button
-            onClick={handleSubmit}
-            className="bg-azul hover:bg-azul/90 text-white"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Guardar
+          <Button type="submit" className="bg-azul hover:bg-azul/90 text-white">
+            {initialValues ? "Atualizar Material" : "Adicionar Material"}
           </Button>
         </div>
-      </div>
+      </form>
     </Card>
   );
 }
