@@ -181,7 +181,7 @@ const Users = () => {
   const router = useRouter();
 
   // Usando a mesma configuração de cache e refetch que os projetos
-  const queryResult = api.utilizador.getAll.useQuery(
+  const queryResult = api.utilizador.findAll.useQuery(
     {
       page: currentPage,
       limit: itemsPerPage,

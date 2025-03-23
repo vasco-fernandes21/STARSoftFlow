@@ -111,7 +111,7 @@ export function NovoUtilizadorModal() {
         console.log("Resposta de sucesso:", data);
       }
       toast.success("Utilizador criado com sucesso!");
-      utils.utilizador.getAll.invalidate();
+      utils.utilizador.findAll.invalidate();
       resetFormAndClose();
     },
     onError: (error) => {

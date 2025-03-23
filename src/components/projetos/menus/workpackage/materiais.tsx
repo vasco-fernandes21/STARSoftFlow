@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Package, XCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { WorkpackageCompleto } from "@/components/projetos/types";
-import { useWorkpackageMutations } from "@/hooks/useWorkpackageMutations";
+import { useMutations } from "@/hooks/useMutations";
 import { Form as MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 
 interface WorkpackageMateriaisProps {
   workpackage: WorkpackageCompleto;
+  workpackageId: string;
+  mutations?: ReturnType<typeof useMutations>;
 }
 
 // Mapeamento de rubricas para variantes de badge
@@ -31,7 +33,11 @@ const rubricaParaVariante: Record<Rubrica, "blue" | "purple" | "indigo" | "orang
   CUSTOS_ESTRUTURA: "default" // emerald (verde) já é o default
 };
 
-export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps) {
+export function WorkpackageMateriais({ 
+  workpackage,
+  workpackageId,
+  mutations: externalMutations
+}: WorkpackageMateriaisProps) {
   const [showForm, setShowForm] = useState(false);
   const [expandedRubricas, setExpandedRubricas] = useState<Record<string, boolean>>({});
   const [localWorkpackage, setLocalWorkpackage] = useState<WorkpackageCompleto>(workpackage);
@@ -45,14 +51,17 @@ export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps)
   
   const queryClient = useQueryClient();
   
+  // Usar mutations externas ou criar locais se não forem fornecidas
+  const mutations = externalMutations || useMutations();
+  
   // Função para invalidar as queries relevantes
-  const invalidateQueries = useCallback(() => {
+  const invalidateQueries = useCallback(async () => {
     // invalida as queries
-    queryClient.invalidateQueries({ queryKey: ["workpackage.getById", { id: workpackage.id }] });
-    queryClient.invalidateQueries({ queryKey: ["projeto.getById"] });
+    await queryClient.invalidateQueries({ queryKey: ["workpackage.findById", { id: workpackage.id }] });
+    await queryClient.invalidateQueries({ queryKey: ["projeto.findById"] });
     
     // atualiza os dados locais a partir da cache
-    const updatedData = queryClient.getQueryData(["workpackage.getById", { id: workpackage.id }]);
+    const updatedData = queryClient.getQueryData(["workpackage.findById", { id: workpackage.id }]);
     if (updatedData) {
       // força a atualização do state local usando os dados da cache
       setLocalWorkpackage(updatedData as WorkpackageCompleto);
@@ -64,35 +73,39 @@ export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps)
     console.log("invalidateQueries chamado, forçando re-renderização");
   }, [queryClient, workpackage.id]);
   
-  // Usar o hook de mutações do workpackage
-  const { 
-    createMaterialMutation, 
-    updateMaterialMutation, 
-    deleteMaterialMutation 
-  } = useWorkpackageMutations();
-  
   // Handler para adicionar/atualizar material
   const handleSubmitMaterial = useCallback((workpackageId: string, material: {
     id?: number;
     nome: string;
-    descricao?: string;
+    descricao: string | null;
     preco: number;
     quantidade: number;
     ano_utilizacao: number;
     rubrica: Material['rubrica'];
   }) => {
     if (material.id) {
-      // Atualizar material existente no estado local
+      // Preparar os dados para o servidor, garantindo compatibilidade com a API
+      const updateData = {
+        id: material.id,
+        workpackageId,
+        nome: material.nome,
+        // Se descricao for null, não envie o campo - deixe indefinido
+        ...(material.descricao !== null && { descricao: material.descricao }),
+        preco: material.preco,
+        quantidade: material.quantidade,
+        ano_utilizacao: material.ano_utilizacao,
+        rubrica: material.rubrica
+      };
+
+      // Atualizar estado local primeiro (otimista)
       setLocalWorkpackage((prev) => {
-        // Criar cópia profunda para evitar problemas de referência
         const novosLocais = JSON.parse(JSON.stringify(prev));
-        // Encontrar e atualizar o material
         const materialIndex = novosLocais.materiais.findIndex((m: any) => m.id === material.id);
         if (materialIndex !== -1) {
           novosLocais.materiais[materialIndex] = {
             ...novosLocais.materiais[materialIndex],
             nome: material.nome,
-            descricao: material.descricao || null, // Importante: null em vez de undefined
+            descricao: material.descricao,
             preco: material.preco,
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
@@ -105,9 +118,11 @@ export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps)
       // Forçar re-renderização
       setRefreshCounter(prev => prev + 1);
       
-      // Fazer a mutação no servidor
-      updateMaterialMutation.mutate({
-        id: material.id,
+      // Enviar para o servidor
+      mutations.material.update.mutate(updateData);
+    } else {
+      // Criar novo material
+      const createData = {
         workpackageId,
         nome: material.nome,
         descricao: material.descricao,
@@ -115,78 +130,82 @@ export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps)
         quantidade: material.quantidade,
         ano_utilizacao: material.ano_utilizacao,
         rubrica: material.rubrica
-      }, {
-        onSuccess: () => {
-          invalidateQueries();
-        }
-      });
-      setShowForm(false);
-    } else {
-      // Criar um ID temporário para o material novo
-      const tempId = Date.now();
+      };
       
-      // Adicionar ao estado local
-      setLocalWorkpackage((prev) => {
-        // Criar cópia profunda
+      // Adicionar localmente primeiro
+      const novoMaterial = {
+        id: -1, // ID temporário
+        nome: material.nome,
+        descricao: material.descricao,
+        preco: new Decimal(material.preco),
+        quantidade: material.quantidade,
+        ano_utilizacao: material.ano_utilizacao,
+        rubrica: material.rubrica,
+        workpackageId // Adicionar o workpackageId que estava faltando
+      };
+      
+      setLocalWorkpackage(prev => {
+        // Criando uma cópia profunda para evitar mutação
         const novosLocais = JSON.parse(JSON.stringify(prev));
-        // Adicionar novo material com campos garantidos
-        novosLocais.materiais.push({
-          id: tempId,
-          nome: material.nome,
-          descricao: material.descricao || null, // Importante: null em vez de undefined
-          preco: material.preco,
-          quantidade: material.quantidade,
-          ano_utilizacao: material.ano_utilizacao,
-          rubrica: material.rubrica,
-          workpackageId: workpackageId
-        });
+        novosLocais.materiais.push(novoMaterial);
         return novosLocais;
       });
       
       // Forçar re-renderização
       setRefreshCounter(prev => prev + 1);
       
-      // Adicionar ao servidor
-      createMaterialMutation.mutate({
+      // Enviar para o servidor
+      mutations.material.create.mutate({
         workpackageId,
         nome: material.nome,
-        descricao: material.descricao,
+        descricao: material.descricao || undefined, // Converter null para undefined
         preco: material.preco,
         quantidade: material.quantidade,
         ano_utilizacao: material.ano_utilizacao,
         rubrica: material.rubrica
-      }, {
-        onSuccess: () => {
-          invalidateQueries();
-        }
       });
-      setShowForm(false);
     }
-  }, [createMaterialMutation, updateMaterialMutation, invalidateQueries]);
+    
+    // Fechar o formulário
+    setShowForm(false);
+  }, [mutations.material]);
+  
+  // Wrapper para compatibilidade de tipos para o componente MaterialItem
+  const handleEditMaterial = useCallback((workpackageId: string, material: {
+    id: number;
+    nome: string;
+    descricao?: string | undefined;
+    preco: number;
+    quantidade: number;
+    ano_utilizacao: number;
+    rubrica: Rubrica;
+  }) => {
+    // Converter descricao: string | undefined para string | null
+    handleSubmitMaterial(workpackageId, {
+      ...material,
+      descricao: material.descricao ?? null
+    });
+  }, [handleSubmitMaterial]);
   
   // Handler para remover material
-  const handleRemoveMaterial = useCallback((materialId: number) => {
-    if (confirm("Tem certeza que deseja remover este material?")) {
-      // Remover do estado local
-      setLocalWorkpackage((prev) => {
-        // Criar cópia profunda
-        const novosLocais = JSON.parse(JSON.stringify(prev));
-        // Filtrar o material
-        novosLocais.materiais = novosLocais.materiais.filter((m: any) => m.id !== materialId);
-        return novosLocais;
-      });
-      
-      // Forçar re-renderização
-      setRefreshCounter(prev => prev + 1);
-      
-      // Remover do servidor
-      deleteMaterialMutation.mutate(materialId, {
-        onSuccess: () => {
-          invalidateQueries();
-        }
-      });
+  const handleRemoveMaterial = useCallback((id: number) => {
+    // Confirmar antes de excluir
+    if (!confirm("Tem certeza que deseja excluir este material?")) {
+      return;
     }
-  }, [deleteMaterialMutation, invalidateQueries]);
+    
+    // Remover localmente primeiro
+    setLocalWorkpackage(prev => ({
+      ...prev,
+      materiais: prev.materiais.filter(m => m.id !== id)
+    }));
+    
+    // Forçar re-renderização
+    setRefreshCounter(prev => prev + 1);
+    
+    // Enviar para o servidor
+    mutations.material.delete.mutate(id);
+  }, [mutations.material]);
   
   const formatarRubrica = (rubrica: string) => {
     switch (rubrica) {
@@ -259,7 +278,7 @@ export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps)
         <div>
           <h2 className="text-xl font-semibold text-gray-800">Materiais e Custos</h2>
           <p className="text-sm text-gray-500">
-            Gerencie os materiais e custos associados a este workpackage
+            Consulte e edite os materiais
           </p>
         </div>
         
@@ -371,7 +390,7 @@ export function WorkpackageMateriais({ workpackage }: WorkpackageMateriaisProps)
                           rubrica: material.rubrica,
                           workpackageId: workpackage.id
                         }}
-                        onEdit={handleSubmitMaterial}
+                        onEdit={handleEditMaterial}
                         onRemove={() => handleRemoveMaterial(material.id)}
                         onUpdate={invalidateQueries}
                       />

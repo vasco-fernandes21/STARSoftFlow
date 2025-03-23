@@ -64,7 +64,7 @@ const materialSchema = z.object({
 
 // Router
 export const workpackageRouter = createTRPCRouter({
-  getAll: protectedProcedure
+  findAll: protectedProcedure
     .input(workpackageFilterSchema.optional())
     .query(async ({ ctx, input }) => {
       const { search, projetoId, page = 1, limit = 10 } = input || {};
@@ -116,7 +116,7 @@ export const workpackageRouter = createTRPCRouter({
       };
     }),
 
-  getById: protectedProcedure
+  findById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const workpackage = await ctx.db.workpackage.findUnique({

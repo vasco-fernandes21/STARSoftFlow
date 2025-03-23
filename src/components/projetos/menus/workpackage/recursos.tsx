@@ -1,51 +1,39 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { WorkpackageCompleto } from "@/components/projetos/types";
-import { useWorkpackageMutations } from "@/hooks/useWorkpackageMutations";
+import { useMutations } from "@/hooks/useMutations";
 import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { api } from "@/trpc/react";
 import { Details } from "@/components/projetos/criar/novo/recursos/details";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Decimal } from "decimal.js";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface WorkpackageRecursosProps {
   workpackage: WorkpackageCompleto;
   workpackageId: string;
+  mutations?: ReturnType<typeof useMutations>;
 }
 
 export function WorkpackageRecursos({ 
   workpackage,
-  workpackageId
+  workpackageId,
+  mutations: externalMutations
 }: WorkpackageRecursosProps) {
   // Estado para controlar adição de recurso
   const [addingRecurso, setAddingRecurso] = useState(false);
   const [editingUsuarioId, setEditingUsuarioId] = useState<string | null>(null);
   const [expandedUsuarioId, setExpandedUsuarioId] = useState<string | null>(null);
   
-  // Obter as mutações através do hook global
-  const { 
-    invalidateQueries
-  } = useWorkpackageMutations(() => Promise.resolve());
-  
-  // Definir mutações específicas para recursos
-  const createAlocacaoMutation = api.workpackage.addAlocacao.useMutation({
-    onSuccess: async () => {
-      await invalidateQueries(workpackageId);
-    }
-  });
-  
-  const removeAlocacaoMutation = api.workpackage.removeAlocacao.useMutation({
-    onSuccess: async () => {
-      await invalidateQueries(workpackageId);
-    }
-  });
+  // Usar mutations externas ou criar locais se não forem fornecidas
+  const mutations = externalMutations || useMutations();
   
   // Query para obter todos os utilizadores
-  const { data: utilizadores = { items: [] } } = api.utilizador.getAll.useQuery({ limit: 100 });
+  const { data: utilizadores = { items: [] } } = api.utilizador.findAll.useQuery({ limit: 100 });
   
   // Mapear utilizadores para o formato esperado pelo componente
   const utilizadoresList = (utilizadores?.items || []).map(user => ({
@@ -65,8 +53,8 @@ export function WorkpackageRecursos({
   }>) => {
     // Para cada alocação no array, criar uma alocação individual
     alocacoes.forEach(alocacao => {
-      createAlocacaoMutation.mutate({
-        workpackageId: workpackageId,
+      mutations.workpackage.addAlocacao.mutate({
+        workpackageId,
         userId: alocacao.userId,
         mes: alocacao.mes,
         ano: alocacao.ano,
@@ -86,7 +74,7 @@ export function WorkpackageRecursos({
       
       // Remover cada alocação individualmente
       alocacoesUsuario.forEach(alocacao => {
-        removeAlocacaoMutation.mutate({
+        mutations.workpackage.removeAlocacao.mutate({
           workpackageId,
           userId: alocacao.userId,
           mes: alocacao.mes,

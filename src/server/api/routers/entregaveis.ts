@@ -61,7 +61,7 @@ export const entregavelRouter = createTRPCRouter({
     }),
 
   // Obter entregável por ID
-  getById: protectedProcedure
+  findById: protectedProcedure
     .input(z.string().uuid("ID do entregável inválido"))
     .query(async ({ ctx, input }) => {
       return ctx.db.entregavel.findUnique({

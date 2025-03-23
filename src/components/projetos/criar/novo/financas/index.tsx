@@ -28,7 +28,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
   const { state, dispatch } = useProjetoForm();
   const [modalAberto, setModalAberto] = useState(false);
 
-  const { data: financiamentosResponse } = api.financiamento.getAll.useQuery({
+  const { data: financiamentosResponse } = api.financiamento.findAll.useQuery({
     limit: 100
   });
   const financiamentos = financiamentosResponse?.items || [];

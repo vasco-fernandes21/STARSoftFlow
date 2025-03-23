@@ -142,7 +142,7 @@ export default function Projetos() {
     data: projetosResponse, 
     isLoading, 
     error 
-  } = api.projeto.getAll.useQuery(
+  } = api.projeto.findAll.useQuery(
     {
       page: currentPage,
       limit: itemsPerPage,

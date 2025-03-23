@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, CheckSquare, ClipboardList, XIcon } from "lucide-react";
 import { WorkpackageCompleto } from "@/components/projetos/types";
-import { useWorkpackageMutations } from "@/hooks/useWorkpackageMutations";
+import { useMutations } from "@/hooks/useMutations";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
 import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
 import { toast } from "sonner";
@@ -10,29 +10,28 @@ import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { api } from "@/trpc/react";
 import { useQueryClient } from "@tanstack/react-query";
+import { UseMutationResult } from "@tanstack/react-query";
 
 interface WorkpackageTarefasProps {
   workpackage: WorkpackageCompleto;
   workpackageId: string;
   addingTarefa: boolean;
   setAddingTarefa: (adding: boolean) => void;
+  mutations?: ReturnType<typeof useMutations>;
 }
 
 export function WorkpackageTarefas({ 
   workpackage,
   workpackageId,
   addingTarefa,
-  setAddingTarefa
+  setAddingTarefa,
+  mutations: externalMutations
 }: WorkpackageTarefasProps) {
   const queryClient = useQueryClient();
   const [localTarefaEstados, setLocalTarefaEstados] = useState<Record<string, boolean>>({});
 
-  // Hooks para mutações
-  const { 
-    createEntregavelMutation, 
-    deleteEntregavelMutation,
-    toggleEntregavelEstado
-  } = useWorkpackageMutations();
+  // Usar mutations externas ou criar locais se não forem fornecidas
+  const mutations = externalMutations || useMutations();
   
   // Estado para controlar edição/visualização de tarefas
   const [editingTarefaId, setEditingTarefaId] = useState<string | null>(null);
@@ -52,15 +51,15 @@ export function WorkpackageTarefas({
     onMutate: async (tarefaId) => {
       // Cancelar queries relacionadas para evitar sobrescrever nossa atualização otimista
       await queryClient.cancelQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       
       // Salvar o estado anterior
-      const previousWorkpackage = queryClient.getQueryData(["workpackage.getById", { id: workpackageId }]);
+      const previousWorkpackage = queryClient.getQueryData(["workpackage.findById", { id: workpackageId }]);
       
       // Atualizar o cache diretamente com a nova tarefa
       queryClient.setQueryData(
-        ["workpackage.getById", { id: workpackageId }],
+        ["workpackage.findById", { id: workpackageId }],
         (old: any) => {
           if (!old) return old;
           
@@ -70,6 +69,10 @@ export function WorkpackageTarefas({
             ...old,
             tarefas: old.tarefas?.map((t: any) => 
               t.id === tarefaId ? { ...t, estado: novoEstado } : t
+            ),
+            // Atualizamos também o estado do workpackage se todas as tarefas estiverem concluídas
+            estado: old.tarefas?.every((t: any) => 
+              t.id === tarefaId ? novoEstado : t.estado
             )
           };
         }
@@ -82,26 +85,26 @@ export function WorkpackageTarefas({
     onError: (err, tarefaId, context) => {
       // Reverter para o estado anterior em caso de erro
       queryClient.setQueryData(
-        ["workpackage.getById", { id: workpackageId }],
+        ["workpackage.findById", { id: workpackageId }],
         context?.previousWorkpackage
       );
       toast.error("Erro ao atualizar estado da tarefa");
     },
     
-    onSettled: () => {
+    onSettled: async () => {
       // Após conclusão (sucesso ou erro), revalidar os dados
-      queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+      await queryClient.invalidateQueries({ 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ["projeto.getById"] 
+      await queryClient.invalidateQueries({ 
+        queryKey: ["projeto.findById"] 
       });
     }
   });
   
   // Handlers para as operações com entregáveis e tarefas
   const addEntregavelHandler = (workpackageId: string, tarefaId: string, entregavel: any) => {
-    createEntregavelMutation.mutate({
+    mutations.entregavel.create.mutate({
       nome: entregavel.nome,
       tarefaId: tarefaId,
       descricao: null,
@@ -112,25 +115,25 @@ export function WorkpackageTarefas({
   
   const removeEntregavelHandler = (workpackageId: string, tarefaId: string, entregavelId: string) => {
     if (confirm("Tem certeza que deseja remover este entregável?")) {
-      deleteEntregavelMutation.mutate(entregavelId);
+      mutations.entregavel.delete.mutate(entregavelId);
     }
   };
   
   const removeTarefaHandler = (workpackageId: string, tarefaId: string) => {
     if (confirm("Tem certeza que deseja remover esta tarefa?")) {
-      deleteEntregavelMutation.mutate(tarefaId);
+      mutations.entregavel.delete.mutate(tarefaId);
     }
   };
   
   const toggleEntregavelEstadoHandler = async (entregavelId: string, estado: boolean) => {
-    await toggleEntregavelEstado.mutate({
+    await mutations.entregavel.toggleEstado.mutate({
       id: entregavelId,
       estado: estado
     });
   };
   
   const handleSubmitTarefa = (workpackageId: string, tarefa: any) => {
-    createEntregavelMutation.mutate({
+    mutations.entregavel.create.mutate({
       nome: tarefa.nome,
       tarefaId: workpackageId,
       descricao: tarefa.descricao,
@@ -150,8 +153,8 @@ export function WorkpackageTarefas({
         [tarefaId]: !prev[tarefaId]
       }));
       
-      // Chamar a mutation
-      await toggleTarefaMutation.mutateAsync(tarefaId);
+      // Chamar a mutation (a mutation já chama onUpdate via invalidateQueries)
+      await mutations.tarefa.toggleEstado.mutateAsync(tarefaId);
     } catch (error) {
       // O onError da mutation já trata o caso de erro
       console.error(error);
@@ -219,7 +222,6 @@ export function WorkpackageTarefas({
                     estado: localTarefaEstados[tarefa.id] ?? tarefa.estado
                   }}
                   workpackageId={workpackage.id}
-                  // Remover a prop handlers que não existe na interface TarefaItemProps
                 />
               </Card>
             ))}

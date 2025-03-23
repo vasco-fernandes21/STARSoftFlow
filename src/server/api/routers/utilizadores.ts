@@ -113,7 +113,7 @@ type UserWithPermissao = {
 // Router
 export const utilizadorRouter = createTRPCRouter({
   // Obter todos os utilizadores
-  getAll: protectedProcedure
+  findAll: protectedProcedure
     .input(utilizadorFilterSchema.optional())
     .query(async ({ ctx, input }) => {
       try {
@@ -312,7 +312,7 @@ export const utilizadorRouter = createTRPCRouter({
     }),
 
   // Obter utilizador por ID
-  getById: protectedProcedure
+  findById: protectedProcedure
     .input(z.string())
     .query(async ({ ctx, input: id }) => {
       try {

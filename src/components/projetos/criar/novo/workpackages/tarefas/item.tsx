@@ -50,17 +50,17 @@ export function TarefaItem({
       
       // Cancelar queries relacionadas - formato correto
       await queryClient.cancelQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       
       // Backup do estado anterior - formato correto
       const previousData = queryClient.getQueryData(
-        ["workpackage.getById", { id: workpackageId }]
+        ["workpackage.findById", { id: workpackageId }]
       );
       
       // Atualizar o cache
       queryClient.setQueryData(
-        ["workpackage.getById", { id: workpackageId }],
+        ["workpackage.findById", { id: workpackageId }],
         (old: any) => {
           if (!old) return old;
           return {
@@ -81,7 +81,7 @@ export function TarefaItem({
       // Reverter o cache
       if (context?.previousData) {
         queryClient.setQueryData(
-          ["workpackage.getById", { id: workpackageId }],
+          ["workpackage.findById", { id: workpackageId }],
           context.previousData
         );
       }
@@ -91,10 +91,10 @@ export function TarefaItem({
     onSettled: () => {
       // Revalidar queries após a conclusão - formato correto
       queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       queryClient.invalidateQueries({ 
-        queryKey: ["projeto.getById"] 
+        queryKey: ["projeto.findById"] 
       });
     }
   });
@@ -111,12 +111,12 @@ export function TarefaItem({
       
       // Cancelar queries relacionadas - formato correto
       await queryClient.cancelQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       
       // Backup do estado anterior
       const previousData = queryClient.getQueryData(
-        ["workpackage.getById", { id: workpackageId }]
+        ["workpackage.findById", { id: workpackageId }]
       );
       
       return { previousData, entregavelId, estadoAnterior: !novoEstado };
@@ -132,7 +132,7 @@ export function TarefaItem({
         // Reverter o cache
         if (context.previousData) {
           queryClient.setQueryData(
-            ["workpackage.getById", { id: workpackageId }],
+            ["workpackage.findById", { id: workpackageId }],
             context.previousData
           );
         }
@@ -143,7 +143,7 @@ export function TarefaItem({
     onSettled: () => {
       // Formato correto
       queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
     }
   });
@@ -152,7 +152,7 @@ export function TarefaItem({
     onSuccess: () => {
       // Formato correto
       queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       toast.success("Entregável adicionado com sucesso");
       setAddingEntregavel(false);
@@ -166,7 +166,7 @@ export function TarefaItem({
     onSuccess: () => {
       // Formato correto
       queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       toast.success("Entregável removido com sucesso");
     },
@@ -179,7 +179,7 @@ export function TarefaItem({
     onSuccess: () => {
       // Formato correto
       queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.getById", { id: workpackageId }] 
+        queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       toast.success("Tarefa removida com sucesso");
     },
@@ -189,9 +189,9 @@ export function TarefaItem({
   });
 
   // Handlers
-  const handleToggleTarefaEstado = (e: React.MouseEvent) => {
+  const handleToggleTarefaEstado = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleTarefaMutation.mutate(tarefa.id);
+    await toggleTarefaMutation.mutateAsync(tarefa.id);
   };
 
   const handleToggleEntregavelEstado = (entregavelId: string, novoEstado: boolean) => {

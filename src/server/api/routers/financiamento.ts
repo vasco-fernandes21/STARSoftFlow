@@ -25,7 +25,7 @@ const paginationSchema = z.object({
 // Router 
 export const financiamentoRouter = createTRPCRouter({
   // Obter todos os tipos de financiamento com paginação
-  getAll: protectedProcedure
+  findAll: protectedProcedure
     .input(paginationSchema)
     .query(async ({ ctx, input }) => {
       const { limit, cursor } = input;
@@ -49,7 +49,7 @@ export const financiamentoRouter = createTRPCRouter({
     }),
 
   // Obter um tipo de financiamento por ID
-  getById: protectedProcedure
+  findById: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       const financiamento = await ctx.db.financiamento.findUnique({

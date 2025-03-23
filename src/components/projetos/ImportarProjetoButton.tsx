@@ -430,7 +430,7 @@ export default function ImportarProjetoButton() {
   } | null>(null);
 
   // Adicionar o hook aqui dentro do componente
-  const { data: financiamentosData } = api.financiamento.getAll.useQuery({ limit: 100 });
+  const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -442,7 +442,7 @@ export default function ImportarProjetoButton() {
     
     try {
       // Carregar utilizadores
-      const response = await fetch("/api/trpc/utilizador.getAll");
+      const response = await fetch("/api/trpc/utilizador.findAll");
       const responseData = await response.json();
       const utilizadores = extrairUtilizadores(responseData);
       

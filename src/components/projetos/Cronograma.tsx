@@ -8,6 +8,8 @@ import { ptBR } from "date-fns/locale";
 import { api } from "@/trpc/react";
 import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMutations } from "@/hooks/useMutations";
 
 interface CronogramaOptions {
   leftColumnWidth?: number;
@@ -35,9 +37,10 @@ interface CronogramaProps {
   startDate: Date;
   endDate: Date;
   onSelectTarefa?: (tarefaId: string) => void;
-  onUpdateWorkPackage?: (workpackage: Workpackage) => void;
-  onUpdateTarefa?: (tarefa: Tarefa) => void;
+  onUpdateWorkPackage?: () => Promise<void>;
+  onUpdateTarefa?: () => Promise<void>;
   options?: CronogramaOptions;
+  projetoId: string;
 }
 
 export function Cronograma({ 
@@ -47,13 +50,17 @@ export function Cronograma({
   onSelectTarefa,
   onUpdateWorkPackage,
   onUpdateTarefa,
-  options = {}
+  options = {},
+  projetoId
 }: CronogramaProps) {
   const [selectedTarefa, setSelectedTarefa] = useState<string | null>(null);
   const [selectedWorkpackage, setSelectedWorkpackage] = useState<string | null>(null);
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const utils = api.useContext();
+  const queryClient = useQueryClient();
+  
+  const mutations = useMutations(onUpdateWorkPackage, projetoId);
   
   useEffect(() => {
     const leftColumn = leftColumnRef.current;
@@ -179,6 +186,27 @@ export function Cronograma({
     });
     
     return entregaveis;
+  };
+
+  const handleWorkpackageUpdate = async (workpackageId: string) => {
+    await queryClient.invalidateQueries({ 
+      queryKey: ["workpackage.findById", { id: workpackageId }] 
+    });
+    await queryClient.invalidateQueries({ 
+      queryKey: ["projeto.findById"] 
+    });
+    await queryClient.invalidateQueries({ 
+      queryKey: ["cronograma"] 
+    });
+    
+    const data = await queryClient.fetchQuery({
+      queryKey: ["workpackage.findById", { id: workpackageId }],
+      queryFn: () => utils.workpackage.findById.fetch({ id: workpackageId })
+    });
+    
+    if (onUpdateWorkPackage && data) {
+      await onUpdateWorkPackage();
+    }
   };
 
   return (
@@ -381,17 +409,23 @@ export function Cronograma({
               open={!!selectedTarefa}
               onClose={() => setSelectedTarefa(null)}
               onUpdate={async () => {
-                await Promise.all([
-                  utils.tarefa.getById.invalidate(selectedTarefa),
-                  utils.projeto.getById.invalidate(),
-                  utils.workpackage.getById.invalidate()
-                ]);
-
-                if (onUpdateTarefa) {
-                  const tarefa = await utils.tarefa.getById.fetch(selectedTarefa);
-                  if (tarefa) {
-                    await onUpdateTarefa(tarefa);
-                  }
+                await queryClient.invalidateQueries({ 
+                  queryKey: ["tarefa.findById", selectedTarefa] 
+                });
+                await queryClient.invalidateQueries({ 
+                  queryKey: ["projeto.findById"] 
+                });
+                await queryClient.invalidateQueries({ 
+                  queryKey: ["workpackage.findById"] 
+                });
+                
+                const data = await queryClient.fetchQuery({
+                  queryKey: ["tarefa.findById", selectedTarefa],
+                  queryFn: () => utils.tarefa.findById.fetch(selectedTarefa)
+                });
+                
+                if (onUpdateTarefa && data) {
+                  await onUpdateTarefa();
                 }
               }}
             />
@@ -400,23 +434,10 @@ export function Cronograma({
           {selectedWorkpackage && (
             <MenuWorkpackage
               workpackageId={selectedWorkpackage}
-              open={!!selectedWorkpackage}
               onClose={() => setSelectedWorkpackage(null)}
-              startDate={startDate}
-              endDate={endDate}
-              onUpdate={async () => {
-                await Promise.all([
-                  utils.workpackage.getById.invalidate({ id: selectedWorkpackage }),
-                  utils.projeto.getById.invalidate()
-                ]);
-
-                if (onUpdateWorkPackage) {
-                  const workpackage = await utils.workpackage.getById.fetch({ id: selectedWorkpackage });
-                  if (workpackage) {
-                    await onUpdateWorkPackage(workpackage);
-                  }
-                }
-              }}
+              projetoId={projetoId}
+              onUpdate={onUpdateWorkPackage}
+              open={!!selectedWorkpackage}
             />
           )}
         </>

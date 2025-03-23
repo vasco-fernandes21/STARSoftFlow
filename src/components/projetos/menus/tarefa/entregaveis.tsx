@@ -10,7 +10,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Entregavel } from "@prisma/client";
-import { useWorkpackageMutations } from "@/hooks/useWorkpackageMutations";
+import { useMutations } from "@/hooks/useMutations";
 
 interface TarefaEntregaveisProps {
   tarefa: any;
@@ -29,12 +29,8 @@ export function TarefaEntregaveis({
 }: TarefaEntregaveisProps) {
   const [submittingEntregavel, setSubmittingEntregavel] = useState<string | null>(null);
   
-  // usar as mutações do hook useWorkpackageMutations
-  const { 
-    createEntregavelMutation,
-    deleteEntregavelMutation,
-    toggleEntregavelEstado
-  } = useWorkpackageMutations(onUpdate);
+  // usar as mutações do hook useMutations
+  const mutations = useMutations(onUpdate);
 
   // Buscar entregáveis da tarefa
   const { 
@@ -47,16 +43,15 @@ export function TarefaEntregaveis({
   );
 
   const handleToggleEstado = async (entregavelId: string, novoEstado: boolean) => {
-    await toggleEntregavelEstado.mutate({ 
+    await mutations.entregavel.toggleEstado.mutate({ 
       id: entregavelId, 
-      estado: novoEstado
+      estado: novoEstado 
     });
   };
-
+  
   const handleRemoveEntregavel = async (entregavelId: string) => {
-    const confirmed = window.confirm("Tem certeza que deseja remover este entregável?");
-    if (confirmed) {
-      await deleteEntregavelMutation.mutate(entregavelId);
+    if (confirm("Tem certeza que deseja remover este entregável?")) {
+      await mutations.entregavel.delete.mutate(entregavelId);
     }
   };
 
@@ -67,7 +62,7 @@ export function TarefaEntregaveis({
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Após o upload bem-sucedido, atualizar o entregável
-      await toggleEntregavelEstado.mutate({ 
+      await mutations.entregavel.toggleEstado.mutate({ 
         id: entregavelId, 
         estado: true
       });
@@ -137,7 +132,7 @@ export function TarefaEntregaveis({
           }}
           onCancel={() => setAddingEntregavel(false)}
           onSubmit={(tarefaId, entregavel) => {
-            createEntregavelMutation.mutate({
+            mutations.entregavel.create.mutate({
               tarefaId,
               nome: entregavel.nome,
               descricao: entregavel.descricao || undefined,

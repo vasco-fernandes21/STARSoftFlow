@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Clock, Package, FileText } from "lucide-react";
 import { WorkpackageWithRelations } from "../../../../types";
 import { TarefaForm } from "../tarefas/form";
-import { MaterialForm } from "../material/form";
+import { Form } from "../material/form";
 import { TarefaItem } from "../tarefas/item";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -80,7 +80,6 @@ export function WorkpackageDetails({
                   key={tarefa.id}
                   tarefa={tarefa}
                   workpackageId={workpackage.id}
-                  handlers={handlers}
                 />
               ))}
             </div>
@@ -115,7 +114,7 @@ export function WorkpackageDetails({
 
           {addingMaterial && (
             <div className="mb-3">
-              <MaterialForm
+              <Form
                 workpackageId={workpackage.id}
                 onSubmit={(workpackageId, material) => {
                   handlers.addMaterial(workpackageId, material);

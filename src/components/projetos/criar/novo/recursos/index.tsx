@@ -31,7 +31,7 @@ interface RecursosTabProps {
 }
 // Dados dos membros da equipa obtidos da API
 const RecursosData = () => {
-  const { data, isLoading, error } = api.utilizador.getAll.useQuery();
+  const { data, isLoading, error } = api.utilizador.findAll.useQuery();
   
   if (isLoading) return { membrosEquipa: [], isLoading: true };
   if (error) {

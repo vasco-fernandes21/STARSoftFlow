@@ -118,7 +118,7 @@ export type CreateProjetoCompletoInput = z.infer<typeof createProjetoCompletoSch
 
 export const projetoRouter = createTRPCRouter({
   // Obter todos os projetos
-  getAll: publicProcedure
+  findAll: publicProcedure
     .input(projetoFilterSchema.optional())
     .query(async ({ ctx, input }) => {
       try {
@@ -192,7 +192,7 @@ export const projetoRouter = createTRPCRouter({
     }),
   
   // Obter projeto por ID
-  getById: publicProcedure
+  findById: publicProcedure
     .input(z.string().uuid("ID do projeto inválido"))
     .query(async ({ ctx, input: id }) => {
       try {

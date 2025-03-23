@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Projeto, ProjetoEstado } from "@prisma/client";
 import { Cronograma } from "@/components/projetos/Cronograma";
 import { ProjetoFinancas } from "@/components/projetos/tabs/ProjetoFinancas";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function DetalheProjeto() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [separadorAtivo, setSeparadorAtivo] = useState("cronograma");
+  const queryClient = useQueryClient();
 
-  const { data: projeto, isLoading, error, refetch } = api.projeto.getById.useQuery(id as string, {
+  const { data: projeto, isLoading, error } = api.projeto.findById.useQuery(id as string, {
     enabled: !!id,
   });
+
+  // função simplificada para atualizar os dados do projeto
+  const handleProjetoUpdate = useCallback(async () => {
+    // função que apenas invalida a query do projeto atual
+    await queryClient.invalidateQueries({ 
+      queryKey: ['projeto.findById', id],
+      exact: true 
+    });
+    
+    // podemos adicionar log para debug
+    console.log("Projeto atualizado:", id);
+  }, [queryClient, id]);
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center">A carregar...</div>;
   if (error || !projeto) return <div className="min-h-screen flex items-center justify-center">Erro ao carregar o projeto ou projeto não encontrado.</div>;
@@ -198,12 +212,9 @@ export default function DetalheProjeto() {
                     workpackages={projeto.workpackages}
                     startDate={dataInicio}
                     endDate={dataFim}
-                    onUpdateWorkPackage={async () => {
-                      await refetch();
-                    }}
-                    onUpdateTarefa={async () => {
-                      await refetch();
-                    }}
+                    onUpdateWorkPackage={handleProjetoUpdate}
+                    onUpdateTarefa={handleProjetoUpdate}
+                    projetoId={id as string}
                     options={{
                       leftColumnWidth: 300,
                       disableInteractions: false,

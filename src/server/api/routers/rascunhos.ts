@@ -3,7 +3,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import type { Prisma } from "@prisma/client";
 
 export const rascunhoRouter = createTRPCRouter({
-  getAll: protectedProcedure.query(async ({ ctx }) => {
+  findAll: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.rascunho.findMany({
       where: {
         userId: ctx.session.user.id,

@@ -29,7 +29,7 @@ export function MenuTarefa({
   const [addingEntregavel, setAddingEntregavel] = useState(false);
   
   // buscar a tarefa
-  const { data: tarefa, isLoading } = api.tarefa.getById.useQuery(
+  const { data: tarefa, isLoading } = api.tarefa.findById.useQuery(
     tarefaId,
     { enabled: open, staleTime: 0 }
   );

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Edit, Trash2, Coins, Hash, ShoppingCart, Calendar } from "lucide-react";
+import { Package, Edit, Trash2, Coins, Hash, Calendar, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -65,6 +65,7 @@ export function Item({
   onUpdate
 }: MaterialItemProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [localMaterial, setLocalMaterial] = useState(material);
   const valorTotal = localMaterial.preco * localMaterial.quantidade;
   const queryClient = useQueryClient();
@@ -82,7 +83,7 @@ export function Item({
     if (workpackageId) {
       // Atualizar o material na lista de materiais do workpackage
       queryClient.setQueryData(
-        ["workpackage.getById", { id: workpackageId }],
+        ["workpackage.findById", { id: workpackageId }],
         (oldData: any) => {
           if (!oldData) return oldData;
           
@@ -128,6 +129,11 @@ export function Item({
     setIsEditing(false);
   };
   
+  // Handler para alternar expansão
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
+  };
+  
   // Handler para remoção com atualização
   const handleRemove = () => {
     onRemove();
@@ -164,7 +170,10 @@ export function Item({
   // Caso contrário, mostrar a visualização normal
   return (
     <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
-      <div className="p-3">
+      <div 
+        className="p-3 cursor-pointer hover:bg-gray-50"
+        onClick={toggleExpand}
+      >
         <div className="flex justify-between items-start">
           <div className="flex items-start gap-3">
             <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center mt-0.5">
@@ -186,22 +195,11 @@ export function Item({
                   <span>{localMaterial.ano_utilizacao}</span>
                 </div>
                 
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <Hash className="h-3 w-3" />
-                  <span>{localMaterial.quantidade} un.</span>
-                </div>
-                
                 <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
                   <Coins className="h-3 w-3" />
                   <span>{formatCurrency(valorTotal)}</span>
                 </div>
               </div>
-              
-              {localMaterial.descricao && (
-                <p className="mt-2 text-sm text-gray-600">
-                  {localMaterial.descricao}
-                </p>
-              )}
             </div>
           </div>
           
@@ -209,7 +207,10 @@ export function Item({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsEditing(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
               className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10 text-azul"
             >
               <Edit className="h-3.5 w-3.5" />
@@ -218,14 +219,89 @@ export function Item({
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRemove}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemove();
+              }}
               className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 text-red-500"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpand();
+              }}
+              className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10"
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5 text-azul/70" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-azul/70" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
+      
+      {isExpanded && (
+        <div className="border-t border-azul/10 bg-azul/5 p-3">
+          <div className="space-y-3">
+            {localMaterial.descricao && (
+              <div className="space-y-1">
+                <h6 className="text-xs font-medium text-azul/80">Descrição</h6>
+                <p className="text-sm text-gray-600 bg-white/80 p-2 rounded-md border border-azul/10">
+                  {localMaterial.descricao || "Sem descrição"}
+                </p>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-white/80 p-2 rounded-md border border-azul/10">
+                <h6 className="text-xs font-medium text-azul/80 mb-1">Quantidade</h6>
+                <div className="flex items-center gap-1">
+                  <Hash className="h-3.5 w-3.5 text-azul" />
+                  <span className="text-sm font-medium">{localMaterial.quantidade} unidades</span>
+                </div>
+              </div>
+              
+              <div className="bg-white/80 p-2 rounded-md border border-azul/10">
+                <h6 className="text-xs font-medium text-azul/80 mb-1">Preço unitário</h6>
+                <div className="flex items-center gap-1">
+                  <Coins className="h-3.5 w-3.5 text-azul" />
+                  <span className="text-sm font-medium">{formatCurrency(localMaterial.preco)}</span>
+                </div>
+              </div>
+              
+              <div className="bg-white/80 p-2 rounded-md border border-azul/10">
+                <h6 className="text-xs font-medium text-azul/80 mb-1">Total</h6>
+                <div className="flex items-center gap-1">
+                  <Coins className="h-3.5 w-3.5 text-green-600" />
+                  <span className="text-sm font-medium text-green-600">{formatCurrency(valorTotal)}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white/80 p-2 rounded-md border border-azul/10">
+              <h6 className="text-xs font-medium text-azul/80 mb-1">Detalhes</h6>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-azul" />
+                  <span className="text-sm">Ano de utilização: {localMaterial.ano_utilizacao}</span>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <Info className="h-3.5 w-3.5 text-azul" />
+                  <span className="text-sm">Rubrica: {obterNomeRubrica(localMaterial.rubrica)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

@@ -67,7 +67,7 @@ export function GerirFinanciamentosModal({
   const { confirmar } = useConfirmacao();
   const utils = api.useUtils();
   
-  const { data: financiamentosResponse } = api.financiamento.getAll.useQuery({
+  const { data: financiamentosResponse } = api.financiamento.findAll.useQuery({
     limit: 100
   });
 
@@ -83,7 +83,7 @@ export function GerirFinanciamentosModal({
       }
       
       limparForm();
-      void utils.financiamento.getAll.invalidate();
+      void utils.financiamento.findAll.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao criar financiamento: ${error.message}`);
@@ -95,7 +95,7 @@ export function GerirFinanciamentosModal({
       toast.success("Financiamento atualizado com sucesso!");
       setModoEdicao(null);
       limparForm();
-      void utils.financiamento.getAll.invalidate();
+      void utils.financiamento.findAll.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao atualizar financiamento: ${error.message}`);
@@ -105,7 +105,7 @@ export function GerirFinanciamentosModal({
   const { mutate: removerFinanciamento } = api.financiamento.delete.useMutation({
     onSuccess: () => {
       toast.success("Financiamento removido com sucesso!");
-      void utils.financiamento.getAll.invalidate();
+      void utils.financiamento.findAll.invalidate();
     },
     onError: (error) => {
       if (error.message.includes("usado em projetos")) {
