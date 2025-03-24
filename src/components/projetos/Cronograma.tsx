@@ -1,7 +1,7 @@
 import type { Workpackage, Tarefa } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useContext } from "react";
 import { MenuTarefa } from "@/components/projetos/menus/tarefa";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMutations } from "@/hooks/useMutations";
+import { ProjetoCacheContext } from '@/app/projetos/[id]/page';
 
 interface CronogramaOptions {
   leftColumnWidth?: number;
@@ -60,7 +61,9 @@ export function Cronograma({
   const utils = api.useContext();
   const queryClient = useQueryClient();
   
-  const mutations = useMutations(onUpdateWorkPackage, projetoId);
+  // Usar o contexto com a cache centralizada
+  const cacheContext = useContext(ProjetoCacheContext);
+  const mutations = useMutations(projetoId);
   
   useEffect(() => {
     const leftColumn = leftColumnRef.current;
@@ -188,25 +191,35 @@ export function Cronograma({
     return entregaveis;
   };
 
-  const handleWorkpackageUpdate = async (workpackageId: string) => {
-    await queryClient.invalidateQueries({ 
-      queryKey: ["workpackage.findById", { id: workpackageId }] 
-    });
-    await queryClient.invalidateQueries({ 
-      queryKey: ["projeto.findById"] 
-    });
-    await queryClient.invalidateQueries({ 
-      queryKey: ["cronograma"] 
-    });
-    
-    const data = await queryClient.fetchQuery({
-      queryKey: ["workpackage.findById", { id: workpackageId }],
-      queryFn: () => utils.workpackage.findById.fetch({ id: workpackageId })
-    });
-    
-    if (onUpdateWorkPackage && data) {
-      await onUpdateWorkPackage();
+  // Lidar com atualização imediata de workpackage
+  const handleWorkpackageUpdate = async (workpackageId: string, data: any) => {
+    // Usar a função do contexto para atualização imediata
+    if (cacheContext) {
+      cacheContext.updateCache('workpackage', workpackageId, data);
     }
+    
+    // Iniciar a mutação real para o backend
+    mutations.workpackage.update.mutate({
+      id: workpackageId,
+      ...data
+    });
+  };
+  
+  // Lidar com atualização imediata de tarefa
+  const handleTarefaUpdate = async (tarefaId: string, data: any, workpackageId: string) => {
+    // Usar a função do contexto para atualização imediata
+    if (cacheContext) {
+      cacheContext.updateCache('tarefa', tarefaId, data);
+    }
+    
+    // Iniciar a mutação real para o backend
+    mutations.tarefa.update.mutate({
+      id: tarefaId,
+      data: {
+        ...data,
+        workpackageId
+      }
+    });
   };
 
   return (
@@ -408,26 +421,7 @@ export function Cronograma({
               tarefaId={selectedTarefa}
               open={!!selectedTarefa}
               onClose={() => setSelectedTarefa(null)}
-              onUpdate={async () => {
-                await queryClient.invalidateQueries({ 
-                  queryKey: ["tarefa.findById", selectedTarefa] 
-                });
-                await queryClient.invalidateQueries({ 
-                  queryKey: ["projeto.findById"] 
-                });
-                await queryClient.invalidateQueries({ 
-                  queryKey: ["workpackage.findById"] 
-                });
-                
-                const data = await queryClient.fetchQuery({
-                  queryKey: ["tarefa.findById", selectedTarefa],
-                  queryFn: () => utils.tarefa.findById.fetch(selectedTarefa)
-                });
-                
-                if (onUpdateTarefa && data) {
-                  await onUpdateTarefa();
-                }
-              }}
+              onUpdate={(data, workpackageId) => handleTarefaUpdate(selectedTarefa, data, workpackageId)}
             />
           )}
 
@@ -436,7 +430,7 @@ export function Cronograma({
               workpackageId={selectedWorkpackage}
               onClose={() => setSelectedWorkpackage(null)}
               projetoId={projetoId}
-              onUpdate={onUpdateWorkPackage}
+              onUpdate={(data) => handleWorkpackageUpdate(selectedWorkpackage, data)}
               open={!!selectedWorkpackage}
             />
           )}

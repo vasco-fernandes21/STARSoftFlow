@@ -5,6 +5,7 @@ import { QUERY_KEYS } from "@/hooks/queryKeys";
 
 export function useMutations(projetoId?: string) {
   const utils = api.useUtils();
+  const queryClient = useQueryClient();
 
   // função helper para invalidar queries relacionadas
   const invalidateRelatedQueries = async (options: {
@@ -42,25 +43,87 @@ export function useMutations(projetoId?: string) {
     await Promise.all(promises);
   };
 
+  // Função aprimorada para atualizar imediatamente a cache com timeout
+  const updateWithTimeout = (type: 'workpackage' | 'tarefa', id: string, data: any, workpackageId?: string) => {
+    const queryKey = type === 'workpackage' 
+      ? ['workpackage', 'findById', { id }]
+      : ['tarefa', 'findById', id];
+    
+    // Salvar dados anteriores
+    const previousData = queryClient.getQueryData(queryKey);
+    
+    // Aplicar atualização na cache
+    queryClient.setQueryData(queryKey, (old: any) => {
+      if (!old) return old;
+      return { ...old, ...data };
+    });
+    
+    // Também atualizar no projeto pai
+    if (projetoId) {
+      queryClient.setQueryData(['projeto', 'findById', projetoId], (old: any) => {
+        if (!old) return old;
+        
+        if (type === 'workpackage') {
+          return {
+            ...old,
+            workpackages: old.workpackages.map((wp: any) => 
+              wp.id === id ? { ...wp, ...data } : wp
+            )
+          };
+        } else {
+          return {
+            ...old,
+            workpackages: old.workpackages.map((wp: any) => {
+              if (wp.id !== workpackageId) return wp;
+              return {
+                ...wp,
+                tarefas: wp.tarefas.map((t: any) => 
+                  t.id === id ? { ...t, ...data } : t
+                )
+              };
+            })
+          };
+        }
+      });
+    }
+    
+    // Definir timeout para reverter se não confirmado
+    const timeoutId = setTimeout(() => {
+      const isMutationInProgress = queryClient.isMutating({
+        predicate: (mutation) => 
+          mutation.options.mutationKey?.[0] === `${type}.update` && 
+          mutation.state.status === 'loading'
+      });
+      
+      if (isMutationInProgress) {
+        // Reverter alterações
+        queryClient.setQueryData(queryKey, previousData);
+        console.warn(`Alteração revertida após 2s: ${type} ${id}`);
+      }
+    }, 2000);
+    
+    return { previousData, timeoutId };
+  };
+
   const workpackageMutations = {
     update: api.workpackage.update.useMutation({
       onMutate: async (variables) => {
+        // Cancelar refetches em andamento
         await utils.workpackage.findById.cancel({ id: variables.id });
-
-        const previousData = utils.workpackage.findById.getData({ id: variables.id });
-
-        // Manter a estrutura existente e apenas atualizar os campos necessários
-        utils.workpackage.findById.setData({ id: variables.id }, (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            ...variables
-          };
-        });
-
-        return { previousData };
+        
+        // Fazer atualização otimista com timeout
+        const { previousData, timeoutId } = updateWithTimeout(
+          'workpackage', 
+          variables.id, 
+          variables
+        );
+        
+        return { previousData, timeoutId };
       },
-      onSuccess: async (_, variables) => {
+      onSuccess: async (_, variables, context) => {
+        // Limpar timeout pois a operação foi bem-sucedida
+        if (context?.timeoutId) clearTimeout(context.timeoutId);
+        
         await invalidateRelatedQueries({
           workpackageId: variables.id,
           projetoId
@@ -68,6 +131,10 @@ export function useMutations(projetoId?: string) {
         toast.success("Workpackage atualizado com sucesso!");
       },
       onError: (error, variables, context) => {
+        // Limpar timeout (vamos reverter manualmente)
+        if (context?.timeoutId) clearTimeout(context.timeoutId);
+        
+        // Reverter para dados anteriores
         if (context?.previousData) {
           utils.workpackage.findById.setData({ id: variables.id }, context.previousData);
         }
@@ -112,7 +179,24 @@ export function useMutations(projetoId?: string) {
       }
     }),
     update: api.tarefa.update.useMutation({
-      onSuccess: async (_, variables) => {
+      onMutate: async (variables) => {
+        // Cancelar refetches em andamento
+        await utils.tarefa.findById.cancel(variables.id);
+        
+        // Fazer atualização otimista com timeout
+        const { previousData, timeoutId } = updateWithTimeout(
+          'tarefa', 
+          variables.id, 
+          variables.data,
+          variables.data.workpackageId
+        );
+        
+        return { previousData, timeoutId };
+      },
+      onSuccess: async (_, variables, context) => {
+        // Limpar timeout pois a operação foi bem-sucedida
+        if (context?.timeoutId) clearTimeout(context.timeoutId);
+        
         await invalidateRelatedQueries({
           tarefaId: variables.id,
           workpackageId: variables.data.workpackageId,
@@ -121,7 +205,14 @@ export function useMutations(projetoId?: string) {
         
         toast.success("Tarefa atualizada com sucesso!");
       },
-      onError: (error) => {
+      onError: (error, variables, context) => {
+        // Limpar timeout (vamos reverter manualmente)
+        if (context?.timeoutId) clearTimeout(context.timeoutId);
+        
+        // Reverter para dados anteriores
+        if (context?.previousData) {
+          utils.tarefa.findById.setData(variables.id, context.previousData);
+        }
         toast.error(`Erro ao atualizar: ${error.message}`);
       }
     }),
@@ -263,6 +354,7 @@ export function useMutations(projetoId?: string) {
     tarefa: tarefaMutations,
     entregavel: entregavelMutations,
     material: materialMutations,
-    invalidateRelatedQueries
+    invalidateRelatedQueries,
+    updateWithTimeout
   };
 }

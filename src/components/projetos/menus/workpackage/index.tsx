@@ -12,26 +12,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MenuWorkpackageProps {
   workpackageId: string;
-  open: boolean;
   onClose: () => void;
-  startDate?: Date;
-  endDate?: Date;
-  onUpdate?: () => Promise<void>;
-  projetoId?: string;
-  onWorkpackageStateChange?: (workpackageId: string, estado: boolean) => void;
+  projetoId: string;
+  onUpdate: (data: any) => void;
+  open: boolean;
 }
 
-export function MenuWorkpackage({
-  workpackageId,
-  open,
-  onClose,
-  startDate,
-  endDate,
-  onUpdate,
-  projetoId,
-  onWorkpackageStateChange,
-}: MenuWorkpackageProps) {
-  const mutations = useMutations(onUpdate, projetoId);
+export function MenuWorkpackage({ workpackageId, onClose, projetoId, onUpdate, open }: MenuWorkpackageProps) {
+  const mutations = useMutations(projetoId);
   const [addingTarefa, setAddingTarefa] = useState(false);
   const [workpackageEstado, setWorkpackageEstado] = useState(false);
 
@@ -53,11 +41,13 @@ export function MenuWorkpackage({
     if (workpackage) {
       console.log("Workpackage atualizado no MenuWorkpackage:", workpackage);
       setWorkpackageEstado(workpackage.estado);
-      if (onWorkpackageStateChange) {
-        onWorkpackageStateChange(workpackage.id, workpackage.estado);
-      }
     }
-  }, [open, workpackage, onWorkpackageStateChange]);
+  }, [open, workpackage]);
+
+  const handleSave = async (data: any) => {
+    onUpdate(data);
+    onClose();
+  };
 
   if (isLoading) {
     return (
