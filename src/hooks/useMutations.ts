@@ -1,118 +1,95 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
+import { QUERY_KEYS } from "@/hooks/queryKeys";
 
-export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string) {
-  const queryClient = useQueryClient();
+export function useMutations(projetoId?: string) {
+  const utils = api.useUtils();
 
-  // Função genérica para invalidar queries com refetch forçado
-  const invalidateQueries = async (options?: {
-    workpackageId?: string;
+  // função helper para invalidar queries relacionadas
+  const invalidateRelatedQueries = async (options: {
     projetoId?: string;
+    workpackageId?: string;
+    tarefaId?: string;
   }) => {
-    console.log("Invalidando queries com refetch forçado");
-    
-    const promises = [];
-    
-    if (options?.workpackageId) {
-      // Forçar refetch da query específica do workpackage
+    const promises: Promise<void>[] = [];
+
+    // sempre que algo mudar, invalidar o projeto
+    if (options.projetoId || projetoId) {
+      const targetId = options.projetoId || projetoId!;
       promises.push(
-        queryClient.refetchQueries({
-          queryKey: ["workpackage.findById", { id: options.workpackageId }],
-          exact: true,
-          type: 'all'
-        })
+        utils.projeto.findById.invalidate(targetId),
+        utils.projeto.findAll.invalidate()
       );
     }
 
-    if (options?.projetoId || projetoId) {
+    // se for workpackage, invalidar queries relacionadas
+    if (options.workpackageId) {
       promises.push(
-        queryClient.refetchQueries({
-          queryKey: ["projeto.findById", options?.projetoId || projetoId],
-          exact: true,
-          type: 'all'
-        })
+        utils.workpackage.findById.invalidate({ id: options.workpackageId }),
+        utils.workpackage.findAll.invalidate()
       );
     }
 
-    // Refetch geral para garantir
-    promises.push(
-      queryClient.refetchQueries({
-        queryKey: ["workpackage"],
-        type: 'all'
-      })
-    );
+    // se for tarefa, invalidar queries relacionadas
+    if (options.tarefaId) {
+      promises.push(
+        utils.tarefa.findById.invalidate(options.tarefaId),
+        utils.tarefa.getEntregaveisByTarefa.invalidate(options.tarefaId)
+      );
+    }
 
     await Promise.all(promises);
-    
-    if (onUpdate) {
-      await onUpdate();
-    }
   };
 
   const workpackageMutations = {
     update: api.workpackage.update.useMutation({
-      // Atualização otimista
       onMutate: async (variables) => {
-        // Cancelar queries em andamento
-        await queryClient.cancelQueries({
-          queryKey: ["workpackage.findById", { id: variables.id }]
-        });
+        await utils.workpackage.findById.cancel({ id: variables.id });
 
-        // Snapshot do estado anterior
-        const previousWorkpackage = queryClient.getQueryData(
-          ["workpackage.findById", { id: variables.id }]
-        );
+        const previousData = utils.workpackage.findById.getData({ id: variables.id });
 
-        // Atualizar o cache otimisticamente
-        queryClient.setQueryData(
-          ["workpackage.findById", { id: variables.id }],
-          (old: any) => ({
+        // Manter a estrutura existente e apenas atualizar os campos necessários
+        utils.workpackage.findById.setData({ id: variables.id }, (old) => {
+          if (!old) return old;
+          return {
             ...old,
             ...variables
-          })
-        );
-
-        return { previousWorkpackage };
-      },
-      
-      onSuccess: async (_, variables) => {
-        console.log("Mutation bem sucedida, forçando refetch");
-        await invalidateQueries({ 
-          workpackageId: variables.id,
-          projetoId: projetoId 
+          };
         });
+
+        return { previousData };
       },
-      
+      onSuccess: async (_, variables) => {
+        await invalidateRelatedQueries({
+          workpackageId: variables.id,
+          projetoId
+        });
+        toast.success("Workpackage atualizado com sucesso!");
+      },
       onError: (error, variables, context) => {
-        // Reverter para o estado anterior em caso de erro
-        if (context?.previousWorkpackage) {
-          queryClient.setQueryData(
-            ["workpackage.findById", { id: variables.id }],
-            context.previousWorkpackage
-          );
+        if (context?.previousData) {
+          utils.workpackage.findById.setData({ id: variables.id }, context.previousData);
         }
         toast.error(`Erro ao atualizar: ${error.message}`);
-      },
-      
-      onSettled: async (_, __, variables) => {
-        // Garantir que os dados estejam sincronizados após conclusão
-        await invalidateQueries({ 
-          workpackageId: variables.id,
-          projetoId: projetoId 
-        });
       }
     }),
     addAlocacao: api.workpackage.addAlocacao.useMutation({
-      onSuccess: async () => {
-        await invalidateQueries();
+      onSuccess: async (_, variables) => {
+        await invalidateRelatedQueries({
+          workpackageId: variables.workpackageId,
+          projetoId
+        });
         toast.success("Recurso alocado com sucesso");
       },
       onError: () => toast.error("Erro ao alocar recurso")
     }),
     removeAlocacao: api.workpackage.removeAlocacao.useMutation({
-      onSuccess: async () => {
-        await invalidateQueries();
+      onSuccess: async (_, variables) => {
+        await invalidateRelatedQueries({
+          workpackageId: variables.workpackageId,
+          projetoId
+        });
         toast.success("Alocação removida com sucesso");
       },
       onError: () => toast.error("Erro ao remover alocação")
@@ -122,8 +99,11 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
   // mutations de tarefas
   const tarefaMutations = {
     create: api.tarefa.create.useMutation({
-      onSuccess: async () => {
-        await invalidateQueries();
+      onSuccess: async (_, variables) => {
+        await invalidateRelatedQueries({
+          workpackageId: variables.workpackageId,
+          projetoId
+        });
         toast.success("Tarefa criada com sucesso");
       },
       onError: (error) => {
@@ -132,18 +112,24 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
       }
     }),
     update: api.tarefa.update.useMutation({
-      onSuccess: async () => {
-        await invalidateQueries();
-        toast.success("Tarefa atualizada com sucesso");
+      onSuccess: async (_, variables) => {
+        await invalidateRelatedQueries({
+          tarefaId: variables.id,
+          workpackageId: variables.data.workpackageId,
+          projetoId
+        });
+        
+        toast.success("Tarefa atualizada com sucesso!");
       },
       onError: (error) => {
-        console.error("Erro ao atualizar tarefa:", error);
-        toast.error("Erro ao atualizar tarefa");
+        toast.error(`Erro ao atualizar: ${error.message}`);
       }
     }),
     delete: api.tarefa.delete.useMutation({
-      onSuccess: async () => {
-        await invalidateQueries();
+      onSuccess: async (_, variables) => {
+        await invalidateRelatedQueries({
+          projetoId
+        });
         toast.success("Tarefa removida com sucesso");
       },
       onError: (error) => {
@@ -153,18 +139,25 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
     }),
     toggleEstado: api.tarefa.update.useMutation({
       onMutate: async (params) => {
-        const id = typeof params === 'string' ? params : params.id;
         if (typeof params === 'string') {
-          return { id, data: { estado: true } };
+          return { id: params, data: { estado: true } };
         }
         return params;
       },
-      onSuccess: async (data, variables) => {
-        await invalidateQueries();
-        const operacao = typeof variables === 'string' || variables.data.estado !== undefined 
-          ? 'alterado' 
-          : 'atualizado';
-        toast.success(`Estado da tarefa ${operacao} com sucesso`);
+      onSuccess: async (_, variables) => {
+        const tarefaId = typeof variables === 'string' ? variables : variables.id;
+        
+        // Primeiro, recupere o workpackageId da tarefa
+        const tarefa = await utils.tarefa.findById.fetch(tarefaId);
+        
+        // Invalidar em cascata
+        await invalidateRelatedQueries({
+          tarefaId: tarefaId,
+          workpackageId: tarefa?.workpackageId, // Importante: invalidar o workpackage
+          projetoId
+        });
+        
+        toast.success(`Estado da tarefa alterado com sucesso`);
       },
       onError: (error) => {
         console.error("Erro ao atualizar estado da tarefa:", error);
@@ -177,7 +170,9 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
   const entregavelMutations = {
     create: api.entregavel.create.useMutation({
       onSuccess: async () => {
-        await invalidateQueries();
+        await invalidateRelatedQueries({
+          projetoId: projetoId
+        });
         toast.success("Entregável criado com sucesso");
       },
       onError: (error) => {
@@ -187,7 +182,9 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
     }),
     update: api.entregavel.update.useMutation({
       onSuccess: async () => {
-        await invalidateQueries();
+        await invalidateRelatedQueries({
+          projetoId: projetoId
+        });
         toast.success("Entregável atualizado com sucesso");
       },
       onError: (error) => {
@@ -197,7 +194,9 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
     }),
     delete: api.entregavel.delete.useMutation({
       onSuccess: async () => {
-        await invalidateQueries();
+        await invalidateRelatedQueries({
+          projetoId: projetoId
+        });
         toast.success("Entregável excluído com sucesso");
       },
       onError: (error) => {
@@ -216,7 +215,9 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
         return params;
       },
       onSuccess: async () => {
-        await invalidateQueries();
+        await invalidateRelatedQueries({
+          projetoId: projetoId
+        });
         toast.success("Estado do entregável atualizado com sucesso");
       },
       onError: (error) => {
@@ -230,21 +231,27 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
   const materialMutations = {
     create: api.material.create.useMutation({
       onSuccess: async () => {
-        await invalidateQueries();
+        await invalidateRelatedQueries({
+          projetoId: projetoId
+        });
         toast.success("Material adicionado com sucesso");
       },
       onError: () => toast.error("Erro ao adicionar material")
     }),
     update: api.material.update.useMutation({
       onSuccess: async () => {
-        await invalidateQueries();
+        await invalidateRelatedQueries({
+          projetoId: projetoId
+        });
         toast.success("Material atualizado com sucesso");
       },
       onError: () => toast.error("Erro ao atualizar material")
     }),
     delete: api.material.delete.useMutation({
       onSuccess: async () => {
-        await invalidateQueries();
+        await invalidateRelatedQueries({
+          projetoId: projetoId
+        });
         toast.success("Material excluído com sucesso");
       },
       onError: () => toast.error("Erro ao excluir material")
@@ -256,6 +263,6 @@ export function useMutations(onUpdate?: () => Promise<void>, projetoId?: string)
     tarefa: tarefaMutations,
     entregavel: entregavelMutations,
     material: materialMutations,
-    invalidateQueries
+    invalidateRelatedQueries
   };
 }

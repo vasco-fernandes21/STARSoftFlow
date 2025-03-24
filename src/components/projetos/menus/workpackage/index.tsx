@@ -18,6 +18,7 @@ interface MenuWorkpackageProps {
   endDate?: Date;
   onUpdate?: () => Promise<void>;
   projetoId?: string;
+  onWorkpackageStateChange?: (workpackageId: string, estado: boolean) => void;
 }
 
 export function MenuWorkpackage({
@@ -28,9 +29,11 @@ export function MenuWorkpackage({
   endDate,
   onUpdate,
   projetoId,
+  onWorkpackageStateChange,
 }: MenuWorkpackageProps) {
   const mutations = useMutations(onUpdate, projetoId);
   const [addingTarefa, setAddingTarefa] = useState(false);
+  const [workpackageEstado, setWorkpackageEstado] = useState(false);
 
   const { data: workpackage, isLoading } = api.workpackage.findById.useQuery(
     { id: workpackageId },
@@ -49,8 +52,12 @@ export function MenuWorkpackage({
     if (!open) setAddingTarefa(false);
     if (workpackage) {
       console.log("Workpackage atualizado no MenuWorkpackage:", workpackage);
+      setWorkpackageEstado(workpackage.estado);
+      if (onWorkpackageStateChange) {
+        onWorkpackageStateChange(workpackage.id, workpackage.estado);
+      }
     }
-  }, [open, workpackage]);
+  }, [open, workpackage, onWorkpackageStateChange]);
 
   if (isLoading) {
     return (

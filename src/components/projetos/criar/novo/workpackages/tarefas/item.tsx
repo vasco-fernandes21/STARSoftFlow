@@ -12,15 +12,20 @@ import { api } from "@/trpc/react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useMutations } from "@/hooks/useMutations";
 
 interface TarefaItemProps {
   tarefa: TarefaWithRelations;
   workpackageId: string;
+  mutations?: ReturnType<typeof useMutations>;
+  onStateChange?: (tarefaId: string, newState: boolean) => void;
 }
 
 export function TarefaItem({ 
   tarefa, 
-  workpackageId
+  workpackageId,
+  mutations: externalMutations,
+  onStateChange
 }: TarefaItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
@@ -29,6 +34,9 @@ export function TarefaItem({
   // Estados locais
   const [localTarefaEstado, setLocalTarefaEstado] = useState(tarefa.estado);
   const [entregaveisEstado, setEntregaveisEstado] = useState<Record<string, boolean>>({});
+
+  // Usar mutations externas quando disponíveis
+  const mutations = externalMutations || useMutations();
 
   // Sincronizar estados quando a tarefa mudar
   useEffect(() => {
@@ -41,168 +49,77 @@ export function TarefaItem({
     setEntregaveisEstado(estadoMap);
   }, [tarefa]);
 
-  // Mutations
-  const toggleTarefaMutation = api.tarefa.toggleEstado.useMutation({
-    onMutate: async (tarefaId) => {
-      // Atualização otimista
-      const novoEstado = !localTarefaEstado;
-      setLocalTarefaEstado(novoEstado);
-      
-      // Cancelar queries relacionadas - formato correto
+  // Handlers
+  const handleToggleTarefaEstado = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Atualização otimista local
+    const newState = !localTarefaEstado;
+    setLocalTarefaEstado(newState);
+    
+    // Notificar o componente pai sobre a mudança
+    if (onStateChange) {
+      onStateChange(tarefa.id, newState);
+    }
+    
+    try {
       await queryClient.cancelQueries({ 
         queryKey: ["workpackage.findById", { id: workpackageId }] 
       });
       
-      // Backup do estado anterior - formato correto
+      // Backup do estado atual
       const previousData = queryClient.getQueryData(
         ["workpackage.findById", { id: workpackageId }]
       );
       
-      // Atualizar o cache
+      // Atualizar otimisticamente o workpackage também
       queryClient.setQueryData(
         ["workpackage.findById", { id: workpackageId }],
         (old: any) => {
           if (!old) return old;
+          
+          // Atualizar a tarefa no workpackage
+          const tarefas = old.tarefas.map((t: any) => 
+            t.id === tarefa.id ? { ...t, estado: newState } : t
+          );
+          
+          // Recalcular o estado do workpackage (similar ao que acontece no backend)
+          const todasConcluidas = tarefas.every((t: any) => t.estado);
+          
           return {
             ...old,
-            tarefas: old.tarefas?.map((t: any) => 
-              t.id === tarefaId ? { ...t, estado: novoEstado } : t
-            )
+            tarefas,
+            estado: todasConcluidas
           };
         }
       );
       
-      return { previousData };
-    },
-    onError: (err, tarefaId, context) => {
-      // Reverter a mudança local em caso de erro
-      setLocalTarefaEstado(!localTarefaEstado);
-      
-      // Reverter o cache
-      if (context?.previousData) {
-        queryClient.setQueryData(
-          ["workpackage.findById", { id: workpackageId }],
-          context.previousData
-        );
-      }
-      
-      toast.error("Erro ao atualizar estado da tarefa");
-    },
-    onSettled: () => {
-      // Revalidar queries após a conclusão - formato correto
-      queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
+      // Fazer a mutation
+      await mutations.tarefa.toggleEstado.mutateAsync({
+        id: tarefa.id,
+        data: { estado: newState }
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ["projeto.findById"] 
-      });
+    } catch (error) {
+      // Reverter estado em caso de erro...
+      console.error("Erro ao atualizar estado da tarefa:", error);
     }
-  });
-
-  const toggleEntregavelMutation = api.entregavel.toggleEstado.useMutation({
-    onMutate: async (data) => {
-      const { id: entregavelId, estado: novoEstado } = data;
-      
-      // Atualização otimista local
-      setEntregaveisEstado(prev => ({
-        ...prev,
-        [entregavelId]: novoEstado
-      }));
-      
-      // Cancelar queries relacionadas - formato correto
-      await queryClient.cancelQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-      
-      // Backup do estado anterior
-      const previousData = queryClient.getQueryData(
-        ["workpackage.findById", { id: workpackageId }]
-      );
-      
-      return { previousData, entregavelId, estadoAnterior: !novoEstado };
-    },
-    onError: (err, data, context) => {
-      if (context) {
-        // Reverter a mudança local
-        setEntregaveisEstado(prev => ({
-          ...prev,
-          [context.entregavelId]: context.estadoAnterior
-        }));
-        
-        // Reverter o cache
-        if (context.previousData) {
-          queryClient.setQueryData(
-            ["workpackage.findById", { id: workpackageId }],
-            context.previousData
-          );
-        }
-      }
-      
-      toast.error("Erro ao atualizar estado do entregável");
-    },
-    onSettled: () => {
-      // Formato correto
-      queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-    }
-  });
-
-  const createEntregavelMutation = api.entregavel.create.useMutation({
-    onSuccess: () => {
-      // Formato correto
-      queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-      toast.success("Entregável adicionado com sucesso");
-      setAddingEntregavel(false);
-    },
-    onError: () => {
-      toast.error("Erro ao adicionar entregável");
-    }
-  });
-
-  const deleteEntregavelMutation = api.entregavel.delete.useMutation({
-    onSuccess: () => {
-      // Formato correto
-      queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-      toast.success("Entregável removido com sucesso");
-    },
-    onError: () => {
-      toast.error("Erro ao remover entregável");
-    }
-  });
-
-  const deleteTarefaMutation = api.tarefa.delete.useMutation({
-    onSuccess: () => {
-      // Formato correto
-      queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-      toast.success("Tarefa removida com sucesso");
-    },
-    onError: () => {
-      toast.error("Erro ao remover tarefa");
-    }
-  });
-
-  // Handlers
-  const handleToggleTarefaEstado = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    await toggleTarefaMutation.mutateAsync(tarefa.id);
   };
 
   const handleToggleEntregavelEstado = (entregavelId: string, novoEstado: boolean) => {
-    toggleEntregavelMutation.mutate({ 
-      id: entregavelId, 
-      estado: novoEstado 
+    // Atualização otimista
+    setEntregaveisEstado(prev => ({
+      ...prev,
+      [entregavelId]: novoEstado
+    }));
+    
+    mutations.entregavel.toggleEstado.mutate({
+      id: entregavelId,
+      estado: novoEstado
     });
   };
 
   const handleAddEntregavel = (tarefaId: string, entregavel: any) => {
-    createEntregavelMutation.mutate({
+    mutations.entregavel.create.mutate({
       nome: entregavel.nome,
       tarefaId,
       descricao: entregavel.descricao || null,
@@ -213,13 +130,13 @@ export function TarefaItem({
 
   const handleRemoveEntregavel = (entregavelId: string) => {
     if (confirm("Tem certeza que deseja remover este entregável?")) {
-      deleteEntregavelMutation.mutate(entregavelId);
+      mutations.entregavel.delete.mutate(entregavelId);
     }
   };
 
   const handleRemoveTarefa = () => {
     if (confirm("Tem certeza que deseja remover esta tarefa?")) {
-      deleteTarefaMutation.mutate(tarefa.id);
+      mutations.tarefa.delete.mutate(tarefa.id);
     }
   };
 

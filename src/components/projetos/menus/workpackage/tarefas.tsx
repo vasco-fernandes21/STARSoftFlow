@@ -161,6 +161,17 @@ export function WorkpackageTarefas({
     }
   };
   
+  useEffect(() => {
+    // Quando o workpackage for atualizado, sincronizar os estados locais
+    if (workpackage) {
+      const estadosMap: Record<string, boolean> = {};
+      workpackage.tarefas?.forEach(tarefa => {
+        estadosMap[tarefa.id] = tarefa.estado;
+      });
+      setLocalTarefaEstados(estadosMap);
+    }
+  }, [workpackage]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -218,10 +229,16 @@ export function WorkpackageTarefas({
                 <TarefaItem
                   tarefa={{
                     ...tarefa,
-                    // Substituir o estado da tarefa pelo nosso estado local quando disponível
                     estado: localTarefaEstados[tarefa.id] ?? tarefa.estado
                   }}
                   workpackageId={workpackage.id}
+                  mutations={mutations}
+                  onStateChange={(tarefaId, newState) => {
+                    setLocalTarefaEstados(prev => ({
+                      ...prev,
+                      [tarefaId]: newState
+                    }));
+                  }}
                 />
               </Card>
             ))}
