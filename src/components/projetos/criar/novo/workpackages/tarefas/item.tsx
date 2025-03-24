@@ -63,7 +63,7 @@ export function TarefaItem({
       nome: entregavel.nome,
       tarefaId,
       descricao: entregavel.descricao || null,
-      data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data,
+      data: entregavel.data,
       anexo: null
     });
     

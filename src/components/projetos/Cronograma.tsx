@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
 import { useMutations } from "@/hooks/useMutations";
 import { WorkpackageCompleto, ProjetoCompleto } from "./types";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface CronogramaOptions {
   leftColumnWidth?: number;
@@ -77,6 +78,7 @@ export function Cronograma({
 }: CronogramaProps) {
   const [selectedTarefa, setSelectedTarefa] = useState<string | null>(null);
   const [selectedWorkpackage, setSelectedWorkpackage] = useState<string | null>(null);
+  const [isLeftColumnCollapsed, setIsLeftColumnCollapsed] = useState(false);
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const mutations = useMutations(projetoId);
@@ -240,6 +242,8 @@ export function Cronograma({
     compactMode = false
   } = options;
 
+  const effectiveLeftColumnWidth = isLeftColumnCollapsed ? 40 : leftColumnWidth;
+
   const currentDayPosition = getCurrentDayPosition();
 
   // Função para obter os entregáveis com posições exatas
@@ -265,79 +269,94 @@ export function Cronograma({
   return (
     <div className="flex h-full w-full">
       <div className="flex w-full h-full overflow-hidden">
-        <div 
+        <motion.div 
           ref={leftColumnRef} 
           className="flex-shrink-0 sticky left-0 bg-white z-20 border-r border-slate-200/50 overflow-y-scroll scrollbar-none"
           style={{ 
-            width: `${leftColumnWidth}px`,
             scrollbarWidth: 'none', 
             msOverflowStyle: 'none' 
           }}
+          animate={{
+            width: effectiveLeftColumnWidth
+          }}
+          transition={{ duration: 0.2 }}
         >
-          <div className="sticky top-0 px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-200/50 z-20">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Workpackage/Tarefa
-            </div>
-          </div>
-          <div className="py-1">
-            {sortedWorkpackages.map((wp, index) => (
-              <div key={wp.id} className={cn("group/wp", index === 0 && "border-t border-slate-100/50")}>
-                <div 
-                  className={cn(
-                    "flex items-center px-4 cursor-pointer hover:bg-slate-50/80 transition-colors bg-slate-50/30",
-                    "h-10"
-                  )}
-                  onClick={() => {
-                    if (!disableInteractions) {
-                      setSelectedWorkpackage(wp.id);
-                    }
-                  }}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <h3 
-                      className="text-sm font-medium text-slate-700 truncate"
-                      style={{ maxWidth: `${leftColumnWidth - 80}px` }}
-                    >
-                      {wp.nome}
-                    </h3>
-                    <span className="text-xs font-medium text-slate-500">
-                      {wp.tarefas.filter(t => t.estado).length}/{wp.tarefas.length}
-                    </span>
-                  </div>
-                </div>
-                {sortTarefas(wp.tarefas).map((tarefa) => {
-                  return (
-                    <div 
-                      key={tarefa.id} 
-                      className={cn(
-                        "flex items-center px-4 cursor-pointer hover:bg-slate-50/80 transition-colors border-t border-slate-100/50",
-                        "h-10"
-                      )}
-                      onClick={() => handleTarefaClick(tarefa)}
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        <div 
-                          className={cn(
-                            "w-2 h-2 rounded-full border transition-colors flex-shrink-0",
-                            tarefa.estado 
-                              ? "bg-emerald-500 border-emerald-500" 
-                              : "border-blue-500 group-hover/task:border-blue-600"
-                          )}
-                        />
-                        <span 
-                          className="text-sm text-slate-600 truncate group-hover/task:text-slate-900 transition-colors"
-                          style={{ maxWidth: `${leftColumnWidth - 48}px` }}
-                        >
-                          {tarefa.nome}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+          <div className="sticky top-0 px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-200/50 z-20 flex items-center justify-between">
+            {!isLeftColumnCollapsed && (
+              <div className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center">
+                <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">Workpackage/Tarefa</span>
               </div>
-            ))}
+            )}
+            <button
+              onClick={() => setIsLeftColumnCollapsed(!isLeftColumnCollapsed)}
+              className="p-1 rounded-md hover:bg-slate-100 text-slate-500 transition-colors ml-auto"
+            >
+              {isLeftColumnCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </button>
           </div>
-        </div>
+          
+          {!isLeftColumnCollapsed && (
+            <div className="py-1">
+              {sortedWorkpackages.map((wp, index) => (
+                <div key={wp.id} className={cn("group/wp", index === 0 && "border-t border-slate-100/50")}>
+                  <div 
+                    className={cn(
+                      "flex items-center px-4 cursor-pointer hover:bg-slate-50/80 transition-colors bg-slate-50/30",
+                      "h-10 border-l-2 border-l-transparent hover:border-l-blue-500 group-hover/wp:border-l-blue-500/50",
+                      "transition-all duration-200"
+                    )}
+                    onClick={() => {
+                      if (!disableInteractions) {
+                        setSelectedWorkpackage(wp.id);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <h3 
+                        className="text-sm font-medium text-slate-700 truncate group-hover/wp:text-slate-900"
+                        style={{ maxWidth: `${leftColumnWidth - 80}px` }}
+                      >
+                        {wp.nome}
+                      </h3>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 font-medium text-slate-500 group-hover/wp:bg-blue-50 group-hover/wp:text-blue-600 transition-colors">
+                        {wp.tarefas.filter(t => t.estado).length}/{wp.tarefas.length}
+                      </span>
+                    </div>
+                  </div>
+                  {sortTarefas(wp.tarefas).map((tarefa) => {
+                    return (
+                      <div 
+                        key={tarefa.id} 
+                        className={cn(
+                          "flex items-center px-4 cursor-pointer hover:bg-slate-50/80 transition-colors border-t border-slate-100/50",
+                          "h-10"
+                        )}
+                        onClick={() => handleTarefaClick(tarefa)}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <div 
+                            className={cn(
+                              "w-2 h-2 rounded-full border transition-colors flex-shrink-0",
+                              tarefa.estado 
+                                ? "bg-emerald-500 border-emerald-500 ring-2 ring-emerald-100" 
+                                : "border-blue-500 ring-2 ring-blue-100 group-hover/task:border-blue-600"
+                            )}
+                          />
+                          <span 
+                            className="text-sm text-slate-600 truncate group-hover/task:text-slate-900 transition-colors"
+                            style={{ maxWidth: `${leftColumnWidth - 48}px` }}
+                          >
+                            {tarefa.nome}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
 
         <div 
           ref={timelineRef} 
@@ -352,7 +371,7 @@ export function Cronograma({
                     className="relative py-3 px-2 text-center border-r border-slate-200/70"
                     style={{ width: `${month.width}%` }}
                   >
-                    <div className="text-xs font-medium text-slate-600">
+                    <div className="text-xs font-medium text-slate-600 bg-slate-50 px-2 py-1 rounded-md inline-block">
                       {month.label}
                     </div>
                   </div>
@@ -383,6 +402,12 @@ export function Cronograma({
                             style={{ width: `${month.width}%` }}
                           />
                         ))}
+                      </div>
+                      
+                      <div className="absolute left-2 flex items-center h-full">
+                        <div className="text-xs font-medium text-slate-400 bg-slate-50/90 px-2 py-0.5 rounded-full">
+                          {wp.nome}
+                        </div>
                       </div>
                     </div>
 
@@ -421,7 +446,8 @@ export function Cronograma({
                               tarefa.estado 
                                 ? "bg-gradient-to-r from-emerald-400/90 to-emerald-500/90 hover:from-emerald-500 hover:to-emerald-600 shadow-[0_2px_8px_-2px_rgba(16,185,129,0.3)]" 
                                 : "bg-gradient-to-r from-blue-400/90 to-blue-500/90 hover:from-blue-500 hover:to-blue-600 shadow-[0_2px_8px_-2px_rgba(59,130,246,0.3)]",
-                              "group-hover:shadow-[0_4px_12px_-4px_rgba(59,130,246,0.4)]"
+                              "group-hover:shadow-[0_4px_12px_-4px_rgba(59,130,246,0.4)]",
+                              "backdrop-blur-sm"
                             )}
                           >
                             {tarefa.entregaveis?.map((entregavel: EntregavelType) => {
@@ -460,13 +486,16 @@ export function Cronograma({
                                   key={entregavel.id}
                                   onClick={handleEntregavelClick}
                                   className={cn(
-                                    "absolute z-20",
-                                    "rounded-full h-5 w-5",
-                                    isCompleted ? "bg-green-500 border border-green-600" : 
-                                    isPastDue ? "bg-red-500 border border-red-600" : 
-                                    "bg-azul border border-azul-600",
-                                    "flex items-center justify-center shadow-sm",
-                                    "cursor-pointer hover:opacity-90 transition-opacity"
+                                    "absolute z-20 cursor-pointer",
+                                    "w-3 h-3 rounded-full",
+                                    "transition-all duration-150",
+                                    "flex items-center justify-center",
+                                    "hover:-translate-y-[1px]",
+                                    isCompleted 
+                                      ? "bg-white shadow-[0_0_0_2px_rgba(16,185,129,0.6)]" 
+                                      : isPastDue 
+                                        ? "bg-white shadow-[0_0_0_2px_rgba(239,68,68,0.6)]" 
+                                        : "bg-white shadow-[0_0_0_2px_rgba(59,130,246,0.6)]"
                                   )}
                                   style={{
                                     left: `${entregavelPosition}%`,
@@ -474,7 +503,14 @@ export function Cronograma({
                                     transform: 'translate(-50%, -50%)'
                                   }}
                                 >
-                                  <div className="w-2 h-2 rounded-full bg-white" />
+                                  <div className={cn(
+                                    "w-1.5 h-1.5 rounded-full",
+                                    isCompleted 
+                                      ? "bg-emerald-500" 
+                                      : isPastDue 
+                                        ? "bg-red-500" 
+                                        : "bg-blue-500"
+                                  )} />
                                 </div>
                               );
                             })}
