@@ -9,11 +9,39 @@ import { CheckCircle2, Circle, X } from "lucide-react";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InformacoesWorkpackage } from "./informacoes";
-import { TarefasWorkpackage } from "./tarefas";
-import { RecursosWorkpackage } from "./recursos";
-import { MateriaisWorkpackage } from "./materiais";
+import { WorkpackageCompleto, ProjetoCompleto } from "@/components/projetos/types";
+import type { Workpackage, Tarefa, Entregavel, Material, ProjetoEstado } from "@prisma/client";
+
+// Tipos para os dados completos que vêm do projeto pai
+interface WorkpackageWithRelations extends Workpackage {
+  tarefas: (Tarefa & {
+    entregaveis: Entregavel[];
+  })[];
+  materiais: Material[];
+  recursos: {
+    userId: string;
+    mes: number;
+    ano: number;
+    ocupacao: string;
+    user: {
+      id: string;
+      name: string;
+      salario: string;
+    };
+  }[];
+  projeto: {
+    id: string;
+    nome: string;
+    descricao: string | null;
+    inicio: Date | null;
+    fim: Date | null;
+    estado: ProjetoEstado;
+    overhead: string | null;
+    taxa_financiamento: string | null;
+    valor_eti: string | null;
+    financiamentoId: number | null;
+  };
+}
 
 interface MenuWorkpackageProps {
   workpackageId: string;
@@ -21,32 +49,63 @@ interface MenuWorkpackageProps {
   projetoId: string;
   onUpdate: () => Promise<void>;
   open: boolean;
+  workpackage?: WorkpackageCompleto; // Usar o tipo específico
+  projeto?: ProjetoCompleto; // Usar o tipo específico
 }
 
-export function MenuWorkpackage({ workpackageId, onClose, projetoId, onUpdate, open }: MenuWorkpackageProps) {
-  const mutations = useMutations(projetoId);
+export function MenuWorkpackage({ 
+  workpackageId, 
+  onClose, 
+  projetoId, 
+  onUpdate, 
+  open, 
+  workpackage: externalWorkpackage,
+  projeto 
+}: MenuWorkpackageProps) {
   const [addingTarefa, setAddingTarefa] = useState(false);
   const [workpackageEstado, setWorkpackageEstado] = useState(false);
-
-  const { data: workpackage, isLoading } = api.workpackage.findById.useQuery({ id: workpackageId }, {
+  
+  // Se não temos o workpackage externamente, buscar da API
+  const { data: apiWorkpackage, isLoading } = api.workpackage.findById.useQuery({ id: workpackageId }, {
     staleTime: 1000 * 30, // 30 segundos
-    enabled: !!workpackageId && open,
+    enabled: !!workpackageId && open && !externalWorkpackage,
   });
+
+  // Usar o workpackage fornecido ou o que veio da API
+  const workpackage = externalWorkpackage || apiWorkpackage;
+
+  // Se o workpackage não tem a propriedade projeto, podemos pegar do prop projeto
+  const fullWorkpackage = workpackage ? {
+    ...workpackage,
+    // Se o workpackage já tem projeto, usar esse, caso contrário usar o projeto passado como prop
+    projeto: workpackage.projeto || (projeto ? {
+      id: projeto.id,
+      nome: projeto.nome,
+      descricao: projeto.descricao,
+      inicio: projeto.inicio,
+      fim: projeto.fim,
+      estado: projeto.estado,
+      overhead: projeto.overhead,
+      taxa_financiamento: projeto.taxa_financiamento,
+      valor_eti: projeto.valor_eti,
+      financiamentoId: projeto.financiamentoId
+    } : undefined)
+  } : undefined;
 
   useEffect(() => {
     if (!open) setAddingTarefa(false);
-    if (workpackage) {
-      console.log("Workpackage atualizado no MenuWorkpackage:", workpackage);
-      setWorkpackageEstado(workpackage.estado);
+    if (fullWorkpackage) {
+      setWorkpackageEstado(fullWorkpackage.estado);
     }
-  }, [open, workpackage]);
+  }, [open, fullWorkpackage]);
 
-  const handleSave = async (data: any) => {
-    onUpdate(data);
+  const handleSave = async () => {
+    await onUpdate();
     onClose();
   };
 
-  if (isLoading) {
+  // Loading state enquanto buscamos dados da API (só se necessário)
+  if (!externalWorkpackage && isLoading) {
     return (
       <Sheet open={open} onOpenChange={onClose} modal={false}>
         <SheetContent className="p-0 w-full lg:w-[600px] border-none bg-white/95 backdrop-blur-xl shadow-xl rounded-l-3xl border-l border-white/30">
@@ -59,7 +118,7 @@ export function MenuWorkpackage({ workpackageId, onClose, projetoId, onUpdate, o
     );
   }
 
-  if (!workpackage) {
+  if (!fullWorkpackage) {
     return (
       <Sheet open={open} onOpenChange={onClose} modal={false}>
         <SheetContent className="p-0 w-full lg:w-[600px] border-none bg-white/95 backdrop-blur-xl shadow-xl rounded-l-3xl border-l border-white/30">
@@ -86,13 +145,13 @@ export function MenuWorkpackage({ workpackageId, onClose, projetoId, onUpdate, o
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-azul/10 flex items-center justify-center flex-shrink-0">
-                    {workpackage.estado ? (
+                    {fullWorkpackage.estado ? (
                       <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                     ) : (
                       <Circle className="h-5 w-5 text-azul/70" />
                     )}
                   </div>
-                  <h1 className="text-xl font-bold text-gray-900">{workpackage.nome}</h1>
+                  <h1 className="text-xl font-bold text-gray-900">{fullWorkpackage.nome}</h1>
                 </div>
                 <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-9 w-9 hover:bg-gray-100 transition-colors">
                   <X className="h-5 w-5 text-gray-500" />
@@ -107,23 +166,32 @@ export function MenuWorkpackage({ workpackageId, onClose, projetoId, onUpdate, o
                 <WorkpackageInformacoes
                   workpackageId={workpackageId}
                   onClose={onClose}
-                  mutations={mutations}
+                  projetoId={projetoId}
+                  workpackage={fullWorkpackage}
                 />
               </div>
               <div className="px-5 py-6">
                 <WorkpackageTarefas
-                  workpackage={workpackage}
-                  workpackageId={workpackage.id}
+                  workpackage={fullWorkpackage}
+                  workpackageId={fullWorkpackage.id}
                   addingTarefa={addingTarefa}
                   setAddingTarefa={setAddingTarefa}
-                  mutations={mutations}
+                  projetoId={projetoId}
                 />
               </div>
               <div className="px-5 py-6">
-                <WorkpackageRecursos workpackage={workpackage} workpackageId={workpackage.id} mutations={mutations} />
+                <WorkpackageRecursos 
+                  workpackage={fullWorkpackage} 
+                  workpackageId={fullWorkpackage.id}
+                  projetoId={projetoId} 
+                />
               </div>
               <div className="px-5 py-6">
-                <WorkpackageMateriais workpackage={workpackage} workpackageId={workpackage.id} mutations={mutations} />
+                <WorkpackageMateriais 
+                  workpackage={fullWorkpackage} 
+                  workpackageId={fullWorkpackage.id}
+                  projetoId={projetoId} 
+                />
               </div>
             </div>
           </ScrollArea>

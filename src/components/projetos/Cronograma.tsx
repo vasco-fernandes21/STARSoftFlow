@@ -1,16 +1,13 @@
 import type { Workpackage, Tarefa } from "@prisma/client";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useState, useRef, useEffect, useContext, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MenuTarefa } from "@/components/projetos/menus/tarefa";
-import { format, getDaysInMonth, differenceInDays, addDays, isSameMonth, isWithinInterval } from "date-fns";
+import { format, getDaysInMonth, differenceInDays, isWithinInterval, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { api } from "@/trpc/react";
 import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
-import { useQueryClient } from "@tanstack/react-query";
 import { useMutations } from "@/hooks/useMutations";
-import { ProjetoCacheContext } from '@/app/projetos/[id]/page';
+import { WorkpackageCompleto, ProjetoCompleto } from "./types";
 
 interface CronogramaOptions {
   leftColumnWidth?: number;
@@ -23,6 +20,7 @@ interface EntregavelType {
   id: string;
   nome: string;
   data: Date | null;
+  estado?: boolean;
 }
 
 interface TarefaWithEntregaveis extends Tarefa {
@@ -31,9 +29,22 @@ interface TarefaWithEntregaveis extends Tarefa {
 
 interface WorkpackageWithTarefas extends Workpackage {
   tarefas: TarefaWithEntregaveis[];
+  materiais: any[];
+  recursos: {
+    userId: string;
+    mes: number;
+    ano: number;
+    ocupacao: string;
+    user: {
+      id: string;
+      name: string;
+      salario: string;
+    };
+  }[];
 }
 
 interface CronogramaProps {
+  projeto: ProjetoCompleto;
   workpackages: WorkpackageWithTarefas[];
   startDate: Date;
   endDate: Date;
@@ -54,6 +65,7 @@ interface MonthInfo {
 }
 
 export function Cronograma({ 
+  projeto,
   workpackages, 
   startDate,
   endDate,
@@ -67,15 +79,7 @@ export function Cronograma({
   const [selectedWorkpackage, setSelectedWorkpackage] = useState<string | null>(null);
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
-  const utils = api.useContext();
-  const queryClient = useQueryClient();
-  
-  // Usar o contexto com a cache centralizada
-  const cacheContext = useContext(ProjetoCacheContext);
   const mutations = useMutations(projetoId);
-  
-  // Estado para mudanças pendentes
-  const [pendingUpdates, setPendingUpdates] = useState<Record<string, any>>({});
   
   useEffect(() => {
     const leftColumn = leftColumnRef.current;
@@ -258,64 +262,6 @@ export function Cronograma({
     return (daysSinceStart / totalDaysInTarefa) * 100;
   };
 
-  // Função para lidar com atualizações de tarefa
-  const handleTarefaUpdate = async (data: any, workpackageId?: string) => {
-    if (!selectedTarefa) return;
-    
-    // Atualizar estado local imediatamente
-    setPendingUpdates(prev => ({
-      ...prev,
-      [selectedTarefa]: {
-        ...data,
-        workpackageId: workpackageId || ''
-      }
-    }));
-    
-    // Atualizar via mutação
-    mutations.tarefa.update.mutate(
-      {
-        id: selectedTarefa,
-        data: {
-          ...data,
-          workpackageId: workpackageId || ''
-        }
-      },
-      {
-        onSuccess: () => {
-          // Limpar pendingUpdates apenas para esta tarefa específica
-          setPendingUpdates(prev => {
-            const updated = {...prev};
-            delete updated[selectedTarefa];
-            return updated;
-          });
-        }
-      }
-    );
-    
-    if (onUpdateTarefa) {
-      await onUpdateTarefa();
-    }
-  };
-  
-  // Função para lidar com atualizações de workpackage
-  const handleWorkpackageUpdate = async () => {
-    if (onUpdateWorkPackage) {
-      await onUpdateWorkPackage();
-    }
-  };
-
-  // Função para obter a tarefa com as atualizações pendentes aplicadas
-  const getTarefaAtualizada = (tarefa: TarefaWithEntregaveis) => {
-    const pendingUpdate = pendingUpdates[tarefa.id];
-    if (!pendingUpdate) return tarefa;
-    
-    return {
-      ...tarefa,
-      ...pendingUpdate,
-      estado: 'estado' in pendingUpdate ? pendingUpdate.estado : tarefa.estado
-    };
-  };
-
   return (
     <div className="flex h-full w-full">
       <div className="flex w-full h-full overflow-hidden">
@@ -355,14 +301,11 @@ export function Cronograma({
                       {wp.nome}
                     </h3>
                     <span className="text-xs font-medium text-slate-500">
-                      {wp.tarefas.filter(t => getTarefaAtualizada(t).estado).length}/{wp.tarefas.length}
+                      {wp.tarefas.filter(t => t.estado).length}/{wp.tarefas.length}
                     </span>
                   </div>
                 </div>
                 {sortTarefas(wp.tarefas).map((tarefa) => {
-                  const tarefaAtualizada = getTarefaAtualizada(tarefa);
-                  const estado = tarefaAtualizada.estado;
-                  
                   return (
                     <div 
                       key={tarefa.id} 
@@ -370,13 +313,13 @@ export function Cronograma({
                         "flex items-center px-4 cursor-pointer hover:bg-slate-50/80 transition-colors border-t border-slate-100/50",
                         "h-10"
                       )}
-                      onClick={() => handleTarefaClick(tarefaAtualizada)}
+                      onClick={() => handleTarefaClick(tarefa)}
                     >
                       <div className="flex items-center gap-2 w-full">
                         <div 
                           className={cn(
                             "w-2 h-2 rounded-full border transition-colors flex-shrink-0",
-                            estado 
+                            tarefa.estado 
                               ? "bg-emerald-500 border-emerald-500" 
                               : "border-blue-500 group-hover/task:border-blue-600"
                           )}
@@ -385,7 +328,7 @@ export function Cronograma({
                           className="text-sm text-slate-600 truncate group-hover/task:text-slate-900 transition-colors"
                           style={{ maxWidth: `${leftColumnWidth - 48}px` }}
                         >
-                          {tarefaAtualizada.nome}
+                          {tarefa.nome}
                         </span>
                       </div>
                     </div>
@@ -447,11 +390,6 @@ export function Cronograma({
                       const position = getTarefaPosition(tarefa);
                       if (!position) return null;
                       
-                      // Usar a mesma instância da tarefa atualizada para garantir consistência
-                      const tarefaAtualizada = getTarefaAtualizada(tarefa);
-                      // Capturar o estado atual da tarefa para usar na cor da barra
-                      const estado = tarefaAtualizada.estado;
-                      
                       return (
                         <div key={tarefa.id} className="h-10 relative group">
                           <div className="absolute inset-0 flex">
@@ -465,7 +403,7 @@ export function Cronograma({
                           </div>
                           
                           <motion.div
-                            onClick={() => handleTarefaClick(tarefaAtualizada)}
+                            onClick={() => handleTarefaClick(tarefa)}
                             initial={{ scaleX: 0 }}
                             animate={{ scaleX: 1 }}
                             whileHover={{ y: -1 }}
@@ -480,35 +418,61 @@ export function Cronograma({
                             }}
                             className={cn(
                               "cursor-pointer relative rounded-full transition-all duration-200",
-                              estado 
+                              tarefa.estado 
                                 ? "bg-gradient-to-r from-emerald-400/90 to-emerald-500/90 hover:from-emerald-500 hover:to-emerald-600 shadow-[0_2px_8px_-2px_rgba(16,185,129,0.3)]" 
                                 : "bg-gradient-to-r from-blue-400/90 to-blue-500/90 hover:from-blue-500 hover:to-blue-600 shadow-[0_2px_8px_-2px_rgba(59,130,246,0.3)]",
                               "group-hover:shadow-[0_4px_12px_-4px_rgba(59,130,246,0.4)]"
                             )}
                           >
-                            {tarefaAtualizada.entregaveis?.map((entregavel: EntregavelType) => {
-                              if (!tarefaAtualizada.inicio || !tarefaAtualizada.fim || !entregavel.data) return null;
+                            {tarefa.entregaveis?.map((entregavel: EntregavelType) => {
+                              if (!tarefa.inicio || !tarefa.fim || !entregavel.data) return null;
                               
                               // Calcular posição exata do entregável dentro da barra da tarefa
                               const entregavelPosition = getEntregavelExactPosition(
                                 entregavel, 
-                                new Date(tarefaAtualizada.inicio), 
-                                new Date(tarefaAtualizada.fim)
+                                new Date(tarefa.inicio), 
+                                new Date(tarefa.fim)
                               );
                               
                               if (entregavelPosition === null) return null;
                               
+                              const entregavelDate = new Date(entregavel.data);
+                              const isPastDue = entregavelDate < new Date();
+                              
+                              // Usar o estado do próprio entregável
+                              const isCompleted = entregavel.estado;
+                              
+                              // Permitir clicar no entregável para alternar seu estado (se interações estiverem habilitadas)
+                              const handleEntregavelClick = (e: React.MouseEvent) => {
+                                if (disableInteractions) return;
+                                e.stopPropagation(); // Evitar propagar o clique para a tarefa pai
+                                mutations.entregavel.toggleEstado.mutate({
+                                  id: entregavel.id,
+                                  estado: !entregavel.estado
+                                });
+                              };
+                              
+                              // Estilo visual que corresponde ao componente EntregavelItem
                               return (
                                 <div
                                   key={entregavel.id}
-                                  className="absolute w-2 h-2 rounded-full bg-white shadow-sm z-20 flex items-center justify-center ring-4 ring-blue-500/20"
+                                  onClick={handleEntregavelClick}
+                                  className={cn(
+                                    "absolute z-20",
+                                    "rounded-full h-5 w-5",
+                                    isCompleted ? "bg-green-500 border border-green-600" : 
+                                    isPastDue ? "bg-red-500 border border-red-600" : 
+                                    "bg-azul border border-azul-600",
+                                    "flex items-center justify-center shadow-sm",
+                                    "cursor-pointer hover:opacity-90 transition-opacity"
+                                  )}
                                   style={{
                                     left: `${entregavelPosition}%`,
                                     top: '50%',
                                     transform: 'translate(-50%, -50%)'
                                   }}
                                 >
-                                  <div className="w-1 h-1 rounded-full bg-blue-500" />
+                                  <div className="w-2 h-2 rounded-full bg-white" />
                                 </div>
                               );
                             })}
@@ -531,7 +495,9 @@ export function Cronograma({
               tarefaId={selectedTarefa}
               open={!!selectedTarefa}
               onClose={() => setSelectedTarefa(null)}
-              onUpdate={handleTarefaUpdate}
+              onUpdate={async (data, workpackageId) => {
+                if (onUpdateTarefa) await onUpdateTarefa();
+              }}
             />
           )}
 
@@ -540,8 +506,12 @@ export function Cronograma({
               workpackageId={selectedWorkpackage}
               onClose={() => setSelectedWorkpackage(null)}
               projetoId={projetoId}
-              onUpdate={handleWorkpackageUpdate}
+              onUpdate={async () => {
+                if (onUpdateWorkPackage) await onUpdateWorkPackage();
+              }}
               open={!!selectedWorkpackage}
+              projeto={projeto}
+              workpackage={workpackages.find(wp => wp.id === selectedWorkpackage) as any}
             />
           )}
         </>

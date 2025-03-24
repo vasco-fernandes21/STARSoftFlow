@@ -86,6 +86,30 @@ export type WorkpackageCompleto = Prisma.WorkpackageGetPayload<{
   };
 }>;
 
+// Tipo completo do Projeto com todas as relações (para uso em componentes)
+export type ProjetoCompleto = Prisma.ProjetoGetPayload<{
+  include: {
+    financiamento: true;
+    workpackages: {
+      include: {
+        tarefas: {
+          include: {
+            entregaveis: true;
+          };
+        };
+        materiais: true;
+        recursos: {
+          include: {
+            user: true;
+          };
+        };
+      };
+    };
+  };
+}> & {
+  progresso: number;
+};
+
 // Tipos
 export type FaseType = 
   | "informacoes"

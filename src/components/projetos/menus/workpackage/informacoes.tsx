@@ -1,25 +1,22 @@
 import { useState, useRef, useEffect } from "react";
-import { api } from "@/trpc/react";
 import { cn } from "@/lib/utils";
 import { TextField, TextareaField, DateField } from "@/components/projetos/criar/components/FormFields";
 import { useMutations } from "@/hooks/useMutations";
+import { WorkpackageCompleto } from "@/components/projetos/types";
 
 interface WorkpackageInformacoesProps {
   workpackageId: string;
   onClose: () => void;
-  mutations?: ReturnType<typeof useMutations>;
+  projetoId?: string;
+  workpackage?: WorkpackageCompleto;
 }
 
 export function WorkpackageInformacoes({
   workpackageId,
   onClose,
-  mutations: externalMutations,
+  projetoId,
+  workpackage,
 }: WorkpackageInformacoesProps) {
-  const { data: workpackage, isLoading } = api.workpackage.findById.useQuery(
-    { id: workpackageId },
-    { staleTime: 0 }
-  );
-
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [dataInicio, setDataInicio] = useState<Date | null>(null);
@@ -32,12 +29,10 @@ export function WorkpackageInformacoes({
   }>({});
 
   const descricaoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const localMutations = useMutations();
-  const mutations = externalMutations || localMutations;
+  const mutations = useMutations(projetoId);
 
   useEffect(() => {
     if (workpackage) {
-      console.log("Workpackage atualizado no useEffect:", workpackage);
       setNome(workpackage.nome || "");
       setDescricao(workpackage.descricao || "");
       setDataInicio(workpackage.inicio ? new Date(workpackage.inicio) : null);
@@ -66,7 +61,6 @@ export function WorkpackageInformacoes({
     const erro = validarNome(nome);
     setErros((prev) => ({ ...prev, nome: erro }));
     if (!erro) {
-      console.log("Atualizando nome:", nome);
       mutations.workpackage.update.mutate({
         id: workpackageId,
         nome: nome,
@@ -101,7 +95,7 @@ export function WorkpackageInformacoes({
     });
   };
 
-  if (isLoading || !workpackage) {
+  if (!workpackage) {
     return <div className="py-8 text-center text-gray-500">Carregando...</div>;
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/trpc/react";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Entregavel } from "@prisma/client";
 import { useMutations } from "@/hooks/useMutations";
+import { EntregaveisContext } from "@/app/projetos/[id]/page";
 
 interface TarefaEntregaveisProps {
   tarefa: any;
@@ -29,7 +30,10 @@ export function TarefaEntregaveis({
 }: TarefaEntregaveisProps) {
   const [submittingEntregavel, setSubmittingEntregavel] = useState<string | null>(null);
   
-  // usar as mutações do hook useMutations
+  // Usar o contexto centralizado para entregáveis
+  const entregaveisContext = useContext(EntregaveisContext);
+  
+  // Fallback para as mutações diretas caso o contexto não esteja disponível
   const mutations = useMutations(onUpdate);
 
   // Buscar entregáveis da tarefa
@@ -43,10 +47,16 @@ export function TarefaEntregaveis({
   );
 
   const handleToggleEstado = async (entregavelId: string, novoEstado: boolean) => {
-    await mutations.entregavel.toggleEstado.mutate({ 
-      id: entregavelId, 
-      estado: novoEstado 
-    });
+    // Usar o toggleEstado do contexto centralizado se disponível
+    if (entregaveisContext) {
+      entregaveisContext.toggleEntregavelEstado(entregavelId, novoEstado);
+    } else {
+      // Fallback para mutação direta
+      await mutations.entregavel.toggleEstado.mutate({ 
+        id: entregavelId, 
+        estado: novoEstado 
+      });
+    }
   };
   
   const handleRemoveEntregavel = async (entregavelId: string) => {
@@ -62,10 +72,14 @@ export function TarefaEntregaveis({
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Após o upload bem-sucedido, atualizar o entregável
-      await mutations.entregavel.toggleEstado.mutate({ 
-        id: entregavelId, 
-        estado: true
-      });
+      if (entregaveisContext) {
+        entregaveisContext.toggleEntregavelEstado(entregavelId, true);
+      } else {
+        await mutations.entregavel.toggleEstado.mutate({ 
+          id: entregavelId, 
+          estado: true
+        });
+      }
       
       setSubmittingEntregavel(null);
       toast.success("Ficheiro enviado com sucesso");

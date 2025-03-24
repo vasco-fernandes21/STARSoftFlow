@@ -25,7 +25,7 @@ interface WorkpackageTarefasProps {
   workpackageId: string;
   addingTarefa: boolean;
   setAddingTarefa: (adding: boolean) => void;
-  mutations?: ReturnType<typeof useMutations>;
+  projetoId?: string;
 }
 
 interface ConfirmDialogProps {
@@ -71,13 +71,13 @@ export function WorkpackageTarefas({
   workpackageId,
   addingTarefa,
   setAddingTarefa,
-  mutations: externalMutations
+  projetoId
 }: WorkpackageTarefasProps) {
   const queryClient = useQueryClient();
   const [localTarefaEstados, setLocalTarefaEstados] = useState<Record<string, boolean>>({});
 
-  // Usar mutations externas ou criar locais se não forem fornecidas
-  const mutations = externalMutations || useMutations();
+  // Usar mutations com o projetoId
+  const mutations = useMutations(projetoId);
   
   // Estado para controlar edição/visualização de tarefas
   const [editingTarefaId, setEditingTarefaId] = useState<string | null>(null);

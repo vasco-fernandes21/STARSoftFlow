@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 interface WorkpackageMateriaisProps {
   workpackage: WorkpackageCompleto;
   workpackageId: string;
-  mutations?: ReturnType<typeof useMutations>;
+  projetoId?: string;
 }
 
 // Mapeamento de rubricas para variantes de badge
@@ -36,7 +36,7 @@ const rubricaParaVariante: Record<Rubrica, "blue" | "purple" | "indigo" | "orang
 export function WorkpackageMateriais({ 
   workpackage,
   workpackageId,
-  mutations: externalMutations
+  projetoId
 }: WorkpackageMateriaisProps) {
   const [showForm, setShowForm] = useState(false);
   const [expandedRubricas, setExpandedRubricas] = useState<Record<string, boolean>>({});
@@ -51,8 +51,8 @@ export function WorkpackageMateriais({
   
   const queryClient = useQueryClient();
   
-  // Usar mutations externas ou criar locais se não forem fornecidas
-  const mutations = externalMutations || useMutations();
+  // Usar mutations com o projetoId especificado
+  const mutations = useMutations(projetoId);
   
   // Função para invalidar as queries relevantes
   const invalidateQueries = useCallback(async () => {

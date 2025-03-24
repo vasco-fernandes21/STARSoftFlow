@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "@/trpc/react"; 
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -35,12 +35,25 @@ export function EntregavelItem({
   onToggleEstado,
   showTarefaInfo = false
 }: EntregavelItemProps) {
-  // Simplificar para usar diretamente o estado do entregável das props
-  // já que o TarefaItem vai controlar o estado local
+  // Não precisamos mais de estado local já que o componente pai
+  // já receberá o entregavel com o estado atualizado da cache do TanStack Query
   
   const handleToggleEstado = () => {
-    // Chamar o callback com o novo estado (invertido)
+    // Chamar o callback com o novo estado para persistência
     onToggleEstado(!entregavel.estado);
+  };
+
+  // Garantir que a data é uma instância de Date
+  const formatarData = (data: Date | null | string) => {
+    if (!data) return "Sem data";
+    
+    try {
+      const dataObj = data instanceof Date ? data : new Date(data);
+      return format(dataObj, 'dd/MM/yyyy');
+    } catch (error) {
+      console.error("Erro ao formatar data:", error);
+      return "Data inválida";
+    }
   };
 
   return (
@@ -57,7 +70,7 @@ export function EntregavelItem({
                 {entregavel.estado ? "Entregue" : "Pendente"}
               </Badge>
               <span className="text-xs text-gray-500">
-                {entregavel.data ? format(entregavel.data, 'dd/MM/yyyy') : "Sem data"}
+                {formatarData(entregavel.data)}
               </span>
               
               {showTarefaInfo && entregavel.tarefaNome && (

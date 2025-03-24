@@ -16,21 +16,21 @@ import { useQueryClient } from "@tanstack/react-query";
 interface WorkpackageRecursosProps {
   workpackage: WorkpackageCompleto;
   workpackageId: string;
-  mutations?: ReturnType<typeof useMutations>;
+  projetoId?: string;
 }
 
 export function WorkpackageRecursos({ 
   workpackage,
   workpackageId,
-  mutations: externalMutations
+  projetoId
 }: WorkpackageRecursosProps) {
   // Estado para controlar adição de recurso
   const [addingRecurso, setAddingRecurso] = useState(false);
   const [editingUsuarioId, setEditingUsuarioId] = useState<string | null>(null);
   const [expandedUsuarioId, setExpandedUsuarioId] = useState<string | null>(null);
   
-  // Usar mutations externas ou criar locais se não forem fornecidas
-  const mutations = externalMutations || useMutations();
+  // Mutations usando o projetoId
+  const mutations = useMutations(projetoId);
   
   // Query para obter todos os utilizadores
   const { data: utilizadores = { items: [] } } = api.utilizador.findAll.useQuery({ limit: 100 });

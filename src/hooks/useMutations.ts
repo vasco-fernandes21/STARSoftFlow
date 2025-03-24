@@ -1,9 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { QUERY_KEYS } from "@/hooks/queryKeys";
 
-// Tipos para as atualizações
+// Types for updates
 interface WorkpackageUpdate {
   id: string;
   [key: string]: any;
@@ -22,160 +21,110 @@ interface TarefaUpdate {
   };
 }
 
-interface InvalidateOptions {
-  projetoId?: string;
-  workpackageId?: string;
-  tarefaId?: string;
-}
-
-type EntityType = 'workpackage' | 'tarefa';
-
 export function useMutations(projetoId?: string) {
-  const utils = api.useUtils();
   const queryClient = useQueryClient();
 
-  // função helper para invalidar queries relacionadas
-  const invalidateRelatedQueries = async (options: InvalidateOptions) => {
-    const promises: Promise<void>[] = [];
-
-    if (options.projetoId || projetoId) {
-      const targetId = options.projetoId || projetoId!;
-      promises.push(
-        utils.projeto.findById.invalidate(targetId),
-        utils.projeto.findAll.invalidate()
-      );
-    }
-
-    if (options.workpackageId) {
-      promises.push(
-        utils.workpackage.findById.invalidate({ id: options.workpackageId }),
-        utils.workpackage.findAll.invalidate()
-      );
-    }
-
-    if (options.tarefaId) {
-      promises.push(
-        utils.tarefa.findById.invalidate(options.tarefaId),
-        utils.tarefa.getEntregaveisByTarefa.invalidate(options.tarefaId)
-      );
-    }
-
-    await Promise.all(promises);
-  };
-
-  // Atualização otimista imediata - sem timeout
-  const updateCacheImmediately = <T extends unknown>(
-    type: EntityType, 
-    id: string, 
-    data: any, 
-    workpackageId?: string
-  ) => {
-    // Definir chaves de consulta
-    const queryKey = type === 'workpackage' 
-      ? ['workpackage', 'findById', { id }]
-      : ['tarefa', 'findById', id];
-    
-    // Salvar dados anteriores
-    const previousData = queryClient.getQueryData<T>(queryKey);
-    
-    // Atualizar a entidade específica
-    queryClient.setQueryData(queryKey, (old: any) => {
-      if (!old) return old;
-      return { ...old, ...(type === 'workpackage' ? data : data.data) };
-    });
-    
-    // Atualizar no projeto pai para refletir em todos os componentes
-    if (projetoId) {
-      queryClient.setQueryData(['projeto', 'findById', projetoId], (old: any) => {
-        if (!old || !old.workpackages) return old;
-        
-        if (type === 'workpackage') {
-          return {
-            ...old,
-            workpackages: old.workpackages.map((wp: any) => 
-              wp.id === id ? { ...wp, ...data } : wp
-            )
-          };
-        } else if (workpackageId) {
-          return {
-            ...old,
-            workpackages: old.workpackages.map((wp: any) => {
-              if (wp.id !== workpackageId) return wp;
-              return {
-                ...wp,
-                tarefas: wp.tarefas?.map((t: any) => 
-                  t.id === id ? { ...t, ...data.data } : t
-                ) || []
-              };
-            })
-          };
-        }
-        return old;
+  // Helper function to invalidate project-related queries
+  const invalidateProjetoRelatedQueries = (specificProjetoId?: string) => {
+    const targetProjetoId = specificProjetoId || projetoId;
+    if (targetProjetoId) {
+      queryClient.invalidateQueries({
+        queryKey: ['projeto.findById', targetProjetoId]
       });
     }
-    
-    return { previousData };
   };
 
   // Workpackage mutations
   const workpackageMutations = {
     update: api.workpackage.update.useMutation({
       onMutate: async (variables: WorkpackageUpdate) => {
-        await utils.workpackage.findById.cancel({ id: variables.id });
-        return updateCacheImmediately('workpackage', variables.id, variables);
-      },
-      onSuccess: async (_, variables) => {
-        await invalidateRelatedQueries({
-          workpackageId: variables.id,
-          projetoId
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({
+          queryKey: ['workpackage.findById', { id: variables.id }]
         });
+
+        // Snapshot the previous value
+        const previousData = queryClient.getQueryData(['workpackage.findById', { id: variables.id }]);
+
+        // Optimistically update to the new value
+        queryClient.setQueryData(['workpackage.findById', { id: variables.id }], (old: any) => {
+          return { ...old, ...variables };
+        });
+
+        // Update in the project if needed
+        if (projetoId) {
+          queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
+            if (!old || !old.workpackages) return old;
+            
+            return {
+              ...old,
+              workpackages: old.workpackages.map((wp: any) => 
+                wp.id === variables.id ? { ...wp, ...variables } : wp
+              )
+            };
+          });
+        }
+
+        return { previousData };
+      },
+      onSuccess: (_data, variables) => {
+        // Invalidate affected queries
+        queryClient.invalidateQueries({
+          queryKey: ['workpackage.findById', { id: variables.id }]
+        });
+        invalidateProjetoRelatedQueries();
       },
       onError: (error, variables, context: any) => {
+        // If error, roll back to previous values
         if (context?.previousData) {
           queryClient.setQueryData(
-            ['workpackage', 'findById', { id: variables.id }], 
+            ['workpackage.findById', { id: variables.id }], 
             context.previousData
           );
-          
-          if (projetoId) {
-            queryClient.invalidateQueries({
-              queryKey: ['projeto', 'findById', projetoId]
-            });
-          }
         }
+        console.error("Erro ao atualizar workpackage:", error);
         toast.error(`Erro ao atualizar: ${error.message}`);
       }
     }),
     
     addAlocacao: api.workpackage.addAlocacao.useMutation({
-      onSuccess: async (_, variables) => {
-        await invalidateRelatedQueries({
-          workpackageId: variables.workpackageId,
-          projetoId
+      onSuccess: (_data, variables) => {
+        // Invalidate affected queries
+        queryClient.invalidateQueries({
+          queryKey: ['workpackage.findById', { id: variables.workpackageId }]
         });
+        invalidateProjetoRelatedQueries();
       },
-      onError: () => toast.error("Erro ao alocar recurso")
+      onError: (error) => {
+        console.error("Erro ao alocar recurso:", error);
+        toast.error("Erro ao alocar recurso");
+      }
     }),
     
     removeAlocacao: api.workpackage.removeAlocacao.useMutation({
-      onSuccess: async (_, variables) => {
-        await invalidateRelatedQueries({
-          workpackageId: variables.workpackageId,
-          projetoId
+      onSuccess: (_data, variables) => {
+        // Invalidate affected queries
+        queryClient.invalidateQueries({
+          queryKey: ['workpackage.findById', { id: variables.workpackageId }]
         });
+        invalidateProjetoRelatedQueries();
       },
-      onError: () => toast.error("Erro ao remover alocação")
+      onError: (error) => {
+        console.error("Erro ao remover alocação:", error);
+        toast.error("Erro ao remover alocação");
+      }
     })
   };
 
   // Tarefa mutations
   const tarefaMutations = {
     create: api.tarefa.create.useMutation({
-      onSuccess: async (_, variables) => {
-        await invalidateRelatedQueries({
-          workpackageId: variables.workpackageId,
-          projetoId
+      onSuccess: (_data, variables) => {
+        // Invalidate affected queries
+        queryClient.invalidateQueries({
+          queryKey: ['workpackage.findById', { id: variables.workpackageId }]
         });
+        invalidateProjetoRelatedQueries();
       },
       onError: (error) => {
         console.error("Erro ao criar tarefa:", error);
@@ -185,41 +134,83 @@ export function useMutations(projetoId?: string) {
     
     update: api.tarefa.update.useMutation({
       onMutate: async (variables: TarefaUpdate) => {
-        await utils.tarefa.findById.cancel(variables.id);
-        return updateCacheImmediately(
-          'tarefa', 
-          variables.id, 
-          variables,
-          variables.data.workpackageId
-        );
-      },
-      onSuccess: async (_, variables) => {
-        await invalidateRelatedQueries({
-          tarefaId: variables.id,
-          workpackageId: variables.data.workpackageId,
-          projetoId
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({
+          queryKey: ['tarefa.findById', variables.id]
         });
+
+        // Snapshot the previous value
+        const previousData = queryClient.getQueryData(['tarefa.findById', variables.id]);
+
+        // Optimistically update to the new value
+        queryClient.setQueryData(['tarefa.findById', variables.id], (old: any) => {
+          return { ...old, ...variables.data };
+        });
+
+        // Update in the parent workpackage and project if needed
+        if (variables.data.workpackageId) {
+          queryClient.setQueryData(['workpackage.findById', { id: variables.data.workpackageId }], (old: any) => {
+            if (!old || !old.tarefas) return old;
+            
+            return {
+              ...old,
+              tarefas: old.tarefas.map((t: any) => 
+                t.id === variables.id ? { ...t, ...variables.data } : t
+              )
+            };
+          });
+        }
+
+        if (projetoId) {
+          queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
+            if (!old || !old.workpackages) return old;
+            
+            return {
+              ...old,
+              workpackages: old.workpackages.map((wp: any) => {
+                if (!wp.tarefas || variables.data.workpackageId !== wp.id) return wp;
+                
+                return {
+                  ...wp,
+                  tarefas: wp.tarefas.map((t: any) => 
+                    t.id === variables.id ? { ...t, ...variables.data } : t
+                  )
+                };
+              })
+            };
+          });
+        }
+
+        return { previousData };
+      },
+      onSuccess: (_data, variables) => {
+        // Invalidate affected queries
+        queryClient.invalidateQueries({
+          queryKey: ['tarefa.findById', variables.id]
+        });
+        if (variables.data.workpackageId) {
+          queryClient.invalidateQueries({
+            queryKey: ['workpackage.findById', { id: variables.data.workpackageId }]
+          });
+        }
+        invalidateProjetoRelatedQueries();
       },
       onError: (error, variables, context: any) => {
+        // If error, roll back to previous values
         if (context?.previousData) {
           queryClient.setQueryData(
-            ['tarefa', 'findById', variables.id], 
+            ['tarefa.findById', variables.id], 
             context.previousData
           );
-          
-          if (projetoId) {
-            queryClient.invalidateQueries({
-              queryKey: ['projeto', 'findById', projetoId]
-            });
-          }
         }
+        console.error("Erro ao atualizar tarefa:", error);
         toast.error(`Erro ao atualizar: ${error.message}`);
       }
     }),
     
     delete: api.tarefa.delete.useMutation({
-      onSuccess: async (_, variables) => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: () => {
+        invalidateProjetoRelatedQueries();
       },
       onError: (error) => {
         console.error("Erro ao remover tarefa:", error);
@@ -232,57 +223,89 @@ export function useMutations(projetoId?: string) {
         const tarefaId = typeof params === 'string' ? params : params.id;
         const estado = typeof params === 'string' ? true : !!params.data.estado;
         
-        // Buscar a tarefa atual para obter o workpackageId
-        const tarefa = await utils.tarefa.findById.fetch(tarefaId).catch(() => null);
-        const workpackageId = tarefa?.workpackageId;
+        // Get workpackage ID from cache if available
+        const tarefaData = queryClient.getQueryData<any>(['tarefa.findById', tarefaId]);
+        const workpackageId = tarefaData?.workpackageId || 
+                             (typeof params !== 'string' ? params.data.workpackageId : undefined);
         
-        // Construir o objeto de atualização
-        const updateData: TarefaUpdate = {
-          id: tarefaId,
-          data: { estado, workpackageId }
-        };
+        if (!workpackageId) {
+          console.warn("Workpackage ID not found for tarefa", tarefaId);
+          return;
+        }
         
-        // Cancelar refetches
-        await utils.tarefa.findById.cancel(tarefaId);
-        
-        // Atualizar cache imediatamente
-        const result = updateCacheImmediately(
-          'tarefa',
-          tarefaId,
-          updateData,
-          workpackageId
-        );
-        
-        return { 
-          previousData: result.previousData,
-          updateData
-        };
-      },
-      onSuccess: async (_, variables, context: any) => {
-        if (!context?.updateData) return;
-        
-        const tarefaId = context.updateData.id;
-        const workpackageId = context.updateData.data.workpackageId;
-        
-        await invalidateRelatedQueries({
-          tarefaId,
-          workpackageId,
-          projetoId
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({
+          queryKey: ['tarefa.findById', tarefaId]
         });
-      },
-      onError: (error, _, context: any) => {
-        if (context?.previousData && context?.updateData) {
-          queryClient.setQueryData(
-            ['tarefa', 'findById', context.updateData.id], 
-            context.previousData
+
+        // Snapshot previous values
+        const previousTarefaData = queryClient.getQueryData(['tarefa.findById', tarefaId]);
+        const previousWorkpackageData = queryClient.getQueryData([
+          'workpackage.findById', { id: workpackageId }
+        ]);
+        
+        // Update tarefa data
+        queryClient.setQueryData(['tarefa.findById', tarefaId], (old: any) => {
+          if (!old) return old;
+          return { ...old, estado };
+        });
+        
+        // Update workpackage data
+        queryClient.setQueryData(['workpackage.findById', { id: workpackageId }], (old: any) => {
+          if (!old || !old.tarefas) return old;
+          
+          const tarefasAtualizadas = old.tarefas.map((t: any) => 
+            t.id === tarefaId ? { ...t, estado } : t
           );
           
-          if (projetoId) {
-            queryClient.invalidateQueries({
-              queryKey: ['projeto', 'findById', projetoId]
-            });
-          }
+          return {
+            ...old,
+            tarefas: tarefasAtualizadas
+          };
+        });
+        
+        return { 
+          previousTarefaData,
+          previousWorkpackageData,
+          tarefaId,
+          workpackageId
+        };
+      },
+      onSuccess: (_data, _variables, context: any) => {
+        if (!context) return;
+        const { tarefaId, workpackageId } = context;
+        
+        // Invalidate affected queries
+        if (tarefaId) {
+          queryClient.invalidateQueries({
+            queryKey: ['tarefa.findById', tarefaId]
+          });
         }
+        
+        if (workpackageId) {
+          queryClient.invalidateQueries({
+            queryKey: ['workpackage.findById', { id: workpackageId }]
+          });
+        }
+        
+        invalidateProjetoRelatedQueries();
+      },
+      onError: (error, _, context: any) => {
+        if (!context) return;
+        const { previousTarefaData, previousWorkpackageData, tarefaId, workpackageId } = context;
+        
+        // Revert to previous values
+        if (tarefaId && previousTarefaData) {
+          queryClient.setQueryData(['tarefa.findById', tarefaId], previousTarefaData);
+        }
+        
+        if (workpackageId && previousWorkpackageData) {
+          queryClient.setQueryData(
+            ['workpackage.findById', { id: workpackageId }], 
+            previousWorkpackageData
+          );
+        }
+        
         console.error("Erro ao atualizar estado da tarefa:", error);
         toast.error("Erro ao atualizar estado da tarefa");
       }
@@ -292,8 +315,14 @@ export function useMutations(projetoId?: string) {
   // Entregável mutations
   const entregavelMutations = {
     create: api.entregavel.create.useMutation({
-      onSuccess: async () => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: (_data, variables) => {
+        // Find and update the parent tarefa
+        const tarefaId = variables.tarefaId;
+        if (tarefaId) {
+          queryClient.invalidateQueries({
+            queryKey: ['tarefa.findById', tarefaId]
+          });
+        }
       },
       onError: (error) => {
         console.error("Erro ao criar entregável:", error);
@@ -302,8 +331,11 @@ export function useMutations(projetoId?: string) {
     }),
     
     update: api.entregavel.update.useMutation({
-      onSuccess: async () => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: (_data, variables) => {
+        // Invalidate entregavel data
+        queryClient.invalidateQueries({
+          queryKey: ['entregavel.findById', variables.id]
+        });
       },
       onError: (error) => {
         console.error("Erro ao atualizar entregável:", error);
@@ -312,8 +344,8 @@ export function useMutations(projetoId?: string) {
     }),
     
     delete: api.entregavel.delete.useMutation({
-      onSuccess: async () => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: () => {
+        invalidateProjetoRelatedQueries();
       },
       onError: (error) => {
         console.error("Erro ao excluir entregável:", error);
@@ -321,20 +353,51 @@ export function useMutations(projetoId?: string) {
       }
     }),
     
-    toggleEstado: api.entregavel.update.useMutation({
+    toggleEstado: api.entregavel.toggleEstado.useMutation({
       onMutate: async (params) => {
-        if (params && 'id' in params && 'estado' in params) {
-          return { 
-            id: params.id, 
-            data: { estado: params.estado } 
-          };
+        if (!params || !('id' in params) || !('estado' in params)) {
+          return params;
         }
-        return params;
+
+        // Find entregável in cached data to update it
+        const entregavelId = params.id;
+        
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({
+          queryKey: ['entregavel.findById', entregavelId]
+        });
+        
+        // Snapshot the previous value
+        const previousEntregavelData = queryClient.getQueryData(['entregavel.findById', entregavelId]);
+        
+        // Optimistically update
+        queryClient.setQueryData(['entregavel.findById', entregavelId], (old: any) => {
+          if (!old) return old;
+          return { ...old, estado: params.estado };
+        });
+        
+        return { 
+          previousEntregavelData,
+          entregavelId: params.id,
+          novoEstado: params.estado
+        };
       },
-      onSuccess: async () => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: (_data, variables) => {
+        const entregavelId = typeof variables === 'string' ? variables : variables.id;
+        queryClient.invalidateQueries({
+          queryKey: ['entregavel.findById', entregavelId]
+        });
+        invalidateProjetoRelatedQueries();
       },
-      onError: (error) => {
+      onError: (error, _variables, context: any) => {
+        // If error, roll back
+        if (context?.previousEntregavelData && context?.entregavelId) {
+          queryClient.setQueryData(
+            ['entregavel.findById', context.entregavelId], 
+            context.previousEntregavelData
+          );
+        }
+        
         console.error("Erro ao atualizar estado do entregável:", error);
         toast.error("Erro ao atualizar estado do entregável");
       }
@@ -344,24 +407,33 @@ export function useMutations(projetoId?: string) {
   // Material mutations
   const materialMutations = {
     create: api.material.create.useMutation({
-      onSuccess: async () => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: () => {
+        invalidateProjetoRelatedQueries();
       },
-      onError: () => toast.error("Erro ao adicionar material")
+      onError: (error) => {
+        console.error("Erro ao adicionar material:", error);
+        toast.error("Erro ao adicionar material");
+      }
     }),
     
     update: api.material.update.useMutation({
-      onSuccess: async () => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: () => {
+        invalidateProjetoRelatedQueries();
       },
-      onError: () => toast.error("Erro ao atualizar material")
+      onError: (error) => {
+        console.error("Erro ao atualizar material:", error);
+        toast.error("Erro ao atualizar material");
+      }
     }),
     
     delete: api.material.delete.useMutation({
-      onSuccess: async () => {
-        await invalidateRelatedQueries({ projetoId });
+      onSuccess: () => {
+        invalidateProjetoRelatedQueries();
       },
-      onError: () => toast.error("Erro ao excluir material")
+      onError: (error) => {
+        console.error("Erro ao excluir material:", error);
+        toast.error("Erro ao excluir material");
+      }
     })
   };
 
@@ -369,8 +441,6 @@ export function useMutations(projetoId?: string) {
     workpackage: workpackageMutations,
     tarefa: tarefaMutations,
     entregavel: entregavelMutations,
-    material: materialMutations,
-    invalidateRelatedQueries,
-    updateCacheImmediately
+    material: materialMutations
   };
 }

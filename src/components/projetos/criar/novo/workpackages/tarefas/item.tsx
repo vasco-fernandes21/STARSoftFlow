@@ -111,12 +111,10 @@ export function TarefaItem({
   };
 
   const handleToggleEntregavelEstado = (entregavelId: string, novoEstado: boolean) => {
-    // Atualização otimista
-    setEntregaveisEstado(prev => ({
-      ...prev,
-      [entregavelId]: novoEstado
-    }));
+    // Não precisamos mais manter um estado local separado
+    // A UI usará o estado da cache do TanStack Query que foi atualizada otimisticamente
     
+    // Fazer a mutação que atualizará a cache em todos os lugares
     mutations.entregavel.toggleEstado.mutate({
       id: entregavelId,
       estado: novoEstado
