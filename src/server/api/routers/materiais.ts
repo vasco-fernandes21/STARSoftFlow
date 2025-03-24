@@ -105,7 +105,7 @@ export const materialRouter = createTRPCRouter({
       }
     }),
 
-  // Excluir material
+  // Apagar material
   delete: protectedProcedure
     .input(z.number())
     .mutation(async ({ ctx, input: id }) => {
@@ -118,7 +118,7 @@ export const materialRouter = createTRPCRouter({
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao excluir material",
+          message: "Erro ao apagar material",
           cause: error,
         });
       }

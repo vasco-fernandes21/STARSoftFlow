@@ -235,7 +235,7 @@ export const workpackageRouter = createTRPCRouter({
         });
       }
 
-      // Excluir o workpackage e todas as suas relações
+      // Apagar o workpackage e todas as suas relações
       await ctx.db.workpackage.delete({
         where: { id }
       });

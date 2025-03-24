@@ -145,7 +145,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
 
   // Função para remover recurso
   const handleRemoveRecurso = (workpackageId: string, userId: string, alocacoes: any[]) => {
-    toast.warning("Tem certeza que deseja remover este recurso?", {
+    toast.warning("Tem a certeza que deseja remover este recurso?", {
       action: {
         label: "Remover",
         onClick: () => {

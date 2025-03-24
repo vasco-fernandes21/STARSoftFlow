@@ -63,7 +63,7 @@ export function TarefaItem({
       nome: entregavel.nome,
       tarefaId,
       descricao: entregavel.descricao || null,
-      data: entregavel.data,
+      data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data,
       anexo: null
     });
     
@@ -74,7 +74,7 @@ export function TarefaItem({
     if (onDeleteEntregavel) {
       onDeleteEntregavel(entregavelId);
     } else {
-      if (confirm("Tem certeza que deseja remover este entregável?")) {
+      if (confirm("Tem a certeza que deseja remover este entregável?")) {
         mutations.entregavel.delete.mutate(entregavelId);
       }
     }
@@ -84,7 +84,7 @@ export function TarefaItem({
     if (onDelete) {
       onDelete(tarefa.id);
     } else {
-      if (confirm("Tem certeza que deseja remover esta tarefa?")) {
+      if (confirm("Tem a certeza que deseja remover esta tarefa?")) {
         mutations.tarefa.delete.mutate(tarefa.id);
       }
     }

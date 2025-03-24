@@ -104,8 +104,8 @@ export function WorkpackageMateriais({
   
   // Handler para remover material
   const handleRemoveMaterial = useCallback((id: number) => {
-    // Confirmar antes de excluir
-    if (!confirm("Tem certeza que deseja excluir este material?")) {
+    // Confirmar antes de apagar
+    if (!confirm("Tem a certeza que deseja apagar este material?")) {
       return;
     }
     

@@ -170,7 +170,7 @@ export function GerirFinanciamentosModal({
     try {
       const confirmado = await confirmar({
         titulo: "Remover Financiamento",
-        descricao: `Tem certeza que deseja remover o financiamento "${nome}"? Esta ação não pode ser desfeita.`,
+        descricao: `Tem a certeza que deseja remover o financiamento "${nome}"? Esta ação não pode ser desfeita.`,
         tipo: "alerta",
         labelConfirmar: "Remover",
         labelCancelar: "Cancelar",

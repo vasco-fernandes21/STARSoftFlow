@@ -266,7 +266,7 @@ export const tarefaRouter = createTRPCRouter({
         
         const workpackageId = tarefa.workpackageId;
         
-        // Excluir a tarefa (entregáveis serão excluídos por cascade)
+        // Apagar a tarefa (entregáveis serão excluídos por cascade)
         await ctx.db.tarefa.delete({
           where: { id },
         });
@@ -372,7 +372,7 @@ export const tarefaRouter = createTRPCRouter({
       }
     }),
     
-  // Excluir entregável
+  // Apagar entregável
   deleteEntregavel: protectedProcedure
     .input(z.string())
     .mutation(async ({ ctx, input: id }) => {

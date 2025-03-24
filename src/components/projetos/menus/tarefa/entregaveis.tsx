@@ -50,7 +50,7 @@ export function TarefaEntregaveis({
   };
   
   const handleRemoveEntregavel = async (entregavelId: string) => {
-    if (confirm("Tem certeza que deseja remover este entregável?")) {
+    if (confirm("Tem a certeza que deseja remover este entregável?")) {
       await mutations.entregavel.delete.mutate(entregavelId);
     }
   };

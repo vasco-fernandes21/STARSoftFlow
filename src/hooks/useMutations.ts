@@ -21,6 +21,34 @@ interface TarefaUpdate {
   };
 }
 
+interface EntregavelCreate {
+  nome: string;
+  descricao?: string | null;
+  data?: string | null; // Data deve ser string ISO
+  anexo?: string | null;
+  estado?: boolean;
+  tarefaId: string;
+}
+
+interface EntregavelUpdate {
+  id: string;
+  data: {
+    nome?: string;
+    descricao?: string | null;
+    data?: string | null; // Data deve ser string ISO
+    anexo?: string | null;
+    estado?: boolean;
+  };
+}
+
+// Helper function to ensure date is in ISO string format
+function ensureDateString(value: any): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  return null;
+}
+
 export function useMutations(projetoId?: string) {
   const queryClient = useQueryClient();
 
@@ -202,9 +230,16 @@ export function useMutations(projetoId?: string) {
   // Entregável mutations
   const entregavelMutations = {
     create: api.entregavel.create.useMutation({
-      onMutate: async (variables) => {
-        // Optimistic update for the parent tarefa
+      onMutate: async (variables: EntregavelCreate) => {
+        // Guardar estado atual do projeto
+        let previousProjetoData;
+        if (projetoId) {
+          previousProjetoData = queryClient.getQueryData(['projeto.findById', projetoId]);
+        }
+
+        // Atualizar cache do projeto otimisticamente
         if (variables.tarefaId && projetoId) {
+          const tempId = `temp-${Date.now()}`;
           queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
             if (!old?.workpackages) return old;
             return {
@@ -216,8 +251,9 @@ export function useMutations(projetoId?: string) {
                     ? { 
                         ...t, 
                         entregaveis: [...(t.entregaveis || []), { 
-                          id: 'temp-' + Date.now(),
-                          ...variables 
+                          id: tempId,
+                          ...variables,
+                          data: ensureDateString(variables.data)
                         }]
                       } 
                     : t
@@ -226,28 +262,56 @@ export function useMutations(projetoId?: string) {
             };
           });
         }
+
+        // Refetch imediato para mostrar alterações
+        void invalidateProjetoRelatedQueries();
+
+        return { previousProjetoData };
       },
-      onSuccess: async (_data, variables) => {
-        await invalidateProjetoRelatedQueries(projetoId);
-      },
-      onSettled: async () => {
-        await invalidateProjetoRelatedQueries(projetoId);
-      },
-      onError: (error) => {
+      onError: (error, _variables, context: any) => {
+        // Reverter em caso de erro
+        if (projetoId && context?.previousProjetoData) {
+          queryClient.setQueryData(
+            ['projeto.findById', projetoId],
+            context.previousProjetoData
+          );
+        }
+        
         console.error("Erro ao criar entregável:", error);
         toast.error("Erro ao criar entregável");
+      },
+      onSettled: async () => {
+        // Sempre refetch quando finalizar
+        await invalidateProjetoRelatedQueries();
       }
     }),
     
     update: api.entregavel.update.useMutation({
-      onMutate: async (variables) => {
+      onMutate: async (variables: EntregavelUpdate) => {
+        // Cancelar queries pendentes
         await queryClient.cancelQueries({
           queryKey: ['entregavel.findById', variables.id]
         });
 
-        const previousData = queryClient.getQueryData(['entregavel.findById', variables.id]);
+        // Guardar snapshot do estado atual
+        const previousEntregavelData = queryClient.getQueryData(['entregavel.findById', variables.id]);
+        let previousProjetoData;
+        
+        if (projetoId) {
+          previousProjetoData = queryClient.getQueryData(['projeto.findById', projetoId]);
+        }
 
-        // Update optimistically in projeto cache
+        // Atualizar cache do entregável
+        queryClient.setQueryData(['entregavel.findById', variables.id], (old: any) => {
+          if (!old) return old;
+          return { 
+            ...old, 
+            ...variables.data,
+            data: ensureDateString(variables.data.data)
+          };
+        });
+
+        // Atualizar cache do projeto
         if (projetoId) {
           queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
             if (!old?.workpackages) return old;
@@ -258,7 +322,11 @@ export function useMutations(projetoId?: string) {
                 tarefas: wp.tarefas?.map((t: any) => ({
                   ...t,
                   entregaveis: t.entregaveis?.map((e: any) =>
-                    e.id === variables.id ? { ...e, ...variables.data } : e
+                    e.id === variables.id ? { 
+                      ...e, 
+                      ...variables.data,
+                      data: ensureDateString(variables.data.data)
+                    } : e
                   )
                 }))
               }))
@@ -266,23 +334,33 @@ export function useMutations(projetoId?: string) {
           });
         }
 
-        return { previousData };
-      },
-      onSuccess: async (_data, variables) => {
-        await invalidateProjetoRelatedQueries(projetoId);
-      },
-      onSettled: async () => {
-        await invalidateProjetoRelatedQueries(projetoId);
+        // Refetch imediato para mostrar alterações
+        void invalidateProjetoRelatedQueries();
+
+        return { previousEntregavelData, previousProjetoData };
       },
       onError: (error, variables, context: any) => {
-        if (context?.previousData) {
+        // Reverter cache em caso de erro
+        if (context?.previousEntregavelData) {
           queryClient.setQueryData(
-            ['entregavel.findById', variables.id],
-            context.previousData
+            ['entregavel.findById', variables.id], 
+            context.previousEntregavelData
           );
         }
+        
+        if (projetoId && context?.previousProjetoData) {
+          queryClient.setQueryData(
+            ['projeto.findById', projetoId],
+            context.previousProjetoData
+          );
+        }
+        
         console.error("Erro ao atualizar entregável:", error);
         toast.error("Erro ao atualizar entregável");
+      },
+      onSettled: async () => {
+        // Sempre refetch quando finalizar
+        await invalidateProjetoRelatedQueries();
       }
     }),
     
@@ -294,8 +372,8 @@ export function useMutations(projetoId?: string) {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onError: (error) => {
-        console.error("Erro ao excluir entregável:", error);
-        toast.error("Erro ao excluir entregável");
+        console.error("Erro ao apagar entregável:", error);
+        toast.error("Erro ao apagar entregável");
       }
     })
   };
@@ -336,8 +414,8 @@ export function useMutations(projetoId?: string) {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onError: (error) => {
-        console.error("Erro ao excluir material:", error);
-        toast.error("Erro ao excluir material");
+        console.error("Erro ao apagar material:", error);
+        toast.error("Erro ao apagar material");
       }
     })
   };

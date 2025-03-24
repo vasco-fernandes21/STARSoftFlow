@@ -139,8 +139,8 @@ export function WorkpackageTarefas({
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title={`Excluir ${itemToDelete?.type === 'tarefa' ? 'Tarefa' : 'Entregável'}`}
-        description={`Tem certeza que deseja excluir ${itemToDelete?.type === 'tarefa' ? 'esta tarefa' : 'este entregável'}? Esta ação não pode ser desfeita.`}
+        title={`Apagar ${itemToDelete?.type === 'tarefa' ? 'Tarefa' : 'Entregável'}`}
+        description={`Tem a certeza que deseja apagar ${itemToDelete?.type === 'tarefa' ? 'esta tarefa' : 'este entregável'}? Esta ação não pode ser desfeita.`}
         onConfirm={handleDelete}
       />
       

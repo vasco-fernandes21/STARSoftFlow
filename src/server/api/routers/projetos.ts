@@ -511,7 +511,7 @@ export const projetoRouter = createTRPCRouter({
       }
     }),
   
-  // Excluir projeto
+  // Apagar projeto
   delete: protectedProcedure
     .input(z.string().uuid("ID do projeto inválido"))
     .mutation(async ({ ctx, input: id }) => {
@@ -524,7 +524,7 @@ export const projetoRouter = createTRPCRouter({
           },
         });
         
-        // Excluir tarefas primeiro
+        // Apagar tarefas primeiro
         for (const wp of workpackages) {
           if (wp.tarefas.length > 0) {
             await ctx.db.tarefa.deleteMany({
@@ -533,12 +533,12 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
-        // Excluir workpackages
+        // Apagar workpackages
         await ctx.db.workpackage.deleteMany({
           where: { projetoId: id },
         });
         
-        // Excluir projeto
+        // Apagar projeto
         await ctx.db.projeto.delete({
           where: { id },
         });

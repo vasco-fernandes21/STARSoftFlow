@@ -107,7 +107,7 @@ export const entregavelRouter = createTRPCRouter({
       });
     }),
 
-  // Excluir entregável
+  // Apagar entregável
   delete: protectedProcedure
     .input(z.string().uuid("ID do entregável inválido"))
     .mutation(async ({ ctx, input }) => {

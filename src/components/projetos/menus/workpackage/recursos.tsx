@@ -93,7 +93,7 @@ export function WorkpackageRecursos({
   
   // Handler para remover recurso
   const handleRemoveRecurso = (userId: string) => {
-    if (confirm("Tem certeza que deseja remover este recurso e todas as suas alocações?")) {
+    if (confirm("Tem a certeza que deseja remover este recurso e todas as suas alocações?")) {
       // Encontrar todas as alocações deste utilizador
       const alocacoesUsuario = workpackage.recursos?.filter(r => r.userId === userId) || [];
       
