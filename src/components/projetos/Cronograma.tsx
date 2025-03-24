@@ -35,11 +35,11 @@ interface WorkpackageWithTarefas extends Workpackage {
     userId: string;
     mes: number;
     ano: number;
-    ocupacao: string;
+    ocupacao: string | number | any;
     user: {
       id: string;
-      name: string;
-      salario: string;
+      name: string | null;
+      salario: string | number | null;
     };
   }[];
 }
