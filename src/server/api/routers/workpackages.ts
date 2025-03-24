@@ -302,7 +302,7 @@ export const workpackageRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  // Adicionar alocação de recurso
+  // Adicionar ou atualizar alocação de recurso (upsert)
   addAlocacao: protectedProcedure
     .input(workpackageUserSchema)
     .mutation(async ({ ctx, input }) => {
@@ -333,8 +333,20 @@ export const workpackageRouter = createTRPCRouter({
           });
         }
 
-        const alocacao = await ctx.db.alocacaoRecurso.create({
-          data: {
+        // Usar upsert para criar ou atualizar a alocação
+        const alocacao = await ctx.db.alocacaoRecurso.upsert({
+          where: {
+            workpackageId_userId_mes_ano: {
+              workpackageId,
+              userId,
+              mes,
+              ano
+            }
+          },
+          update: {
+            ocupacao
+          },
+          create: {
             workpackageId,
             userId,
             mes,
@@ -345,15 +357,60 @@ export const workpackageRouter = createTRPCRouter({
 
         return alocacao;
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Já existe uma alocação para este recurso neste período"
-          });
-        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao adicionar alocação",
+          message: "Erro ao adicionar ou atualizar alocação",
+          cause: error,
+        });
+      }
+    }),
+
+  // Atualizar alocação de recurso existente
+  updateAlocacao: protectedProcedure
+    .input(workpackageUserSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { workpackageId, userId, mes, ano, ocupacao } = input;
+
+        // Verificar se a alocação existe
+        const alocacaoExistente = await ctx.db.alocacaoRecurso.findUnique({
+          where: {
+            workpackageId_userId_mes_ano: {
+              workpackageId,
+              userId,
+              mes,
+              ano
+            }
+          }
+        });
+
+        if (!alocacaoExistente) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Alocação não encontrada"
+          });
+        }
+
+        // Atualizar a alocação
+        const alocacao = await ctx.db.alocacaoRecurso.update({
+          where: {
+            workpackageId_userId_mes_ano: {
+              workpackageId,
+              userId,
+              mes,
+              ano
+            }
+          },
+          data: {
+            ocupacao
+          }
+        });
+
+        return alocacao;
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao atualizar alocação",
           cause: error,
         });
       }

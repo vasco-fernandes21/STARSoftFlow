@@ -16,7 +16,7 @@ interface MenuTarefaProps {
   tarefaId: string;
   open: boolean;
   onClose: () => void;
-  onUpdate?: () => Promise<void>;
+  onUpdate: (data: any, workpackageId?: string) => Promise<void>;
 }
 
 export function MenuTarefa({
@@ -29,7 +29,7 @@ export function MenuTarefa({
   const [addingEntregavel, setAddingEntregavel] = useState(false);
   
   // buscar a tarefa
-  const { data: tarefa, isLoading } = api.tarefa.findById.useQuery(
+  const { data: tarefa, isLoading, refetch } = api.tarefa.findById.useQuery(
     tarefaId,
     { enabled: open, staleTime: 0 }
   );
@@ -40,6 +40,22 @@ export function MenuTarefa({
       setAddingEntregavel(false);
     }
   }, [open]);
+
+  const handleSave = async (formData: any) => {
+    try {
+      // Buscar o workpackageId atual
+      const currentWorkpackageId = tarefa?.workpackageId;
+      
+      // Chamar onUpdate com os dados e o workpackageId
+      await onUpdate(formData, currentWorkpackageId);
+      
+      // Fechar o menu para melhor UX
+      onClose();
+    } catch (error) {
+      console.error("Erro ao salvar tarefa:", error);
+      // Não fechar o menu em caso de erro
+    }
+  };
 
   // renderizar loading
   if (isLoading) {
@@ -85,6 +101,17 @@ export function MenuTarefa({
     );
   }
   
+  // Handler especial para mudanças de estado, que precisam ser refletidas na UI imediatamente 
+  const handleTarefaStateUpdate = async (updateData: any, workpackageId?: string) => {
+    // Chamar onUpdate para refletir imediatamente nas visualizações
+    await onUpdate(updateData, workpackageId);
+    
+    // Atualizar o estado interno do componente para que o header reflita a mudança
+    if (updateData.estado !== undefined) {
+      refetch();
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onClose} modal={false}>
       <SheetContent 
@@ -143,7 +170,7 @@ export function MenuTarefa({
                 <TarefaInformacoes 
                   tarefa={tarefa} 
                   tarefaId={tarefa.id}
-                  onUpdate={onUpdate}
+                  onUpdate={handleTarefaStateUpdate}
                 />
               </div>
               
@@ -154,7 +181,13 @@ export function MenuTarefa({
                   tarefaId={tarefa.id}
                   addingEntregavel={addingEntregavel}
                   setAddingEntregavel={setAddingEntregavel}
-                  onUpdate={onUpdate}
+                  onUpdate={() => onUpdate(
+                    {
+                      id: tarefa.id,
+                      data: {}
+                    }, 
+                    tarefa.workpackageId
+                  )}
                 />
               </div>
             </div>

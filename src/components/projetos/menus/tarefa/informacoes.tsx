@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 interface TarefaInformacoesProps {
   tarefa: any;
   tarefaId: string;
-  onUpdate?: () => Promise<void>;
+  onUpdate?: (data: any, workpackageId?: string) => Promise<void>;
 }
 
 export function TarefaInformacoes({ 
@@ -29,7 +29,6 @@ export function TarefaInformacoes({
   // mutação para atualizar tarefa
   const updateTarefaMutation = api.tarefa.update.useMutation({
     onSuccess: async () => {
-      if (onUpdate) await onUpdate();
       toast.success("Tarefa atualizada com sucesso!");
     },
     onError: (error) => {
@@ -38,9 +37,20 @@ export function TarefaInformacoes({
   });
 
   const handleEstadoChange = async () => {
+    const newEstado = !tarefa.estado;
+    
+    // Preparar dados para a atualização
+    const updateData = { estado: newEstado };
+    
+    // Chamar o callback onUpdate antes da mutação para atualização imediata na UI
+    if (onUpdate) {
+      await onUpdate(updateData, tarefa.workpackageId);
+    }
+    
+    // Executar a mutação
     await updateTarefaMutation.mutate({
       id: tarefaId,
-      data: { estado: !tarefa.estado }
+      data: updateData
     });
   };
 
@@ -50,25 +60,48 @@ export function TarefaInformacoes({
       return;
     }
     
+    const updateData = { nome: newName };
+    
+    // Atualizar tanto local quanto no servidor
+    if (onUpdate) {
+      await onUpdate(updateData, tarefa.workpackageId);
+    }
+    
     await updateTarefaMutation.mutate({
       id: tarefaId,
-      data: { nome: newName }
+      data: updateData
     });
+    
     setEditingName(false);
   };
 
   const handleDescriptionSave = async () => {
+    const updateData = { descricao: newDescription };
+    
+    // Atualizar tanto local quanto no servidor
+    if (onUpdate) {
+      await onUpdate(updateData, tarefa.workpackageId);
+    }
+    
     await updateTarefaMutation.mutate({
       id: tarefaId,
-      data: { descricao: newDescription }
+      data: updateData
     });
+    
     setEditingDescription(false);
   };
 
   const handleDateChange = async (field: 'dataInicio' | 'dataFim', date: Date | undefined) => {
+    const updateData = { [field]: date };
+    
+    // Atualizar tanto local quanto no servidor
+    if (onUpdate) {
+      await onUpdate(updateData, tarefa.workpackageId);
+    }
+    
     await updateTarefaMutation.mutate({
       id: tarefaId,
-      data: { [field]: date }
+      data: updateData
     });
   };
 

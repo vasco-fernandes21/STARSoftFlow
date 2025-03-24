@@ -66,6 +66,31 @@ export function WorkpackageRecursos({
     setEditingUsuarioId(null);
   };
   
+  // Handler para editar recursos
+  const handleEditRecurso = (workpackageId: string, alocacoes: Array<{
+    userId: string;
+    mes: number;
+    ano: number;
+    ocupacao: Decimal;
+    user?: any;
+  }>) => {
+    // Para cada alocação no array, usar a mutação updateAlocacao (ou addAlocacao com upsert)
+    alocacoes.forEach(alocacao => {
+      mutations.workpackage.addAlocacao.mutate({
+        workpackageId,
+        userId: alocacao.userId,
+        mes: alocacao.mes,
+        ano: alocacao.ano,
+        ocupacao: Number(alocacao.ocupacao)
+      }, {
+        onSuccess: () => {
+          // Limpar estado de edição após sucesso
+          setEditingUsuarioId(null);
+        }
+      });
+    });
+  };
+  
   // Handler para remover recurso
   const handleRemoveRecurso = (userId: string) => {
     if (confirm("Tem certeza que deseja remover este recurso e todas as suas alocações?")) {
@@ -217,7 +242,7 @@ export function WorkpackageRecursos({
                 alocacoesPorAnoMes={processarAlocacoesPorUsuario(usuario.userId)}
                 isEditing={editingUsuarioId === usuario.userId}
                 onCancelEdit={() => setEditingUsuarioId(null)}
-                onSaveEdit={handleAddRecurso}
+                onSaveEdit={handleEditRecurso}
                 utilizadores={utilizadoresList}
                 inicio={workpackage.inicio || new Date()}
                 fim={workpackage.fim || new Date()}

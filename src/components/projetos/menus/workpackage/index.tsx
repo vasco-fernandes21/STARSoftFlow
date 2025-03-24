@@ -9,12 +9,17 @@ import { CheckCircle2, Circle, X } from "lucide-react";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InformacoesWorkpackage } from "./informacoes";
+import { TarefasWorkpackage } from "./tarefas";
+import { RecursosWorkpackage } from "./recursos";
+import { MateriaisWorkpackage } from "./materiais";
 
 interface MenuWorkpackageProps {
   workpackageId: string;
   onClose: () => void;
   projetoId: string;
-  onUpdate: (data: any) => void;
+  onUpdate: () => Promise<void>;
   open: boolean;
 }
 
@@ -23,18 +28,10 @@ export function MenuWorkpackage({ workpackageId, onClose, projetoId, onUpdate, o
   const [addingTarefa, setAddingTarefa] = useState(false);
   const [workpackageEstado, setWorkpackageEstado] = useState(false);
 
-  const { data: workpackage, isLoading } = api.workpackage.findById.useQuery(
-    { id: workpackageId },
-    {
-      enabled: open,
-      staleTime: 0,
-      cacheTime: 0,
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
-      refetchInterval: false,
-      refetchOnReconnect: true
-    }
-  );
+  const { data: workpackage, isLoading } = api.workpackage.findById.useQuery({ id: workpackageId }, {
+    staleTime: 1000 * 30, // 30 segundos
+    enabled: !!workpackageId && open,
+  });
 
   useEffect(() => {
     if (!open) setAddingTarefa(false);

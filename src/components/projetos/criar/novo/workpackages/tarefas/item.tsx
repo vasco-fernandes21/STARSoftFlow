@@ -19,13 +19,17 @@ interface TarefaItemProps {
   workpackageId: string;
   mutations?: ReturnType<typeof useMutations>;
   onStateChange?: (tarefaId: string, newState: boolean) => void;
+  onDelete?: (tarefaId: string) => void;
+  onDeleteEntregavel?: (entregavelId: string) => void;
 }
 
 export function TarefaItem({ 
   tarefa, 
   workpackageId,
   mutations: externalMutations,
-  onStateChange
+  onStateChange,
+  onDelete,
+  onDeleteEntregavel
 }: TarefaItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
@@ -34,6 +38,7 @@ export function TarefaItem({
   // Estados locais
   const [localTarefaEstado, setLocalTarefaEstado] = useState(tarefa.estado);
   const [entregaveisEstado, setEntregaveisEstado] = useState<Record<string, boolean>>({});
+  const [pendingUpdates, setPendingUpdates] = useState<Record<string, any>>({});
 
   // Usar mutations externas quando disponíveis
   const mutations = externalMutations || useMutations();
@@ -129,14 +134,22 @@ export function TarefaItem({
   };
 
   const handleRemoveEntregavel = (entregavelId: string) => {
-    if (confirm("Tem certeza que deseja remover este entregável?")) {
-      mutations.entregavel.delete.mutate(entregavelId);
+    if (onDeleteEntregavel) {
+      onDeleteEntregavel(entregavelId);
+    } else {
+      if (confirm("Tem certeza que deseja remover este entregável?")) {
+        mutations.entregavel.delete.mutate(entregavelId);
+      }
     }
   };
 
   const handleRemoveTarefa = () => {
-    if (confirm("Tem certeza que deseja remover esta tarefa?")) {
-      mutations.tarefa.delete.mutate(tarefa.id);
+    if (onDelete) {
+      onDelete(tarefa.id);
+    } else {
+      if (confirm("Tem certeza que deseja remover esta tarefa?")) {
+        mutations.tarefa.delete.mutate(tarefa.id);
+      }
     }
   };
 
@@ -149,6 +162,20 @@ export function TarefaItem({
     ).length;
     
     return Math.round((concluidos / total) * 100);
+  };
+
+  const handleToggleEstado = (tarefaId: string, estadoAtual: boolean) => {
+    // Atualizar estado local imediatamente
+    setPendingUpdates(prev => ({
+      ...prev,
+      [tarefaId]: { estado: !estadoAtual }
+    }));
+    
+    // Chamar a mutação
+    mutations.tarefa.toggleEstado.mutate({
+      id: tarefaId,
+      data: { estado: !estadoAtual }
+    });
   };
 
   return (

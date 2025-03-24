@@ -1,9 +1,9 @@
 import type { Workpackage, Tarefa } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useState, useRef, useEffect, useContext } from "react";
+import { useState, useRef, useEffect, useContext, useMemo } from "react";
 import { MenuTarefa } from "@/components/projetos/menus/tarefa";
-import { format } from "date-fns";
+import { format, getDaysInMonth, differenceInDays, addDays, isSameMonth, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { api } from "@/trpc/react";
 import { motion } from "framer-motion";
@@ -44,6 +44,15 @@ interface CronogramaProps {
   projetoId: string;
 }
 
+// Interface para representar cada mês com seus dias
+interface MonthInfo {
+  label: string;
+  date: Date;
+  daysInMonth: number;
+  width: number; // Largura proporcional do mês
+  startOffset: number; // Offset acumulado desde o início
+}
+
 export function Cronograma({ 
   workpackages, 
   startDate,
@@ -64,6 +73,9 @@ export function Cronograma({
   // Usar o contexto com a cache centralizada
   const cacheContext = useContext(ProjetoCacheContext);
   const mutations = useMutations(projetoId);
+  
+  // Estado para mudanças pendentes
+  const [pendingUpdates, setPendingUpdates] = useState<Record<string, any>>({});
   
   useEffect(() => {
     const leftColumn = leftColumnRef.current;
@@ -88,32 +100,84 @@ export function Cronograma({
     };
   }, []);
   
-  const getMonthsBetweenDates = (start: Date, end: Date) => {
-    const months = [];
-    const current = new Date(start);
+  // Calcular informações de meses com precisão de dias
+  const months = useMemo(() => {
+    const result: MonthInfo[] = [];
+    const current = new Date(startDate);
+    current.setDate(1); // Começar no primeiro dia do mês
     
-    while (current <= end) {
-      months.push({
-        label: format(current, "MMM/yy", { locale: ptBR }),
+    // Calcular meses com largura fixa para melhor visualização
+    let accumulatedOffset = 0;
+    // Largura fixa para cada mês em pixels - valor alto para dar mais espaço
+    const fixedMonthWidthPx = 200;
+    
+    while (current <= endDate) {
+      const daysInMonth = getDaysInMonth(current);
+      
+      // Calcular dias visíveis neste mês (considerando as datas de início e fim)
+      let visibleDays = daysInMonth;
+      
+      // Se for o primeiro mês, ajustar para os dias restantes
+      if (isSameMonth(current, startDate)) {
+        visibleDays = daysInMonth - (startDate.getDate() - 1);
+      }
+      
+      // Se for o último mês, ajustar para os dias até o fim
+      if (isSameMonth(current, endDate)) {
+        visibleDays = Math.min(visibleDays, endDate.getDate());
+      }
+      
+      result.push({
+        label: format(current, "LLL/yy", { locale: ptBR }).toLowerCase(),
         date: new Date(current),
+        daysInMonth: visibleDays,
+        width: fixedMonthWidthPx, // Largura fixa em pixels
+        startOffset: accumulatedOffset
       });
+      
+      accumulatedOffset += fixedMonthWidthPx;
       current.setMonth(current.getMonth() + 1);
     }
     
-    return months;
-  };
+    return result;
+  }, [startDate, endDate]);
 
-  const months = getMonthsBetweenDates(startDate, endDate);
+  // Função para calcular a posição exata baseada em dias
+  const getExactPositionByDate = (date: Date) => {
+    if (date < startDate || date > endDate) return null;
+    
+    // Encontrar o mês que contém esta data
+    const month = months.find(m => 
+      date.getFullYear() === m.date.getFullYear() && 
+      date.getMonth() === m.date.getMonth()
+    );
+    
+    if (!month) return null;
+    
+    // Calcular a posição dentro do mês
+    const totalDaysInMonth = month.daysInMonth;
+    const dayOfMonth = date.getDate();
+    const startDateOfMonth = startDate.getMonth() === date.getMonth() && 
+                             startDate.getFullYear() === date.getFullYear() 
+                             ? startDate.getDate() 
+                             : 1;
+    
+    // Posição relativa dentro do mês
+    const dayPosition = (dayOfMonth - startDateOfMonth) / totalDaysInMonth;
+    
+    // Posição absoluta baseada no offset do mês e sua largura
+    const totalWidth = months.reduce((sum, m) => sum + m.width, 0);
+    const monthStartPercent = (month.startOffset / totalWidth) * 100;
+    const monthWidthPercent = (month.width / totalWidth) * 100;
+    
+    return monthStartPercent + (dayPosition * monthWidthPercent);
+  };
 
   const getCurrentDayPosition = () => {
     const today = new Date();
     if (today < startDate || today > endDate) return null;
 
-    const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    const daysSinceStart = (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    const percentage = (daysSinceStart / totalDays) * 100;
-
-    return percentage;
+    return getExactPositionByDate(today);
   };
 
   const getTarefaPosition = (tarefa: TarefaWithEntregaveis) => {
@@ -122,18 +186,22 @@ export function Cronograma({
     
     if (!tarefaStart || !tarefaEnd) return null;
     
-    const startDiff = (tarefaStart.getFullYear() - startDate.getFullYear()) * 12 + 
-                     (tarefaStart.getMonth() - startDate.getMonth());
-    const endDiff = (tarefaEnd.getFullYear() - startDate.getFullYear()) * 12 + 
-                   (tarefaEnd.getMonth() - startDate.getMonth());
+    // Garantir que as datas estejam dentro do intervalo
+    const effectiveStart = tarefaStart < startDate ? startDate : tarefaStart;
+    const effectiveEnd = tarefaEnd > endDate ? endDate : tarefaEnd;
     
-    const duration = endDiff - startDiff + 1;
+    // Calcular posições exatas baseadas em dias
+    const startPosition = getExactPositionByDate(effectiveStart);
+    const endPosition = getExactPositionByDate(effectiveEnd);
     
-    if (startDiff < 0 || endDiff >= months.length) return null;
+    if (startPosition === null || endPosition === null) return null;
+    
+    // Calcular a largura baseada na duração em dias
+    const width = endPosition - startPosition + (1 / differenceInDays(endDate, startDate)) * 100;
     
     return {
-      gridColumnStart: startDiff + 2,
-      gridColumnEnd: `span ${duration}`,
+      left: startPosition,
+      width: width > 0 ? width : 0.5, // Garantir largura mínima visível
     };
   };
 
@@ -170,56 +238,82 @@ export function Cronograma({
 
   const currentDayPosition = getCurrentDayPosition();
 
-  const getEntregaveisForMonth = (date: Date) => {
-    const entregaveis: { entregavel: EntregavelType; tarefaId: string }[] = [];
+  // Função para obter os entregáveis com posições exatas
+  const getEntregavelExactPosition = (entregavel: EntregavelType, tarefaInicio: Date, tarefaFim: Date) => {
+    if (!entregavel.data) return null;
     
-    sortedWorkpackages.forEach((wp: WorkpackageWithTarefas) => {
-      wp.tarefas.forEach((tarefa: TarefaWithEntregaveis) => {
-        if (!tarefa.entregaveis?.length) return;
-        
-        tarefa.entregaveis.forEach(entregavel => {
-          if (!entregavel.data) return;
-          const entregavelDate = entregavel.data;
-          if (entregavelDate.getMonth() === date.getMonth() && 
-              entregavelDate.getFullYear() === date.getFullYear()) {
-            entregaveis.push({ entregavel, tarefaId: tarefa.id });
-          }
-        });
-      });
-    });
+    // Verificar se o entregável está dentro do período da tarefa
+    if (!isWithinInterval(entregavel.data, { start: tarefaInicio, end: tarefaFim })) {
+      // Posicionar no início ou fim da tarefa se estiver fora do intervalo
+      const referenceDate = entregavel.data < tarefaInicio ? tarefaInicio : tarefaFim;
+      return getExactPositionByDate(referenceDate);
+    }
     
-    return entregaveis;
+    // Calcular a posição exata baseada em dias dentro da tarefa
+    const totalDaysInTarefa = differenceInDays(tarefaFim, tarefaInicio) + 1;
+    const daysSinceStart = differenceInDays(entregavel.data, tarefaInicio);
+    
+    if (totalDaysInTarefa <= 1) return 50; // Centralizar se a tarefa durar apenas um dia
+    
+    return (daysSinceStart / totalDaysInTarefa) * 100;
   };
 
-  // Lidar com atualização imediata de workpackage
-  const handleWorkpackageUpdate = async (workpackageId: string, data: any) => {
-    // Usar a função do contexto para atualização imediata
-    if (cacheContext) {
-      cacheContext.updateCache('workpackage', workpackageId, data);
-    }
+  // Função para lidar com atualizações de tarefa
+  const handleTarefaUpdate = async (data: any, workpackageId?: string) => {
+    if (!selectedTarefa) return;
     
-    // Iniciar a mutação real para o backend
-    mutations.workpackage.update.mutate({
-      id: workpackageId,
-      ...data
-    });
+    // Atualizar estado local imediatamente
+    setPendingUpdates(prev => ({
+      ...prev,
+      [selectedTarefa]: {
+        ...data,
+        workpackageId: workpackageId || ''
+      }
+    }));
+    
+    // Atualizar via mutação
+    mutations.tarefa.update.mutate(
+      {
+        id: selectedTarefa,
+        data: {
+          ...data,
+          workpackageId: workpackageId || ''
+        }
+      },
+      {
+        onSuccess: () => {
+          // Limpar pendingUpdates apenas para esta tarefa específica
+          setPendingUpdates(prev => {
+            const updated = {...prev};
+            delete updated[selectedTarefa];
+            return updated;
+          });
+        }
+      }
+    );
+    
+    if (onUpdateTarefa) {
+      await onUpdateTarefa();
+    }
   };
   
-  // Lidar com atualização imediata de tarefa
-  const handleTarefaUpdate = async (tarefaId: string, data: any, workpackageId: string) => {
-    // Usar a função do contexto para atualização imediata
-    if (cacheContext) {
-      cacheContext.updateCache('tarefa', tarefaId, data);
+  // Função para lidar com atualizações de workpackage
+  const handleWorkpackageUpdate = async () => {
+    if (onUpdateWorkPackage) {
+      await onUpdateWorkPackage();
     }
+  };
+
+  // Função para obter a tarefa com as atualizações pendentes aplicadas
+  const getTarefaAtualizada = (tarefa: TarefaWithEntregaveis) => {
+    const pendingUpdate = pendingUpdates[tarefa.id];
+    if (!pendingUpdate) return tarefa;
     
-    // Iniciar a mutação real para o backend
-    mutations.tarefa.update.mutate({
-      id: tarefaId,
-      data: {
-        ...data,
-        workpackageId
-      }
-    });
+    return {
+      ...tarefa,
+      ...pendingUpdate,
+      estado: 'estado' in pendingUpdate ? pendingUpdate.estado : tarefa.estado
+    };
   };
 
   return (
@@ -261,37 +355,42 @@ export function Cronograma({
                       {wp.nome}
                     </h3>
                     <span className="text-xs font-medium text-slate-500">
-                      {wp.tarefas.filter(t => t.estado).length}/{wp.tarefas.length}
+                      {wp.tarefas.filter(t => getTarefaAtualizada(t).estado).length}/{wp.tarefas.length}
                     </span>
                   </div>
                 </div>
-                {sortTarefas(wp.tarefas).map((tarefa) => (
-                  <div 
-                    key={tarefa.id} 
-                    className={cn(
-                      "flex items-center px-4 cursor-pointer hover:bg-slate-50/80 transition-colors border-t border-slate-100/50",
-                      "h-10"
-                    )}
-                    onClick={() => handleTarefaClick(tarefa)}
-                  >
-                    <div className="flex items-center gap-2 w-full">
-                      <div 
-                        className={cn(
-                          "w-2 h-2 rounded-full border transition-colors flex-shrink-0",
-                          tarefa.estado 
-                            ? "bg-emerald-500 border-emerald-500" 
-                            : "border-blue-500 group-hover/task:border-blue-600"
-                        )}
-                      />
-                      <span 
-                        className="text-sm text-slate-600 truncate group-hover/task:text-slate-900 transition-colors"
-                        style={{ maxWidth: `${leftColumnWidth - 48}px` }}
-                      >
-                        {tarefa.nome}
-                      </span>
+                {sortTarefas(wp.tarefas).map((tarefa) => {
+                  const tarefaAtualizada = getTarefaAtualizada(tarefa);
+                  const estado = tarefaAtualizada.estado;
+                  
+                  return (
+                    <div 
+                      key={tarefa.id} 
+                      className={cn(
+                        "flex items-center px-4 cursor-pointer hover:bg-slate-50/80 transition-colors border-t border-slate-100/50",
+                        "h-10"
+                      )}
+                      onClick={() => handleTarefaClick(tarefaAtualizada)}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <div 
+                          className={cn(
+                            "w-2 h-2 rounded-full border transition-colors flex-shrink-0",
+                            estado 
+                              ? "bg-emerald-500 border-emerald-500" 
+                              : "border-blue-500 group-hover/task:border-blue-600"
+                          )}
+                        />
+                        <span 
+                          className="text-sm text-slate-600 truncate group-hover/task:text-slate-900 transition-colors"
+                          style={{ maxWidth: `${leftColumnWidth - 48}px` }}
+                        >
+                          {tarefaAtualizada.nome}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -301,13 +400,14 @@ export function Cronograma({
           ref={timelineRef} 
           className="overflow-x-auto flex-1 overflow-y-scroll scrollbar-none bg-slate-50/30"
         >
-          <div className="inline-block min-w-max relative">
+          <div className="inline-block min-w-max relative" style={{ minWidth: "1600px" }}>
             <div className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 z-10">
-              <div className="grid" style={{ gridTemplateColumns: `repeat(${months.length}, minmax(90px, 1fr))` }}>
+              <div className="flex w-full">
                 {months.map((month) => (
                   <div 
                     key={month.label}
                     className="relative py-3 px-2 text-center border-r border-slate-200/70"
+                    style={{ width: `${month.width}%` }}
                   >
                     <div className="text-xs font-medium text-slate-600">
                       {month.label}
@@ -332,11 +432,13 @@ export function Cronograma({
                 {sortedWorkpackages.map((wp) => (
                   <div key={wp.id} className="relative">
                     <div className="h-10 relative flex items-center border-b border-slate-100 bg-slate-50/50">
-                      <div className="absolute inset-0 grid" 
-                        style={{ gridTemplateColumns: `repeat(${months.length}, 1fr)` }}
-                      >
-                        {Array.from({ length: months.length }).map((_, i) => (
-                          <div key={i} className="border-r border-slate-200/50 h-full" />
+                      <div className="absolute inset-0 flex">
+                        {months.map((month, index) => (
+                          <div 
+                            key={index} 
+                            className="border-r border-slate-200/50 h-full" 
+                            style={{ width: `${month.width}%` }}
+                          />
                         ))}
                       </div>
                     </div>
@@ -345,27 +447,32 @@ export function Cronograma({
                       const position = getTarefaPosition(tarefa);
                       if (!position) return null;
                       
-                      const duration = parseInt(position.gridColumnEnd.split(' ')[1] || '1');
+                      // Usar a mesma instância da tarefa atualizada para garantir consistência
+                      const tarefaAtualizada = getTarefaAtualizada(tarefa);
+                      // Capturar o estado atual da tarefa para usar na cor da barra
+                      const estado = tarefaAtualizada.estado;
                       
                       return (
                         <div key={tarefa.id} className="h-10 relative group">
-                          <div className="absolute inset-0 grid" 
-                            style={{ gridTemplateColumns: `repeat(${months.length}, 1fr)` }}
-                          >
-                            {Array.from({ length: months.length }).map((_, i) => (
-                              <div key={i} className="border-r border-slate-200/50 h-full" />
+                          <div className="absolute inset-0 flex">
+                            {months.map((month, index) => (
+                              <div 
+                                key={index} 
+                                className="border-r border-slate-200/50 h-full" 
+                                style={{ width: `${month.width}%` }}
+                              />
                             ))}
                           </div>
                           
                           <motion.div
-                            onClick={() => handleTarefaClick(tarefa)}
+                            onClick={() => handleTarefaClick(tarefaAtualizada)}
                             initial={{ scaleX: 0 }}
                             animate={{ scaleX: 1 }}
                             whileHover={{ y: -1 }}
                             style={{
                               position: 'absolute',
-                              left: `${((position.gridColumnStart - 2) / months.length) * 100}%`,
-                              width: `${(duration / months.length) * 100}%`,
+                              left: `${position.left}%`,
+                              width: `${position.width}%`,
                               height: '16px',
                               top: '50%',
                               marginTop: '0px',
@@ -373,27 +480,30 @@ export function Cronograma({
                             }}
                             className={cn(
                               "cursor-pointer relative rounded-full transition-all duration-200",
-                              tarefa.estado 
+                              estado 
                                 ? "bg-gradient-to-r from-emerald-400/90 to-emerald-500/90 hover:from-emerald-500 hover:to-emerald-600 shadow-[0_2px_8px_-2px_rgba(16,185,129,0.3)]" 
                                 : "bg-gradient-to-r from-blue-400/90 to-blue-500/90 hover:from-blue-500 hover:to-blue-600 shadow-[0_2px_8px_-2px_rgba(59,130,246,0.3)]",
                               "group-hover:shadow-[0_4px_12px_-4px_rgba(59,130,246,0.4)]"
                             )}
                           >
-                            {tarefa.entregaveis?.map((entregavel) => {
-                              if (!tarefa.inicio || !tarefa.fim || !entregavel.data) return null;
-                              const entregavelDate = entregavel.data;
-                              const startDate = new Date(tarefa.inicio);
-                              const endDate = new Date(tarefa.fim);
-                              const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-                              const daysSinceStart = (entregavelDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-                              const percentage = (daysSinceStart / totalDays) * 100;
+                            {tarefaAtualizada.entregaveis?.map((entregavel: EntregavelType) => {
+                              if (!tarefaAtualizada.inicio || !tarefaAtualizada.fim || !entregavel.data) return null;
+                              
+                              // Calcular posição exata do entregável dentro da barra da tarefa
+                              const entregavelPosition = getEntregavelExactPosition(
+                                entregavel, 
+                                new Date(tarefaAtualizada.inicio), 
+                                new Date(tarefaAtualizada.fim)
+                              );
+                              
+                              if (entregavelPosition === null) return null;
                               
                               return (
                                 <div
                                   key={entregavel.id}
                                   className="absolute w-2 h-2 rounded-full bg-white shadow-sm z-20 flex items-center justify-center ring-4 ring-blue-500/20"
                                   style={{
-                                    left: `${percentage}%`,
+                                    left: `${entregavelPosition}%`,
                                     top: '50%',
                                     transform: 'translate(-50%, -50%)'
                                   }}
@@ -421,7 +531,7 @@ export function Cronograma({
               tarefaId={selectedTarefa}
               open={!!selectedTarefa}
               onClose={() => setSelectedTarefa(null)}
-              onUpdate={(data, workpackageId) => handleTarefaUpdate(selectedTarefa, data, workpackageId)}
+              onUpdate={handleTarefaUpdate}
             />
           )}
 
@@ -430,7 +540,7 @@ export function Cronograma({
               workpackageId={selectedWorkpackage}
               onClose={() => setSelectedWorkpackage(null)}
               projetoId={projetoId}
-              onUpdate={(data) => handleWorkpackageUpdate(selectedWorkpackage, data)}
+              onUpdate={handleWorkpackageUpdate}
               open={!!selectedWorkpackage}
             />
           )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusIcon, CheckSquare, ClipboardList, XIcon } from "lucide-react";
+import { PlusIcon, CheckSquare, ClipboardList, XIcon, AlertTriangle } from "lucide-react";
 import { WorkpackageCompleto } from "@/components/projetos/types";
 import { useMutations } from "@/hooks/useMutations";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
@@ -11,6 +11,14 @@ import { motion } from "framer-motion";
 import { api } from "@/trpc/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { UseMutationResult } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface WorkpackageTarefasProps {
   workpackage: WorkpackageCompleto;
@@ -18,6 +26,44 @@ interface WorkpackageTarefasProps {
   addingTarefa: boolean;
   setAddingTarefa: (adding: boolean) => void;
   mutations?: ReturnType<typeof useMutations>;
+}
+
+interface ConfirmDialogProps {
+  title: string;
+  description: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}
+
+function ConfirmDialog({ title, description, open, onOpenChange, onConfirm }: ConfirmDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            {title}
+          </DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={() => {
+              onConfirm();
+              onOpenChange(false);
+            }}
+          >
+            Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function WorkpackageTarefas({ 
@@ -35,6 +81,14 @@ export function WorkpackageTarefas({
   
   // Estado para controlar edição/visualização de tarefas
   const [editingTarefaId, setEditingTarefaId] = useState<string | null>(null);
+  
+  // Estados para os diálogos de confirmação
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{
+    type: 'tarefa' | 'entregavel';
+    id: string;
+    tarefaId?: string;
+  } | null>(null);
   
   // Inicializar estados locais quando o workpackage mudar
   useEffect(() => {
@@ -113,52 +167,72 @@ export function WorkpackageTarefas({
     });
   };
   
-  const removeEntregavelHandler = (workpackageId: string, tarefaId: string, entregavelId: string) => {
-    if (confirm("Tem certeza que deseja remover este entregável?")) {
-      mutations.entregavel.delete.mutate(entregavelId);
+  const openDeleteDialog = (type: 'tarefa' | 'entregavel', id: string, tarefaId?: string) => {
+    setItemToDelete({ type, id, tarefaId });
+    setDeleteDialogOpen(true);
+  };
+  
+  const handleDelete = () => {
+    if (!itemToDelete) return;
+    
+    if (itemToDelete.type === 'entregavel') {
+      mutations.entregavel.delete.mutate(itemToDelete.id);
+    } else if (itemToDelete.type === 'tarefa') {
+      mutations.tarefa.delete.mutate(itemToDelete.id);
     }
+    
+    setItemToDelete(null);
+  };
+  
+  const removeEntregavelHandler = (workpackageId: string, tarefaId: string, entregavelId: string) => {
+    openDeleteDialog('entregavel', entregavelId, tarefaId);
   };
   
   const removeTarefaHandler = (workpackageId: string, tarefaId: string) => {
-    if (confirm("Tem certeza que deseja remover esta tarefa?")) {
-      mutations.entregavel.delete.mutate(tarefaId);
-    }
+    openDeleteDialog('tarefa', tarefaId);
   };
   
   const toggleEntregavelEstadoHandler = async (entregavelId: string, estado: boolean) => {
-    await mutations.entregavel.toggleEstado.mutate({
+    await mutations.entregavel.update.mutate({
       id: entregavelId,
-      estado: estado
+      data: { 
+        nome: undefined,
+        descricao: undefined,
+        data: undefined,
+        anexo: undefined
+      }
     });
   };
   
   const handleSubmitTarefa = (workpackageId: string, tarefa: any) => {
-    mutations.entregavel.create.mutate({
+    mutations.tarefa.create.mutate({
       nome: tarefa.nome,
-      tarefaId: workpackageId,
+      workpackageId: workpackageId,
       descricao: tarefa.descricao,
-      data: null,
-      anexo: null
+      inicio: tarefa.inicio,
+      fim: tarefa.fim,
+      estado: false
     });
     
     setAddingTarefa(false);
   };
 
   // Handler para alternar estado com atualização local imediata
-  const handleToggleTarefaEstado = async (tarefaId: string, estado: boolean) => {
-    try {
-      // Atualizar o estado local imediatamente
-      setLocalTarefaEstados(prev => ({
-        ...prev,
-        [tarefaId]: !prev[tarefaId]
-      }));
-      
-      // Chamar a mutation (a mutation já chama onUpdate via invalidateQueries)
-      await mutations.tarefa.toggleEstado.mutateAsync(tarefaId);
-    } catch (error) {
-      // O onError da mutation já trata o caso de erro
-      console.error(error);
-    }
+  const handleToggleEstado = (tarefaId: string, currentEstado: boolean) => {
+    // Atualizar estado local imediatamente
+    setLocalTarefaEstados(prev => ({
+      ...prev,
+      [tarefaId]: !currentEstado
+    }));
+    
+    // Atualizar diretamente com objeto estruturado
+    mutations.tarefa.update.mutate({
+      id: tarefaId,
+      data: {
+        estado: !currentEstado,
+        workpackageId: workpackageId // Incluir workpackageId necessário
+      }
+    });
   };
   
   useEffect(() => {
@@ -172,8 +246,26 @@ export function WorkpackageTarefas({
     }
   }, [workpackage]);
 
+  // Função para ordenar tarefas apenas por data de início
+  const sortTarefasPorData = (tarefas: any[] = []) => {
+    return [...tarefas].sort((a, b) => {
+      const dateA = a.inicio ? new Date(a.inicio) : new Date(0);
+      const dateB = b.inicio ? new Date(b.inicio) : new Date(0);
+      return dateA.getTime() - dateB.getTime();
+    });
+  };
+
   return (
     <div className="space-y-6">
+      {/* Diálogo de confirmação de exclusão */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title={`Excluir ${itemToDelete?.type === 'tarefa' ? 'Tarefa' : 'Entregável'}`}
+        description={`Tem certeza que deseja excluir ${itemToDelete?.type === 'tarefa' ? 'esta tarefa' : 'este entregável'}? Esta ação não pode ser desfeita.`}
+        onConfirm={handleDelete}
+      />
+      
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Tarefas</h2>
@@ -224,7 +316,7 @@ export function WorkpackageTarefas({
       {workpackage.tarefas && workpackage.tarefas.length > 0 ? (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
-            {workpackage.tarefas.map((tarefa, index) => (
+            {sortTarefasPorData(workpackage.tarefas).map((tarefa, index) => (
               <Card key={tarefa.id} className="p-0 overflow-hidden border-gray-100 shadow-sm hover:shadow transition-shadow duration-200">
                 <TarefaItem
                   tarefa={{
@@ -238,6 +330,12 @@ export function WorkpackageTarefas({
                       ...prev,
                       [tarefaId]: newState
                     }));
+                  }}
+                  onDelete={(tarefaId) => {
+                    openDeleteDialog('tarefa', tarefaId);
+                  }}
+                  onDeleteEntregavel={(entregavelId) => {
+                    openDeleteDialog('entregavel', entregavelId, tarefa.id);
                   }}
                 />
               </Card>
