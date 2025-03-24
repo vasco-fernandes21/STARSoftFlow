@@ -446,9 +446,11 @@ export function Cronograma({
                               const handleEntregavelClick = (e: React.MouseEvent) => {
                                 if (disableInteractions) return;
                                 e.stopPropagation(); // Evitar propagar o clique para a tarefa pai
-                                mutations.entregavel.toggleEstado.mutate({
+                                
+                                // Usar o update para alterar o estado
+                                mutations.entregavel.update.mutate({
                                   id: entregavel.id,
-                                  estado: !entregavel.estado
+                                  data: { estado: !entregavel.estado }
                                 });
                               };
                               

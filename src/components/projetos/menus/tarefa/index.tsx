@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/trpc/react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -10,6 +11,7 @@ import { Check, Circle, X, Calendar } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TarefaInformacoes } from "./informacoes";
 import { TarefaEntregaveis } from "./entregaveis";
+import { toast } from "sonner";
 
 // interface pros do componente
 interface MenuTarefaProps {
@@ -29,9 +31,12 @@ export function MenuTarefa({
   const [addingEntregavel, setAddingEntregavel] = useState(false);
   
   // buscar a tarefa
-  const { data: tarefa, isLoading, refetch } = api.tarefa.findById.useQuery(
+  const { data: tarefa, isLoading } = api.tarefa.findById.useQuery(
     tarefaId,
-    { enabled: open, staleTime: 0 }
+    { 
+      enabled: open,
+      staleTime: 1000 * 30 // 30 segundos
+    }
   );
   
   // resetar estado ao fechar
@@ -103,12 +108,19 @@ export function MenuTarefa({
   
   // Handler especial para mudanças de estado, que precisam ser refletidas na UI imediatamente 
   const handleTarefaStateUpdate = async (updateData: any, workpackageId?: string) => {
-    // Chamar onUpdate para refletir imediatamente nas visualizações
-    await onUpdate(updateData, workpackageId);
-    
-    // Atualizar o estado interno do componente para que o header reflita a mudança
-    if (updateData.estado !== undefined) {
-      refetch();
+    try {
+      // Para estado, não precisamos fazer nada extra pois o toggleEstado já cuida de tudo
+      if (updateData.estado !== undefined) {
+        // A mutation toggleEstado já foi chamada pelo componente filho
+        // Não precisamos fazer nada aqui
+        return;
+      }
+      
+      // Para outros campos, usar a abordagem padrão
+      await onUpdate(updateData, workpackageId);
+    } catch (error) {
+      console.error("Erro ao atualizar tarefa:", error);
+      toast.error("Erro ao atualizar tarefa");
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/trpc/react";
@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Entregavel } from "@prisma/client";
 import { useMutations } from "@/hooks/useMutations";
-import { EntregaveisContext } from "@/app/projetos/[id]/page";
 
 interface TarefaEntregaveisProps {
   tarefa: any;
@@ -30,11 +29,8 @@ export function TarefaEntregaveis({
 }: TarefaEntregaveisProps) {
   const [submittingEntregavel, setSubmittingEntregavel] = useState<string | null>(null);
   
-  // Usar o contexto centralizado para entregáveis
-  const entregaveisContext = useContext(EntregaveisContext);
-  
-  // Fallback para as mutações diretas caso o contexto não esteja disponível
-  const mutations = useMutations(onUpdate);
+  // Usar mutations diretamente
+  const mutations = useMutations();
 
   // Buscar entregáveis da tarefa
   const { 
@@ -47,16 +43,10 @@ export function TarefaEntregaveis({
   );
 
   const handleToggleEstado = async (entregavelId: string, novoEstado: boolean) => {
-    // Usar o toggleEstado do contexto centralizado se disponível
-    if (entregaveisContext) {
-      entregaveisContext.toggleEntregavelEstado(entregavelId, novoEstado);
-    } else {
-      // Fallback para mutação direta
-      await mutations.entregavel.toggleEstado.mutate({ 
-        id: entregavelId, 
-        estado: novoEstado 
-      });
-    }
+    await mutations.entregavel.update.mutate({ 
+      id: entregavelId,
+      data: { estado: novoEstado }
+    });
   };
   
   const handleRemoveEntregavel = async (entregavelId: string) => {
@@ -71,15 +61,11 @@ export function TarefaEntregaveis({
       // Exemplo simulado:
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Após o upload bem-sucedido, atualizar o entregável
-      if (entregaveisContext) {
-        entregaveisContext.toggleEntregavelEstado(entregavelId, true);
-      } else {
-        await mutations.entregavel.toggleEstado.mutate({ 
-          id: entregavelId, 
-          estado: true
-        });
-      }
+      // Após o upload bem-sucedido, atualizar o entregável - força estado como true
+      await mutations.entregavel.update.mutate({ 
+        id: entregavelId,
+        data: { estado: true }  // Aqui mantemos o estado explícito porque queremos forçar para true
+      });
       
       setSubmittingEntregavel(null);
       toast.success("Ficheiro enviado com sucesso");

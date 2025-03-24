@@ -208,32 +208,43 @@ export const tarefaRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id, data } = input;
 
-      // Verificar se a tarefa existe
-      const tarefaExistente = await ctx.db.tarefa.findUnique({
-        where: { id },
-        include: {
-          workpackage: true
+      try {
+        // Verificar se a tarefa existe
+        const tarefaExistente = await ctx.db.tarefa.findUnique({
+          where: { id },
+          include: {
+            workpackage: true,
+            entregaveis: true
+          }
+        });
+
+        if (!tarefaExistente) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Tarefa não encontrada"
+          });
         }
-      });
 
-      if (!tarefaExistente) {
-        throw new Error("Tarefa não encontrada");
+        // Atualizar apenas os campos fornecidos
+        const tarefaAtualizada = await ctx.db.tarefa.update({
+          where: { id },
+          data: {
+            ...Object.keys(data).length > 0 ? data : {},
+          },
+          include: {
+            entregaveis: true
+          }
+        });
+
+        // Se o estado da tarefa foi alterado, atualizar o estado do workpackage
+        if (data.estado !== undefined) {
+          await atualizarEstadoWorkpackage(ctx, tarefaExistente.workpackage.id);
+        }
+
+        return tarefaAtualizada;
+      } catch (error) {
+        return handlePrismaError(error);
       }
-
-      // Atualizar apenas os campos fornecidos
-      const tarefaAtualizada = await ctx.db.tarefa.update({
-        where: { id },
-        data: {
-          ...Object.keys(data).length > 0 ? data : {},
-        },
-      });
-
-      // Se o estado da tarefa foi alterado, atualizar o estado do workpackage
-      if (data.estado !== undefined) {
-        await atualizarEstadoWorkpackage(ctx, tarefaExistente.workpackage.id);
-      }
-
-      return tarefaAtualizada;
     }),
   
   delete: protectedProcedure
@@ -264,39 +275,6 @@ export const tarefaRouter = createTRPCRouter({
         await atualizarEstadoWorkpackage(ctx, workpackageId);
         
         return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-  
-  toggleEstado: protectedProcedure
-    .input(z.string())
-    .mutation(async ({ ctx, input: id }) => {
-      try {
-        // Buscar tarefa para obter estado atual
-        const tarefa = await ctx.db.tarefa.findUnique({
-          where: { id },
-          include: { workpackage: true }
-        });
-        
-        if (!tarefa) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Tarefa não encontrada",
-          });
-        }
-        
-        // Atualizar para o estado oposto
-        const tarefaAtualizada = await ctx.db.tarefa.update({
-          where: { id },
-          data: { estado: !tarefa.estado },
-          include: { entregaveis: true },
-        });
-        
-        // Atualizar estado do workpackage
-        await atualizarEstadoWorkpackage(ctx, tarefa.workpackage.id);
-        
-        return tarefaAtualizada;
       } catch (error) {
         return handlePrismaError(error);
       }
@@ -435,7 +413,7 @@ async function atualizarEstadoWorkpackage(ctx: any, workpackageId: string) {
   
   // Se não houver tarefas, considerar como concluído
   // Se houver tarefas, verificar se todas estão concluídas
-  const todasConcluidas = tarefas.length === 0 ? true : tarefas.every(t => t.estado === true);
+  const todasConcluidas = tarefas.length === 0 ? true : tarefas.every((t: {estado: boolean}) => t.estado === true);
   
   // Atualizar o estado do workpackage
   await ctx.db.workpackage.update({

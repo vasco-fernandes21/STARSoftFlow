@@ -7,6 +7,7 @@ export const entregavelBaseSchema = z.object({
   descricao: z.string().optional().nullable(),
   data: z.string().optional().nullable(),
   anexo: z.string().optional().nullable(),
+  estado: z.boolean().optional(),
 });
 
 export const entregavelCreateSchema = entregavelBaseSchema.extend({
@@ -49,15 +50,31 @@ export const entregavelRouter = createTRPCRouter({
   update: protectedProcedure
     .input(entregavelUpdateSchema)
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.entregavel.update({
-        where: { id: input.id },
-        data: {
-          nome: input.data.nome,
-          descricao: input.data.descricao,
-          data: input.data.data ? new Date(input.data.data) : undefined,
-          anexo: input.data.anexo,
-        },
-      });
+      try {
+        // Verificar se o entregável existe
+        const entregavel = await ctx.db.entregavel.findUnique({
+          where: { id: input.id }
+        });
+
+        if (!entregavel) {
+          throw new Error("Entregável não encontrado");
+        }
+
+        // Se estado está sendo atualizado e não foi fornecido valor, inverter o atual
+        const data = {
+          ...input.data,
+          estado: input.data.estado !== undefined ? input.data.estado : undefined,
+          data: input.data.data ? new Date(input.data.data) : undefined
+        };
+
+        // Atualizar entregável
+        return ctx.db.entregavel.update({
+          where: { id: input.id },
+          data
+        });
+      } catch (error) {
+        throw new Error(`Erro ao atualizar entregável: ${error}`);
+      }
     }),
 
   // Obter entregável por ID
@@ -106,19 +123,6 @@ export const entregavelRouter = createTRPCRouter({
       return ctx.db.entregavel.update({
         where: { id: input.id },
         data: { anexo: input.anexo },
-      });
-    }),
-
-  // Adicionar novo procedimento para toggle do estado
-  toggleEstado: protectedProcedure
-    .input(z.object({
-      id: z.string().uuid("ID do entregável inválido"),
-      estado: z.boolean()
-    }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.entregavel.update({
-        where: { id: input.id },
-        data: { estado: input.estado },
       });
     }),
 });

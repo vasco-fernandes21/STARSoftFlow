@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,116 +8,53 @@ import { TarefaWithRelations } from "../../../../types";
 import { EntregavelForm } from "../entregavel/form";
 import { EntregavelItem } from "../entregavel/item";
 import { Progress } from "@/components/ui/progress";
-import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useMutations } from "@/hooks/useMutations";
 
 interface TarefaItemProps {
   tarefa: TarefaWithRelations;
   workpackageId: string;
-  mutations?: ReturnType<typeof useMutations>;
-  onStateChange?: (tarefaId: string, newState: boolean) => void;
   onDelete?: (tarefaId: string) => void;
   onDeleteEntregavel?: (entregavelId: string) => void;
+  onEstadoChange?: (tarefaId: string) => void;
 }
 
 export function TarefaItem({ 
   tarefa, 
   workpackageId,
-  mutations: externalMutations,
-  onStateChange,
   onDelete,
-  onDeleteEntregavel
+  onDeleteEntregavel,
+  onEstadoChange
 }: TarefaItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
-  const queryClient = useQueryClient();
   
-  // Estados locais
-  const [localTarefaEstado, setLocalTarefaEstado] = useState(tarefa.estado);
-  const [entregaveisEstado, setEntregaveisEstado] = useState<Record<string, boolean>>({});
-  const [pendingUpdates, setPendingUpdates] = useState<Record<string, any>>({});
-
-  // Usar mutations externas quando disponíveis
-  const mutations = externalMutations || useMutations();
-
-  // Sincronizar estados quando a tarefa mudar
-  useEffect(() => {
-    setLocalTarefaEstado(tarefa.estado);
-    
-    const estadoMap: Record<string, boolean> = {};
-    tarefa.entregaveis?.forEach(e => {
-      estadoMap[e.id] = e.estado;
-    });
-    setEntregaveisEstado(estadoMap);
-  }, [tarefa]);
+  // Usar mutations diretamente apenas se não tiver onEstadoChange
+  const mutations = useMutations();
 
   // Handlers
-  const handleToggleTarefaEstado = async (e: React.MouseEvent) => {
+  const handleToggleTarefaEstado = (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Atualização otimista local
-    const newState = !localTarefaEstado;
-    setLocalTarefaEstado(newState);
-    
-    // Notificar o componente pai sobre a mudança
-    if (onStateChange) {
-      onStateChange(tarefa.id, newState);
-    }
-    
-    try {
-      await queryClient.cancelQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-      
-      // Backup do estado atual
-      const previousData = queryClient.getQueryData(
-        ["workpackage.findById", { id: workpackageId }]
-      );
-      
-      // Atualizar otimisticamente o workpackage também
-      queryClient.setQueryData(
-        ["workpackage.findById", { id: workpackageId }],
-        (old: any) => {
-          if (!old) return old;
-          
-          // Atualizar a tarefa no workpackage
-          const tarefas = old.tarefas.map((t: any) => 
-            t.id === tarefa.id ? { ...t, estado: newState } : t
-          );
-          
-          // Recalcular o estado do workpackage (similar ao que acontece no backend)
-          const todasConcluidas = tarefas.every((t: any) => t.estado);
-          
-          return {
-            ...old,
-            tarefas,
-            estado: todasConcluidas
-          };
-        }
-      );
-      
-      // Fazer a mutation
-      await mutations.tarefa.toggleEstado.mutateAsync({
+    // Se tiver onEstadoChange, usar ele, senão usar mutation direta
+    if (onEstadoChange) {
+      onEstadoChange(tarefa.id);
+    } else {
+      mutations.tarefa.update.mutate({
         id: tarefa.id,
-        data: { estado: newState }
+        data: {
+          estado: !tarefa.estado
+        }
       });
-    } catch (error) {
-      // Reverter estado em caso de erro...
-      console.error("Erro ao atualizar estado da tarefa:", error);
     }
   };
 
   const handleToggleEntregavelEstado = (entregavelId: string, novoEstado: boolean) => {
-    // Não precisamos mais manter um estado local separado
-    // A UI usará o estado da cache do TanStack Query que foi atualizada otimisticamente
-    
-    // Fazer a mutação que atualizará a cache em todos os lugares
-    mutations.entregavel.toggleEstado.mutate({
+    // Apenas passar o ID - o backend vai cuidar do toggle
+    mutations.entregavel.update.mutate({
       id: entregavelId,
-      estado: novoEstado
+      data: { estado: novoEstado }
     });
   };
 
@@ -129,6 +66,8 @@ export function TarefaItem({
       data: entregavel.data,
       anexo: null
     });
+    
+    setAddingEntregavel(false);
   };
 
   const handleRemoveEntregavel = (entregavelId: string) => {
@@ -155,25 +94,9 @@ export function TarefaItem({
     if (!tarefa.entregaveis || tarefa.entregaveis.length === 0) return 0;
     
     const total = tarefa.entregaveis.length;
-    const concluidos = tarefa.entregaveis.filter(e => 
-      entregaveisEstado[e.id] !== undefined ? entregaveisEstado[e.id] : e.estado
-    ).length;
+    const concluidos = tarefa.entregaveis.filter(e => e.estado).length;
     
     return Math.round((concluidos / total) * 100);
-  };
-
-  const handleToggleEstado = (tarefaId: string, estadoAtual: boolean) => {
-    // Atualizar estado local imediatamente
-    setPendingUpdates(prev => ({
-      ...prev,
-      [tarefaId]: { estado: !estadoAtual }
-    }));
-    
-    // Chamar a mutação
-    mutations.tarefa.toggleEstado.mutate({
-      id: tarefaId,
-      data: { estado: !estadoAtual }
-    });
   };
 
   return (
@@ -191,10 +114,10 @@ export function TarefaItem({
             <h5 className="text-sm font-medium text-azul">{tarefa.nome}</h5>
             <div className="flex items-center gap-2">
               <Badge 
-                variant={localTarefaEstado ? "default" : "secondary"} 
+                variant={tarefa.estado ? "default" : "secondary"} 
                 className="px-1.5 py-0 text-[10px] h-4"
               >
-                {localTarefaEstado ? "Concluída" : "Pendente"}
+                {tarefa.estado ? "Concluída" : "Pendente"}
               </Badge>
               <span className="text-xs text-gray-500">
                 {tarefa.inicio ? format(new Date(tarefa.inicio), "dd/MM/yyyy") : "-"} - {tarefa.fim ? format(new Date(tarefa.fim), "dd/MM/yyyy") : "-"}
@@ -212,17 +135,17 @@ export function TarefaItem({
               handleToggleTarefaEstado(e);
             }}
             className={`h-6 px-2 rounded-md ${
-              localTarefaEstado 
+              tarefa.estado 
                 ? 'bg-green-50 text-green-600 hover:bg-green-100' 
                 : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
             }`}
           >
-            {localTarefaEstado ? (
+            {tarefa.estado ? (
               <Check className="h-3 w-3 mr-1" />
             ) : (
               <Circle className="h-3 w-3 mr-1" />
             )}
-            {localTarefaEstado ? "Concluído" : "Pendente"}
+            {tarefa.estado ? "Concluído" : "Pendente"}
           </Button>
           
           <div className="flex gap-1">
@@ -313,7 +236,7 @@ export function TarefaItem({
                       id: entregavel.id,
                       nome: entregavel.nome,
                       data: entregavel.data ? new Date(entregavel.data) : null,
-                      estado: entregaveisEstado[entregavel.id] ?? entregavel.estado,
+                      estado: entregavel.estado,
                       tarefaId: tarefa.id,
                       descricao: entregavel.descricao
                     }}

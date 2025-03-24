@@ -1,16 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusIcon, CheckSquare, ClipboardList, XIcon, AlertTriangle } from "lucide-react";
+import { PlusIcon, ClipboardList, XIcon, AlertTriangle } from "lucide-react";
 import { WorkpackageCompleto } from "@/components/projetos/types";
 import { useMutations } from "@/hooks/useMutations";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
 import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
-import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { api } from "@/trpc/react";
-import { useQueryClient } from "@tanstack/react-query";
-import { UseMutationResult } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -73,14 +69,8 @@ export function WorkpackageTarefas({
   setAddingTarefa,
   projetoId
 }: WorkpackageTarefasProps) {
-  const queryClient = useQueryClient();
-  const [localTarefaEstados, setLocalTarefaEstados] = useState<Record<string, boolean>>({});
-
   // Usar mutations com o projetoId
   const mutations = useMutations(projetoId);
-  
-  // Estado para controlar edição/visualização de tarefas
-  const [editingTarefaId, setEditingTarefaId] = useState<string | null>(null);
   
   // Estados para os diálogos de confirmação
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -90,83 +80,20 @@ export function WorkpackageTarefas({
     tarefaId?: string;
   } | null>(null);
   
-  // Inicializar estados locais quando o workpackage mudar
-  useEffect(() => {
-    const estadosMap: Record<string, boolean> = {};
-    workpackage.tarefas?.forEach(tarefa => {
-      estadosMap[tarefa.id] = tarefa.estado;
-    });
-    setLocalTarefaEstados(estadosMap);
-  }, [workpackage]);
+  // Handler para alteração de estado da tarefa
+  const handleEstadoChange = (tarefaId: string) => {
+    const tarefa = workpackage.tarefas?.find(t => t.id === tarefaId);
+    if (!tarefa) return;
 
-  // Mutation para alternar estado da tarefa com optimistic updates
-  const toggleTarefaMutation = api.tarefa.toggleEstado.useMutation({
-    // Atualização otimista - modifica o cache antes da resposta do servidor
-    onMutate: async (tarefaId) => {
-      // Cancelar queries relacionadas para evitar sobrescrever nossa atualização otimista
-      await queryClient.cancelQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-      
-      // Salvar o estado anterior
-      const previousWorkpackage = queryClient.getQueryData(["workpackage.findById", { id: workpackageId }]);
-      
-      // Atualizar o cache diretamente com a nova tarefa
-      queryClient.setQueryData(
-        ["workpackage.findById", { id: workpackageId }],
-        (old: any) => {
-          if (!old) return old;
-          
-          const novoEstado = !localTarefaEstados[tarefaId];
-          
-          return {
-            ...old,
-            tarefas: old.tarefas?.map((t: any) => 
-              t.id === tarefaId ? { ...t, estado: novoEstado } : t
-            ),
-            // Atualizamos também o estado do workpackage se todas as tarefas estiverem concluídas
-            estado: old.tarefas?.every((t: any) => 
-              t.id === tarefaId ? novoEstado : t.estado
-            )
-          };
-        }
-      );
-      
-      // Retornar o contexto para uso em onError
-      return { previousWorkpackage };
-    },
-    
-    onError: (err, tarefaId, context) => {
-      // Reverter para o estado anterior em caso de erro
-      queryClient.setQueryData(
-        ["workpackage.findById", { id: workpackageId }],
-        context?.previousWorkpackage
-      );
-      toast.error("Erro ao atualizar estado da tarefa");
-    },
-    
-    onSettled: async () => {
-      // Após conclusão (sucesso ou erro), revalidar os dados
-      await queryClient.invalidateQueries({ 
-        queryKey: ["workpackage.findById", { id: workpackageId }] 
-      });
-      await queryClient.invalidateQueries({ 
-        queryKey: ["projeto.findById"] 
-      });
-    }
-  });
-  
-  // Handlers para as operações com entregáveis e tarefas
-  const addEntregavelHandler = (workpackageId: string, tarefaId: string, entregavel: any) => {
-    mutations.entregavel.create.mutate({
-      nome: entregavel.nome,
-      tarefaId: tarefaId,
-      descricao: null,
-      data: entregavel.data,
-      anexo: null
+    mutations.tarefa.update.mutate({
+      id: tarefaId,
+      data: {
+        estado: !tarefa.estado
+      }
     });
   };
   
+  // Handlers para as operações com entregáveis e tarefas
   const openDeleteDialog = (type: 'tarefa' | 'entregavel', id: string, tarefaId?: string) => {
     setItemToDelete({ type, id, tarefaId });
     setDeleteDialogOpen(true);
@@ -184,26 +111,6 @@ export function WorkpackageTarefas({
     setItemToDelete(null);
   };
   
-  const removeEntregavelHandler = (workpackageId: string, tarefaId: string, entregavelId: string) => {
-    openDeleteDialog('entregavel', entregavelId, tarefaId);
-  };
-  
-  const removeTarefaHandler = (workpackageId: string, tarefaId: string) => {
-    openDeleteDialog('tarefa', tarefaId);
-  };
-  
-  const toggleEntregavelEstadoHandler = async (entregavelId: string, estado: boolean) => {
-    await mutations.entregavel.update.mutate({
-      id: entregavelId,
-      data: { 
-        nome: undefined,
-        descricao: undefined,
-        data: undefined,
-        anexo: undefined
-      }
-    });
-  };
-  
   const handleSubmitTarefa = (workpackageId: string, tarefa: any) => {
     mutations.tarefa.create.mutate({
       nome: tarefa.nome,
@@ -216,36 +123,7 @@ export function WorkpackageTarefas({
     
     setAddingTarefa(false);
   };
-
-  // Handler para alternar estado com atualização local imediata
-  const handleToggleEstado = (tarefaId: string, currentEstado: boolean) => {
-    // Atualizar estado local imediatamente
-    setLocalTarefaEstados(prev => ({
-      ...prev,
-      [tarefaId]: !currentEstado
-    }));
-    
-    // Atualizar diretamente com objeto estruturado
-    mutations.tarefa.update.mutate({
-      id: tarefaId,
-      data: {
-        estado: !currentEstado,
-        workpackageId: workpackageId // Incluir workpackageId necessário
-      }
-    });
-  };
   
-  useEffect(() => {
-    // Quando o workpackage for atualizado, sincronizar os estados locais
-    if (workpackage) {
-      const estadosMap: Record<string, boolean> = {};
-      workpackage.tarefas?.forEach(tarefa => {
-        estadosMap[tarefa.id] = tarefa.estado;
-      });
-      setLocalTarefaEstados(estadosMap);
-    }
-  }, [workpackage]);
-
   // Função para ordenar tarefas apenas por data de início
   const sortTarefasPorData = (tarefas: any[] = []) => {
     return [...tarefas].sort((a, b) => {
@@ -319,24 +197,15 @@ export function WorkpackageTarefas({
             {sortTarefasPorData(workpackage.tarefas).map((tarefa, index) => (
               <Card key={tarefa.id} className="p-0 overflow-hidden border-gray-100 shadow-sm hover:shadow transition-shadow duration-200">
                 <TarefaItem
-                  tarefa={{
-                    ...tarefa,
-                    estado: localTarefaEstados[tarefa.id] ?? tarefa.estado
-                  }}
+                  tarefa={tarefa}
                   workpackageId={workpackage.id}
-                  mutations={mutations}
-                  onStateChange={(tarefaId, newState) => {
-                    setLocalTarefaEstados(prev => ({
-                      ...prev,
-                      [tarefaId]: newState
-                    }));
-                  }}
                   onDelete={(tarefaId) => {
                     openDeleteDialog('tarefa', tarefaId);
                   }}
                   onDeleteEntregavel={(entregavelId) => {
                     openDeleteDialog('entregavel', entregavelId, tarefa.id);
                   }}
+                  onEstadoChange={handleEstadoChange}
                 />
               </Card>
             ))}

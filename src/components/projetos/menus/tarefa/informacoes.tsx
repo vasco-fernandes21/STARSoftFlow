@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { api } from "@/trpc/react";
 import { CalendarIcon, FileTextIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMutations } from "@/hooks/useMutations";
 
 interface TarefaInformacoesProps {
   tarefa: any;
@@ -26,7 +27,10 @@ export function TarefaInformacoes({
   const [newName, setNewName] = useState(tarefa.nome || "");
   const [newDescription, setNewDescription] = useState(tarefa.descricao || "");
 
-  // mutação para atualizar tarefa
+  // Importar useMutations para todas as operações
+  const mutations = useMutations();
+
+  // mutação para atualizar campos de texto da tarefa (não usar para estado)
   const updateTarefaMutation = api.tarefa.update.useMutation({
     onSuccess: async () => {
       toast.success("Tarefa atualizada com sucesso!");
@@ -37,21 +41,21 @@ export function TarefaInformacoes({
   });
 
   const handleEstadoChange = async () => {
-    const newEstado = !tarefa.estado;
-    
-    // Preparar dados para a atualização
-    const updateData = { estado: newEstado };
-    
-    // Chamar o callback onUpdate antes da mutação para atualização imediata na UI
-    if (onUpdate) {
-      await onUpdate(updateData, tarefa.workpackageId);
+    try {
+      // Usar a mutation otimizada que não requer buscar a tarefa - EXECUTAR PRIMEIRO
+      await mutations.tarefa.toggleEstado.mutateAsync({
+        id: tarefaId
+      });
+      
+      // Chamar o callback onUpdate APÓS a mutation para atualização da UI
+      if (onUpdate) {
+        await onUpdate({ estado: !tarefa.estado }, tarefa.workpackageId);
+      }
+      
+    } catch (error) {
+      console.error("Erro ao atualizar estado:", error);
+      toast.error("Erro ao atualizar estado");
     }
-    
-    // Executar a mutação
-    await updateTarefaMutation.mutate({
-      id: tarefaId,
-      data: updateData
-    });
   };
 
   const handleNameSave = async () => {
