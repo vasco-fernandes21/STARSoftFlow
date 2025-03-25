@@ -10,32 +10,6 @@ import { useMutations } from "@/hooks/useMutations";
 import { WorkpackageCompleto, ProjetoCompleto } from "./types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// Add this CSS animation keyframes at the top of the file, after imports
-const styles = `
-@keyframes barEntrance {
-  from {
-    opacity: 0;
-    transform: scaleX(0);
-  }
-  to {
-    opacity: 1;
-    transform: scaleX(1);
-  }
-}
-
-@keyframes barHover {
-  0% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-2px);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-`;
-
 interface CronogramaOptions {
   leftColumnWidth?: number;
   disableInteractions?: boolean;
@@ -292,16 +266,6 @@ export function Cronograma({
     return (daysSinceStart / totalDaysInTarefa) * 100;
   };
 
-  // Add the styles to the document head
-  useEffect(() => {
-    const styleSheet = document.createElement("style");
-    styleSheet.textContent = styles;
-    document.head.appendChild(styleSheet);
-    return () => {
-      document.head.removeChild(styleSheet);
-    };
-  }, []);
-
   return (
     <div className="flex h-full w-full">
       <div className="flex w-full h-full overflow-hidden">
@@ -463,8 +427,11 @@ export function Cronograma({
                             ))}
                           </div>
                           
-                          <div
+                          <motion.div
                             onClick={() => handleTarefaClick(tarefa)}
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            whileHover={{ y: -1 }}
                             style={{
                               position: 'absolute',
                               left: `${position.left}%`,
@@ -473,12 +440,9 @@ export function Cronograma({
                               top: '50%',
                               marginTop: '0px',
                               transformOrigin: 'left',
-                              animation: 'barEntrance 0.3s ease-out forwards',
                             }}
                             className={cn(
-                              "cursor-pointer relative rounded-full",
-                              "transition-all duration-300 ease-out",
-                              "hover:animate-[barHover_0.3s_ease-in-out]",
+                              "cursor-pointer relative rounded-full transition-all duration-200",
                               tarefa.estado 
                                 ? "bg-gradient-to-r from-emerald-400/90 to-emerald-500/90 hover:from-emerald-500 hover:to-emerald-600 shadow-[0_2px_8px_-2px_rgba(16,185,129,0.3)]" 
                                 : "bg-gradient-to-r from-blue-400/90 to-blue-500/90 hover:from-blue-500 hover:to-blue-600 shadow-[0_2px_8px_-2px_rgba(59,130,246,0.3)]",
@@ -550,7 +514,7 @@ export function Cronograma({
                                 </div>
                               );
                             })}
-                          </div>
+                          </motion.div>
                         </div>
                       );
                     })}
