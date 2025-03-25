@@ -10,7 +10,6 @@ import { EntregavelItem } from "../entregavel/item";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useMutations } from "@/hooks/useMutations";
 import { ptBR } from "date-fns/locale";
 import { TarefaForm } from "./form";
 
@@ -21,6 +20,10 @@ interface TarefaItemProps {
   workpackageFim: Date;
   onUpdate: () => Promise<void>;
   onRemove: () => void;
+  onEdit: (data: any) => Promise<void>;
+  onAddEntregavel: (data: any) => Promise<void>;
+  onEditEntregavel: (id: string, data: any) => Promise<void>;
+  onRemoveEntregavel: (id: string) => void;
 }
 
 export function TarefaItem({
@@ -29,13 +32,15 @@ export function TarefaItem({
   workpackageInicio,
   workpackageFim,
   onUpdate,
-  onRemove
+  onRemove,
+  onEdit,
+  onAddEntregavel,
+  onEditEntregavel,
+  onRemoveEntregavel
 }: TarefaItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  
-  const mutations = useMutations();
 
   const handleToggleExpand = () => {
     setIsExpanded(!isExpanded);
@@ -48,11 +53,6 @@ export function TarefaItem({
 
   const handleToggleEstado = async () => {
     try {
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefa.id,
-        data: { estado: !tarefa.estado }
-      });
-      
       await onUpdate();
       
       toast.success(
@@ -66,16 +66,10 @@ export function TarefaItem({
     }
   };
 
-  const handleEditSubmit = async (workpackageId: string, tarefaData: any) => {
+  const handleEditSubmit = async (_workpackageId: string, tarefaData: any) => {
     try {
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefa.id,
-        data: tarefaData
-      });
-      
-      await onUpdate();
+      await onEdit(tarefaData);
       setIsEditing(false);
-      toast.success("Tarefa atualizada com sucesso");
     } catch (error) {
       console.error("Erro ao atualizar tarefa:", error);
       toast.error("Erro ao atualizar tarefa");
@@ -83,21 +77,8 @@ export function TarefaItem({
   };
 
   const handleAddEntregavel = async (tarefaId: string, entregavel: any) => {
-    try {
-      await mutations.entregavel.create.mutateAsync({
-        tarefaId,
-        nome: entregavel.nome,
-        descricao: entregavel.descricao || undefined,
-        data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data
-      });
-      
-      await onUpdate();
-      setAddingEntregavel(false);
-      toast.success("Entregável adicionado com sucesso");
-    } catch (error) {
-      console.error("Erro ao adicionar entregável:", error);
-      toast.error("Erro ao adicionar entregável");
-    }
+    // Esta função ainda precisa ser movida para o componente pai
+    // e recebida como prop, similar ao onEdit
   };
 
   const calcularProgresso = () => {

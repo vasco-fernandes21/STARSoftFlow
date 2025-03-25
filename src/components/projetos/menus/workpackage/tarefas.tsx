@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 interface WorkpackageTarefasProps {
   workpackage: WorkpackageCompleto;
@@ -80,37 +81,9 @@ export function WorkpackageTarefas({
     tarefaId?: string;
   } | null>(null);
   
-  // Handler para alteração de estado da tarefa
-  const handleEstadoChange = (tarefaId: string) => {
-    const tarefa = workpackage.tarefas?.find(t => t.id === tarefaId);
-    if (!tarefa) return;
-
-    mutations.tarefa.update.mutate({
-      id: tarefaId,
-      data: {
-        estado: !tarefa.estado
-      }
-    });
-  };
+  // --- Handlers para tarefas ---
   
-  // Handlers para as operações com entregáveis e tarefas
-  const openDeleteDialog = (type: 'tarefa' | 'entregavel', id: string, tarefaId?: string) => {
-    setItemToDelete({ type, id, tarefaId });
-    setDeleteDialogOpen(true);
-  };
-  
-  const handleDelete = () => {
-    if (!itemToDelete) return;
-    
-    if (itemToDelete.type === 'entregavel') {
-      mutations.entregavel.delete.mutate(itemToDelete.id);
-    } else if (itemToDelete.type === 'tarefa') {
-      mutations.tarefa.delete.mutate(itemToDelete.id);
-    }
-    
-    setItemToDelete(null);
-  };
-  
+  // Criar nova tarefa
   const handleSubmitTarefa = (workpackageId: string, tarefa: any) => {
     mutations.tarefa.create.mutate({
       nome: tarefa.nome,
@@ -124,7 +97,100 @@ export function WorkpackageTarefas({
     setAddingTarefa(false);
   };
   
-  // Função para ordenar tarefas apenas por data de início
+  // Atualizar tarefa
+  const handleEditTarefa = async (tarefaId: string, tarefaData: any) => {
+    try {
+      await mutations.tarefa.update.mutateAsync({
+        id: tarefaId,
+        data: tarefaData
+      });
+      toast.success("Tarefa atualizada com sucesso");
+    } catch (error) {
+      console.error("Erro ao atualizar tarefa:", error);
+      toast.error("Erro ao atualizar tarefa");
+    }
+  };
+  
+  // Alteração de estado da tarefa
+  const handleEstadoChange = async (tarefaId: string) => {
+    try {
+      const tarefa = workpackage.tarefas?.find(t => t.id === tarefaId);
+      if (!tarefa) return;
+
+      await mutations.tarefa.update.mutateAsync({
+        id: tarefaId,
+        data: {
+          estado: !tarefa.estado
+        }
+      });
+      
+      toast.success(
+        tarefa.estado 
+          ? "Tarefa marcada como pendente" 
+          : "Tarefa marcada como concluída"
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar estado:", error);
+      toast.error("Erro ao atualizar estado da tarefa");
+    }
+  };
+  
+  // --- Handlers para entregáveis ---
+  
+  // Adicionar entregável
+  const handleAddEntregavel = async (tarefaId: string, entregavel: any) => {
+    try {
+      await mutations.entregavel.create.mutateAsync({
+        tarefaId,
+        nome: entregavel.nome,
+        descricao: entregavel.descricao || undefined,
+        data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data
+      });
+      
+      toast.success("Entregável adicionado com sucesso");
+    } catch (error) {
+      console.error("Erro ao adicionar entregável:", error);
+      toast.error("Erro ao adicionar entregável");
+    }
+  };
+  
+  // Atualizar entregável
+  const handleEditEntregavel = async (entregavelId: string, data: any) => {
+    try {
+      await mutations.entregavel.update.mutateAsync({
+        id: entregavelId,
+        data
+      });
+      
+      toast.success("Entregável atualizado com sucesso");
+    } catch (error) {
+      console.error("Erro ao atualizar entregável:", error);
+      toast.error("Erro ao atualizar entregável");
+    }
+  };
+  
+  // Diálogo de confirmação para eliminar
+  const openDeleteDialog = (type: 'tarefa' | 'entregavel', id: string, tarefaId?: string) => {
+    setItemToDelete({ type, id, tarefaId });
+    setDeleteDialogOpen(true);
+  };
+  
+  // Eliminar tarefa ou entregável
+  const handleDelete = () => {
+    if (!itemToDelete) return;
+    
+    if (itemToDelete.type === 'entregavel') {
+      mutations.entregavel.delete.mutate(itemToDelete.id);
+      toast.success("Entregável removido com sucesso");
+    } else if (itemToDelete.type === 'tarefa') {
+      mutations.tarefa.delete.mutate(itemToDelete.id);
+      toast.success("Tarefa removida com sucesso");
+    }
+    
+    setItemToDelete(null);
+  };
+  
+  // Função para ordenar tarefas por data de início
   const sortTarefasPorData = (tarefas: any[] = []) => {
     return [...tarefas].sort((a, b) => {
       const dateA = a.inicio ? new Date(a.inicio) : new Date(0);
@@ -194,18 +260,19 @@ export function WorkpackageTarefas({
       {workpackage.tarefas && workpackage.tarefas.length > 0 ? (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
-            {sortTarefasPorData(workpackage.tarefas).map((tarefa, index) => (
+            {sortTarefasPorData(workpackage.tarefas).map((tarefa) => (
               <Card key={tarefa.id} className="p-0 overflow-hidden border-gray-100 shadow-sm hover:shadow transition-shadow duration-200">
                 <TarefaItem
                   tarefa={tarefa}
                   workpackageId={workpackage.id}
-                  onDelete={(tarefaId) => {
-                    openDeleteDialog('tarefa', tarefaId);
-                  }}
-                  onDeleteEntregavel={(entregavelId) => {
-                    openDeleteDialog('entregavel', entregavelId, tarefa.id);
-                  }}
-                  onEstadoChange={handleEstadoChange}
+                  workpackageInicio={workpackage.inicio || new Date()}
+                  workpackageFim={workpackage.fim || new Date()}
+                  onUpdate={async () => await handleEstadoChange(tarefa.id)}
+                  onRemove={() => openDeleteDialog('tarefa', tarefa.id)}
+                  onEdit={(data) => handleEditTarefa(tarefa.id, data)}
+                  onAddEntregavel={(data) => handleAddEntregavel(tarefa.id, data)}
+                  onEditEntregavel={(id, data) => handleEditEntregavel(id, data)}
+                  onRemoveEntregavel={(id) => openDeleteDialog('entregavel', id, tarefa.id)}
                 />
               </Card>
             ))}
