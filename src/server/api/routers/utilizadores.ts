@@ -2,13 +2,11 @@ import { createTRPCRouter, publicProcedure, protectedProcedure } from "@/server/
 import { TRPCError } from "@trpc/server";
 import { Permissao, Regime, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { sendEmail } from "@/lib/email";
+import { sendPrimeiroAcessoEmail } from "@/emails/utils/email";
 import { hash, compare } from "bcryptjs";
 import { z } from "zod";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
-import { format } from "date-fns";
-import { pt } from "date-fns/locale";
 
 // Schemas base
 const emailSchema = z
@@ -469,13 +467,11 @@ export const utilizadorRouter = createTRPCRouter({
           });
           
           // Enviar email de primeiro acesso
-          await sendEmail({
-            to: newUser.email,
-            subject: "Bem-vindo ao Sistema de Gestão de Projetos",
-            html: `
-              <p>Bem-vindo! Para aceder à sua conta, clique no link: ${process.env.AUTH_URL}/primeiro-login?token=${token}</p>
-            `,
-          });
+          await sendPrimeiroAcessoEmail(
+            newUser.email,
+            newUser.name || 'Utilizador',
+            token
+          );
         }
         
         // Serializar resposta para garantir que as datas sejam convertidas para strings

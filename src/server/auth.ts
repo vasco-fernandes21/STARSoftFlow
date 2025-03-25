@@ -347,7 +347,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user, account, profile, trigger, session }) {
-      console.log("JWT callback - User recebido:", user);
       
       if (user) {
         token.sub = user.id;
@@ -361,7 +360,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.username = (user as any).username;
         token.contratacao = (user as any).contratacao;
         
-        console.log("JWT callback - Token após modificação:", token);
       }
       return token;
     },

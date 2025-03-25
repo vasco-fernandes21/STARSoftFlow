@@ -6,8 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
-import { api } from "@/trpc/react";
-import { CalendarIcon, FileTextIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
+import { CalendarIcon, FileTextIcon, CheckIcon, PencilIcon, XIcon, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMutations } from "@/hooks/useMutations";
 
@@ -27,24 +26,15 @@ export function TarefaInformacoes({
   const [newName, setNewName] = useState(tarefa.nome || "");
   const [newDescription, setNewDescription] = useState(tarefa.descricao || "");
 
-  // Importar useMutations para todas as operações
+  // Usar mutations diretamente
   const mutations = useMutations();
-
-  // mutação para atualizar campos de texto da tarefa (não usar para estado)
-  const updateTarefaMutation = api.tarefa.update.useMutation({
-    onSuccess: async () => {
-      toast.success("Tarefa atualizada com sucesso!");
-    },
-    onError: (error) => {
-      toast.error(`Erro ao atualizar: ${error.message}`);
-    }
-  });
 
   const handleEstadoChange = async () => {
     try {
-      // Usar a mutation otimizada que não requer buscar a tarefa - EXECUTAR PRIMEIRO
-      await mutations.tarefa.toggleEstado.mutateAsync({
-        id: tarefaId
+      // Usar a mutation de update ao invés de toggle
+      await mutations.tarefa.update.mutateAsync({
+        id: tarefaId,
+        data: { estado: !tarefa.estado }
       });
       
       // Chamar o callback onUpdate APÓS a mutation para atualização da UI
@@ -52,6 +42,7 @@ export function TarefaInformacoes({
         await onUpdate({ estado: !tarefa.estado }, tarefa.workpackageId);
       }
       
+      toast.success(tarefa.estado ? "Tarefa marcada como pendente" : "Tarefa marcada como concluída");
     } catch (error) {
       console.error("Erro ao atualizar estado:", error);
       toast.error("Erro ao atualizar estado");
@@ -64,53 +55,138 @@ export function TarefaInformacoes({
       return;
     }
     
-    const updateData = { nome: newName };
-    
-    // Atualizar tanto local quanto no servidor
-    if (onUpdate) {
-      await onUpdate(updateData, tarefa.workpackageId);
+    try {
+      await mutations.tarefa.update.mutateAsync({
+        id: tarefaId,
+        data: { nome: newName }
+      });
+      
+      if (onUpdate) {
+        await onUpdate({ nome: newName }, tarefa.workpackageId);
+      }
+      
+      setEditingName(false);
+      toast.success("Nome atualizado com sucesso");
+    } catch (error) {
+      console.error("Erro ao atualizar nome:", error);
+      toast.error("Erro ao atualizar nome");
     }
-    
-    await updateTarefaMutation.mutate({
-      id: tarefaId,
-      data: updateData
-    });
-    
-    setEditingName(false);
   };
 
   const handleDescriptionSave = async () => {
-    const updateData = { descricao: newDescription };
-    
-    // Atualizar tanto local quanto no servidor
-    if (onUpdate) {
-      await onUpdate(updateData, tarefa.workpackageId);
+    try {
+      await mutations.tarefa.update.mutateAsync({
+        id: tarefaId,
+        data: { descricao: newDescription }
+      });
+      
+      if (onUpdate) {
+        await onUpdate({ descricao: newDescription }, tarefa.workpackageId);
+      }
+      
+      setEditingDescription(false);
+      toast.success("Descrição atualizada com sucesso");
+    } catch (error) {
+      console.error("Erro ao atualizar descrição:", error);
+      toast.error("Erro ao atualizar descrição");
     }
-    
-    await updateTarefaMutation.mutate({
-      id: tarefaId,
-      data: updateData
-    });
-    
-    setEditingDescription(false);
   };
 
-  const handleDateChange = async (field: 'dataInicio' | 'dataFim', date: Date | undefined) => {
-    const updateData = { [field]: date };
-    
-    // Atualizar tanto local quanto no servidor
-    if (onUpdate) {
-      await onUpdate(updateData, tarefa.workpackageId);
+  const handleDateChange = async (field: 'inicio' | 'fim', date: Date | undefined) => {
+    try {
+      await mutations.tarefa.update.mutateAsync({
+        id: tarefaId,
+        data: { [field]: date }
+      });
+      
+      if (onUpdate) {
+        await onUpdate({ [field]: date }, tarefa.workpackageId);
+      }
+      
+      toast.success("Data atualizada com sucesso");
+    } catch (error) {
+      console.error("Erro ao atualizar data:", error);
+      toast.error("Erro ao atualizar data");
     }
-    
-    await updateTarefaMutation.mutate({
-      id: tarefaId,
-      data: updateData
-    });
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">Informações</h2>
+        <p className="text-sm text-gray-500">Detalhes da tarefa</p>
+      </div>
+
+      {/* Estado */}
+      <div className="flex justify-center">
+        <Button
+          onClick={handleEstadoChange}
+          variant="outline"
+          size="lg"
+          className={cn(
+            "w-full max-w-md rounded-xl justify-center transition-all font-medium gap-2",
+            tarefa.estado 
+              ? "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+              : "bg-blue-50 text-azul border-blue-200 hover:bg-blue-100"
+          )}
+        >
+          {tarefa.estado ? (
+            <CheckIcon className="h-4 w-4" />
+          ) : (
+            <Circle className="h-4 w-4" />
+          )}
+          {tarefa.estado ? "Concluída" : "Em Progresso"}
+        </Button>
+      </div>
+
+      {/* Nome */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium text-gray-700">Nome</Label>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setNewName(tarefa.nome || "");
+              setEditingName(true);
+            }}
+            className="h-6 w-6 rounded-full hover:bg-gray-50"
+          >
+            <PencilIcon className="h-3 w-3 text-gray-500" />
+          </Button>
+        </div>
+        <Card className="border border-azul/10 shadow-sm p-4 bg-white">
+          {editingName ? (
+            <div className="space-y-3">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Nome da tarefa"
+                className="border-gray-200"
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingName(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleNameSave}
+                  className="bg-azul hover:bg-azul/90 text-white"
+                >
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-700">{tarefa.nome}</p>
+          )}
+        </Card>
+      </div>
+
       {/* Período */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -124,16 +200,16 @@ export function TarefaInformacoes({
             <div className="space-y-2">
               <Label className="text-xs text-gray-600">Início</Label>
               <DatePicker
-                value={tarefa.dataInicio ? new Date(tarefa.dataInicio) : undefined}
-                onChange={(date) => handleDateChange('dataInicio', date)}
+                value={tarefa.inicio ? new Date(tarefa.inicio) : undefined}
+                onChange={(date) => handleDateChange('inicio', date)}
                 className="w-full"
               />
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-gray-600">Fim</Label>
               <DatePicker
-                value={tarefa.dataFim ? new Date(tarefa.dataFim) : undefined}
-                onChange={(date) => handleDateChange('dataFim', date)}
+                value={tarefa.fim ? new Date(tarefa.fim) : undefined}
+                onChange={(date) => handleDateChange('fim', date)}
                 className="w-full"
               />
             </div>
@@ -143,11 +219,13 @@ export function TarefaInformacoes({
 
       {/* Descrição */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-azul/10 flex items-center justify-center">
-            <FileTextIcon className="h-4 w-4 text-azul" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-azul/10 flex items-center justify-center">
+              <FileTextIcon className="h-4 w-4 text-azul" />
+            </div>
+            <h3 className="text-sm font-medium text-gray-900">Descrição</h3>
           </div>
-          <h3 className="text-sm font-medium text-gray-900">Descrição</h3>
           <Button
             variant="ghost"
             size="sm"
@@ -166,7 +244,7 @@ export function TarefaInformacoes({
               <Textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
-                className="min-h-[100px]"
+                className="min-h-[100px] border-gray-200"
                 placeholder="Descrição da tarefa"
               />
               <div className="flex justify-end gap-2">
@@ -192,22 +270,6 @@ export function TarefaInformacoes({
             </p>
           )}
         </Card>
-      </div>
-      
-      {/* Footer */}
-      <div className="flex justify-center pt-6">
-        <Button
-          onClick={handleEstadoChange}
-          className={cn(
-            "w-full max-w-md rounded-xl justify-center transition-all font-medium",
-            tarefa.estado 
-              ? "bg-white text-azul border border-azul/20 hover:bg-azul/5"
-              : "bg-azul text-white hover:bg-azul/90"
-          )}
-        >
-          <CheckIcon className="h-4 w-4 mr-2" />
-          {tarefa.estado ? "Marcar como Pendente" : "Marcar como Concluída"}
-        </Button>
       </div>
     </div>
   );

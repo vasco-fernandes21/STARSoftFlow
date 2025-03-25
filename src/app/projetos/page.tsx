@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, ArrowUpDown } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -10,38 +10,24 @@ import { api } from "@/trpc/react";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { PageLayout } from "@/components/common/PageLayout";
 import { PaginaHeader } from "@/components/common/PaginaHeader";
+import { TabelaDados, FilterOption } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { BarraProgresso } from "@/components/common/BarraProgresso";
 import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
-import { AnimatePresence } from "framer-motion";
-import { DataTable } from "@/components/ui/data-table/data-table";
-import { ColumnDef } from "@tanstack/react-table";
+import { type ProjetoEstado } from "@prisma/client";
+import { type ColumnDef } from "@tanstack/react-table";
 
-// Interface genérica para tipos de resposta paginada
-interface PaginatedResponse<T> {
-  items: T[];
-  pagination: {
-    total: number;
-    pages: number;
-    page: number;
-    limit: number;
-  };
-}
-
-// Interface para tipo de projeto
+// Interface básica para o projeto
 interface Projeto {
   id: string;
   nome: string;
-  estado: string;
-  progresso: number;
-  fim?: string | Date | null;
   descricao?: string | null;
   inicio?: string | Date | null;
-  [key: string]: any; // Para quaisquer outras propriedades
+  fim?: string | Date | null;
+  estado: ProjetoEstado;
+  progresso: number;
+  workpackages?: Array<any>;
 }
-
-// Tipo específico para a resposta da API
-type ProjetosResponse = Projeto[] | PaginatedResponse<Projeto> | null;
 
 const ESTADO_LABELS: Record<string, string> = {
   APROVADO: "Aprovado",
@@ -61,337 +47,321 @@ const uniqueEstados = [
 
 const itemsPerPage = 6;
 
-// Skeleton para estado de carregamento
-const TableSkeleton = () => {
-  return (
-    <div className="bg-white rounded-lg shadow p-4 animate-pulse">
-      <div className="flex justify-between items-center mb-4">
-        <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-        <div className="h-8 bg-gray-200 rounded w-1/6"></div>
-      </div>
-      
-      {[...Array(5)].map((_, index) => (
-        <div key={index} className="flex items-center space-x-4 py-3 border-b last:border-0 border-gray-100">
-          <div className="h-4 bg-gray-200 rounded w-40 mb-2"></div>
-          <div className="flex-grow"></div>
-          <div className="h-6 bg-gray-200 rounded w-24"></div>
-          <div className="h-4 bg-gray-200 rounded w-32"></div>
-          <div className="h-4 bg-gray-200 rounded w-24"></div>
-          <div className="flex space-x-2">
-            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
-            <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// Substituir AnimatedActionButton com versão CSS
-const CSSActionButton = ({ 
-  icon: Icon, 
-  onClick, 
-  title, 
-  hoverColor = "text-azul" 
-}: { 
-  icon: React.ComponentType<any>; 
-  onClick: (e: React.MouseEvent) => void; 
-  title: string; 
-  hoverColor?: string;
-}) => {
-  return (
-    <div className="transition-all hover:scale-110 active:scale-95 duration-200">
-      <Button
-        variant="ghost"
-        size="icon"
-        className={`text-gray-500 hover:${hoverColor} hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md z-10`}
-        onClick={onClick}
-        title={title}
-      >
-        <Icon className="h-4 w-4" />
-      </Button>
-    </div>
-  );
-};
-
-// Substituir AnimatedBarraProgresso com versão CSS
-const CSSBarraProgresso = ({ value }: { value: number }) => {
-  return (
-    <div className="transition-all hover:scale-[1.03] duration-200">
-      <BarraProgresso value={value} />
-    </div>
-  );
-};
-
-// Função para extrair projetos da resposta da API
-const extrairProjetos = (apiResponse: ProjetosResponse): Projeto[] => {
+// Função melhorada para extrair projetos da resposta da API
+const extrairProjetos = (apiResponse: any): Projeto[] => {
   if (!apiResponse) return [];
   
-  // Se tiver propriedade items (formato de resposta paginada)
-  if ('items' in apiResponse && Array.isArray(apiResponse.items)) {
+  // Caso 1: resposta direto do TanStack Query/tRPC
+  if (apiResponse[0]?.result?.data?.json?.items) {
+    return apiResponse[0].result.data.json.items;
+  }
+  
+  // Caso 2: estrutura de objetos com items
+  if (apiResponse.items && Array.isArray(apiResponse.items)) {
     return apiResponse.items;
   }
   
-  // Se for um array direto
+  // Caso 3: estrutura aninhada com json.items
+  if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
+    return apiResponse.json.items;
+  }
+  
+  // Caso 4: resposta em json array
+  if (apiResponse.json && Array.isArray(apiResponse.json)) {
+    return apiResponse.json;
+  }
+  
+  // Caso 5: resposta já é um array
   if (Array.isArray(apiResponse)) {
     return apiResponse;
   }
   
+  console.log("Estrutura da resposta:", JSON.stringify(apiResponse, null, 2));
   return [];
+};
+
+const extrairPaginacao = (apiResponse: any) => {
+  if (!apiResponse) return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
+  
+  if (apiResponse[0]?.result?.data?.json?.pagination) {
+    return apiResponse[0].result.data.json.pagination;
+  }
+  
+  if (apiResponse.pagination) {
+    return apiResponse.pagination;
+  }
+  
+  if (apiResponse.json?.pagination) {
+    return apiResponse.json.pagination;
+  }
+  
+  return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
 };
 
 export default function Projetos() {
   const router = useRouter();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [estadoFilter, setEstadoFilter] =
-    useState<"todos" | "APROVADO" | "PENDENTE" | "RASCUNHO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO">("todos");
+    useState<"todos" | typeof uniqueEstados[number]>("todos");
+  const [sortField, setSortField] =
+    useState<"nome" | "fim" | "progresso" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // Consulta para obter todos os projetos de uma vez
+  // Fetch all data with pagination limits
+  const queryParams = useMemo(() => ({
+    page: 1,
+    limit: 100 // API limit
+  }), []);
+
   const { 
-    data: projetosResponse, 
+    data, 
     isLoading 
-  } = api.projeto.findAll.useQuery(
-    {}, // Não precisamos de filtros aqui, vamos fazer a filtragem client-side
-    {
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-    }
-  );
+  } = api.projeto.findAll.useQuery(queryParams, {
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-  // Extrair todos os projetos da resposta da API
+  // Usando a função de extração para obter projetos
   const projetos = useMemo(() => {
-    return extrairProjetos(projetosResponse as ProjetosResponse);
-  }, [projetosResponse]);
+    return extrairProjetos(data);
+  }, [data]);
 
-  // Aplicar filtro de estado se necessário (apenas para manter compatibilidade com o selector de estado)
-  const projetosFiltrados = useMemo(() => {
-    if (estadoFilter === "todos") return projetos;
-    return projetos.filter(projeto => projeto.estado === estadoFilter);
-  }, [projetos, estadoFilter]);
-  
-  // Estatísticas baseadas em todos os projetos
-  const totalProjetos = projetos.length;
-  const projetosAtivos = projetos.filter(
-    projeto => projeto.estado === "EM_DESENVOLVIMENTO"
-  ).length;
-  const projetosConcluidos = projetos.filter(
-    projeto => projeto.estado === "CONCLUIDO"
-  ).length;
-  const projetosAtrasados = projetos.filter(projeto => {
-    if (!projeto.fim) return false;
-    const dataFim = new Date(projeto.fim);
-    return dataFim < new Date() && projeto.estado !== "CONCLUIDO";
-  }).length;
-  
-  const mediaProgresso = projetos.length > 0
-    ? Math.round(
-        (projetos.reduce(
-          (acc, projeto) => acc + (projeto.progresso || 0), 
-          0
-        ) / projetos.length) * 100
-      )
-    : 0;
+  const stats = useMemo<StatItem[]>(() => {
+    const totalProjetos = projetos.length;
+    const projetosAtivos = projetos.filter((p: Projeto) => p.estado === "EM_DESENVOLVIMENTO").length;
+    const projetosConcluidos = projetos.filter((p: Projeto) => p.estado === "CONCLUIDO").length;
+    const projetosAtrasados = projetos.filter((p: Projeto) => {
+      if (!p.fim) return false;
+      return new Date(p.fim) < new Date() && p.estado !== "CONCLUIDO";
+    }).length;
 
-  const stats: StatItem[] = [
-    {
-      icon: Briefcase,
-      label: "Total de Projetos",
-      value: totalProjetos,
-      iconClassName: "text-azul",
-      iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
-    },
-    {
-      icon: Clock,
-      label: "Em Desenvolvimento",
-      value: projetosAtivos,
-      iconClassName: "text-azul",
-      iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
-    },
-    {
-      icon: CheckCircle2,
-      label: "Concluídos",
-      value: projetosConcluidos,
-      iconClassName: "text-emerald-600",
-      iconContainerClassName: "bg-emerald-50/70 hover:bg-emerald-100/80"
-    },
-    {
-      icon: AlertCircle,
-      label: "Atrasados",
-      value: projetosAtrasados,
-      iconClassName: "text-amber-600",
-      iconContainerClassName: "bg-amber-50/70 hover:bg-amber-100/80"
-    }
-  ];
+    return [
+      {
+        icon: Briefcase,
+        label: "Total de Projetos",
+        value: totalProjetos,
+        iconClassName: "text-azul",
+        iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
+      },
+      {
+        icon: Clock,
+        label: "Em Desenvolvimento",
+        value: projetosAtivos,
+        iconClassName: "text-azul",
+        iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
+      },
+      {
+        icon: CheckCircle2,
+        label: "Concluídos",
+        value: projetosConcluidos,
+        iconClassName: "text-emerald-600",
+        iconContainerClassName: "bg-emerald-50/70 hover:bg-emerald-100/80"
+      },
+      {
+        icon: AlertCircle,
+        label: "Atrasados",
+        value: projetosAtrasados,
+        iconClassName: "text-amber-600",
+        iconContainerClassName: "bg-amber-50/70 hover:bg-amber-100/80"
+      }
+    ];
+  }, [projetos]);
 
-  const clearAllFilters = () => {
+  const handleSort = useCallback((field: string) => {
+    setSortField(prev => {
+      if (prev === field) {
+        setSortDirection(d => d === "asc" ? "desc" : "asc");
+        return prev;
+      }
+      setSortDirection("asc");
+      return field as "nome" | "fim" | "progresso";
+    });
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setSearchQuery("");
     setEstadoFilter("todos");
-  };
+  }, []);
 
-  const handleRowClick = (projeto: Projeto) => {
+  const handleRowClick = useCallback((projeto: Projeto) => {
     router.push(`/projetos/${projeto.id}`);
-  };
+  }, [router]);
 
-  const handleReportClick = (e: React.MouseEvent, id: string) => {
+  const handleReportClick = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     router.push(`/projetos/${id}/report`);
-  };
+  }, [router]);
 
-  // Definição das colunas do TanStack Table
-  const columns: ColumnDef<Projeto>[] = [
+  // Definição das colunas usando TanStack Table
+  const columns = useMemo<ColumnDef<Projeto>[]>(() => [
     {
       accessorKey: "nome",
-      header: ({ column }) => (
-        <div className="flex items-center">
-          <span>Projeto</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="ml-1 h-6 w-6 rounded-full"
-          >
-            <ArrowUpDown className="h-3 w-3" />
-          </Button>
-        </div>
-      ),
-      cell: ({ row }) => (
-        <span className="font-medium text-gray-900">
-          {String(row.getValue("nome"))}
+      header: "Projeto",
+      cell: ({ getValue }) => (
+        <span className="font-medium text-gray-900 group-hover:text-azul transition-colors duration-300 ease-in-out">
+          {getValue<string>()}
         </span>
       ),
     },
     {
       accessorKey: "estado",
       header: "Estado",
-      cell: ({ row }) => {
-        const estado = String(row.getValue("estado"));
-        // Verifica se o estado é uma das chaves válidas
-        const isValidKey = Object.keys(ESTADO_LABELS).includes(estado);
-        const label = isValidKey ? ESTADO_LABELS[estado as keyof typeof ESTADO_LABELS] : estado;
-        
-        return (
-          <BadgeEstado
-            status={estado}
-            label={label || ""}
-            variant="projeto"
-          />
-        );
-      },
+      cell: ({ getValue }) => (
+        <BadgeEstado
+          status={getValue<ProjetoEstado>()}
+          label={ESTADO_LABELS[getValue<ProjetoEstado>()] || ""}
+          variant="projeto"
+        />
+      ),
     },
     {
       accessorKey: "progresso",
-      header: ({ column }) => (
-        <div className="flex items-center">
-          <span>Progresso</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="ml-1 h-6 w-6 rounded-full"
-          >
-            <ArrowUpDown className="h-3 w-3" />
-          </Button>
-        </div>
+      header: "Progresso",
+      cell: ({ getValue }) => (
+        <BarraProgresso value={Math.round((getValue<number>() || 0) * 100)} />
       ),
-      cell: ({ row }) => {
-        const value = row.getValue("progresso");
-        const progressoValue = typeof value === 'number' ? value : 0;
-        const percentValue = Math.round(progressoValue * 100);
-        
+    },
+    {
+      accessorKey: "fim",
+      header: "Prazo",
+      cell: ({ getValue }) => {
+        const date = getValue<string | Date | null>();
         return (
-          <div className="w-full flex justify-center">
-            <div className="w-full max-w-[180px]">
-              <BarraProgresso value={percentValue} />
-            </div>
-          </div>
+          <span className="text-gray-600">
+            {date
+              ? format(new Date(date), "dd MMM yyyy", { locale: ptBR })
+              : "N/A"}
+          </span>
         );
       },
     },
     {
-      accessorKey: "fim",
-      header: ({ column }) => (
-        <div className="flex items-center justify-end">
-          <span>Prazo</span>
+      id: "acoes",
+      header: "Ações",
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-2">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="ml-1 h-6 w-6 rounded-full"
+            className="text-gray-500 hover:text-green-600 hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReportClick(e, row.original.id);
+            }}
+            title="Ver relatório"
           >
-            <ArrowUpDown className="h-3 w-3" />
+            <BarChart className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-gray-500 hover:text-azul hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Menu de opções adicionais
+            }}
+            title="Mais opções"
+          >
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
         </div>
       ),
-      cell: ({ row }) => {
-        const fim = row.getValue("fim");
-        return (
-          <div className="text-right">
-            {fim
-              ? format(new Date(fim as string | Date), "dd MMM yyyy", { locale: ptBR })
-              : "N/A"}
-          </div>
-        );
-      },
     },
-  ];
+  ], [handleReportClick]);
 
-  // Configuração dos filtros
-  const estadoOptions = [
+  const filterOptions = useMemo<FilterOption[]>(() => [
     { id: "todos", label: "Todos os estados", value: "todos" },
     ...uniqueEstados.map((estado) => ({
       id: estado,
       label: ESTADO_LABELS[estado] || "",
       value: estado,
     })),
-  ];
+  ], []);
 
-  const filterConfigs = [
+  const filterConfigs = useMemo(() => [
     {
       id: "estado",
       label: "Estado",
       value: estadoFilter,
       onChange: (value: string) =>
-        setEstadoFilter(value as "todos" | "APROVADO" | "PENDENTE" | "RASCUNHO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO"),
-      options: estadoOptions,
+        setEstadoFilter(value as "todos" | typeof uniqueEstados[number]),
+      options: filterOptions,
     },
-  ];
+  ], [estadoFilter, filterOptions]);
+
+  const filteredProjects = useMemo(() => {
+    if (!projetos.length) return [];
+
+    let result = [...projetos];
+    
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      result = result.filter((project: Projeto) => 
+        project.nome.toLowerCase().includes(searchLower) ||
+        project.descricao?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (estadoFilter !== "todos") {
+      result = result.filter((project: Projeto) => 
+        project.estado === estadoFilter
+      );
+    }
+
+    if (sortField) {
+      result = result.sort((a: Projeto, b: Projeto) => {
+        const aValue = a[sortField] ?? '';
+        const bValue = b[sortField] ?? '';
+        const modifier = sortDirection === "asc" ? 1 : -1;
+        
+        if (aValue < bValue) return -1 * modifier;
+        if (aValue > bValue) return 1 * modifier;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [projetos, searchQuery, estadoFilter, sortField, sortDirection]);
+
+  const paginatedProjects = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return filteredProjects.slice(start, end);
+  }, [filteredProjects, currentPage]);
+
+  const paginationData = useMemo(() => {
+    return {
+      totalItems: filteredProjects.length,
+      totalPages: Math.max(1, Math.ceil(filteredProjects.length / itemsPerPage))
+    };
+  }, [filteredProjects]);
 
   return (
-    <PageLayout className="h-screen relative">
-      <div className="h-full flex flex-col space-y-6">
-        <PaginaHeader
-          title="Projetos"
-          subtitle="Consulte os seus projetos e acompanhe o progresso"
-          action={<NovoProjeto />}
-        />
+    <PageLayout>
+      <PaginaHeader
+        title="Projetos"
+        subtitle="Consulte os seus projetos e acompanhe o progresso"
+        action={<NovoProjeto />}
+      />
 
-        <StatsGrid stats={stats} className="my-4" />
+      <StatsGrid stats={stats} className="my-4" />
 
-        <div className="flex-1 overflow-visible">
-          <AnimatePresence mode="wait">
-            {isLoading ? (
-              <TableSkeleton />
-            ) : (
-              <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px] rounded-2xl overflow-hidden">
-                <DataTable
-                  columns={columns}
-                  data={estadoFilter === "todos" ? projetos : projetosFiltrados}
-                  isLoading={isLoading}
-                  searchPlaceholder="Pesquisar projetos..."
-                  filterConfigs={filterConfigs}
-                  initialPageSize={itemsPerPage}
-                  onRowClick={handleRowClick}
-                  onClearFilters={clearAllFilters}
-                  emptyStateMessage={{
-                    title: "Nenhum projeto encontrado",
-                    description:
-                      "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
-                  }}
-                />
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+      <TabelaDados<Projeto>
+        title=""
+        subtitle=""
+        data={paginatedProjects}
+        isLoading={isLoading}
+        columns={columns}
+        searchPlaceholder="Pesquisar projetos..."
+        filterConfigs={filterConfigs}
+        onRowClick={handleRowClick}
+        emptyStateMessage={{
+          title: "Nenhum projeto encontrado",
+          description:
+            "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
+        }}
+      />
     </PageLayout>
   );
 }

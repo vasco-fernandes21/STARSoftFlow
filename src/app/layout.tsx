@@ -44,42 +44,13 @@ export default function RootLayout({
               padding: '16px',
             },
             className: 'sonner-toast-custom',
-            success: {
-              style: {
-                backgroundColor: 'rgba(236, 253, 245, 0.98)',
-                border: '1px solid rgba(6, 95, 70, 0.1)',
-                color: '#065F46',
-              },
-            },
-            error: {
-              style: {
-                backgroundColor: 'rgba(254, 242, 242, 0.98)',
-                border: '1px solid rgba(153, 27, 27, 0.1)',
-                color: '#991B1B',
-              },
-            },
-            actionButton: {
-              style: {
-                backgroundColor: '#2C5697',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '8px 12px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-              }
-            },
-            cancelButton: {
-              style: {
-                backgroundColor: '#f3f4f6',
-                color: '#4b5563',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '8px 12px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-              },
+            classNames: {
+              success: 'bg-emerald-50 border-emerald-100 text-emerald-800',
+              error: 'bg-red-50 border-red-100 text-red-800',
+              warning: 'bg-amber-50 border-amber-100 text-amber-800',
+              info: 'bg-blue-50 border-blue-100 text-blue-800',
+              actionButton: 'bg-azul text-white border-0 rounded-md px-3 py-2 text-sm font-medium cursor-pointer',
+              cancelButton: 'bg-gray-100 text-gray-600 border-0 rounded-md px-3 py-2 text-sm font-medium',
             },
             duration: 5000,
           }}

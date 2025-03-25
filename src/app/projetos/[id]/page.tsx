@@ -13,6 +13,7 @@ import type { ProjetoEstado } from "@prisma/client";
 import { Cronograma } from "@/components/projetos/Cronograma";
 import { ProjetoFinancas } from "@/components/projetos/tabs/ProjetoFinancas";
 import { useQueryClient } from "@tanstack/react-query";
+import { TabelaDados, type ColumnConfig, type FilterConfig } from "@/components/common/TabelaDados";
 
 // Interface para localStorage
 interface CachedProjeto {
@@ -70,12 +71,20 @@ function getProjetoFromLocalCache(id: string): ProjetoData | null {
     const parsedItem: CachedProjeto = JSON.parse(cachedItem);
     const isExpired = Date.now() - parsedItem.timestamp > CACHE_EXPIRATION;
     
-    // Retorna nulo se o cache expirou
     return isExpired ? null : parsedItem.data;
   } catch (error) {
     console.warn("Erro ao recuperar do cache:", error);
     return null;
   }
+}
+
+// Interface para as tarefas na tabela
+interface TarefaRow {
+  id: string;
+  nome: string;
+  estado: boolean;
+  workpackage: string;
+  workpackageId: string;
 }
 
 export default function DetalheProjeto() {
@@ -85,6 +94,19 @@ export default function DetalheProjeto() {
   const queryClient = useQueryClient();
   const [localCacheData, setLocalCacheData] = useState<ProjetoData | null>(null);
   const [isLocalCacheLoaded, setIsLocalCacheLoaded] = useState(false);
+
+  // Variáveis de estado para a TabelaDados
+  const [tarefaSearchTerm, setTarefaSearchTerm] = useState<string>("");
+  const [tarefaCurrentPage, setTarefaCurrentPage] = useState<number>(1);
+  const [tarefaEstadoFilter, setTarefaEstadoFilter] = useState<string>("todos");
+  const [tarefaWorkPackageFilter, setTarefaWorkPackageFilter] = useState<string>("todos");
+  const [tarefaSortConfig, setTarefaSortConfig] = useState<{
+    field: string | null;
+    direction: 'asc' | 'desc';
+  }>({
+    field: null,
+    direction: 'asc'
+  });
 
   // Carregar do localStorage na inicialização do componente
   useEffect(() => {
@@ -97,45 +119,31 @@ export default function DetalheProjeto() {
     }
   }, [id]);
 
-  // Configuração avançada de React Query
+  // Configuração otimizada do React Query
   const { 
     data: projeto, 
     isLoading, 
     error 
   } = api.projeto.findById.useQuery(id, {
-    enabled: !!id && (isLocalCacheLoaded && !localCacheData), // Só busca se não tiver no cache local
-    staleTime: 5 * 60 * 1000, // 5 minutos antes de considerar os dados obsoletos
-    retry: 1, // Tenta apenas uma vez em caso de falha
-    refetchOnWindowFocus: false, // Não refaz a consulta quando a janela receber foco
+    enabled: !!id && (isLocalCacheLoaded && !localCacheData),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
-  // Como não podemos usar onSuccess diretamente, usamos um useEffect para monitorar mudanças nos dados
+  // Salvar no cache quando os dados chegarem
   useEffect(() => {
     if (projeto) {
       saveProjetoToLocalCache(id as string, projeto as ProjetoData);
     }
   }, [projeto, id]);
 
-  // Funções para atualizar dados após alterações 
-  const handleUpdateWorkPackage = useCallback(async (): Promise<void> => {
-    // Limpa tanto o cache do React Query quanto o localStorage
+  // Funções otimizadas para atualizar dados após alterações
+  const invalidateProjetoCache = useCallback(async (): Promise<void> => {
     await queryClient.invalidateQueries({
       queryKey: ['projeto.findById', id]
     });
     
-    // Remove o cache local para forçar uma nova busca
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(`projeto_${id}`);
-      setLocalCacheData(null);
-    }
-  }, [queryClient, id]);
-
-  const handleUpdateTarefa = useCallback(async (): Promise<void> => {
-    await queryClient.invalidateQueries({
-      queryKey: ['projeto.findById', id]
-    });
-    
-    // Remove o cache local para forçar uma nova busca
     if (typeof window !== 'undefined') {
       localStorage.removeItem(`projeto_${id}`);
       setLocalCacheData(null);
@@ -145,9 +153,16 @@ export default function DetalheProjeto() {
   // Dados efetivos do projeto (do cache local ou da API)
   const projetoData = localCacheData || projeto;
 
-  // Cálculos e mapeamentos - agora usando useMemo sempre, mesmo quando não há dados
-  const calculosProjeto = useMemo(() => {
-    // Valores padrão caso não haja dados
+  // Cálculos e mapeamentos com useMemo otimizado
+  const {
+    totalTarefas,
+    tarefasConcluidas,
+    tarefasPendentes,
+    dataInicio,
+    dataFim,
+    duracaoMeses,
+    tarefasRows
+  } = useMemo(() => {
     if (!projetoData) {
       return {
         totalTarefas: 0,
@@ -155,29 +170,40 @@ export default function DetalheProjeto() {
         tarefasPendentes: 0,
         dataInicio: null,
         dataFim: null,
-        duracaoMeses: 0
+        duracaoMeses: 0,
+        tarefasRows: [] as TarefaRow[]
       };
     }
 
-    // Cálculos quando há dados
     const totalTarefas = projetoData.workpackages.reduce(
-      (acc: number, wp) => acc + wp.tarefas.length, 
+      (acc, wp) => acc + wp.tarefas.length, 
       0
     );
     
     const tarefasConcluidas = projetoData.workpackages.reduce(
-      (acc: number, wp) => acc + wp.tarefas.filter((tarefa) => tarefa.estado).length,
+      (acc, wp) => acc + wp.tarefas.filter(tarefa => tarefa.estado).length,
       0
     );
     
     const tarefasPendentes = totalTarefas - tarefasConcluidas;
-
     const dataInicio = projetoData.inicio ? new Date(projetoData.inicio) : null;
     const dataFim = projetoData.fim ? new Date(projetoData.fim) : null;
+    
     const duracaoMeses = dataInicio && dataFim
       ? (dataFim.getFullYear() - dataInicio.getFullYear()) * 12 +
         (dataFim.getMonth() - dataInicio.getMonth())
       : 0;
+
+    // Preparar dados para tabela de tarefas
+    const tarefasRows: TarefaRow[] = projetoData.workpackages.flatMap(wp => 
+      wp.tarefas.map(tarefa => ({
+        id: tarefa.id,
+        nome: tarefa.nome,
+        estado: tarefa.estado,
+        workpackage: wp.nome,
+        workpackageId: wp.id
+      }))
+    );
 
     return {
       totalTarefas,
@@ -185,9 +211,179 @@ export default function DetalheProjeto() {
       tarefasPendentes,
       dataInicio,
       dataFim,
-      duracaoMeses
+      duracaoMeses,
+      tarefasRows
     };
   }, [projetoData]); // Só recalcula quando os dados do projeto mudam
+
+  // Filtrar tarefas com base nos filtros
+  const tarefasFiltradas = useMemo(() => {
+    if (!tarefasRows.length) return [];
+    
+    let result = [...tarefasRows];
+    
+    // Filtro por termo de busca
+    if (tarefaSearchTerm.trim()) {
+      const searchLower = tarefaSearchTerm.toLowerCase();
+      result = result.filter(tarefa => 
+        tarefa.nome.toLowerCase().includes(searchLower) ||
+        tarefa.workpackage.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Filtro por estado
+    if (tarefaEstadoFilter !== "todos") {
+      result = result.filter(tarefa => 
+        tarefaEstadoFilter === "true" ? tarefa.estado : !tarefa.estado
+      );
+    }
+    
+    // Filtro por workpackage
+    if (tarefaWorkPackageFilter !== "todos") {
+      result = result.filter(tarefa => 
+        tarefa.workpackageId === tarefaWorkPackageFilter
+      );
+    }
+    
+    // Ordenação
+    if (tarefaSortConfig.field) {
+      result.sort((a, b) => {
+        const aValue = a[tarefaSortConfig.field as keyof TarefaRow];
+        const bValue = b[tarefaSortConfig.field as keyof TarefaRow];
+        
+        // Lidar com null/undefined
+        if (!aValue && !bValue) return 0;
+        if (!aValue) return tarefaSortConfig.direction === 'asc' ? -1 : 1;
+        if (!bValue) return tarefaSortConfig.direction === 'asc' ? 1 : -1;
+        
+        // Ordenação para booleanos (estado)
+        if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+          return tarefaSortConfig.direction === 'asc'
+            ? (aValue === bValue ? 0 : aValue ? 1 : -1)
+            : (aValue === bValue ? 0 : aValue ? -1 : 1);
+        }
+        
+        // Ordenação para strings
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return tarefaSortConfig.direction === 'asc'
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        return tarefaSortConfig.direction === 'asc'
+          ? (aValue > bValue ? 1 : -1)
+          : (aValue > bValue ? -1 : 1);
+      });
+    }
+    
+    return result;
+  }, [tarefasRows, tarefaSearchTerm, tarefaEstadoFilter, tarefaWorkPackageFilter, tarefaSortConfig]);
+
+  // Limpar todos os filtros das tarefas
+  const clearTarefaFilters = () => {
+    setTarefaSearchTerm("");
+    setTarefaEstadoFilter("todos");
+    setTarefaWorkPackageFilter("todos");
+    setTarefaSortConfig({
+      field: null,
+      direction: 'asc'
+    });
+    setTarefaCurrentPage(1);
+  };
+
+  // Definição das colunas para TabelaDados de tarefas
+  const tarefasColunas: ColumnConfig[] = [
+    {
+      id: "nome",
+      label: "Tarefa",
+      sortable: true,
+      renderCell: (tarefa: TarefaRow) => (
+        <span className="font-medium">{tarefa.nome}</span>
+      ),
+      width: "45%"
+    },
+    {
+      id: "workpackage",
+      label: "Work Package",
+      sortable: true,
+      renderCell: (tarefa: TarefaRow) => (
+        <div className="flex items-center">
+          <FileText className="mr-2 h-4 w-4 text-gray-400" />
+          <span>{tarefa.workpackage}</span>
+        </div>
+      ),
+      width: "30%"
+    },
+    {
+      id: "estado",
+      label: "Estado",
+      sortable: true,
+      renderCell: (tarefa: TarefaRow) => {
+        return (
+          <Badge
+            variant="outline"
+            className={cn(
+              tarefa.estado
+                ? "bg-emerald-50/70 text-emerald-600 border-emerald-200"
+                : "bg-amber-50/70 text-amber-600 border-amber-200"
+            )}
+          >
+            {tarefa.estado ? "Concluída" : "Pendente"}
+          </Badge>
+        );
+      },
+      width: "25%",
+      align: "center"
+    }
+  ];
+
+  // Configuração dos filtros para TabelaDados de tarefas
+  const tarefasFilterConfigs: FilterConfig[] = [
+    {
+      id: "estado",
+      label: "Estado",
+      value: tarefaEstadoFilter,
+      onChange: (value: string) => {
+        setTarefaEstadoFilter(value);
+        setTarefaCurrentPage(1);
+      },
+      options: [
+        { id: "todos", label: "Todos", value: "todos" },
+        { id: "concluidas", label: "Concluídas", value: "true" },
+        { id: "pendentes", label: "Pendentes", value: "false" }
+      ]
+    },
+    {
+      id: "workpackage",
+      label: "Work Package",
+      value: tarefaWorkPackageFilter,
+      onChange: (value: string) => {
+        setTarefaWorkPackageFilter(value);
+        setTarefaCurrentPage(1);
+      },
+      options: [
+        { id: "todos", label: "Todos", value: "todos" },
+        ...projetoData?.workpackages.map(wp => ({
+          id: wp.id,
+          label: wp.nome,
+          value: wp.id
+        })) || []
+      ]
+    }
+  ];
+
+  // Handler para ordenação
+  const handleTarefaSorting = (field: string) => {
+    setTarefaSortConfig(prev => ({
+      field,
+      direction:
+        prev.field === field
+          ? prev.direction === 'asc'
+            ? 'desc'
+            : 'asc'
+          : 'asc'
+    }));
+  };
 
   const estadoMap: Record<ProjetoEstado, string> = {
     RASCUNHO: "Rascunho",
@@ -196,16 +392,6 @@ export default function DetalheProjeto() {
     EM_DESENVOLVIMENTO: "Em Desenvolvimento",
     CONCLUIDO: "Concluído",
   };
-
-  // Desestruturar os cálculos memorizados
-  const { 
-    totalTarefas, 
-    tarefasConcluidas, 
-    tarefasPendentes, 
-    dataInicio, 
-    dataFim, 
-    duracaoMeses 
-  } = calculosProjeto;
 
   // Loading e error states
   if (isLoading && !projetoData) {
@@ -307,7 +493,7 @@ export default function DetalheProjeto() {
           
           {/* Estatísticas do Projeto */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-1">
-            <div className="p-1"> {/* Wrapper com padding para a sombra */}
+            <div className="p-1">
               <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-blue-50/70 flex items-center justify-center shadow-sm">
@@ -321,7 +507,7 @@ export default function DetalheProjeto() {
               </Card>
             </div>
             
-            <div className="p-1"> {/* Wrapper com padding para a sombra */}
+            <div className="p-1">
               <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-purple-50/70 flex items-center justify-center shadow-sm">
@@ -345,7 +531,7 @@ export default function DetalheProjeto() {
               </Card>
             </div>
             
-            <div className="p-1"> {/* Wrapper com padding para a sombra */}
+            <div className="p-1">
               <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-amber-50/70 flex items-center justify-center shadow-sm">
@@ -362,7 +548,7 @@ export default function DetalheProjeto() {
               </Card>
             </div>
             
-            <div className="p-1"> {/* Wrapper com padding para a sombra */}
+            <div className="p-1">
               <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
                 <CardContent className="p-4 flex items-start gap-3">
                   <div className="h-9 w-9 rounded-full bg-emerald-50/70 flex items-center justify-center shadow-sm">
@@ -421,7 +607,7 @@ export default function DetalheProjeto() {
 
             <div className="flex-1 overflow-visible pb-4">
               <TabsContent value="cronograma" className="m-0 overflow-visible">
-                <div className="p-1"> {/* Wrapper com padding para a sombra */}
+                <div className="p-1">
                   <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden rounded-xl">
                     <div className="h-[calc(100vh-220px)] min-h-[300px]">
                       {dataInicio && dataFim && (
@@ -430,8 +616,8 @@ export default function DetalheProjeto() {
                           workpackages={projetoData.workpackages as any}
                           startDate={dataInicio}
                           endDate={dataFim}
-                          onUpdateWorkPackage={handleUpdateWorkPackage}
-                          onUpdateTarefa={handleUpdateTarefa}
+                          onUpdateWorkPackage={invalidateProjetoCache}
+                          onUpdateTarefa={invalidateProjetoCache}
                           projetoId={id}
                           options={{
                             leftColumnWidth: 300,
@@ -446,12 +632,12 @@ export default function DetalheProjeto() {
               </TabsContent>
 
               <TabsContent value="overview" className="m-0">
-                <div className="p-1"> {/* Wrapper com padding para a sombra */}
+                <div className="p-1">
                   <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl">
                     <CardHeader className="border-b border-white/10 px-5 py-3 bg-white/70 backdrop-blur-sm">
                       <CardTitle className="text-base font-semibold text-gray-900">Detalhes do Projeto</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-5">
+                    <CardContent className="p-5 space-y-6">
                       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
                         <div className="space-y-3">
                           <h3 className="font-medium text-sm text-gray-700">Informações Gerais</h3>
@@ -475,13 +661,48 @@ export default function DetalheProjeto() {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* Nova tabela de tarefas com TabelaDados */}
+                      <div>
+                        <h3 className="font-medium text-sm text-gray-700 mb-3">Lista de Tarefas</h3>
+                        <TabelaDados
+                          title="Tarefas"
+                          subtitle={`Tarefas do projeto ${projetoData.nome}`}
+                          data={tarefasFiltradas}
+                          isLoading={isLoading}
+                          columns={tarefasColunas}
+                          searchConfig={{
+                            placeholder: "Procurar tarefas por nome ou work package...",
+                            value: tarefaSearchTerm,
+                            onChange: (value) => {
+                              setTarefaSearchTerm(value);
+                              setTarefaCurrentPage(1);
+                            }
+                          }}
+                          filterConfigs={tarefasFilterConfigs}
+                          sortConfig={{
+                            field: tarefaSortConfig.field,
+                            direction: tarefaSortConfig.direction,
+                            onChange: handleTarefaSorting
+                          }}
+                          itemsPerPage={5}
+                          currentPage={tarefaCurrentPage}
+                          setCurrentPage={setTarefaCurrentPage}
+                          totalItems={tarefasFiltradas.length}
+                          emptyStateMessage={{
+                            title: "Nenhuma tarefa encontrada",
+                            description: "Não há tarefas registradas neste projeto."
+                          }}
+                          clearAllFilters={clearTarefaFilters}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
               </TabsContent>
 
               <TabsContent value="resources" className="m-0">
-                <div className="p-1"> {/* Wrapper com padding para a sombra */}
+                <div className="p-1">
                   <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl">
                     <CardHeader className="border-b border-white/10 px-5 py-3 bg-white/70 backdrop-blur-sm">
                       <CardTitle className="text-base font-semibold text-gray-900">Recursos</CardTitle>
@@ -494,7 +715,7 @@ export default function DetalheProjeto() {
               </TabsContent>
 
               <TabsContent value="finances" className="m-0">
-                <div className="p-1"> {/* Wrapper com padding para a sombra */}
+                <div className="p-1">
                   <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl">
                     <CardHeader className="border-b border-white/10 px-5 py-3 bg-white/70 backdrop-blur-sm">
                       <CardTitle className="text-base font-semibold text-gray-900">Finanças</CardTitle>

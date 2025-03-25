@@ -100,47 +100,61 @@ export function TarefaEntregaveis({
   const pendingEntregaveis = entregaveis.filter(e => e.estado === false).length;
 
   return (
-    <div className="grid gap-4">
-      {/* Cabeçalho com contador de entregáveis */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-medium text-azul">Entregáveis</h3>
-          {entregaveis && entregaveis.length > 0 && (
-            <div className="flex items-center gap-1">
-              <span className="text-sm text-azul/80">
-                {entregaveis.length - pendingEntregaveis}/{entregaveis.length} concluídos
-              </span>
-            </div>
-          )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Entregáveis</h2>
+          <p className="text-sm text-gray-500">Gerir entregáveis da tarefa</p>
         </div>
-        <Button 
-          onClick={handleAddEntregavel} 
-          className="h-8 gap-1 text-xs bg-azul hover:bg-azul/90 text-white"
-          disabled={addingEntregavel}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Adicionar
-        </Button>
+        
+        {!addingEntregavel && (
+          <Button
+            onClick={handleAddEntregavel}
+            className="h-10 bg-azul hover:bg-azul/90 text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Entregável
+          </Button>
+        )}
       </div>
 
+      {/* Formulário para adicionar novo entregável */}
       {addingEntregavel && (
-        <EntregavelForm
-          tarefaId={tarefaId}
-          tarefaDates={{
-            inicio: tarefa.inicio,
-            fim: tarefa.fim
-          }}
-          onCancel={() => setAddingEntregavel(false)}
-          onSubmit={(tarefaId, entregavel) => {
-            mutations.entregavel.create.mutate({
-              tarefaId,
-              nome: entregavel.nome,
-              descricao: entregavel.descricao || undefined,
-              data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data
-            });
-          }}
-        />
+        <Card className="p-6 border border-azul/10 bg-white shadow-sm rounded-xl animate-in fade-in-50 slide-in-from-top-5 duration-200">
+          <h3 className="text-lg font-medium text-azul mb-5">Novo Entregável</h3>
+          <EntregavelForm
+            tarefaId={tarefaId}
+            tarefaDates={{
+              inicio: tarefa.inicio,
+              fim: tarefa.fim
+            }}
+            onCancel={handleCancelAddEntregavel}
+            onSubmit={(tarefaId, entregavel) => {
+              mutations.entregavel.create.mutate({
+                tarefaId,
+                nome: entregavel.nome,
+                descricao: entregavel.descricao || undefined,
+                data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data
+              });
+              setAddingEntregavel(false);
+            }}
+          />
+        </Card>
       )}
+
+      {/* Informações sobre o total */}
+      <div className="w-full py-4 px-5 bg-azul/5 border border-azul/10 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center">
+        <div className="flex items-center mb-3 sm:mb-0">
+          <FileText className="h-5 w-5 text-azul mr-2" />
+          <h3 className="text-sm font-medium text-azul">
+            {entregaveis.length} {entregaveis.length === 1 ? 'entregável' : 'entregáveis'} adicionados
+          </h3>
+        </div>
+        <div className="text-sm text-gray-700">
+          <span className="font-medium">Concluídos:</span>{' '}
+          <span className="font-bold text-azul/90">{entregaveis.length - pendingEntregaveis}/{entregaveis.length}</span>
+        </div>
+      </div>
 
       {/* Lista de entregáveis */}
       {entregaveis && entregaveis.length > 0 ? (
@@ -164,7 +178,7 @@ export function TarefaEntregaveis({
                       onClick={() => handleToggleEstado(entregavel.id, !entregavel.estado)}
                       className={`h-5 w-5 rounded border flex items-center justify-center transition-colors ${
                         entregavel.estado 
-                          ? "bg-verde border-verde/10 text-white" 
+                          ? "bg-emerald-500 border-emerald-500/10 text-white" 
                           : "border-zinc-300 bg-white hover:bg-zinc-100"
                       }`}
                     >
@@ -176,17 +190,17 @@ export function TarefaEntregaveis({
                       <span className="font-medium text-azul/90">{entregavel.nome}</span>
                       <div className="flex gap-1 items-center">
                         {entregavel.estado ? (
-                          <span className="text-xs text-verde bg-verde/10 px-2 py-0.5 rounded-full">
+                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100">
                             Entregue
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="text-xs text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full">
+                          <Badge className="bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100">
                             Pendente
-                          </span>
+                          </Badge>
                         )}
                         <button
                           onClick={() => handleRemoveEntregavel(entregavel.id)}
-                          className="text-zinc-400 hover:text-red-500"
+                          className="text-zinc-400 hover:text-red-500 transition-colors"
                         >
                           <Trash className="h-3.5 w-3.5" />
                         </button>
@@ -234,18 +248,19 @@ export function TarefaEntregaveis({
           )}
         </div>
       ) : (
-        <div className="p-8 text-center text-zinc-500 border border-dashed rounded-lg">
-          {!isLoadingEntregaveis ? (
-            <>
-              <FileText className="h-10 w-10 mx-auto mb-2 text-zinc-300" />
-              <p>Não há entregáveis definidos para esta tarefa.</p>
-              <p className="text-sm mt-1">
-                Clique em "Adicionar" para definir entregáveis.
-              </p>
-            </>
-          ) : (
-            <p>A carregar entregáveis...</p>
-          )}
+        <div className="text-center py-16 bg-white rounded-lg border border-azul/10 shadow-sm">
+          <FileText className="h-12 w-12 text-azul/20 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-azul mb-2">Nenhum entregável adicionado</h3>
+          <p className="text-sm text-azul/60 max-w-md mx-auto mb-6">
+            Adicione entregáveis a esta tarefa para acompanhar o progresso
+          </p>
+          <Button
+            onClick={handleAddEntregavel}
+            className="bg-azul hover:bg-azul/90 text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar primeiro entregável
+          </Button>
         </div>
       )}
     </div>

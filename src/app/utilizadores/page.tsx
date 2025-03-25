@@ -27,6 +27,7 @@ import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
 import { Badge } from "@/components/ui/badge";
 import { Permissao, Regime } from "@prisma/client";
+import { type ColumnDef } from "@tanstack/react-table";
 
 const PERMISSAO_LABELS: Record<string, string> = {
   ADMIN: 'Admin',
@@ -170,138 +171,56 @@ const AnimatedActionButton = ({
   );
 };
 
-const Users = () => {
-  const [search, setSearch] = useState("");
-  const [permissaoFilter, setPermissaoFilter] = useState("all");
-  const [regimeFilter, setRegimeFilter] = useState("all");
-  const [sortField, setSortField] = useState<'name' | 'contratacao' | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  
-  const router = useRouter();
+// Função para traduzir permissão para texto
+function getPermissaoText(permissao: Permissao): string {
+  switch (permissao) {
+    case Permissao.ADMIN:
+      return "Administrador";
+    case Permissao.GESTOR:
+      return "Gestor";
+    case Permissao.COMUM:
+      return "Utilizador";
+    default:
+      return "Desconhecido";
+  }
+}
 
-  // Usando a mesma configuração de cache e refetch que os projetos
-  const queryResult = api.utilizador.findAll.useQuery(
-    {
-      page: currentPage,
-      limit: itemsPerPage,
-      search: search || undefined,
-      permissao: permissaoFilter !== "all" ? permissaoFilter as any : undefined,
-      regime: regimeFilter !== "all" ? regimeFilter as any : undefined
-    },
-    {
-      staleTime: 5 * 60 * 1000, // 5 minutos
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-    }
-  );
+// Função para traduzir regime para texto
+function getRegimeText(regime: Regime): string {
+  switch (regime) {
+    case Regime.INTEGRAL:
+      return "Tempo Integral";
+    case Regime.PARCIAL:
+      return "Tempo Parcial";
+    default:
+      return "Desconhecido";
+  }
+}
+
+const Users = () => {
+  const router = useRouter();
+  const [estadoFilter, setEstadoFilter] = useState<"all" | Permissao>("all");
+  const [regimeFilter, setRegimeFilter] = useState<"all" | Regime>("all");
+
+  // Fetch all data with pagination limits
+  const queryParams = useMemo(() => ({
+    page: 1,
+    limit: 100 // API limit
+  }), []);
+
+  const { 
+    data, 
+    isLoading 
+  } = api.utilizador.findAll.useQuery(queryParams, {
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   // Extrair utilizadores usando a função utilitária
-  const utilizadores = useMemo(() => extrairUtilizadores(queryResult.data), [queryResult.data]);
-  const paginacao = useMemo(() => extrairPaginacao(queryResult.data), [queryResult.data]);
-
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field as 'name' | 'contratacao');
-      setSortDirection('asc');
-    }
-  };
-
-  const filteredUsers = useMemo(() => {
-    if (!utilizadores || !Array.isArray(utilizadores) || utilizadores.length === 0) 
-      return [];
-    
-    // Se estamos a usar paginação do servidor, não precisamos de filtrar novamente
-    // os utilizadores porque a API já retorna os dados filtrados
-    if (paginacao.pages) {
-      return utilizadores;
-    }
-    
-    let filtered = [...utilizadores];
-    
-    // Filtrar por busca e filtros
-    filtered = filtered.filter((utilizador) => {
-      const searchMatch =
-        utilizador?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        utilizador?.email?.toLowerCase().includes(search.toLowerCase()) ||
-        utilizador?.permissao?.toLowerCase().includes(search.toLowerCase()) ||
-        utilizador?.atividade?.toLowerCase().includes(search.toLowerCase());
-      
-      const permissaoMatch = permissaoFilter === "all" ? true : utilizador.permissao.toLowerCase() === permissaoFilter.toLowerCase();
-      const regimeMatch = regimeFilter === "all" ? true : utilizador.regime.toLowerCase() === regimeFilter.toLowerCase();
-      
-      return searchMatch && permissaoMatch && regimeMatch;
-    });
-
-    // Aplicar ordenação
-    if (sortField) {
-      filtered.sort((a, b) => {
-        if (sortField === 'name') {
-          const nameA = a.name?.toLowerCase() || '';
-          const nameB = b.name?.toLowerCase() || '';
-          const modifier = sortDirection === 'asc' ? 1 : -1;
-          
-          if (nameA < nameB) return -1 * modifier;
-          if (nameA > nameB) return 1 * modifier;
-          return 0;
-        }
-        
-        if (sortField === 'contratacao') {
-          const dateA = a.contratacao ? new Date(a.contratacao).getTime() : 0;
-          const dateB = b.contratacao ? new Date(b.contratacao).getTime() : 0;
-          const modifier = sortDirection === 'asc' ? 1 : -1;
-          
-          if (dateA < dateB) return -1 * modifier;
-          if (dateA > dateB) return 1 * modifier;
-          return 0;
-        }
-        
-        return 0;
-      });
-    }
-
-    return filtered;
-  }, [search, permissaoFilter, regimeFilter, utilizadores, sortField, sortDirection, paginacao.pages]);
-
-  const clearAllFilters = () => {
-    setSearch("");
-    setPermissaoFilter("all");
-    setRegimeFilter("all");
-  };
+  const utilizadores = useMemo(() => extrairUtilizadores(data), [data]);
 
   const handleRowClick = (utilizador: any) => {
     router.push(`/utilizadores/${utilizador.username}`);
-  };
-
-  const handleReportClick = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    router.push(`/users/${id}/report`);
-  };
-
-  const handleGenerateReportClick = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    router.push(`/users/${id}/generate-report`);
-  };
-
-  // Função para traduzir permissão para texto
-  const getPermissaoText = (permissao: Permissao) => {
-    switch (permissao) {
-      case Permissao.ADMIN: return "Administrador";
-      case Permissao.GESTOR: return "Gestor";
-      case Permissao.COMUM: return "Utilizador";
-      default: return "Desconhecido";
-    }
-  };
-
-  // Função para traduzir regime para texto
-  const getRegimeText = (regime: Regime) => {
-    switch (regime) {
-      case Regime.INTEGRAL: return "Tempo Integral";
-      case Regime.PARCIAL: return "Tempo Parcial";
-      default: return "Desconhecido";
-    }
   };
 
   // Configuração dos filtros
@@ -327,25 +246,96 @@ const Users = () => {
     {
       id: 'permissao',
       label: 'Permissão',
-      value: permissaoFilter,
-      onChange: setPermissaoFilter,
+      value: estadoFilter,
+      onChange: (value: string) => setEstadoFilter(value as "all" | Permissao),
       options: permissaoOptions
     },
     {
       id: 'regime',
       label: 'Regime',
       value: regimeFilter,
-      onChange: setRegimeFilter,
+      onChange: (value: string) => setRegimeFilter(value as "all" | Regime),
       options: regimeOptions
     }
   ];
 
+  // Definição das colunas usando TanStack Table
+  const columns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: "name",
+      header: "Utilizador",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <SimpleAvatar utilizador={row.original} />
+          <div>
+            <p className="font-medium text-gray-900">
+              {row.original?.name || 'N/A'}
+            </p>
+            <p className="text-sm text-gray-500">{row.original?.atividade || 'N/A'}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ getValue }) => (
+        <span className="text-gray-600">
+          {getValue<string>() || 'N/A'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "permissao",
+      header: "Permissão",
+      cell: ({ getValue }) => {
+        const permissao = getValue<Permissao>();
+        return (
+          <BadgeEstado 
+            status={permissao} 
+            label={getPermissaoText(permissao)} 
+            variant="permissao" 
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "regime",
+      header: "Regime",
+      cell: ({ getValue }) => {
+        const regime = getValue<Regime>();
+        return (
+          <BadgeEstado 
+            status={regime} 
+            label={getRegimeText(regime)} 
+            variant="regime" 
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "contratacao",
+      header: "Data de Contratação",
+      cell: ({ getValue }) => {
+        const date = getValue<string | null>();
+        return (
+          <div className="flex items-center gap-2 justify-end">
+            <Clock className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-600">
+              {date ? new Date(date).toLocaleDateString() : 'N/A'}
+            </span>
+          </div>
+        );
+      },
+    },
+  ], []);
+
   // Cálculos estatísticos baseados no array atual
   const utilizadoresArray = Array.isArray(utilizadores) ? utilizadores : [];
   const totalUsers = utilizadoresArray.length || 0;
-  const regimenIntegral = utilizadoresArray.filter(utilizador => utilizador.regime?.toLowerCase() === "integral").length || 0;
-  const regimenParcial = utilizadoresArray.filter(utilizador => utilizador.regime?.toLowerCase() === "parcial").length || 0;
-  const totalAdmins = utilizadoresArray.filter(utilizador => utilizador.permissao?.toLowerCase() === "admin").length || 0;
+  const regimenIntegral = utilizadoresArray.filter(utilizador => utilizador.regime === Regime.INTEGRAL).length || 0;
+  const regimenParcial = utilizadoresArray.filter(utilizador => utilizador.regime === Regime.PARCIAL).length || 0;
+  const totalAdmins = utilizadoresArray.filter(utilizador => utilizador.permissao === Permissao.ADMIN).length || 0;
 
   // Configuração das estatísticas
   const stats: StatItem[] = [
@@ -379,15 +369,6 @@ const Users = () => {
     }
   ];
 
-  // Usar useEffect para reagir às mudanças de dados
-  useEffect(() => {
-    if (queryResult.data) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Resposta da API de utilizadores:', queryResult.data);
-      }
-    }
-  }, [queryResult.data]);
-
   return (
     <PageLayout className="h-screen overflow-hidden">
       <div className="space-y-6">
@@ -400,107 +381,19 @@ const Users = () => {
         <StatsGrid stats={stats} className="my-4" />
 
         <div className="flex-1 overflow-visible">
-          {queryResult.isLoading ? (
+          {isLoading ? (
             <TableSkeleton />
           ) : (
             <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px] rounded-2xl overflow-hidden">
-              <TabelaDados
+              <TabelaDados<any>
                 title=""
                 subtitle=""
-                data={filteredUsers}
-                isLoading={queryResult.isLoading}
-                columns={[
-                  {
-                    id: 'utilizador',
-                    label: 'Utilizador',
-                    sortable: true,
-                    sortField: 'name',
-                    width: "30%",
-                    align: "left" as const,
-                    renderCell: (utilizador: any) => (
-                      <div className="flex items-center gap-3">
-                        <SimpleAvatar utilizador={utilizador} />
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {utilizador?.name || 'N/A'}
-                          </p>
-                          <p className="text-sm text-gray-500">{utilizador?.atividade || 'N/A'}</p>
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    id: 'email',
-                    label: 'Email',
-                    width: "25%",
-                    align: "left" as const,
-                    renderCell: (utilizador: any) => (
-                      <span className="text-gray-600">
-                        {utilizador?.email || 'N/A'}
-                      </span>
-                    ),
-                  },
-                  {
-                    id: 'permissao',
-                    label: 'Permissão',
-                    width: "15%",
-                    align: "center" as const,
-                    renderCell: (utilizador: any) => (
-                      <BadgeEstado 
-                        status={utilizador.permissao} 
-                        label={getPermissaoText(utilizador.permissao)} 
-                        variant="permissao" 
-                      />
-                    ),
-                  },
-                  {
-                    id: 'regime',
-                    label: 'Regime',
-                    width: "15%",
-                    align: "center" as const,
-                    renderCell: (utilizador: any) => (
-                      <BadgeEstado 
-                        status={utilizador.regime} 
-                        label={getRegimeText(utilizador.regime)} 
-                        variant="regime" 
-                      />
-                    ),
-                  },
-                  {
-                    id: 'contratacao',
-                    label: 'Data de Contratação',
-                    sortable: true,
-                    sortField: 'contratacao',
-                    width: "15%",
-                    align: "right" as const,
-                    renderCell: (utilizador: any) => (
-                      <div className="flex items-center gap-2 justify-end">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">
-                          {utilizador?.contratacao ? new Date(utilizador.contratacao).toLocaleDateString() : 'N/A'}
-                        </span>
-                      </div>
-                    ),
-                  }
-                ]}
-                searchConfig={{
-                  placeholder: "Procurar utilizadores...",
-                  value: search,
-                  onChange: setSearch
-                }}
+                data={utilizadores}
+                isLoading={isLoading}
+                columns={columns}
+                searchPlaceholder="Procurar utilizadores..."
                 filterConfigs={filterConfigs}
-                sortConfig={{
-                  field: sortField,
-                  direction: sortDirection,
-                  onChange: handleSort
-                }}
-                itemsPerPage={itemsPerPage}
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                totalItems={paginacao.total || filteredUsers.length}
-                totalPages={paginacao.pages || Math.ceil(filteredUsers.length / itemsPerPage)}
                 onRowClick={handleRowClick}
-                clearAllFilters={clearAllFilters}
                 emptyStateMessage={{
                   title: "Nenhum utilizador encontrado",
                   description: "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa para ver todos os utilizadores."

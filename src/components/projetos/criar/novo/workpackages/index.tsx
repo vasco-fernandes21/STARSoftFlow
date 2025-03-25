@@ -5,9 +5,21 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkpackageItem } from "./workpackage/item";
 import { WorkpackageForm } from "./workpackage/form";
-import { useConfirmacao } from "@/providers/PopupConfirmacaoProvider";
 import { Prisma } from "@prisma/client";
 import { useProjetoForm } from "../../ProjetoFormContext";
+
+// Importar AlertDialog para substituir o useConfirmacao
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Importar a interface WorkpackageHandlers
 import { WorkpackageHandlers } from "@/app/projetos/criar/page";
@@ -53,7 +65,8 @@ interface WorkpackagesTabProps {
 export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward, onNavigateBack }: WorkpackagesTabProps) {
   const [addingWorkpackage, setAddingWorkpackage] = useState(false);
   const [editingWorkpackage, setEditingWorkpackage] = useState<WorkpackageWithRelations | null>(null);
-  const { confirmar } = useConfirmacao();
+  const [deleteWorkpackageId, setDeleteWorkpackageId] = useState<string | null>(null);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const { state: projeto } = useProjetoForm();
 
   // Função para converter WorkpackageWithRelations para o formato esperado pelo WorkpackageForm
@@ -97,18 +110,16 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
     setEditingWorkpackage(null);
   };
 
-  const handleDeleteWorkpackage = async (id: string) => {
-    const confirmado = await confirmar({
-      titulo: "Remover workpackage",
-      descricao: "Tem a certeza que deseja remover este workpackage? Esta ação não pode ser desfeita e todos os dados associados serão perdidos.",
-      tipo: "erro",
-      labelConfirmar: "Remover",
-      labelCancelar: "Cancelar",
-      destrutivo: true
-    });
+  const openDeleteWorkpackageDialog = (id: string) => {
+    setDeleteWorkpackageId(id);
+    setIsDeleteAlertOpen(true);
+  };
 
-    if (confirmado) {
-      handlers.removeWorkpackage(id);
+  const handleDeleteConfirm = () => {
+    if (deleteWorkpackageId) {
+      handlers.removeWorkpackage(deleteWorkpackageId);
+      setDeleteWorkpackageId(null);
+      setIsDeleteAlertOpen(false);
     }
   };
 
@@ -157,7 +168,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                     key={wp.id}
                     workpackage={wp}  
                     onEdit={handleEditWorkpackage}
-                    onDelete={handleDeleteWorkpackage}
+                    onDelete={openDeleteWorkpackageDialog}
                     handlers={handlers}
                     projetoInicio={wp.inicio || new Date()}
                     projetoFim={wp.fim || new Date()}
@@ -186,6 +197,27 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
           </ScrollArea>
         </>
       )}
+
+      {/* AlertDialog para confirmação de exclusão */}
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover workpackage</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza que deseja remover este workpackage? Esta ação não pode ser desfeita e todos os dados associados serão perdidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Substituir os botões de navegação pelo TabNavigation */}
       <TabNavigation

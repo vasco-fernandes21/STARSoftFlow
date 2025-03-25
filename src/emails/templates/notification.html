@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{notificationTitle}} - STARSoftFlow</title>
+  <style>
+    /* Reset CSS */
+    body, p, h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.5;
+      color: #374151;
+      background-color: #f3f4f6;
+    }
+
+    /* Container principal */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Header com logo */
+    .header {
+      text-align: center;
+      padding: 32px 0;
+      background: linear-gradient(120deg, rgba(255,255,255,0.9) 0%, rgba(59,130,246,0.1) 100%);
+      border-radius: 12px 12px 0 0;
+    }
+
+    .logo {
+      width: 180px;
+      height: auto;
+    }
+
+    /* Conteúdo principal */
+    .content {
+      background-color: #ffffff;
+      padding: 32px;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Títulos */
+    .title {
+      color: #1e3a8a;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    /* Texto */
+    .text {
+      color: #4b5563;
+      font-size: 16px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    /* Botão */
+    .button {
+      display: inline-block;
+      background-color: #2563eb;
+      color: #ffffff !important;
+      padding: 14px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 24px 0;
+      text-align: center;
+      transition: background-color 0.2s;
+    }
+
+    .button:hover {
+      background-color: #1d4ed8;
+    }
+
+    /* Notificação Card */
+    .notification-card {
+      border-left: 4px solid #2563eb;
+      background-color: #f8fafc;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+
+    .notification-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .notification-project {
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    .notification-date {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .notification-message {
+      font-size: 15px;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    /* Tipos de notificação */
+    .notification-type-task {
+      border-left-color: #2563eb;
+    }
+
+    .notification-type-comment {
+      border-left-color: #0891b2;
+    }
+
+    .notification-type-deadline {
+      border-left-color: #ca8a04;
+    }
+
+    .notification-type-alert {
+      border-left-color: #dc2626;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding-top: 24px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    /* Preferências */
+    .preferences {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .preferences a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    /* Responsividade */
+    @media (max-width: 600px) {
+      .container {
+        padding: 12px;
+      }
+      
+      .content {
+        padding: 24px;
+      }
+      
+      .title {
+        font-size: 20px;
+      }
+      
+      .text {
+        font-size: 14px;
+      }
+      
+      .button {
+        padding: 12px 24px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="{{logoUrl}}" alt="STAR Institute" class="logo">
+    </div>
+    
+    <div class="content">
+      <h1 class="title">{{notificationTitle}}</h1>
+      
+      <p class="text">
+        Olá {{userName}},<br>
+        Tem uma nova notificação na plataforma STARSoftFlow.
+      </p>
+      
+      <div class="notification-card notification-type-{{notificationType}}">
+        <div class="notification-header">
+          <span class="notification-project">{{projectName}}</span>
+          <span class="notification-date">{{notificationDate}}</span>
+        </div>
+        <div class="notification-message">
+          {{notificationMessage}}
+        </div>
+      </div>
+      
+      <div style="text-align: center;">
+        <a href="{{actionLink}}" class="button">
+          {{actionText}}
+        </a>
+      </div>
+      
+      <p class="text" style="font-size: 14px; color: #6b7280;">
+        Para visualizar todas as suas notificações, aceda à plataforma STARSoftFlow.
+      </p>
+      
+      <div class="preferences">
+        <p>
+          Recebeu este email porque tem notificações ativas para esta ação.
+          <a href="{{preferencesLink}}">Gerir preferências de email</a>
+        </p>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>&copy; {{currentYear}} STAR Institute. Todos os direitos reservados.</p>
+      <p style="margin-top: 8px; font-size: 12px;">
+        Este é um email automático, por favor não responda.
+      </p>
+    </div>
+  </div>
+</body>
+</html> 
