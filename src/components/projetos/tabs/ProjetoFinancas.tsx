@@ -119,6 +119,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState("overview");
   const [workpackageSort, setWorkpackageSort] = useState<"valor" | "nome">("valor");
+  const [monthRange, setMonthRange] = useState<"3" | "6" | "12">("6");
   
   const { data, isLoading, error } = api.projeto.getFinancas.useQuery({
     projetoId,
@@ -235,7 +236,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     
     return Array.from(dataMap.values())
       .sort((a, b) => (a.ano * 12 + a.mes) - (b.ano * 12 + b.mes))
-      .slice(-6); // últimos 6 meses
+      .slice(-Number(monthRange)); // usar o monthRange selecionado
   };
   
   const dadosMensais = prepararDadosMensais();
@@ -297,7 +298,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
       className="space-y-6 animate-fade-in"
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard Financeiro</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Finanças</h1>
         <Badge variant={statusOrcamento.variant} className="px-3 py-1.5 text-sm font-medium">
           {statusOrcamento.label}
         </Badge>
@@ -532,9 +533,37 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-medium text-gray-900">Tendência Mensal</h3>
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                        Últimos 6 meses
-                      </span>
+                      <Select
+                        value={monthRange}
+                        onValueChange={(value) => setMonthRange(value as "3" | "6" | "12")}
+                      >
+                        <SelectTrigger className="h-8 w-[180px] bg-blue-50/50 border-blue-100 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                            <span>Últimos {monthRange} meses</span>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="3">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                              Últimos 3 meses
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="6">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                              Últimos 6 meses
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="12">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                              Últimos 12 meses
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="text-sm text-gray-500 mt-1">Custos realizados ao longo do tempo</div>
@@ -590,112 +619,6 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
               </div>
             )}
           </div>
-          
-          {/* Gastos por Workpackage */}
-          {dadosWorkpackages.length > 0 && (
-            <div 
-              className="rounded-xl bg-white p-6 shadow-sm animate-slide-up"
-              style={{animationDelay: "0.5s"}}
-            >
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">Gastos por Workpackage</h3>
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={workpackageSort}
-                      onValueChange={(value) => setWorkpackageSort(value as "valor" | "nome")}
-                    >
-                      <SelectTrigger className="h-8 w-[180px] bg-blue-50/50 border-blue-100 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          {workpackageSort === "valor" ? (
-                            <DollarSign className="h-3.5 w-3.5 text-blue-600" />
-                          ) : (
-                            <ArrowUpDown className="h-3.5 w-3.5 text-blue-600" />
-                          )}
-                          <span>
-                            {workpackageSort === "valor" ? "Ordenar por valor" : "Ordenar alfabeticamente"} 
-                          </span>
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="valor">
-                          <div className="flex items-center">
-                            <DollarSign className="h-4 w-4 mr-2 text-blue-600" />
-                            Ordenar por valor
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="nome">
-                          <div className="flex items-center">
-                            <ArrowUpDown className="h-4 w-4 mr-2 text-blue-600" />
-                            Ordenar alfabeticamente
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                      {dadosWorkpackages.length} workpackages
-                    </span>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-500 mt-1">Custos por trabalho realizado</div>
-              </div>
-              
-              <div className="h-[400px] mt-6">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart 
-                    data={dadosWorkpackages.slice(0, 6)} 
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={true} vertical={false} />
-                    <XAxis 
-                      type="number"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#6B7280', fontSize: 12 }}
-                      tickFormatter={(value) => `${value / 1000}k €`}
-                    />
-                    <YAxis 
-                      dataKey="nome" 
-                      type="category"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#6B7280', fontSize: 12 }}
-                      width={150}
-                    />
-                    <Tooltip
-                      formatter={(value) => formatCurrency(value as number)}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        borderRadius: '0.5rem',
-                        border: '1px solid #E5E7EB',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="valor" 
-                      name="Custo" 
-                      fill="#3B82F6" 
-                      radius={[0, 4, 4, 0]} 
-                      barSize={24}
-                      label={{
-                        position: 'right',
-                        formatter: (value: number) => formatCurrency(value),
-                        fill: '#6B7280',
-                        fontSize: 12
-                      }}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              
-              {dadosWorkpackages.length > 6 && (
-                <div className="text-center text-sm text-gray-500 mt-4">
-                  Mostrando os top 6 workpackages por custo. {dadosWorkpackages.length - 6} outros não mostrados.
-                </div>
-              )}
-            </div>
-          )}
         </TabsContent>
 
         <TabsContent value="detalhes" className="space-y-6">

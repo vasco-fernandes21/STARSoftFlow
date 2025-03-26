@@ -1,14 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Package, XCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Package, ChevronDown, ChevronRight } from "lucide-react";
 import { WorkpackageCompleto } from "@/components/projetos/types";
 import { useMutations } from "@/hooks/useMutations";
 import { Form as MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash } from "lucide-react";
-import { toast } from "sonner";
-import { Rubrica, Material } from "@prisma/client";
+import { Rubrica } from "@prisma/client";
 import { motion } from "framer-motion";
 import { Item as MaterialItem } from "@/components/projetos/criar/novo/workpackages/material/item";
 import { formatCurrency } from "@/lib/utils";
@@ -21,6 +19,21 @@ interface WorkpackageMateriaisProps {
   projetoId?: string;
 }
 
+// Interface base para material
+interface MaterialBase {
+  id?: number;
+  nome: string;
+  preco: number;
+  quantidade: number;
+  ano_utilizacao: number;
+  rubrica: Rubrica;
+}
+
+// Interface para o formulário (usando null para campos opcionais)
+interface MaterialFormValues extends MaterialBase {
+  descricao: string | null;
+}
+
 // Mapeamento de rubricas para variantes de badge
 const rubricaParaVariante: Record<Rubrica, "blue" | "purple" | "indigo" | "orange" | "red" | "default"> = {
   MATERIAIS: "blue",
@@ -28,7 +41,7 @@ const rubricaParaVariante: Record<Rubrica, "blue" | "purple" | "indigo" | "orang
   OUTROS_SERVICOS: "indigo",
   DESLOCACAO_ESTADIAS: "orange",
   OUTROS_CUSTOS: "red",
-  CUSTOS_ESTRUTURA: "default" // emerald (verde) já é o default
+  CUSTOS_ESTRUTURA: "default"
 };
 
 export function WorkpackageMateriais({ 
@@ -39,115 +52,7 @@ export function WorkpackageMateriais({
   const [showForm, setShowForm] = useState(false);
   const [expandedRubricas, setExpandedRubricas] = useState<Record<string, boolean>>({});
   
-  // Usar mutations com o projetoId especificado
-  const mutations = useMutations(projetoId);
-  
-  // Handler para adicionar/atualizar material
-  const handleSubmitMaterial = useCallback((workpackageId: string, material: {
-    id?: number;
-    nome: string;
-    descricao: string | null;
-    preco: number;
-    quantidade: number;
-    ano_utilizacao: number;
-    rubrica: Material['rubrica'];
-  }) => {
-    if (material.id) {
-      // Preparar os dados para o servidor, garantindo compatibilidade com a API
-      const updateData = {
-        id: material.id,
-        workpackageId,
-        nome: material.nome,
-        // Se descricao for null, não envie o campo - deixe indefinido
-        ...(material.descricao !== null && { descricao: material.descricao }),
-        preco: material.preco,
-        quantidade: material.quantidade,
-        ano_utilizacao: material.ano_utilizacao,
-        rubrica: material.rubrica
-      };
-
-      // Enviar para o servidor
-      mutations.material.update.mutate(updateData);
-    } else {
-      // Enviar para o servidor
-      mutations.material.create.mutate({
-        workpackageId,
-        nome: material.nome,
-        descricao: material.descricao || undefined, // Converter null para undefined
-        preco: material.preco,
-        quantidade: material.quantidade,
-        ano_utilizacao: material.ano_utilizacao,
-        rubrica: material.rubrica
-      });
-    }
-    
-    // Fechar o formulário
-    setShowForm(false);
-  }, [mutations.material]);
-  
-  // Wrapper para compatibilidade de tipos para o componente MaterialItem
-  const handleEditMaterial = useCallback((workpackageId: string, material: {
-    id: number;
-    nome: string;
-    descricao?: string | undefined;
-    preco: number;
-    quantidade: number;
-    ano_utilizacao: number;
-    rubrica: Rubrica;
-  }) => {
-    // Converter descricao: string | undefined para string | null
-    handleSubmitMaterial(workpackageId, {
-      ...material,
-      descricao: material.descricao ?? null
-    });
-  }, [handleSubmitMaterial]);
-  
-  // Handler para alternar o estado do material
-  const handleToggleEstado = useCallback(async (id: number, estado: boolean) => {
-    try {
-      console.log("Enviando apenas atualização de estado:", { id, estado });
-      
-      // Enviar apenas o ID e o estado para atualização
-      await mutations.material.update.mutate({
-        id,
-        workpackageId,
-        estado
-      });
-      
-      // Mostrar mensagem de sucesso
-      toast.success(
-        estado 
-          ? "Material marcado como concluído" 
-          : "Material marcado como pendente"
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar estado do material:", error);
-      toast.error("Erro ao atualizar estado do material");
-    }
-  }, [mutations.material, workpackageId]);
-  
-  // Handler para remover material
-  const handleRemoveMaterial = useCallback((id: number) => {
-    // Confirmar antes de apagar
-    if (!confirm("Tem a certeza que deseja apagar este material?")) {
-      return;
-    }
-    
-    // Enviar para o servidor
-    mutations.material.delete.mutate(id);
-  }, [mutations.material]);
-  
-  const formatarRubrica = (rubrica: string) => {
-    switch (rubrica) {
-      case "MATERIAIS": return "Materiais";
-      case "SERVICOS_TERCEIROS": return "Serviços de Terceiros";
-      case "OUTROS_SERVICOS": return "Outros Serviços";
-      case "DESLOCACAO_ESTADIAS": return "Deslocações e Estadias";
-      case "OUTROS_CUSTOS": return "Outros Custos";
-      case "CUSTOS_ESTRUTURA": return "Custos de Estrutura";
-      default: return rubrica;
-    }
-  };
+  const { material: materialMutations } = useMutations(projetoId);
   
   // Calcular o valor total (preço x quantidade) com segurança
   const calcularTotal = (preco: Decimal | number, quantidade: number): number => {
@@ -190,11 +95,34 @@ export function WorkpackageMateriais({
       [rubrica]: !prev[rubrica]
     }));
   };
+
+  const formatarRubrica = (rubrica: string) => {
+    switch (rubrica) {
+      case "MATERIAIS": return "Materiais";
+      case "SERVICOS_TERCEIROS": return "Serviços de Terceiros";
+      case "OUTROS_SERVICOS": return "Outros Serviços";
+      case "DESLOCACAO_ESTADIAS": return "Deslocações e Estadias";
+      case "OUTROS_CUSTOS": return "Outros Custos";
+      case "CUSTOS_ESTRUTURA": return "Custos de Estrutura";
+      default: return rubrica;
+    }
+  };
   
   // Agrupar os materiais por rubrica
   const materiaisPorRubrica = agruparPorRubrica();
   const totalGeral = calcularTotalGeral();
   
+  // Wrapper para o MaterialForm.onSubmit
+  const handleFormSubmit = (formValues: MaterialFormValues) => {
+    materialMutations.handleSubmit(workpackage.id, formValues, materialMutations);
+    setShowForm(false);
+  };
+
+  // Wrapper para o MaterialItem.onEdit
+  const handleItemEdit = (formValues: MaterialFormValues) => {
+    materialMutations.handleSubmit(workpackage.id, formValues, materialMutations);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -230,7 +158,10 @@ export function WorkpackageMateriais({
                 inicio: workpackage.inicio,
                 fim: workpackage.fim
               }}
-              onSubmit={handleSubmitMaterial}
+              onSubmit={(_, material) => handleFormSubmit({
+                ...material,
+                descricao: material.descricao || null
+              })}
               onCancel={() => setShowForm(false)}
             />
           </motion.div>
@@ -303,25 +234,33 @@ export function WorkpackageMateriais({
                 
                 {expandedRubricas[grupo.rubrica] && (
                   <div className="border-t border-gray-100 divide-y divide-gray-100">
-                    {grupo.materiais.map((material: any) => (
-                      <MaterialItem
-                        key={`${material.id}-${workpackage.id}`}
-                        material={{
-                          id: material.id,
-                          nome: material.nome,
-                          descricao: material.descricao || undefined,
-                          preco: Number(material.preco),
-                          quantidade: material.quantidade,
-                          ano_utilizacao: material.ano_utilizacao,
-                          rubrica: material.rubrica,
-                          workpackageId: workpackage.id,
-                          estado: material.estado
-                        }}
-                        onEdit={handleEditMaterial}
-                        onRemove={() => handleRemoveMaterial(material.id)}
-                        onToggleEstado={handleToggleEstado}
-                      />
-                    ))}
+                    {grupo.materiais.map((material: any) => {
+                      // Garantir que descricao é sempre string | null
+                      const descricao = material.descricao === undefined ? null : material.descricao;
+                      
+                      return (
+                        <MaterialItem
+                          key={`${material.id}-${workpackage.id}`}
+                          material={{
+                            id: material.id,
+                            nome: material.nome,
+                            descricao,
+                            preco: Number(material.preco),
+                            quantidade: material.quantidade,
+                            ano_utilizacao: material.ano_utilizacao,
+                            rubrica: material.rubrica,
+                            workpackageId: workpackage.id,
+                            estado: material.estado
+                          }}
+                          onEdit={(_, material) => handleItemEdit({
+                            ...material,
+                            descricao: material.descricao || null
+                          })}
+                          onRemove={() => materialMutations.handleRemove(material.id, materialMutations)}
+                          onToggleEstado={(id, estado) => materialMutations.handleToggleEstado(id, estado, workpackage.id, materialMutations)}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>

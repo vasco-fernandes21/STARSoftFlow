@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
+import { Material, Rubrica } from "@prisma/client";
 
 // Types for updates
 interface WorkpackageUpdate {
@@ -28,6 +29,51 @@ interface EntregavelCreate {
   anexo?: string | null;
   estado?: boolean;
   tarefaId: string;
+}
+
+interface MaterialCreate {
+  workpackageId: string;
+  nome: string;
+  descricao?: string;
+  preco: number;
+  quantidade: number;
+  ano_utilizacao: number;
+  rubrica: Rubrica;
+}
+
+interface MaterialUpdate {
+  id: number;
+  workpackageId?: string;
+  data?: {
+    nome?: string;
+    descricao?: string;
+    preco?: number;
+    quantidade?: number;
+    ano_utilizacao?: number;
+    rubrica?: Rubrica;
+    estado?: boolean;
+  };
+}
+
+interface MaterialFormData {
+  id?: number;
+  nome: string;
+  descricao: string | null;
+  preco: number;
+  quantidade: number;
+  ano_utilizacao: number;
+  rubrica: Rubrica;
+  workpackageId?: string;
+}
+
+// Material mutations interface
+interface MaterialMutations {
+  create: ReturnType<typeof api.material.create.useMutation>;
+  update: ReturnType<typeof api.material.update.useMutation>;
+  delete: ReturnType<typeof api.material.delete.useMutation>;
+  handleSubmit: (workpackageId: string, material: Omit<MaterialFormData, 'workpackageId'>, mutations: MaterialMutations) => void;
+  handleToggleEstado: (id: number, estado: boolean, workpackageId: string, mutations: MaterialMutations) => Promise<void>;
+  handleRemove: (id: number, mutations: MaterialMutations) => void;
 }
 
 interface EntregavelUpdate {
@@ -368,10 +414,11 @@ export function useMutations(projetoId?: string) {
   };
 
   // Material mutations
-  const materialMutations = {
+  const createMaterialMutations = (projetoId?: string, queryClient?: ReturnType<typeof useQueryClient>): MaterialMutations => ({
     create: api.material.create.useMutation({
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
+        toast.success("Material adicionado com sucesso");
       },
       onSettled: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -383,15 +430,38 @@ export function useMutations(projetoId?: string) {
     }),
     
     update: api.material.update.useMutation({
-      onMutate: async (variables) => {
-        // Cancelar queries em andamento
-        await queryClient.cancelQueries({
-          queryKey: ['workpackage.getByWorkpackage']
+      onMutate: async (variables: MaterialUpdate) => {
+        // if only id is provided, we toggle the state
+        const updateData = variables.data || { estado: undefined };
+        if (!variables.data) {
+          const currentData = queryClient?.getQueryData(['material.findById', variables.id]) as any;
+          if (currentData) {
+            updateData.estado = !currentData.estado;
+          }
+        }
+
+        // Cancel pending queries
+        await queryClient?.cancelQueries({
+          queryKey: ['material.findById', variables.id]
         });
+
+        // Store current state
+        const previousMaterialData = queryClient?.getQueryData(['material.findById', variables.id]);
+        let previousProjetoData;
         
-        // Otimisticamente atualizar o estado na UI
         if (projetoId) {
-          queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
+          previousProjetoData = queryClient?.getQueryData(['projeto.findById', projetoId]);
+        }
+
+        // Update material cache optimistically
+        queryClient?.setQueryData(['material.findById', variables.id], (old: any) => {
+          if (!old) return old;
+          return { ...old, ...updateData };
+        });
+
+        // Update project cache optimistically
+        if (projetoId) {
+          queryClient?.setQueryData(['projeto.findById', projetoId], (old: any) => {
             if (!old?.workpackages) return old;
             
             return {
@@ -399,25 +469,40 @@ export function useMutations(projetoId?: string) {
               workpackages: old.workpackages.map((wp: any) => ({
                 ...wp,
                 materiais: wp.materiais?.map((m: any) => 
-                  m.id === variables.id ? { ...m, ...variables } : m
+                  m.id === variables.id ? { ...m, ...updateData } : m
                 )
               }))
             };
           });
         }
-        
-        return { previousProjetoData: queryClient.getQueryData(['projeto.findById', projetoId]) };
+
+        return { previousMaterialData, previousProjetoData };
       },
-      onSuccess: async () => {
+      onSuccess: async (_data, variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
+        if (variables.data?.estado !== undefined) {
+          toast.success(variables.data.estado ? "Material marcado como concluído" : "Material marcado como pendente");
+        } else {
+          toast.success("Material atualizado com sucesso");
+        }
       },
       onSettled: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onError: (error, variables, context: any) => {
-        // Reverter mudanças otimistas em caso de erro
-        if (context?.previousProjetoData && projetoId) {
-          queryClient.setQueryData(['projeto.findById', projetoId], context.previousProjetoData);
+        // Revert optimistic updates on error
+        if (context?.previousMaterialData) {
+          queryClient?.setQueryData(
+            ['material.findById', variables.id], 
+            context.previousMaterialData
+          );
+        }
+        
+        if (projetoId && context?.previousProjetoData) {
+          queryClient?.setQueryData(
+            ['projeto.findById', projetoId],
+            context.previousProjetoData
+          );
         }
         
         console.error("Erro ao atualizar material:", error);
@@ -428,6 +513,7 @@ export function useMutations(projetoId?: string) {
     delete: api.material.delete.useMutation({
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
+        toast.success("Material removido com sucesso");
       },
       onSettled: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -436,13 +522,56 @@ export function useMutations(projetoId?: string) {
         console.error("Erro ao apagar material:", error);
         toast.error("Erro ao apagar material");
       }
-    })
-  };
+    }),
+
+    // Helper functions
+    handleSubmit: (workpackageId: string, material: Omit<MaterialFormData, 'workpackageId'>, mutations: MaterialMutations) => {
+      if (material.id) {
+        mutations.update.mutate({
+          id: material.id,
+          workpackageId,
+          data: {
+            nome: material.nome,
+            descricao: material.descricao === null ? undefined : material.descricao,
+            preco: material.preco,
+            quantidade: material.quantidade,
+            ano_utilizacao: material.ano_utilizacao,
+            rubrica: material.rubrica
+          }
+        });
+      } else {
+        mutations.create.mutate({
+          workpackageId,
+          nome: material.nome,
+          descricao: material.descricao === null ? undefined : material.descricao,
+          preco: material.preco,
+          quantidade: material.quantidade,
+          ano_utilizacao: material.ano_utilizacao,
+          rubrica: material.rubrica
+        });
+      }
+    },
+
+    handleToggleEstado: async (id: number, estado: boolean, workpackageId: string, mutations: MaterialMutations) => {
+      await mutations.update.mutate({
+        id,
+        workpackageId,
+        data: { estado }
+      });
+    },
+
+    handleRemove: (id: number, mutations: MaterialMutations) => {
+      if (!confirm("Tem a certeza que deseja apagar este material?")) {
+        return;
+      }
+      mutations.delete.mutate(id);
+    }
+  });
 
   return {
     workpackage: workpackageMutations,
     tarefa: tarefaMutations,
     entregavel: entregavelMutations,
-    material: materialMutations
+    material: createMaterialMutations(projetoId, queryClient)
   };
 }

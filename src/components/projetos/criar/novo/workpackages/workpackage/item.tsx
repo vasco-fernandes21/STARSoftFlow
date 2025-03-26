@@ -1,107 +1,227 @@
 import { useState } from "react";
+import { 
+  ListTodo, 
+  Package, 
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Info,
+  Users
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Edit, Trash, ChevronDown, ChevronUp, ListTodo, Package, Calendar } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
-import { WorkpackageWithRelations } from "../../../../types";
-import { WorkpackageDetails } from "./details";
-import { WorkpackageHandlers } from "@/app/projetos/criar/page";
+import { WorkpackageWithRelations } from "@/components/projetos/types";
+import { TarefaForm } from "../tarefas/form";
+import { Form as MaterialForm } from "../material/form";
+import { TarefaItem } from "../tarefas/item";
+import { Item as MaterialItem } from "../material/item";
+import { cn } from "@/lib/utils";
+import { Decimal } from "@prisma/client/runtime/library";
+import { Prisma, Rubrica } from "@prisma/client";
+
+type TarefaCreateInput = Prisma.TarefaCreateInput;
+type MaterialCreateInput = Prisma.MaterialCreateInput;
+type EntregavelCreateInput = Prisma.EntregavelCreateInput;
 
 interface WorkpackageItemProps {
   workpackage: WorkpackageWithRelations;
-  onEdit: (wp: WorkpackageWithRelations) => void;
+  onEdit: (workpackage: WorkpackageWithRelations) => void;
   onDelete: (id: string) => void;
-  handlers: WorkpackageHandlers;
+  handlers: {
+    addTarefa: (workpackageId: string, tarefa: Omit<TarefaCreateInput, "workpackage">) => Promise<void>;
+    updateTarefa: (workpackageId: string, tarefaId: string, data: Partial<TarefaCreateInput>) => Promise<void>;
+    removeTarefa: (workpackageId: string, tarefaId: string) => Promise<void>;
+    addMaterial: (workpackageId: string, material: Omit<MaterialCreateInput, "workpackage">) => Promise<void>;
+    updateMaterial: (workpackageId: string, materialId: number, data: Partial<MaterialCreateInput>) => Promise<void>;
+    removeMaterial: (workpackageId: string, materialId: number) => Promise<void>;
+    addEntregavel: (tarefaId: string, entregavel: Omit<EntregavelCreateInput, "tarefa">) => Promise<void>;
+    updateEntregavel: (id: string, data: Partial<EntregavelCreateInput>) => Promise<void>;
+    removeEntregavel: (id: string) => Promise<void>;
+  };
   projetoInicio: Date;
   projetoFim: Date;
 }
 
-export function WorkpackageItem({ workpackage, onEdit, onDelete, handlers }: WorkpackageItemProps) {
-  const [expanded, setExpanded] = useState(false);
+export function WorkpackageItem({
+  workpackage,
+  onEdit,
+  onDelete,
+  handlers,
+  projetoInicio,
+  projetoFim
+}: WorkpackageItemProps) {
+  // Estados locais
+  const [addingTarefa, setAddingTarefa] = useState(false);
+  const [addingMaterial, setAddingMaterial] = useState(false);
+
+  // Contadores
+  const tarefasCount = workpackage.tarefas?.length || 0;
+  const materiaisCount = workpackage.materiais?.length || 0;
+  const recursosCount = [...new Set(workpackage.recursos?.map(r => r.userId))].length || 0;
 
   return (
-    <div className="space-y-2">
-      <div 
-        className="p-3 border border-azul/10 rounded-xl bg-white/70 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
+    <div className="space-y-6">
+      {/* Seção de Tarefas */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-lg bg-azul/10 flex items-center justify-center">
-              <Briefcase className="h-4.5 w-4.5 text-azul" />
-            </div>
-            <div>
-              <h3 className="text-base font-medium text-azul">{workpackage.nome}</h3>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                {/* Badge para Tarefas */}
-                <Badge 
-                  variant="outline" 
-                  className="px-1.5 py-0.5 text-xs bg-blue-50 text-blue-600 border-blue-200"
-                >
-                  <ListTodo className="h-3 w-3 mr-1" />
-                  {workpackage.tarefas?.length || 0}
-                </Badge>
-                
-                {/* Badge para Materiais */}
-                <Badge 
-                  variant="outline" 
-                  className="px-1.5 py-0.5 text-xs bg-amber-50 text-amber-600 border-amber-200"
-                >
-                  <Package className="h-3 w-3 mr-1" />
-                  {workpackage.materiais?.length || 0}
-                </Badge>
-                
-                {workpackage.inicio && workpackage.fim && (
-                  <span className="flex items-center text-xs text-azul/70">
-                    <Calendar className="h-3 w-3 mr-1 text-azul/60" />
-                    {format(new Date(workpackage.inicio), "dd MMM yyyy", { locale: ptBR })} - {" "}
-                    {format(new Date(workpackage.fim), "dd MMM yyyy", { locale: ptBR })}
-                  </span>
-                )}
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <ListTodo className="h-4 w-4 text-azul" />
+            <h3 className="text-sm font-medium text-azul">Tarefas</h3>
+            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+              {tarefasCount}
+            </Badge>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(workpackage);
-              }}
-              className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10 text-azul"
-            >
-              <Edit className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(workpackage.id);
-              }}
-              className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 text-red-500"
-            >
-              <Trash className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10 text-azul"
-            >
-              {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAddingTarefa(!addingTarefa)}
+            className="h-8 border-azul/20 text-azul hover:bg-azul/5"
+          >
+            {addingTarefa ? (
+              <>Cancelar</>
+            ) : (
+              <>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Adicionar Tarefa
+              </>
+            )}
+          </Button>
         </div>
+
+        {/* Formulário de Adição de Tarefa */}
+        {addingTarefa && (
+          <Card className="p-4 border-azul/10">
+            <TarefaForm
+              workpackageId={workpackage.id}
+              workpackageInicio={new Date(workpackage.inicio || projetoInicio)}
+              workpackageFim={new Date(workpackage.fim || projetoFim)}
+              onSubmit={async (workpackageId, tarefa) => {
+                await handlers.addTarefa(workpackageId, tarefa);
+                setAddingTarefa(false);
+              }}
+              onCancel={() => setAddingTarefa(false)}
+            />
+          </Card>
+        )}
+
+        {/* Lista de Tarefas */}
+        <ScrollArea className="max-h-[400px]">
+          <div className="space-y-3">
+            {workpackage.tarefas?.map((tarefa) => (
+              <TarefaItem
+                key={tarefa.id}
+                tarefa={tarefa}
+                workpackageId={workpackage.id}
+                workpackageInicio={new Date(workpackage.inicio || projetoInicio)}
+                workpackageFim={new Date(workpackage.fim || projetoFim)}
+                onUpdate={async () => {
+                  // Refresh workpackage data after update
+                  onEdit(workpackage);
+                }}
+                onRemove={async () => {
+                  await handlers.removeTarefa(workpackage.id, tarefa.id);
+                }}
+                onEdit={async (data) => {
+                  await handlers.updateTarefa(workpackage.id, tarefa.id, data);
+                }}
+                onAddEntregavel={async (tarefaId, entregavel) => {
+                  await handlers.addEntregavel(tarefaId, entregavel);
+                }}
+                onEditEntregavel={async (id, data) => {
+                  await handlers.updateEntregavel(id, data);
+                }}
+                onRemoveEntregavel={async (id) => {
+                  await handlers.removeEntregavel(id);
+                }}
+              />
+            ))}
+            {!workpackage.tarefas?.length && !addingTarefa && (
+              <div className="text-center py-8 bg-slate-50/50 border border-azul/10 rounded-lg">
+                <ListTodo className="h-8 w-8 text-azul/30 mx-auto mb-2" />
+                <p className="text-sm text-azul/60">Nenhuma tarefa adicionada</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       </div>
 
-      {expanded && (
-        <WorkpackageDetails 
-          workpackage={workpackage} 
-          handlers={handlers} 
-        />
-      )}
+      <Separator className="my-6 bg-azul/10" />
+
+      {/* Seção de Materiais */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-azul" />
+            <h3 className="text-sm font-medium text-azul">Materiais</h3>
+            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">
+              {materiaisCount}
+            </Badge>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAddingMaterial(!addingMaterial)}
+            className="h-8 border-azul/20 text-azul hover:bg-azul/5"
+          >
+            {addingMaterial ? (
+              <>Cancelar</>
+            ) : (
+              <>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Adicionar Material
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Formulário de Adição de Material */}
+        {addingMaterial && (
+          <Card className="p-4 border-azul/10">
+            <MaterialForm
+              workpackageId={workpackage.id}
+              onSubmit={async (workpackageId, material) => {
+                await handlers.addMaterial(workpackageId, material);
+                setAddingMaterial(false);
+              }}
+              onCancel={() => setAddingMaterial(false)}
+            />
+          </Card>
+        )}
+
+        {/* Lista de Materiais */}
+        <ScrollArea className="max-h-[400px]">
+          <div className="space-y-3">
+            {workpackage.materiais?.map((material) => (
+              <MaterialItem
+                key={material.id}
+                material={{
+                  ...material,
+                  preco: Number(material.preco),
+                  workpackageId: material.workpackageId || workpackage.id
+                }}
+                onEdit={async (workpackageId, data) => {
+                  await handlers.updateMaterial(workpackageId, material.id, data);
+                }}
+                onRemove={async () => {
+                  await handlers.removeMaterial(workpackage.id, material.id);
+                }}
+              />
+            ))}
+            {!workpackage.materiais?.length && !addingMaterial && (
+              <div className="text-center py-8 bg-slate-50/50 border border-azul/10 rounded-lg">
+                <Package className="h-8 w-8 text-azul/30 mx-auto mb-2" />
+                <p className="text-sm text-azul/60">Nenhum material adicionado</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   );
 }

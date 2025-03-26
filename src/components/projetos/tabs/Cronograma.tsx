@@ -1,4 +1,5 @@
 import type { Workpackage, Tarefa } from "@prisma/client";
+import type { Decimal } from "@prisma/client/runtime/library";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { MenuTarefa } from "@/components/projetos/menus/tarefa";
@@ -39,11 +40,11 @@ interface WorkpackageWithTarefas extends Workpackage {
     userId: string;
     mes: number;
     ano: number;
-    ocupacao: string | number | any;
+    ocupacao: Decimal;
     user: {
       id: string;
       name: string | null;
-      salario: string | number | null;
+      salario: Decimal | null;
     };
   }[];
 }

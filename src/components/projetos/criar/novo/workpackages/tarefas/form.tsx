@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -45,7 +44,6 @@ export function TarefaForm({
       return;
     }
 
-    // Verificar se as datas estão dentro do período do workpackage
     if (formData.inicio < workpackageInicio) {
       toast.error("A data de início não pode ser anterior à data de início do workpackage");
       return;
@@ -66,16 +64,7 @@ export function TarefaForm({
   };
 
   return (
-    <Card className="p-3 border border-azul/10 shadow-sm bg-white/70 backdrop-blur-sm mt-2">
-      <div className="flex items-center gap-2 mb-2.5">
-        <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center">
-          <Clock className="h-3.5 w-3.5 text-azul" />
-        </div>
-        <h4 className="text-sm font-medium text-azul">
-          {initialData?.id ? "Editar Tarefa" : "Nova Tarefa"}
-        </h4>
-      </div>
-
+    <div className="p-4 border border-azul/10 rounded-lg bg-white/70 backdrop-blur-sm">
       <div className="grid gap-2.5">
         <div>
           <Label htmlFor="nome-tarefa" className="text-azul/80 text-xs">Nome da Tarefa</Label>
@@ -144,6 +133,6 @@ export function TarefaForm({
           </Button>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

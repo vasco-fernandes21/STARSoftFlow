@@ -35,6 +35,7 @@ interface MaterialItemProps {
   onRemove: () => void;
   onUpdate?: () => void;
   onToggleEstado?: (id: number, estado: boolean) => Promise<void>;
+  hideState?: boolean;
 }
 
 // Mapeamento de rubricas para variantes de badge
@@ -66,7 +67,8 @@ export function Item({
   onEdit,
   onRemove,
   onUpdate,
-  onToggleEstado
+  onToggleEstado,
+  hideState = false
 }: MaterialItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -221,7 +223,7 @@ export function Item({
       >
         <div className="flex justify-between items-start">
           <div className="flex items-start gap-3">
-            {onToggleEstado ? (
+            {!hideState && onToggleEstado ? (
               <button
                 onClick={handleToggleEstado}
                 className={cn(
@@ -249,7 +251,7 @@ export function Item({
                   {obterNomeRubrica(localMaterial.rubrica)}
                 </Badge>
                 
-                {localMaterial.estado !== undefined && (
+                {!hideState && localMaterial.estado !== undefined && (
                   <Badge variant={localMaterial.estado ? "default" : "outline"} className={cn(
                     "px-1 py-0 text-[10px] h-4",
                     localMaterial.estado 

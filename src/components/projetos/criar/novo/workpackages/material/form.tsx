@@ -51,6 +51,9 @@ export function Form({
   // verificar se é modo de edição
   const isEditMode = !!initialValues?.id;
   
+  // Verificar se está no modo de edição com base nas inicialValues
+  const editMode = initialValues !== undefined;
+  
   // Calcular os anos válidos com base nas datas do workpackage
   const { anoMinimo, anoMaximo, anosDisponiveis } = useMemo(() => {
     const dataAtual = new Date();
@@ -169,7 +172,8 @@ export function Form({
     if (validarFormulario()) {
       // Preparar o objeto de dados garantindo que descricao seja sempre string ou null
       const materialData = {
-        ...(isEditMode && { id: initialValues!.id }),
+        // Se estiver em modo de edição, manter o ID existente se disponível
+        ...(editMode && initialValues?.id && { id: initialValues.id }),
         nome,
         descricao: descricao === "" ? null : descricao,
         preco,
@@ -195,22 +199,22 @@ export function Form({
   };
   
   return (
-    <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
+    <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden w-full">
       {/* Cabeçalho do Form */}
       <div className="p-4 flex justify-between items-center border-b border-azul/10 bg-white">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
-            {isEditMode ? 
+            {editMode ? 
               <Pencil className="h-4 w-4 text-azul" /> : 
               <Package className="h-4 w-4 text-azul" />
             }
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">
-              {isEditMode ? "Editar Material" : "Adicionar Material"}
+              {editMode ? "Editar Material" : "Adicionar Material"}
             </h5>
             <Badge variant="outline" className="px-2 py-0 text-[10px] h-5 bg-azul/5 text-azul/80 border-azul/20">
-              {isEditMode ? "Edição" : "Novo"}
+              {editMode ? "Edição" : "Novo"}
             </Badge>
           </div>
         </div>
@@ -226,9 +230,9 @@ export function Form({
       </div>
 
       {/* Conteúdo do Form */}
-      <form onSubmit={handleSubmit} className="p-4 bg-azul/5 space-y-6">
+      <form onSubmit={handleSubmit} className="p-4 bg-azul/5 space-y-6 w-full">
         {/* Informações Básicas */}
-        <div className="space-y-3">
+        <div className="space-y-3 w-full">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
               <Package className="h-3.5 w-3.5 text-azul" />
@@ -238,7 +242,7 @@ export function Form({
             </Label>
           </div>
           
-          <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-4">
+          <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-4 w-full">
             <TextField
               label="Nome do Material"
               value={nome}
@@ -259,7 +263,7 @@ export function Form({
         </div>
 
         {/* Informações Financeiras */}
-        <div className="space-y-3">
+        <div className="space-y-3 w-full">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
               <Percent className="h-3.5 w-3.5 text-azul" />
@@ -269,8 +273,8 @@ export function Form({
             </Label>
           </div>
           
-          <div className="bg-white rounded-lg p-4 border border-azul/10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-lg p-4 border border-azul/10 w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
               <MoneyField
                 label="Preço Unitário"
                 value={preco}
@@ -292,7 +296,7 @@ export function Form({
         </div>
 
         {/* Classificação */}
-        <div className="space-y-3">
+        <div className="space-y-3 w-full">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
               <Briefcase className="h-3.5 w-3.5 text-azul" />
@@ -302,8 +306,8 @@ export function Form({
             </Label>
           </div>
           
-          <div className="bg-white rounded-lg p-4 border border-azul/10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-lg p-4 border border-azul/10 w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
               {anosDisponiveis.length > 0 ? (
                 <SelectField
                   label="Ano de Utilização"
@@ -350,7 +354,7 @@ export function Form({
             type="submit" 
             className="h-9 px-6 rounded-lg bg-azul hover:bg-azul/90"
           >
-            {isEditMode ? (
+            {editMode ? (
               <>
                 <Save className="h-4 w-4 mr-2" />
                 Guardar Alterações
