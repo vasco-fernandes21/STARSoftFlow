@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Edit, Trash2, Coins, Hash, Calendar, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Package, Edit, Trash2, Coins, Hash, Calendar, ChevronDown, ChevronUp, Info, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Rubrica } from "@prisma/client";
 import { formatCurrency } from "@/lib/utils";
 import { Form } from "./form";
 import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
 interface Material {
   id: number;
@@ -17,6 +18,7 @@ interface Material {
   ano_utilizacao: number;
   rubrica: Rubrica;
   workpackageId?: string;
+  estado?: boolean;
 }
 
 interface MaterialItemProps {
@@ -32,6 +34,7 @@ interface MaterialItemProps {
   }) => void;
   onRemove: () => void;
   onUpdate?: () => void;
+  onToggleEstado?: (id: number, estado: boolean) => Promise<void>;
 }
 
 // Mapeamento de rubricas para variantes de badge
@@ -62,7 +65,8 @@ export function Item({
   material,
   onEdit,
   onRemove,
-  onUpdate
+  onUpdate,
+  onToggleEstado
 }: MaterialItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -144,6 +148,47 @@ export function Item({
     }
   };
   
+  // Handler para alternar estado do material
+  const handleToggleEstado = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!onToggleEstado) return;
+    
+    // Valor atual do estado
+    const currentEstado = localMaterial.estado ?? false;
+    // Novo estado (inverso do atual)
+    const novoEstado = !currentEstado;
+    
+    try {
+      console.log("Alterando estado no item:", {
+        id: localMaterial.id,
+        estadoAtual: currentEstado,
+        novoEstado: novoEstado
+      });
+      
+      // Atualizar o estado local imediatamente para feedback instantâneo
+      setLocalMaterial(prev => ({
+        ...prev,
+        estado: novoEstado
+      }));
+      
+      // Chamar a função que faz a mutation para o servidor
+      await onToggleEstado(localMaterial.id, novoEstado);
+      
+      // Chamar onUpdate se existir
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error("Erro ao alternar estado:", error);
+      // Reverter a mudança local em caso de erro
+      setLocalMaterial(prev => ({
+        ...prev,
+        estado: currentEstado
+      }));
+    }
+  };
+  
   // Se estiver em modo de edição, mostrar o formulário
   if (isEditing) {
     return (
@@ -176,9 +221,23 @@ export function Item({
       >
         <div className="flex justify-between items-start">
           <div className="flex items-start gap-3">
-            <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center mt-0.5">
-              <Package className="h-3.5 w-3.5 text-azul" />
-            </div>
+            {onToggleEstado ? (
+              <button
+                onClick={handleToggleEstado}
+                className={cn(
+                  "h-7 w-7 rounded-lg border flex items-center justify-center transition-colors",
+                  localMaterial.estado 
+                    ? "bg-emerald-500 border-emerald-500/10 text-white" 
+                    : "border-zinc-300 bg-white hover:bg-zinc-100"
+                )}
+              >
+                {localMaterial.estado && <Check className="h-3.5 w-3.5" />}
+              </button>
+            ) : (
+              <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center mt-0.5">
+                <Package className="h-3.5 w-3.5 text-azul" />
+              </div>
+            )}
             <div>
               <h5 className="text-sm font-medium text-azul">{localMaterial.nome}</h5>
               
@@ -189,6 +248,17 @@ export function Item({
                 >
                   {obterNomeRubrica(localMaterial.rubrica)}
                 </Badge>
+                
+                {localMaterial.estado !== undefined && (
+                  <Badge variant={localMaterial.estado ? "default" : "outline"} className={cn(
+                    "px-1 py-0 text-[10px] h-4",
+                    localMaterial.estado 
+                      ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                      : "bg-blue-50 text-azul border-blue-200"
+                  )}>
+                    {localMaterial.estado ? "Concluído" : "Em Progresso"}
+                  </Badge>
+                )}
                 
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Calendar className="h-3 w-3" />

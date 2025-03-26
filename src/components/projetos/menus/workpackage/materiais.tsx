@@ -102,6 +102,30 @@ export function WorkpackageMateriais({
     });
   }, [handleSubmitMaterial]);
   
+  // Handler para alternar o estado do material
+  const handleToggleEstado = useCallback(async (id: number, estado: boolean) => {
+    try {
+      console.log("Enviando apenas atualização de estado:", { id, estado });
+      
+      // Enviar apenas o ID e o estado para atualização
+      await mutations.material.update.mutate({
+        id,
+        workpackageId,
+        estado
+      });
+      
+      // Mostrar mensagem de sucesso
+      toast.success(
+        estado 
+          ? "Material marcado como concluído" 
+          : "Material marcado como pendente"
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar estado do material:", error);
+      toast.error("Erro ao atualizar estado do material");
+    }
+  }, [mutations.material, workpackageId]);
+  
   // Handler para remover material
   const handleRemoveMaterial = useCallback((id: number) => {
     // Confirmar antes de apagar
@@ -290,10 +314,12 @@ export function WorkpackageMateriais({
                           quantidade: material.quantidade,
                           ano_utilizacao: material.ano_utilizacao,
                           rubrica: material.rubrica,
-                          workpackageId: workpackage.id
+                          workpackageId: workpackage.id,
+                          estado: material.estado
                         }}
                         onEdit={handleEditMaterial}
                         onRemove={() => handleRemoveMaterial(material.id)}
+                        onToggleEstado={handleToggleEstado}
                       />
                     ))}
                   </div>

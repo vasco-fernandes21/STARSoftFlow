@@ -168,16 +168,16 @@ export function useMutations(projetoId?: string) {
         await queryClient.cancelQueries({
           queryKey: ['tarefa.findById', variables.id]
         });
-
+    
         const previousData = queryClient.getQueryData(['tarefa.findById', variables.id]);
-
-        // Update optimistically
+    
+        // Atualizar otimisticamente a tarefa no cache
         queryClient.setQueryData(['tarefa.findById', variables.id], (old: any) => {
           if (!old) return old;
           return { ...old, ...variables.data };
         });
-
-        // Update in projeto cache if exists
+    
+        // Atualizar a tarefa também no contexto do projeto, se aplicável
         if (projetoId) {
           queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
             if (!old?.workpackages) return old;
@@ -192,39 +192,28 @@ export function useMutations(projetoId?: string) {
             };
           });
         }
-
-        return { previousData };
-      },
-      onSuccess: async (_data, variables) => {
-        await invalidateProjetoRelatedQueries(projetoId);
-      },
-      onSettled: async () => {
-        await invalidateProjetoRelatedQueries(projetoId);
-      },
-      onError: (error, variables, context: any) => {
-        if (context?.previousData) {
-          queryClient.setQueryData(
-            ['tarefa.findById', variables.id], 
-            context.previousData
-          );
-        }
-        console.error("Erro ao atualizar tarefa:", error);
-        toast.error(`Erro ao atualizar: ${error.message}`);
-      }
-    }),
     
-    delete: api.tarefa.delete.useMutation({
+        return { previousData, previousProjetoData: queryClient.getQueryData(['projeto.findById', projetoId]) };
+      },
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onSettled: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
-      onError: (error) => {
-        console.error("Erro ao remover tarefa:", error);
-        toast.error("Erro ao remover tarefa");
+      onError: (error, variables, context: any) => {
+        // Reverter mudanças otimistas em caso de erro
+        if (context?.previousData) {
+          queryClient.setQueryData(['tarefa.findById', variables.id], context.previousData);
+        }
+        if (context?.previousProjetoData && projetoId) {
+          queryClient.setQueryData(['projeto.findById', projetoId], context.previousProjetoData);
+        }
+    
+        console.error("Erro ao atualizar tarefa:", error);
+        toast.error(`Erro ao atualizar: ${error.message}`);
       }
-    }),
+    }),    
   };
 
   // Entregável mutations
@@ -394,13 +383,43 @@ export function useMutations(projetoId?: string) {
     }),
     
     update: api.material.update.useMutation({
+      onMutate: async (variables) => {
+        // Cancelar queries em andamento
+        await queryClient.cancelQueries({
+          queryKey: ['workpackage.getByWorkpackage']
+        });
+        
+        // Otimisticamente atualizar o estado na UI
+        if (projetoId) {
+          queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
+            if (!old?.workpackages) return old;
+            
+            return {
+              ...old,
+              workpackages: old.workpackages.map((wp: any) => ({
+                ...wp,
+                materiais: wp.materiais?.map((m: any) => 
+                  m.id === variables.id ? { ...m, ...variables } : m
+                )
+              }))
+            };
+          });
+        }
+        
+        return { previousProjetoData: queryClient.getQueryData(['projeto.findById', projetoId]) };
+      },
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onSettled: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
-      onError: (error) => {
+      onError: (error, variables, context: any) => {
+        // Reverter mudanças otimistas em caso de erro
+        if (context?.previousProjetoData && projetoId) {
+          queryClient.setQueryData(['projeto.findById', projetoId], context.previousProjetoData);
+        }
+        
         console.error("Erro ao atualizar material:", error);
         toast.error("Erro ao atualizar material");
       }

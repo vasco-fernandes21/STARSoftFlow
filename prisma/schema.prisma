@@ -134,6 +134,7 @@ model Material {
     quantidade    Int
     rubrica       Rubrica     @default(MATERIAIS)  
     workpackageId String?     @map("workpackage_id") @db.Uuid
+    estado        Boolean     @default(false)
     
     // Relação direta com Workpackage
     workpackage   Workpackage? @relation(fields: [workpackageId], references: [id])
