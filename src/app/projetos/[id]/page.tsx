@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ProjetoEstado } from "@prisma/client";
-import { Cronograma } from "@/components/projetos/Cronograma";
+import { Cronograma } from "@/components/projetos/tabs/Cronograma";
 import { ProjetoFinancas } from "@/components/projetos/tabs/ProjetoFinancas";
 import { useQueryClient } from "@tanstack/react-query";
 

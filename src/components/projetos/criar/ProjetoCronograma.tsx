@@ -1,5 +1,5 @@
 import { Calendar } from "lucide-react";
-import { Cronograma } from "@/components/projetos/Cronograma";
+import { Cronograma } from "@/components/projetos/tabs/Cronograma";
 import { useProjetoForm } from "./ProjetoFormContext";
 
 interface ProjetoCronogramaProps {

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
 import StateMonitor from "@/components/projetos/StateMonitor";
+import { ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 
 import { 
   InformacoesTab,
@@ -801,25 +802,27 @@ function ProjetoFormContent() {
 
 export default function CriarProjetoPage() {
   return (
-    <div className="h-fit bg-gradient-to-b from-gray-50 to-gray-100 p-8 custom-blue-blur">
-      <div className="max-w-8xl mx-auto space-y-8">
-        {/* Cabeçalho modificado para incluir o botão de importação */}
-        <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <ProjetoHeader />
+    <PageLayout>
+      <ProjetoFormProvider>
+        <div className="h-full flex flex-col">
+          {/* Cabeçalho com o botão de importação */}
+          <div className="flex flex-col md:flex-row gap-6 justify-between items-center mb-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <ProjetoHeader />
+              </div>
+            </div>
+             
+            {/* Botão de importar Excel */}
+            <div className="flex-shrink-0 mt-4 md:mt-0 space-x-2">
+              <ImportarProjetoButton />
             </div>
           </div>
           
-          {/* Botão de importar Excel */}
-          <div className="flex-shrink-0 mt-4 md:mt-0 space-x-2">
-            <ImportarProjetoButton />
-          </div>
+          <ProjetoFormContent />
+          <StateMonitor />
         </div>
-
-        <ProjetoFormContent />
-        <StateMonitor />
-      </div>
-    </div>
+      </ProjetoFormProvider>
+    </PageLayout>
   );
 }

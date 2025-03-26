@@ -58,6 +58,7 @@ export const createProjetoCompletoSchema = z.object({
   fim: z.date().optional(),
   estado: z.nativeEnum(ProjetoEstado).optional().default(ProjetoEstado.RASCUNHO),
   financiamentoId: z.number().optional(),
+  responsavelId: z.string().optional(),
   overhead: z.number().min(0).max(100).default(0),
   taxa_financiamento: z.number().min(0).max(100).default(0),
   valor_eti: z.number().min(0).default(0),
@@ -306,6 +307,24 @@ export const projetoRouter = createTRPCRouter({
         });
       }
 
+      type AlocacaoWithDetails = {
+        id: string;
+        userId: string;
+        workpackageId: string;
+        mes: number;
+        ano: number;
+        ocupacao: Decimal;
+        user: {
+          id: string;
+          name: string | null;
+          salario: Decimal | null;
+        };
+        workpackage: {
+          id: string;
+          nome: string;
+        };
+      };
+
       const alocacoes = await ctx.db.alocacaoRecurso.findMany({
         where: {
           workpackage: { projetoId },
@@ -319,9 +338,15 @@ export const projetoRouter = createTRPCRouter({
               name: true,
               salario: true,
             }
+          },
+          workpackage: {
+            select: {
+              id: true,
+              nome: true
+            }
           }
         }
-      });
+      }) as AlocacaoWithDetails[];
 
       const materiais = await ctx.db.material.findMany({
         where: {
@@ -331,7 +356,10 @@ export const projetoRouter = createTRPCRouter({
       });
 
       const custosPorUser = alocacoes.reduce((acc, alocacao) => {
+        // Podemos confiar que user e workpackage existem, pois forçamos o tipo com AlocacaoWithDetails
         const user = alocacao.user;
+        const workpackage = alocacao.workpackage;
+        
         if (!acc[user.id]) {
           acc[user.id] = {
             user: {
@@ -340,17 +368,33 @@ export const projetoRouter = createTRPCRouter({
               salario: user.salario
             },
             totalAlocacao: new Decimal(0),
-            custoTotal: new Decimal(0)
+            custoTotal: new Decimal(0),
+            alocacoes: []
           };
         }
         
         if (alocacao.ocupacao) {
           acc[user.id].totalAlocacao = acc[user.id].totalAlocacao.plus(alocacao.ocupacao);
           
+          let custo = new Decimal(0);
           if (user.salario) {
-            const custo = alocacao.ocupacao.times(user.salario);
+            custo = alocacao.ocupacao.times(user.salario);
             acc[user.id].custoTotal = acc[user.id].custoTotal.plus(custo);
           }
+          
+          // Adicionar detalhe da alocação
+          acc[user.id].alocacoes.push({
+            alocacaoId: alocacao.id,
+            workpackage: {
+              id: workpackage.id,
+              nome: workpackage.nome
+            },
+            data: new Date(alocacao.ano, alocacao.mes - 1, 1), // Primeiro dia do mês
+            mes: alocacao.mes,
+            ano: alocacao.ano,
+            horas: alocacao.ocupacao.toNumber(), // Mantendo a precisão original
+            custo: custo.toNumber()  // Mantendo a precisão original
+          });
         }
         
         return acc;
@@ -358,6 +402,15 @@ export const projetoRouter = createTRPCRouter({
         user: { id: string; name: string; salario: Decimal | null };
         totalAlocacao: Decimal;
         custoTotal: Decimal;
+        alocacoes: Array<{
+          alocacaoId: string;
+          workpackage: { id: string; nome: string };
+          data: Date;
+          mes: number;
+          ano: number;
+          horas: number;
+          custo: number;
+        }>;
       }>);
 
       const totalAlocacao = Object.values(custosPorUser).reduce(
@@ -385,17 +438,22 @@ export const projetoRouter = createTRPCRouter({
       return {
         detalhesPorUser: Object.values(custosPorUser).map(item => ({
           user: item.user,
-          totalAlocacao: item.totalAlocacao.toNumber(),
-          custoTotal: item.custoTotal.toNumber()
+          totalAlocacao: item.totalAlocacao.toNumber(), // Mantendo a precisão completa
+          custoTotal: item.custoTotal.toNumber(), // Mantendo a precisão completa
+          alocacoes: item.alocacoes.sort((a, b) => {
+            // Ordenar por ano e depois por mês
+            if (a.ano !== b.ano) return a.ano - b.ano;
+            return a.mes - b.mes;
+          })
         })),
         resumo: {
-          totalAlocacao: totalAlocacao.toNumber(),
+          totalAlocacao: totalAlocacao.toNumber(), // Mantendo a precisão completa
           orcamento: {
-            estimado: orcamentoEstimado.toNumber(),
+            estimado: orcamentoEstimado.toNumber(), // Mantendo a precisão completa
             real: {
-              totalRecursos: totalCustoRecursos.toNumber(),
-              totalMateriais: totalCustoMateriais.toNumber(),
-              total: orcamentoReal.toNumber()
+              totalRecursos: totalCustoRecursos.toNumber(), // Mantendo a precisão completa
+              totalMateriais: totalCustoMateriais.toNumber(), // Mantendo a precisão completa
+              total: orcamentoReal.toNumber() // Mantendo a precisão completa
             }
           }
         }
@@ -421,6 +479,9 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
+        // Extrair o ID do utilizador da sessão
+        const userId = ctx.session.user.id;
+        
         const { 
           nome, 
           descricao, 
@@ -442,6 +503,10 @@ export const projetoRouter = createTRPCRouter({
           overhead,
           taxa_financiamento,
           valor_eti,
+          // Usar a sintaxe de relacionamento para o responsável
+          responsavel: {
+            connect: { id: userId }
+          },
           ...(financiamentoId ? {
             financiamento: {
               connect: { id: financiamentoId }
@@ -453,6 +518,13 @@ export const projetoRouter = createTRPCRouter({
           data: createData,
           include: {
             financiamento: true,
+            responsavel: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
           },
         });
         
@@ -589,6 +661,7 @@ export const projetoRouter = createTRPCRouter({
       fim: z.date().optional(),
       estado: z.nativeEnum(ProjetoEstado).optional().default(ProjetoEstado.RASCUNHO),
       financiamentoId: z.number().optional(),
+      responsavelId: z.string().optional(),
       overhead: z.number().min(0).max(100).default(0),
       taxa_financiamento: z.number().min(0).max(100).default(0),
       valor_eti: z.number().min(0).default(0),
@@ -696,6 +769,9 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
+        // Extrair o ID do utilizador da sessão
+        const userId = ctx.session.user.id;
+        
         const projeto = await ctx.db.projeto.create({
           data: {
             nome: input.nome,
@@ -706,8 +782,18 @@ export const projetoRouter = createTRPCRouter({
             overhead: input.overhead,
             taxa_financiamento: input.taxa_financiamento,
             valor_eti: input.valor_eti,
+            // Usar a sintaxe de relacionamento do Prisma para o responsável
+            responsavel: {
+              connect: {
+                id: input.responsavelId || userId
+              }
+            },
             ...(input.financiamentoId ? {
-              financiamentoId: input.financiamentoId
+              financiamento: {
+                connect: {
+                  id: input.financiamentoId
+                }
+              }
             } : {}),
             workpackages: {
               create: input.workpackages.map(wp => ({
@@ -746,6 +832,13 @@ export const projetoRouter = createTRPCRouter({
           },
           include: {
             financiamento: true,
+            responsavel: {
+              select: {
+                id: true, 
+                name: true,
+                email: true
+              }
+            },
             workpackages: {
               include: {
                 tarefas: {

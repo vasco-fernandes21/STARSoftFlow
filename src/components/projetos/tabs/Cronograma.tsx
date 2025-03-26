@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
 import { useMutations } from "@/hooks/useMutations";
-import { WorkpackageCompleto, ProjetoCompleto } from "./types";
+import { WorkpackageCompleto, ProjetoCompleto } from "../types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface CronogramaOptions {
@@ -550,7 +550,7 @@ export function Cronograma({
               open={!!selectedWorkpackage}
               projeto={projeto}
               workpackage={workpackages.find(wp => wp.id === selectedWorkpackage) as any}
-            />
+            /> 
           )}
         </>
       )}

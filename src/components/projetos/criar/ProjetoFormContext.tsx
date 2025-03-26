@@ -1,6 +1,7 @@
-import { createContext, useContext, useReducer, type ReactNode } from "react";
+import { createContext, useContext, useReducer, type ReactNode, useEffect } from "react";
 import { type Prisma, type Projeto, type Workpackage, type Tarefa, type Entregavel, type Material, type AlocacaoRecurso } from "@prisma/client";
 import { Decimal } from "decimal.js";
+import { useSession } from "next-auth/react";
 
 // Tipo base do estado usando o modelo Projeto do Prisma com todas as relações
 type ProjetoState = Omit<Projeto, "id"> & {
@@ -28,6 +29,7 @@ const initialState: ProjetoState = {
   taxa_financiamento: new Decimal(0),
   valor_eti: new Decimal(0),
   financiamentoId: null,
+  responsavelId: null,
   workpackages: []
 };
 
@@ -302,6 +304,18 @@ const ProjetoFormContext = createContext<{
 
 export function ProjetoFormProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(projetoReducer, initialState);
+  const { data: session } = useSession();
+  
+  // Definir o responsavelId com o ID do utilizador logado
+  useEffect(() => {
+    if (session?.user?.id && !state.responsavelId) {
+      dispatch({ 
+        type: "UPDATE_PROJETO", 
+        data: { responsavelId: session.user.id } 
+      });
+    }
+  }, [session, state.responsavelId]);
+
   return (
     <ProjetoFormContext.Provider value={{ state, dispatch }}>
       {children}
