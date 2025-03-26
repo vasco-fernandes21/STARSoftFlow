@@ -46,6 +46,8 @@ type MaterialImportacao = Pick<
   "nome" | "preco" | "quantidade" | "ano_utilizacao" | "rubrica"
 > & {
   workpackageNome: string;
+  descricao?: string | null;
+  estado?: boolean;
 };
 
 interface WorkpackageSimples {
@@ -178,6 +180,8 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
         ano_utilizacao: typeof ano === "number" ? ano : new Date().getFullYear(),
         rubrica: mapearRubrica(rubrica),
         workpackageNome: atividade,
+        descricao: null,
+        estado: false
       });
       
       console.log(`📝 Material encontrado: ${despesa} (${atividade}) - ${custoUnitario}€ x ${unidades} = ${custoUnitario * unidades}€`);
@@ -291,29 +295,19 @@ function extrairDadosRH(
       
       // Log de workpackage encontrado
       console.log(`📦 WP: ${wpAtual.codigo} - ${wpAtual.nome}`);
-      
-      // Extrair datas do workpackage
-      if (typeof row[4] === "number" && typeof row[5] === "number") {
-        const planStart = row[4];
-        const planDuration = row[5];
-        
-        if (planStart > 0 && planDuration > 0 && dataInicioProjeto) {
-          const dataInicio = new Date(dataInicioProjeto);
-          dataInicio.setMonth(dataInicioProjeto.getMonth() + (planStart - 1));
-          
-          const dataFim = new Date(dataInicio);
-          dataFim.setMonth(dataInicio.getMonth() + (planDuration - 1));
-          dataFim.setDate(
-            new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()
-          );
-          
-          wpAtual.dataInicio = dataInicio;
-          wpAtual.dataFim = dataFim;
-          
-          // Log de datas do workpackage
-          console.log(`   📅 Período: ${dataInicio.toLocaleDateString()} até ${dataFim.toLocaleDateString()}`);
-        }
-      }
+    }
+    // Também verifica workpackages implícitos (A1 sem código na coluna)
+    else if (!row[1] && row[2]?.startsWith("A1 -") && !wpAtual) {
+      wpAtual = {
+        codigo: "A1",
+        nome: row[2],
+        recursos: [],
+        materiais: [],
+        dataInicio: null,
+        dataFim: null,
+      };
+      wps.push(wpAtual);
+      console.log(`📦 WP (implícito): A1 - ${row[2]}`);
     } 
     // Verificar se é um recurso/utilizador
     else if (wpAtual && row[3] && typeof row[3] === "string" && !row[1]) {
@@ -332,6 +326,10 @@ function extrairDadosRH(
         userId: utilizador?.id || null,
         alocacoes: [],
       };
+
+      // Datas específicas para este recurso
+      let dataInicioRecurso: Date | null = null;
+      let dataFimRecurso: Date | null = null;
       
       // Extrair alocações do recurso
       for (const colData of colunasDatas) {
@@ -344,6 +342,14 @@ function extrairDadosRH(
           valor > 0 &&
           valor <= 1
         ) {
+          // Armazenar a primeira data do recurso
+          if (!dataInicioRecurso) {
+            dataInicioRecurso = new Date(colData.ano, colData.mes - 1, 1);
+          }
+          
+          // Atualizar a última data
+          dataFimRecurso = new Date(colData.ano, colData.mes, 0);
+          
           recurso.alocacoes.push({
             mes: colData.mes,
             ano: colData.ano,
@@ -354,6 +360,38 @@ function extrairDadosRH(
 
       if (recurso.alocacoes.length > 0) {
         wpAtual.recursos.push(recurso);
+        
+        // Atualizar as datas do workpackage com as datas do recurso
+        if (!wpAtual.dataInicio || (dataInicioRecurso && dataInicioRecurso < wpAtual.dataInicio)) {
+          wpAtual.dataInicio = dataInicioRecurso;
+        }
+        
+        if (!wpAtual.dataFim || (dataFimRecurso && dataFimRecurso > wpAtual.dataFim)) {
+          wpAtual.dataFim = dataFimRecurso;
+        }
+        
+        // Atualizar também as datas PLAN_START e PLAN_DURATION se disponíveis
+        if (typeof row[4] === "number" && typeof row[5] === "number" && dataInicioProjeto) {
+          const planStart = row[4];
+          const planDuration = row[5];
+          
+          if (planStart > 0 && planDuration > 0) {
+            const dataInicio = new Date(dataInicioProjeto);
+            dataInicio.setMonth(dataInicioProjeto.getMonth() + (planStart - 1));
+            
+            const dataFim = new Date(dataInicio);
+            dataFim.setMonth(dataInicio.getMonth() + (planDuration - 1));
+            dataFim.setDate(
+              new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()
+            );
+            
+            // Atualizar workpackage com estas datas se forem mais precisas
+            wpAtual.dataInicio = dataInicio;
+            wpAtual.dataFim = dataFim;
+            
+            console.log(`   📅 Período calculado: ${dataInicio.toLocaleDateString()} até ${dataFim.toLocaleDateString()}`);
+          }
+        }
         
         // Log do utilizador
         console.log(`   👤 ${nomeRecurso}${utilizador ? ` (ID: ${utilizador.id})` : ' (não encontrado)'} - ${recurso.alocacoes.length} alocações:`);
@@ -578,6 +616,8 @@ export default function ImportarProjetoButton() {
                   ano_utilizacao: material.ano_utilizacao,
                   rubrica: material.rubrica,
                   workpackageId: wpId,
+                  descricao: null,
+                  estado: false
                 },
               });
             });

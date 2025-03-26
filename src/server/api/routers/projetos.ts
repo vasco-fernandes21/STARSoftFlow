@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { ProjetoEstado, Prisma, Rubrica, Rascunho } from "@prisma/client";
-import { handlePrismaError, createPaginatedResponse } from "../utils";
+import { handlePrismaError, createPaginatedResponse, calcularAlocacoesPassadas } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
 import { Decimal } from "decimal.js";
 
@@ -355,6 +355,31 @@ export const projetoRouter = createTRPCRouter({
         }
       });
 
+      // Materiais já adquiridos (com estado true)
+      const materiaisAdquiridos = await ctx.db.material.findMany({
+        where: {
+          workpackage: { projetoId },
+          estado: true
+        }
+      });
+
+      const custoMaterialAdquirido = materiaisAdquiridos.reduce(
+        (sum, material) => {
+          const custoTotal = material.preco.times(new Decimal(material.quantidade));
+          return sum.plus(custoTotal);
+        },
+        new Decimal(0)
+      );
+
+      // Calcular alocações que já ocorreram (meses passados)
+      const hoje = new Date();
+      const anoAtual = hoje.getFullYear();
+      const mesAtual = hoje.getMonth() + 1;
+
+      // Usar a função auxiliar para calcular alocações passadas
+      const { custos: custosAlocacoesPassadas, etis: etisAlocacoesPassadas } = 
+        calcularAlocacoesPassadas(alocacoes, anoAtual, mesAtual);
+
       const custosPorUser = alocacoes.reduce((acc, alocacao) => {
         // Podemos confiar que user e workpackage existem, pois forçamos o tipo com AlocacaoWithDetails
         const user = alocacao.user;
@@ -392,8 +417,8 @@ export const projetoRouter = createTRPCRouter({
             data: new Date(alocacao.ano, alocacao.mes - 1, 1), // Primeiro dia do mês
             mes: alocacao.mes,
             ano: alocacao.ano,
-            horas: alocacao.ocupacao.toNumber(), // Mantendo a precisão original
-            custo: custo.toNumber()  // Mantendo a precisão original
+            etis: alocacao.ocupacao.toNumber(), // ETIs em vez de horas
+            custo: custo.toNumber()
           });
         }
         
@@ -408,7 +433,7 @@ export const projetoRouter = createTRPCRouter({
           data: Date;
           mes: number;
           ano: number;
-          horas: number;
+          etis: number;
           custo: number;
         }>;
       }>);
@@ -438,8 +463,8 @@ export const projetoRouter = createTRPCRouter({
       return {
         detalhesPorUser: Object.values(custosPorUser).map(item => ({
           user: item.user,
-          totalAlocacao: item.totalAlocacao.toNumber(), // Mantendo a precisão completa
-          custoTotal: item.custoTotal.toNumber(), // Mantendo a precisão completa
+          totalAlocacao: item.totalAlocacao.toNumber(),
+          custoTotal: item.custoTotal.toNumber(),
           alocacoes: item.alocacoes.sort((a, b) => {
             // Ordenar por ano e depois por mês
             if (a.ano !== b.ano) return a.ano - b.ano;
@@ -447,15 +472,34 @@ export const projetoRouter = createTRPCRouter({
           })
         })),
         resumo: {
-          totalAlocacao: totalAlocacao.toNumber(), // Mantendo a precisão completa
+          totalAlocacao: totalAlocacao.toNumber(),
           orcamento: {
-            estimado: orcamentoEstimado.toNumber(), // Mantendo a precisão completa
+            estimado: orcamentoEstimado.toNumber(),
             real: {
-              totalRecursos: totalCustoRecursos.toNumber(), // Mantendo a precisão completa
-              totalMateriais: totalCustoMateriais.toNumber(), // Mantendo a precisão completa
-              total: orcamentoReal.toNumber() // Mantendo a precisão completa
+              totalRecursos: totalCustoRecursos.toNumber(),
+              totalMateriais: totalCustoMateriais.toNumber(),
+              total: orcamentoReal.toNumber()
             }
           }
+        },
+        custosRealizados: {
+          alocacoes: {
+            custo: custosAlocacoesPassadas.toNumber(),
+            etis: etisAlocacoesPassadas.toNumber()
+          },
+          materiais: {
+            custo: custoMaterialAdquirido.toNumber(),
+            quantidade: materiaisAdquiridos.length
+          },
+          total: custosAlocacoesPassadas.plus(custoMaterialAdquirido).toNumber(),
+          // Calcular percentagem em relação ao orçamento real
+          percentagemReal: orcamentoReal.greaterThan(0)
+            ? (custosAlocacoesPassadas.plus(custoMaterialAdquirido).dividedBy(orcamentoReal).times(100)).toNumber()
+            : 0,
+          // Calcular percentagem em relação ao orçamento estimado
+          percentagemEstimado: orcamentoEstimado.greaterThan(0)
+            ? (custosAlocacoesPassadas.plus(custoMaterialAdquirido).dividedBy(orcamentoEstimado).times(100)).toNumber()
+            : 0
         }
       };
     }),

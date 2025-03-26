@@ -80,6 +80,23 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
     }
   };
 
+  const handleFinanciamentoCriado = (financiamento: Financiamento) => {
+    dispatch({
+      type: "UPDATE_FIELD",
+      field: "financiamentoId",
+      value: financiamento.id
+    });
+
+    dispatch({
+      type: "UPDATE_PROJETO",
+      data: {
+        overhead: financiamento.overhead as unknown as Decimal,
+        taxa_financiamento: financiamento.taxa_financiamento as unknown as Decimal,
+        valor_eti: financiamento.valor_eti as unknown as Decimal
+      }
+    });
+  };
+
   const isValid = Boolean(state.financiamentoId);
 
   return (
@@ -158,6 +175,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
       <GerirFinanciamentosModal 
         open={modalAberto} 
         onOpenChange={setModalAberto} 
+        onFinanciamentoCriado={handleFinanciamentoCriado}
       />
     </div>
   );

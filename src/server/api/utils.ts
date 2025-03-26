@@ -1,7 +1,49 @@
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 import type { PaginatedResponse } from "./schemas/common";
+import { Decimal } from "decimal.js";
 
+/**
+ * Calcula custos de alocações passadas
+ */
+export const calcularAlocacoesPassadas = (
+  alocacoes: Array<{
+    ano: number;
+    mes: number;
+    ocupacao: Decimal;
+    user?: {
+      id: string;
+      name: string | null;
+      salario: Decimal | null;
+    };
+  }>,
+  anoAtual: number,
+  mesAtual: number
+) => {
+  let custosAlocacoesPassadas = new Decimal(0);
+  let etisAlocacoesPassadas = new Decimal(0);
+  
+  // Iterar sobre alocações e somar as que já passaram
+  for (const alocacao of alocacoes) {
+    // Verificar se a alocação é um mês passado
+    if (alocacao.ano < anoAtual || (alocacao.ano === anoAtual && alocacao.mes < mesAtual)) {
+      // Somar ETIs
+      etisAlocacoesPassadas = etisAlocacoesPassadas.plus(alocacao.ocupacao);
+      
+      // Somar custos se o usuário tiver salário
+      if (alocacao.user?.salario) {
+        custosAlocacoesPassadas = custosAlocacoesPassadas.plus(
+          alocacao.ocupacao.times(alocacao.user.salario)
+        );
+      }
+    }
+  }
+  
+  return {
+    custos: custosAlocacoesPassadas,
+    etis: etisAlocacoesPassadas
+  };
+};
 
 /**
  * Classe de erro personalizada que estende TRPCError

@@ -687,7 +687,7 @@ function ProjetoFormContent() {
         overhead: Number(state.overhead),
         taxa_financiamento: Number(state.taxa_financiamento),
         valor_eti: Number(state.valor_eti),
-        financiamentoId: typeof state.financiamentoId === 'number' ? state.financiamentoId : undefined,
+        financiamentoId: state.financiamentoId ? Number(state.financiamentoId) : undefined,
         
         workpackages: state.workpackages?.map(wp => ({
           nome: wp.nome || "",

@@ -94,6 +94,7 @@ export function GerirFinanciamentosModal({
       
       // Chamar o callback com o financiamento criado, se existir
       if (onFinanciamentoCriado) {
+        // Garantir que estamos passando o objeto completo do financiamento com o ID
         onFinanciamentoCriado(data);
       }
       

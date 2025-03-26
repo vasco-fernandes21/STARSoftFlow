@@ -323,9 +323,6 @@ export default function DetalheProjeto() {
 
               <TabsContent value="finances" className="mt-4">
                 <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-                  <CardHeader className="border-b border-white/10 px-6 py-4 bg-white/70 backdrop-blur-sm">
-                    <CardTitle className="text-lg font-semibold text-gray-900">Finanças</CardTitle>
-                  </CardHeader>
                   <CardContent className="p-6">
                     <ProjetoFinancas
                       projetoId={projeto.id}

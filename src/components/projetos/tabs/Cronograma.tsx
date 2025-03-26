@@ -8,7 +8,9 @@ import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
 import { useMutations } from "@/hooks/useMutations";
 import { WorkpackageCompleto, ProjetoCompleto } from "../types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CronogramaOptions {
   leftColumnWidth?: number;
@@ -16,6 +18,8 @@ interface CronogramaOptions {
   hideWorkpackageEdit?: boolean;
   compactMode?: boolean;
 }
+
+type SortType = "data" | "alfabetica";
 
 interface EntregavelType {
   id: string;
@@ -79,6 +83,7 @@ export function Cronograma({
   const [selectedTarefa, setSelectedTarefa] = useState<string | null>(null);
   const [selectedWorkpackage, setSelectedWorkpackage] = useState<string | null>(null);
   const [isLeftColumnCollapsed, setIsLeftColumnCollapsed] = useState(false);
+  const [sortType, setSortType] = useState<SortType>("data");
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const mutations = useMutations(projetoId);
@@ -226,11 +231,18 @@ export function Cronograma({
   };
 
   const sortWorkpackages = (wps: (Workpackage & { tarefas: Tarefa[] })[]) => {
-    return [...wps].sort((a, b) => {
-      const dateA = a.inicio ? new Date(a.inicio) : new Date(0);
-      const dateB = b.inicio ? new Date(b.inicio) : new Date(0);
-      return dateA.getTime() - dateB.getTime();
-    });
+    if (sortType === "data") {
+      return [...wps].sort((a, b) => {
+        const dateA = a.inicio ? new Date(a.inicio) : new Date(0);
+        const dateB = b.inicio ? new Date(b.inicio) : new Date(0);
+        return dateA.getTime() - dateB.getTime();
+      });
+    } else {
+      // Ordenação alfabética
+      return [...wps].sort((a, b) => {
+        return a.nome.localeCompare(b.nome);
+      });
+    }
   };
 
   const sortedWorkpackages = sortWorkpackages(workpackages);
@@ -283,8 +295,34 @@ export function Cronograma({
         >
           <div className="sticky top-0 px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-200/50 z-20 flex items-center justify-between">
             {!isLeftColumnCollapsed && (
-              <div className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center">
+              <div className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center gap-3">
                 <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">Workpackage/Tarefa</span>
+                
+                <ToggleGroup type="single" size="sm" value={sortType} onValueChange={(value) => value && setSortType(value as SortType)}>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem value="data" aria-label="Ordenar por data">
+                          <Calendar className="h-4 w-4" />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        Ordenar por data
+                      </TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem value="alfabetica" aria-label="Ordenar alfabeticamente">
+                          <span className="font-semibold text-xs">A</span>
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        Ordenar alfabeticamente
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </ToggleGroup>
               </div>
             )}
             <button
