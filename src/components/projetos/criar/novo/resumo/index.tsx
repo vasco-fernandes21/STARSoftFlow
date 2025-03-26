@@ -253,12 +253,6 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
                               {wp.recursos.length} alocação(ões)
                             </Badge>
                           ) : null}
-
-                          {wp.alocacaoRecursos?.length ? (
-                            <Badge variant="secondary" className="bg-azul/5 text-xs">
-                              {wp.alocacaoRecursos.length} alocação(ões)
-                            </Badge>
-                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -281,10 +275,10 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
               </div>
             </CardHeader>
             <CardContent>
-              {state.workpackages?.some(wp => (wp.alocacaoRecursos?.length || wp.recursos?.length)) ? (
+              {state.workpackages?.some(wp => (wp.recursos?.length)) ? (
                 <p className="text-sm">
                   O projeto tem recursos alocados em {
-                    state.workpackages.filter(wp => (wp.alocacaoRecursos?.length || wp.recursos?.length)).length
+                    state.workpackages.filter(wp => (wp.recursos?.length)).length
                   } workpackage(s).
                 </p>
               ) : (

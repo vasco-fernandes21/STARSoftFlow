@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, XCircle, AlertCircle, CheckCircle } from "lucide-react";
@@ -12,7 +12,20 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { signIn } from "next-auth/react";
 
-export default function DefinirPasswordPage() {
+// Loading component for Suspense fallback
+function DefinirPasswordLoading() {
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-azul border-t-transparent"></div>
+        <p className="text-azul">A carregar...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component with useSearchParams wrapped in Suspense
+function DefinirPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -353,5 +366,14 @@ export default function DefinirPasswordPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+// Export Page component with Suspense
+export default function DefinirPasswordPage() {
+  return (
+    <Suspense fallback={<DefinirPasswordLoading />}>
+      <DefinirPasswordContent />
+    </Suspense>
   );
 }

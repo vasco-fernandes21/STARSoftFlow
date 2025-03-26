@@ -5,40 +5,25 @@ import { loggerLink, unstable_httpBatchStreamLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
-import SuperJSON from "superjson";
 
 import { type AppRouter } from "@/server/api/root";
 import { createQueryClient } from "./query-client";
+import superjson from "superjson";
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {
   if (typeof window === "undefined") {
-    // Server: always make a new query client
+    // Server: Always create a new QueryClient
     return createQueryClient();
   }
-  // Browser: use singleton pattern to keep the same query client
+  // Browser: Create a QueryClient singleton
   return (clientQueryClientSingleton ??= createQueryClient());
 };
 
 export const api = createTRPCReact<AppRouter>();
 
-/**
- * Inference helper for inputs.
- *
- * @example type HelloInput = RouterInputs['example']['hello']
- */
-export type RouterInputs = inferRouterInputs<AppRouter>;
-
-/**
- * Inference helper for outputs.
- *
- * @example type HelloOutput = RouterOutputs['example']['hello']
- */
-export type RouterOutputs = inferRouterOutputs<AppRouter>;
-
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
-  const queryClient = getQueryClient();
-
+  const [queryClient] = useState(getQueryClient);
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
@@ -48,13 +33,13 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
             (op.direction === "down" && op.result instanceof Error),
         }),
         unstable_httpBatchStreamLink({
-          transformer: SuperJSON,
           url: getBaseUrl() + "/api/trpc",
           headers: () => {
             const headers = new Headers();
             headers.set("x-trpc-source", "nextjs-react");
             return headers;
           },
+          transformer: superjson,
         }),
       ],
     })
@@ -74,3 +59,17 @@ function getBaseUrl() {
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return `http://localhost:${process.env.PORT ?? 3000}`;
 }
+
+/**
+ * Inference helper for inputs.
+ *
+ * @example type HelloInput = RouterInputs['example']['hello']
+ */
+export type RouterInputs = inferRouterInputs<AppRouter>;
+
+/**
+ * Inference helper for outputs.
+ *
+ * @example type HelloOutput = RouterOutputs['example']['hello']
+ */
+export type RouterOutputs = inferRouterOutputs<AppRouter>;

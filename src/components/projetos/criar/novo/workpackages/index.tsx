@@ -460,7 +460,6 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                                     onUpdate={() => {
                                       // Optional callback after successful updates
                                     }}
-                                    hideState={true}
                                   />
                                 ))}
                               </div>

@@ -1,6 +1,6 @@
 import NextAuth from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
-import { prisma } from "prisma/prisma"
+import { PrismaClient } from "@prisma/client"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare, hash } from "bcryptjs"
 import { Permissao } from "@prisma/client"
@@ -8,6 +8,8 @@ import { ZodError } from "zod"
 import { loginSchema } from "./api/auth/types"
 import { z } from "zod"
 import { cookies } from "next/headers"
+
+const prisma = new PrismaClient();
 
 // Schema para validação do token e senha
 const tokenValidationSchema = z.object({

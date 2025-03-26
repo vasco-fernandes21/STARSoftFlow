@@ -22,6 +22,7 @@ import {
   Rubrica,
   type Material as PrismaMaterial,
   type Workpackage as PrismaWorkpackage,
+  type Financiamento,
 } from "@prisma/client";
 import { toast } from "sonner";
 import { generateUUID } from "@/server/api/utils/token";
@@ -57,6 +58,19 @@ interface WorkpackageSimples {
   materiais: MaterialImportacao[];
   dataInicio: Date | null;
   dataFim: Date | null;
+}
+
+// Tipo para o que vem da API
+type FinanciamentoAPI = {
+  id: number;
+  nome: string;
+  overhead: string;
+  taxa_financiamento: string;
+  valor_eti: string;
+};
+
+interface FinanciamentoResponse {
+  items: FinanciamentoAPI[];
 }
 
 // Funções Utilitárias
@@ -626,13 +640,27 @@ export default function ImportarProjetoButton() {
           // Verificar o financiamento
           if (tipoFinanciamento) {
             try {
-              const financiamentos = financiamentosData?.items || [];
+              // First cast to unknown, then properly map to the expected type
+              const rawFinanciamentos = (financiamentosData?.items || []) as unknown as Array<{
+                id: number;
+                nome: string;
+                overhead: Decimal | string;
+                taxa_financiamento: Decimal | string;
+                valor_eti: Decimal | string;
+              }>;
+              
+              const financiamentos: FinanciamentoAPI[] = rawFinanciamentos.map(f => ({
+                id: f.id,
+                nome: f.nome,
+                overhead: String(f.overhead),
+                taxa_financiamento: String(f.taxa_financiamento),
+                valor_eti: String(f.valor_eti)
+              }));
               
               const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
               
               const financiamentoExistente = financiamentos.find(
-                (f: {nome: string, id: number, overhead: Decimal, taxa_financiamento: Decimal, valor_eti: Decimal}) => 
-                  f.nome.trim().toLowerCase() === tipoNormalizado
+                (f) => f.nome.trim().toLowerCase() === tipoNormalizado
               );
               
               if (financiamentoExistente) {
@@ -640,9 +668,9 @@ export default function ImportarProjetoButton() {
                   type: "UPDATE_PROJETO",
                   data: {
                     financiamentoId: financiamentoExistente.id,
-                    overhead: financiamentoExistente.overhead,
-                    taxa_financiamento: financiamentoExistente.taxa_financiamento,
-                    valor_eti: financiamentoExistente.valor_eti
+                    overhead: new Decimal(financiamentoExistente.overhead),
+                    taxa_financiamento: new Decimal(financiamentoExistente.taxa_financiamento),
+                    valor_eti: new Decimal(financiamentoExistente.valor_eti)
                   }
                 });
                 
@@ -698,14 +726,14 @@ export default function ImportarProjetoButton() {
     }
   };
 
-  const handleFinanciamentoCriado = (financiamento: any) => {
+  const handleFinanciamentoCriado = (financiamento: FinanciamentoAPI) => {
     dispatch({
       type: "UPDATE_PROJETO",
       data: {
         financiamentoId: financiamento.id,
-        overhead: financiamento.overhead,
-        taxa_financiamento: financiamento.taxa_financiamento,
-        valor_eti: financiamento.valor_eti,
+        overhead: new Decimal(financiamento.overhead),
+        taxa_financiamento: new Decimal(financiamento.taxa_financiamento),
+        valor_eti: new Decimal(financiamento.valor_eti),
       },
     });
     

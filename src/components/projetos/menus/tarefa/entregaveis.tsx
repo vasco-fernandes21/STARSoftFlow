@@ -12,6 +12,17 @@ import { cn } from "@/lib/utils";
 import type { Entregavel } from "@prisma/client";
 import { useMutations } from "@/hooks/useMutations";
 
+// Tipo para o que vem da API
+type EntregavelAPI = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  estado: boolean;
+  data: string | null;
+  anexo: string | null;
+  tarefaId: string;
+};
+
 interface TarefaEntregaveisProps {
   tarefa: any;
   tarefaId: string;
@@ -159,14 +170,14 @@ export function TarefaEntregaveis({
       {/* Lista de entregáveis */}
       {entregaveis && entregaveis.length > 0 ? (
         <div className="grid gap-3">
-          {entregaveis.map((entregavel: Entregavel) => 
+          {entregaveis.map((entregavel) => 
             submittingEntregavel === entregavel.id ? (
               <EntregavelSubmit
                 key={entregavel.id}
                 entregavelId={entregavel.id}
                 nome={entregavel.nome}
                 descricao={entregavel.descricao || undefined}
-                data={entregavel.data}
+                data={entregavel.data ? new Date(entregavel.data) : null}
                 onCancel={handleCancelSubmitEntregavel}
                 onSubmit={handleFileUpload}
               />
@@ -215,7 +226,7 @@ export function TarefaEntregaveis({
                       <div className="flex items-center gap-1 text-xs text-zinc-500">
                         <Calendar className="h-3 w-3" />
                         <span>
-                          {format(new Date(entregavel.data!), "dd/MM/yyyy")}
+                          {entregavel.data && format(new Date(entregavel.data), "dd/MM/yyyy")}
                         </span>
                       </div>
                       

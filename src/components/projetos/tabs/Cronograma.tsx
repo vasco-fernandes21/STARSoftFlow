@@ -596,3 +596,5 @@ export function Cronograma({
     </div>
   );
 }
+
+export default Cronograma;

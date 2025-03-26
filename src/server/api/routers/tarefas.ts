@@ -183,7 +183,14 @@ export const tarefaRouter = createTRPCRouter({
         
         // Criar tarefa
         const tarefa = await ctx.db.tarefa.create({
-          data: input,
+          data: {
+            nome: input.nome,
+            descricao: input.descricao,
+            workpackageId: input.workpackageId,
+            inicio: input.inicio,
+            fim: input.fim,
+            estado: input.estado ?? false
+          },
           include: {
             workpackage: {
               include: {
@@ -301,7 +308,13 @@ export const tarefaRouter = createTRPCRouter({
         
         // Criar entregável
         const entregavel = await ctx.db.entregavel.create({
-          data: input,
+          data: {
+            nome: input.nome,
+            descricao: input.descricao,
+            tarefaId: input.tarefaId,
+            data: input.data,
+            anexo: input.anexo
+          },
         });
         
         return entregavel;

@@ -210,6 +210,7 @@ export function WorkpackageRecursos({
             utilizadores={utilizadoresList} 
             onAddAlocacao={handleAddRecurso}
             onCancel={() => setAddingRecurso(false)}
+            projetoEstado={workpackage.projeto?.estado || "RASCUNHO"}
           />
         </Card>
       )}
@@ -246,6 +247,7 @@ export function WorkpackageRecursos({
                 utilizadores={utilizadoresList}
                 inicio={workpackage.inicio || new Date()}
                 fim={workpackage.fim || new Date()}
+                projetoEstado={workpackage.projeto?.estado || "RASCUNHO"}
               />
             );
           })}

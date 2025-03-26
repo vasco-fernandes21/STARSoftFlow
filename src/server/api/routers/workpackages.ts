@@ -177,8 +177,20 @@ export const workpackageRouter = createTRPCRouter({
         });
       }
 
+      // Create the workpackage with the right field structure
       return ctx.db.workpackage.create({
-        data: input,
+        data: {
+          nome: input.nome,
+          projeto: {
+            connect: {
+              id: input.projetoId
+            }
+          },
+          descricao: input.descricao,
+          inicio: input.inicio,
+          fim: input.fim,
+          estado: input.estado ?? false
+        },
         include: {
           projeto: true,
           tarefas: true,

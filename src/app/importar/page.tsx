@@ -28,8 +28,16 @@ interface Recurso {
 }
 
 // Modificar o tipo para usar number em vez de Decimal durante a importação
-type MaterialImportacao = Omit<PrismaMaterial, 'preco'> & {
+type MaterialImportacao = {
+  id: number;
+  nome: string;
+  descricao?: string | null;
+  estado?: boolean;
+  workpackageId: string | null;
   preco: number;
+  quantidade: number;
+  rubrica: Rubrica;
+  ano_utilizacao: number;
   workpackageNome: string;
 };
 
@@ -110,6 +118,8 @@ function ImportarExcelContent() {
         materiais.push({
           id: Math.floor(Math.random() * 1000000), // Adicionar id que é obrigatório
           nome: despesa,
+          descricao: null,
+          estado: false,
           preco: custoUnitario, // Agora é number, não Decimal
           quantidade: unidades,
           ano_utilizacao: typeof ano === 'number' ? ano : new Date().getFullYear(),
@@ -515,6 +525,8 @@ function ImportarExcelContent() {
           material: {
             id: Math.floor(Math.random() * 1000000),
             nome: material.nome,
+            descricao: null,
+            estado: false,
             preco: new Decimal(material.preco),
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,

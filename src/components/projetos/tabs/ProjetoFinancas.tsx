@@ -21,20 +21,23 @@ interface ProjetoFinancasProps {
 }
 
 interface Alocacao {
-  alocacaoId: string;
-  workpackage: { id: string; nome: string };
-  data: Date | string;
-  mes: number;
-  ano: number;
-  etis: number;
-  custo: number;
+  alocacaoId?: string;
+  workpackage?: { 
+    id?: string; 
+    nome?: string; 
+  };
+  data?: Date | string;
+  mes?: number;
+  ano?: number;
+  etis?: number;
+  custo?: number;
 }
 
 interface DetalheUser {
   user: { 
     id: string; 
     name: string; 
-    salario: number | null | any;
+    salario: number | null;
   };
   totalAlocacao: number;
   custoTotal: number;
@@ -85,12 +88,20 @@ const formatCurrency = (value: number) => {
 };
 
 // Função para obter o mês em português
-const getMesNome = (mesNumero: number) => {
+const getMesNome = (mesNumero: number | undefined): string => {
+  if (mesNumero === undefined) return "Desconhecido";
+  
   const meses = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
-  return meses[mesNumero - 1];
+  
+  // Valida se o índice está no intervalo válido (1-12)
+  if (mesNumero < 1 || mesNumero > 12) return "Desconhecido";
+  
+  // At this point TypeScript should know mesNumero is between 1-12
+  const mesIndex = mesNumero - 1;
+  return meses[mesIndex] as string;
 };
 
 // Componente para exibir um card de estatística com ícone modernizado
@@ -246,11 +257,17 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     const wpMap = new Map<string, AlocacaoPorWorkpackage>();
     
     alocacoes.forEach(alocacao => {
+      // Ignorar alocações sem workpackage ou sem id
+      if (!alocacao.workpackage?.id) return;
+      
       const wpId = alocacao.workpackage.id;
       
       if (!wpMap.has(wpId)) {
         wpMap.set(wpId, {
-          workpackage: alocacao.workpackage,
+          workpackage: {
+            id: alocacao.workpackage.id,
+            nome: alocacao.workpackage.nome || 'Sem nome'
+          },
           alocacoes: [],
           totalHoras: 0,
           totalCusto: 0
@@ -260,32 +277,37 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
       const wp = wpMap.get(wpId);
       if (wp) {
         wp.alocacoes.push(alocacao);
-        wp.totalHoras += alocacao.etis;
-        wp.totalCusto += alocacao.custo;
+        wp.totalHoras += alocacao.etis || 0;
+        wp.totalCusto += alocacao.custo || 0;
       }
     });
     
-    return Array.from(wpMap.values()).sort((a, b) => 
-      a.workpackage.nome.localeCompare(b.workpackage.nome)
-    );
+    return Array.from(wpMap.values()).sort((a, b) => {
+      const nomeA = a.workpackage?.nome || '';
+      const nomeB = b.workpackage?.nome || '';
+      return nomeA.localeCompare(nomeB);
+    });
   };
 
   // Preparar dados de WP para gráfico
   const dadosWorkpackages = detalhesPorUser.flatMap(user => 
     user.alocacoes
   ).reduce((acc, alocacao) => {
+    // Ignorar alocações sem workpackage ou sem id
+    if (!alocacao.workpackage?.id) return acc;
+    
     const wpId = alocacao.workpackage.id;
     const existente = acc.find(item => item.id === wpId);
     
     if (existente) {
-      existente.valor += alocacao.custo;
-      existente.etis += alocacao.etis;
+      existente.valor += alocacao.custo || 0;
+      existente.etis += alocacao.etis || 0;
     } else {
       acc.push({
         id: wpId,
-        nome: alocacao.workpackage.nome,
-        valor: alocacao.custo,
-        etis: alocacao.etis
+        nome: alocacao.workpackage.nome || 'Sem nome',
+        valor: alocacao.custo || 0,
+        etis: alocacao.etis || 0
       });
     }
     
@@ -918,18 +940,24 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
                               </thead>
                               <tbody className="divide-y divide-gray-200 bg-white">
                                 {wp.alocacoes.sort((a, b) => {
-                                  if (a.ano !== b.ano) return a.ano - b.ano;
-                                  return a.mes - b.mes;
+                                  // Add null checks and fallbacks for the ano and mes properties
+                                  const anoA = a.ano ?? 0;
+                                  const anoB = b.ano ?? 0;
+                                  const mesA = a.mes ?? 0;
+                                  const mesB = b.mes ?? 0;
+                                  
+                                  if (anoA !== anoB) return anoA - anoB;
+                                  return mesA - mesB;
                                 }).map((alocacao) => (
                                   <tr key={alocacao.alocacaoId} className="hover:bg-gray-50">
                                     <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-900">
-                                      {getMesNome(alocacao.mes)} {alocacao.ano}
+                                      {getMesNome(alocacao.mes ?? 0)} {alocacao.ano ?? ''}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-3 text-right text-sm text-gray-500">
-                                      {formatNumber(alocacao.etis)}
+                                      {formatNumber(alocacao.etis ?? 0)}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-3 text-right text-sm font-medium text-gray-900">
-                                      {formatCurrency(alocacao.custo)}
+                                      {formatCurrency(alocacao.custo ?? 0)}
                                     </td>
                                   </tr>
                                 ))}
@@ -953,3 +981,6 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     </div>
   );
 }
+
+// Add default export to support lazy loading
+export default ProjetoFinancas;

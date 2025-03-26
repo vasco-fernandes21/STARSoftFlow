@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
-import { NovoUtilizadorModal } from "@/app/utilizadores/criar/page";
+import { NovoUtilizadorModal } from "@/components/utilizadores/NovoUtilizadorModal";
 import { PageLayout } from "@/components/common/PageLayout";
 import { PaginaHeader } from "@/components/common/PaginaHeader";
 import { TabelaDados, FilterOption } from "@/components/common/TabelaDados";

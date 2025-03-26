@@ -25,6 +25,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+// Tipo para o que vem da API
+type FinanciamentoAPI = {
+  id: number;
+  nome: string;
+  overhead: string;
+  taxa_financiamento: string;
+  valor_eti: string;
+};
+
+interface FinanciamentoResponse {
+  items: FinanciamentoAPI[];
+}
+
 interface GerirFinanciamentosModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,7 +47,7 @@ interface GerirFinanciamentosModalProps {
     taxa_financiamento: number | null;
     valor_eti: number | null;
   };
-  onFinanciamentoCriado?: (financiamento: any) => void;
+  onFinanciamentoCriado?: (financiamento: FinanciamentoAPI) => void;
 }
 
 // Tipo para novo financiamento usando number em vez de Decimal
@@ -44,10 +57,6 @@ type NovoFinanciamentoInput = {
   taxa_financiamento: number | null;
   valor_eti: number | null;
 };
-
-interface FinanciamentoResponse {
-  items: Financiamento[];
-}
 
 export function GerirFinanciamentosModal({ 
   open, 
@@ -84,9 +93,9 @@ export function GerirFinanciamentosModal({
   
   const { data: financiamentosResponse } = api.financiamento.findAll.useQuery({
     limit: 100
-  });
+  }) as { data: FinanciamentoResponse | undefined };
 
-  const financiamentos = financiamentosResponse?.items || [];
+  const financiamentos = (financiamentosResponse?.items || []) as FinanciamentoAPI[];
 
   const { mutate: criarFinanciamento } = api.financiamento.create.useMutation({
     onSuccess: (data) => {
@@ -94,8 +103,15 @@ export function GerirFinanciamentosModal({
       
       // Chamar o callback com o financiamento criado, se existir
       if (onFinanciamentoCriado) {
-        // Garantir que estamos passando o objeto completo do financiamento com o ID
-        onFinanciamentoCriado(data);
+        // Converter os dados retornados para o formato esperado
+        const financiamentoAPI: FinanciamentoAPI = {
+          id: data.id,
+          nome: data.nome,
+          overhead: data.overhead.toString(),
+          taxa_financiamento: data.taxa_financiamento.toString(),
+          valor_eti: data.valor_eti.toString()
+        };
+        onFinanciamentoCriado(financiamentoAPI);
       }
       
       limparForm();
@@ -172,7 +188,7 @@ export function GerirFinanciamentosModal({
     }
   };
 
-  const iniciarEdicao = (financiamento: Financiamento) => {
+  const iniciarEdicao = (financiamento: FinanciamentoAPI) => {
     setModoEdicao(financiamento.id);
     setNovoFinanciamento({
       nome: financiamento.nome,
@@ -220,7 +236,7 @@ export function GerirFinanciamentosModal({
     if (dadosPreenchidos?.nome && financiamentosResponse?.items) {
       const tipoNormalizado = dadosPreenchidos.nome.trim().toLowerCase();
       const financiamentoExistente = financiamentosResponse.items.find(
-        (f: Financiamento) => f.nome.trim().toLowerCase() === tipoNormalizado
+        (f: FinanciamentoAPI) => f.nome.trim().toLowerCase() === tipoNormalizado
       );
 
       if (financiamentoExistente && onFinanciamentoCriado) {
@@ -320,10 +336,10 @@ export function GerirFinanciamentosModal({
               </div>
               
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                {financiamentos.map((financiamento: Financiamento) => (
+                {financiamentos.map((financiamento: FinanciamentoAPI) => (
                   <Card 
                     key={financiamento.id} 
-                    className="p-4 hover:bg-azul/5 transition-all duration-200 border-azul/10 bg-white/80"
+                    className="p-4 mb-4 relative group hover:shadow-md transition-shadow"
                   >
                     <div className="flex justify-between items-start">
                       <div>

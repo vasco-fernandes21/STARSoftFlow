@@ -306,7 +306,9 @@ function ProjetoFormContent() {
         preco: new Decimal(material.preco.toString()),
         quantidade: Number(material.quantidade),
         rubrica: material.rubrica || "MATERIAIS",
-        ano_utilizacao: Number(material.ano_utilizacao)
+        ano_utilizacao: Number(material.ano_utilizacao),
+        descricao: material.descricao || null,
+        estado: material.estado || false
       };
 
       const updatedWorkpackages = state.workpackages.map(wp =>
@@ -563,7 +565,7 @@ function ProjetoFormContent() {
         return (
           <div>
             <WorkpackagesTab 
-              workpackages={state.workpackages || []}
+              workpackages={state.workpackages as any || []}
               onNavigateForward={irParaProximaFase} 
               onNavigateBack={irParaFaseAnterior}
               handlers={workpackageHandlers}

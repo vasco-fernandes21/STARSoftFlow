@@ -7,7 +7,7 @@ import { CirclePercent, Settings2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GerirFinanciamentosModal } from "./GerirFinanciamentosModal";
 import { type Financiamento } from "@prisma/client";
-import { type Decimal } from "@prisma/client/runtime/library";
+import { Decimal } from "decimal.js";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DropdownField } from "../../components/FormFields";
+
+// Tipo para o que vem da API
+type FinanciamentoAPI = {
+  id: number;
+  nome: string;
+  overhead: string;
+  taxa_financiamento: string;
+  valor_eti: string;
+};
+
+// Tipo para conversão interna
+type FinanciamentoInterno = {
+  id: number;
+  nome: string;
+  overhead: Decimal;
+  taxa_financiamento: Decimal;
+  valor_eti: Decimal;
+};
+
+interface FinanciamentoResponse {
+  items: FinanciamentoAPI[];
+}
 
 interface FinancasTabProps {
   onNavigateForward: () => void;
@@ -30,8 +52,14 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
 
   const { data: financiamentosResponse } = api.financiamento.findAll.useQuery({
     limit: 100
-  });
-  const financiamentos = financiamentosResponse?.items || [];
+  }) as { data: FinanciamentoResponse | undefined };
+
+  const financiamentos = (financiamentosResponse?.items || []).map(f => ({
+    ...f,
+    overhead: new Decimal(f.overhead),
+    taxa_financiamento: new Decimal(f.taxa_financiamento),
+    valor_eti: new Decimal(f.valor_eti)
+  })) as FinanciamentoInterno[];
 
   const handleOverheadChange = (value: number | null) => {
     dispatch({
@@ -59,40 +87,48 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
 
   const handleFinanciamentoSelect = (value: string) => {
     const selectedFinanciamento = financiamentos.find(
-      (f: Financiamento) => f.id === parseInt(value)
+      (f) => f.id === parseInt(value)
     );
     
     if (selectedFinanciamento) {
       dispatch({
         type: "UPDATE_FIELD",
         field: "financiamentoId",
-        value: parseInt(value)
+        value: selectedFinanciamento.id
       });
 
       dispatch({
         type: "UPDATE_PROJETO",
         data: {
-          overhead: selectedFinanciamento.overhead as unknown as Decimal,
-          taxa_financiamento: selectedFinanciamento.taxa_financiamento as unknown as Decimal,
-          valor_eti: selectedFinanciamento.valor_eti as unknown as Decimal
+          overhead: selectedFinanciamento.overhead,
+          taxa_financiamento: selectedFinanciamento.taxa_financiamento,
+          valor_eti: selectedFinanciamento.valor_eti
         }
       });
     }
   };
 
-  const handleFinanciamentoCriado = (financiamento: Financiamento) => {
+  const handleFinanciamentoCriado = (financiamento: FinanciamentoAPI) => {
+    const financiamentoInterno: FinanciamentoInterno = {
+      id: financiamento.id,
+      nome: financiamento.nome,
+      overhead: new Decimal(financiamento.overhead),
+      taxa_financiamento: new Decimal(financiamento.taxa_financiamento),
+      valor_eti: new Decimal(financiamento.valor_eti)
+    };
+
     dispatch({
       type: "UPDATE_FIELD",
       field: "financiamentoId",
-      value: financiamento.id
+      value: financiamentoInterno.id
     });
 
     dispatch({
       type: "UPDATE_PROJETO",
       data: {
-        overhead: financiamento.overhead as unknown as Decimal,
-        taxa_financiamento: financiamento.taxa_financiamento as unknown as Decimal,
-        valor_eti: financiamento.valor_eti as unknown as Decimal
+        overhead: financiamentoInterno.overhead,
+        taxa_financiamento: financiamentoInterno.taxa_financiamento,
+        valor_eti: financiamentoInterno.valor_eti
       }
     });
   };
@@ -109,12 +145,10 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
               label="Tipos de Financiamento"
               value={state.financiamentoId?.toString() ?? ""}
               onChange={handleFinanciamentoSelect}
-              options={[
-                ...financiamentos.map((f: Financiamento) => ({
-                  value: f.id.toString(),
-                  label: f.nome,
-                }))
-              ]}
+              options={financiamentos.map((f) => ({
+                value: f.id.toString(),
+                label: f.nome,
+              }))}
               required
               tooltip="Selecione o tipo de financiamento para o projeto"
               id="tipo-financiamento"

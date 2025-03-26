@@ -1,6 +1,7 @@
 import { Calendar } from "lucide-react";
 import { Cronograma } from "@/components/projetos/tabs/Cronograma";
 import { useProjetoForm } from "./ProjetoFormContext";
+import { ProjetoCompleto, WorkpackageWithRelations } from "@/components/projetos/types";
 
 interface ProjetoCronogramaProps {
   handleUpdateWorkPackage: (workpackage: any) => void;
@@ -40,38 +41,56 @@ export function ProjetoCronograma({
       const endDate = state.fim ? new Date(state.fim) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
       
       // Mapear workpackages para o formato esperado pelo Cronograma
-      const workpackages = state.workpackages.map(wp => ({
+      const workpackages = state.workpackages.map((wp: any) => ({
         id: wp.id,
         nome: wp.nome || "",
         descricao: wp.descricao || null,
-        inicio: wp.inicio ? new Date(wp.inicio) : null,
-        fim: wp.fim ? new Date(wp.fim) : null,
-        estado: typeof wp.estado === 'boolean' ? wp.estado : false,
-        projetoId: "temp-id",
-        tarefas: (wp.tarefas || []).map(t => ({
+        inicio: wp.inicio || null,
+        fim: wp.fim || null,
+        estado: wp.estado || false,
+        projetoId: "temp",
+        tarefas: wp.tarefas ? wp.tarefas.map((t: any) => ({
           id: t.id,
           nome: t.nome || "",
           descricao: t.descricao || null,
-          inicio: t.inicio ? new Date(t.inicio) : null,
-          fim: t.fim ? new Date(t.fim) : null,
-          estado: typeof t.estado === 'boolean' ? t.estado : false,
-          workpackageId: wp.id
-        }))
+          inicio: t.inicio || null,
+          fim: t.fim || null,
+          estado: t.estado || false,
+          workpackageId: wp.id,
+          entregaveis: t.entregaveis || []
+        })) : [],
+        materiais: wp.materiais || [],
+        recursos: wp.recursos || []
       }));
       
+      const projetoData: ProjetoCompleto = {
+        id: "temp",
+        nome: state.nome || "Novo Projeto",
+        descricao: state.descricao || "",
+        inicio: state.inicio || startDate,
+        fim: state.fim || endDate,
+        estado: state.estado || "RASCUNHO",
+        responsavelId: null,
+        overhead: state.overhead || 0,
+        taxa_financiamento: state.taxa_financiamento || 0,
+        valor_eti: state.valor_eti || 0,
+        financiamentoId: state.financiamentoId || null,
+        financiamento: null,
+        workpackages: workpackages,
+        progresso: 0
+      };
+      
       return (
-        <Cronograma 
+        <Cronograma
+          projeto={projetoData}
           workpackages={workpackages}
           startDate={startDate}
           endDate={endDate}
-          onUpdateWorkPackage={handleUpdateWorkPackage}
-          onUpdateTarefa={handleUpdateTarefa}
-          options={{
-            leftColumnWidth: 180,
-            disableInteractions: true,
-            hideWorkpackageEdit: true,
-            compactMode: true,
-          }}
+          onSelectTarefa={(tarefaId) => {}}
+          onUpdateWorkPackage={async () => {}}
+          onUpdateTarefa={async () => {}}
+          options={{ disableInteractions: true }}
+          projetoId="temp"
         />
       );
     } catch (error) {

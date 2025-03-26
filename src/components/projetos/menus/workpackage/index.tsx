@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkpackageCompleto, ProjetoCompleto } from "@/components/projetos/types";
 import type { Workpackage, Tarefa, Entregavel, Material, ProjetoEstado } from "@prisma/client";
+import { Decimal } from "decimal.js";
 
 // Tipos para os dados completos que vêm do projeto pai
 interface WorkpackageWithRelations extends Workpackage {
@@ -53,6 +54,61 @@ interface MenuWorkpackageProps {
   projeto?: ProjetoCompleto; // Usar o tipo específico
 }
 
+// Add a helper function to handle the type conversion safely
+function convertToWorkpackageCompleto(wp: any, proj?: any): WorkpackageCompleto {
+  const defaultDate = new Date();
+
+  return {
+    id: wp?.id || "",
+    nome: wp?.nome || "",
+    descricao: wp?.descricao || "",
+    projetoId: wp?.projetoId || "",
+    inicio: wp?.inicio ? new Date(wp.inicio) : defaultDate,
+    fim: wp?.fim ? new Date(wp.fim) : defaultDate,
+    estado: wp?.estado || false,
+    tarefas: wp?.tarefas || [],
+    materiais: wp?.materiais || [],
+    recursos: wp?.recursos || [],
+    projeto: wp?.projeto ? {
+      id: wp.projeto.id || "",
+      nome: wp.projeto.nome || "",
+      descricao: wp.projeto.descricao || "",
+      inicio: wp.projeto.inicio ? new Date(wp.projeto.inicio) : defaultDate,
+      fim: wp.projeto.fim ? new Date(wp.projeto.fim) : defaultDate,
+      estado: wp.projeto.estado || "EM_ANDAMENTO",
+      overhead: typeof wp.projeto.overhead === 'string' ? new Decimal(wp.projeto.overhead) : (wp.projeto.overhead || new Decimal(0)),
+      taxa_financiamento: typeof wp.projeto.taxa_financiamento === 'string' ? new Decimal(wp.projeto.taxa_financiamento) : (wp.projeto.taxa_financiamento || new Decimal(0)),
+      valor_eti: typeof wp.projeto.valor_eti === 'string' ? new Decimal(wp.projeto.valor_eti) : (wp.projeto.valor_eti || new Decimal(0)),
+      financiamentoId: wp.projeto.financiamentoId || 0,
+      responsavelId: wp.projeto.responsavelId || ""
+    } : proj ? {
+      id: proj.id || "",
+      nome: proj.nome || "",
+      descricao: proj.descricao || "",
+      inicio: proj.inicio ? new Date(proj.inicio) : defaultDate,
+      fim: proj.fim ? new Date(proj.fim) : defaultDate,
+      estado: proj.estado || "EM_ANDAMENTO",
+      overhead: typeof proj.overhead === 'string' ? new Decimal(proj.overhead) : (proj.overhead || new Decimal(0)),
+      taxa_financiamento: typeof proj.taxa_financiamento === 'string' ? new Decimal(proj.taxa_financiamento) : (proj.taxa_financiamento || new Decimal(0)),
+      valor_eti: typeof proj.valor_eti === 'string' ? new Decimal(proj.valor_eti) : (proj.valor_eti || new Decimal(0)),
+      financiamentoId: proj.financiamentoId || 0,
+      responsavelId: proj.responsavelId || ""
+    } : {
+      id: "",
+      nome: "",
+      descricao: "",
+      inicio: defaultDate,
+      fim: defaultDate,
+      estado: "EM_ANDAMENTO",
+      overhead: new Decimal(0),
+      taxa_financiamento: new Decimal(0),
+      valor_eti: new Decimal(0),
+      financiamentoId: 0,
+      responsavelId: ""
+    }
+  } as WorkpackageCompleto;
+}
+
 export function MenuWorkpackage({ 
   workpackageId, 
   onClose, 
@@ -74,23 +130,8 @@ export function MenuWorkpackage({
   // Usar o workpackage fornecido ou o que veio da API
   const workpackage = externalWorkpackage || apiWorkpackage;
 
-  // Se o workpackage não tem a propriedade projeto, podemos pegar do prop projeto
-  const fullWorkpackage = workpackage ? {
-    ...workpackage,
-    // Se o workpackage já tem projeto, usar esse, caso contrário usar o projeto passado como prop
-    projeto: workpackage.projeto || (projeto ? {
-      id: projeto.id,
-      nome: projeto.nome,
-      descricao: projeto.descricao,
-      inicio: projeto.inicio,
-      fim: projeto.fim,
-      estado: projeto.estado,
-      overhead: projeto.overhead,
-      taxa_financiamento: projeto.taxa_financiamento,
-      valor_eti: projeto.valor_eti,
-      financiamentoId: projeto.financiamentoId
-    } : undefined)
-  } : undefined;
+  // Converter para o formato correto com valores não-nulos
+  const fullWorkpackage = workpackage ? convertToWorkpackageCompleto(workpackage, projeto) : undefined;
 
   useEffect(() => {
     if (!open) setAddingTarefa(false);

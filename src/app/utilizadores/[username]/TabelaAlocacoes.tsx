@@ -132,6 +132,11 @@ export function TabelaAlocacoes({ alocacoes, ano }: TabelaAlocacoesProps) {
     // Verifica se é uma resposta completa da API
     if (isApiResponse(alocacoes)) {
       const apiResponse = alocacoes as ApiResponse[];
+      
+      if (!apiResponse || !apiResponse[0] || !apiResponse[0].result?.data?.json) {
+        return [];
+      }
+      
       const projetos = apiResponse[0].result.data.json;
       
       // Converte para o formato usado pelo componente

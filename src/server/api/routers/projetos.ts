@@ -399,16 +399,32 @@ export const projetoRouter = createTRPCRouter({
         }
         
         if (alocacao.ocupacao) {
-          acc[user.id].totalAlocacao = acc[user.id].totalAlocacao.plus(alocacao.ocupacao);
+          // Using type assertion to inform TypeScript that this exists
+          const userEntry = acc[user.id] as {
+            user: { id: string; name: string; salario: Decimal | null };
+            totalAlocacao: Decimal;
+            custoTotal: Decimal;
+            alocacoes: Array<{
+              alocacaoId: string;
+              workpackage: { id: string; nome: string };
+              data: Date;
+              mes: number;
+              ano: number;
+              etis: number;
+              custo: number;
+            }>;
+          };
+          
+          userEntry.totalAlocacao = userEntry.totalAlocacao.plus(alocacao.ocupacao);
           
           let custo = new Decimal(0);
           if (user.salario) {
             custo = alocacao.ocupacao.times(user.salario);
-            acc[user.id].custoTotal = acc[user.id].custoTotal.plus(custo);
+            userEntry.custoTotal = userEntry.custoTotal.plus(custo);
           }
           
           // Adicionar detalhe da alocação
-          acc[user.id].alocacoes.push({
+          userEntry.alocacoes.push({
             alocacaoId: alocacao.id,
             workpackage: {
               id: workpackage.id,
