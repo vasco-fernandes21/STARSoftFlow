@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { ProjetoEstado, Prisma, Rubrica } from "@prisma/client";
+import { ProjetoEstado, Prisma, Rubrica, Rascunho } from "@prisma/client";
 import { handlePrismaError, createPaginatedResponse } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
 import { Decimal } from "decimal.js";
@@ -119,75 +119,107 @@ export type CreateProjetoCompletoInput = z.infer<typeof createProjetoCompletoSch
 export const projetoRouter = createTRPCRouter({
   // Obter todos os projetos
   findAll: publicProcedure
-    .input(projetoFilterSchema.optional())
+    .input(
+      projetoFilterSchema.extend({
+        userId: z.string().optional(),
+        apenasAlocados: z.boolean().optional()
+      }).optional().default({})
+    )
     .query(async ({ ctx, input }) => {
       try {
-        const { search, estado, financiamentoId, page = 1, limit = 10 } = input || {};
+        const { 
+          search, 
+          estado, 
+          financiamentoId, 
+          page = 1, 
+          limit = 10, 
+          userId, 
+          apenasAlocados 
+        } = input;
         
-        // Construir condições de filtro
         const where: Prisma.ProjetoWhereInput = {
-          ...(search ? {
+          ...(search && {
             OR: [
-              { nome: { contains: search, mode: "insensitive" as Prisma.QueryMode } },
-              { descricao: { contains: search, mode: "insensitive" as Prisma.QueryMode } },
-            ],
-          } : {}),
-          ...(estado ? { estado } : {}),
-          ...(financiamentoId ? { financiamentoId } : {}),
-        };
-        
-        // Parâmetros de paginação
-        const { skip, take } = getPaginationParams(page, limit);
-        
-        // Executar query com contagem
-        const [projetos, total] = await Promise.all([
-          ctx.db.projeto.findMany({
-            where,
-            select: {
-              id: true,
-              nome: true,
-              descricao: true,
-              inicio: true,
-              fim: true,
-              estado: true,
-              workpackages: {
-                include: {
-                  tarefas: true,
-                },
-              },
-            },
-            skip,
-            take,
-            orderBy: { nome: "asc" },
+              { nome: { contains: search, mode: 'insensitive' } },
+              { descricao: { contains: search, mode: 'insensitive' } }
+            ]
           }),
-          ctx.db.projeto.count({ where }),
-        ]);
-        
-        // Processar dados para incluir progresso
-        const projetosComProgresso = projetos.map(projeto => {
-          // Contar total de tarefas e tarefas concluídas
+          ...(estado && { estado }),
+          ...(financiamentoId && { financiamentoId })
+        };
+
+        if (apenasAlocados && userId) {
+          where.workpackages = {
+            some: {
+              recursos: {
+                some: {
+                  userId: userId
+                }
+              }
+            }
+          };
+        }
+
+        const total = await ctx.db.projeto.count({ where });
+
+        const projetos = await ctx.db.projeto.findMany({
+          where,
+          orderBy: { nome: 'asc' },
+          skip: (page - 1) * limit,
+          take: limit,
+          include: {
+            financiamento: true,
+            workpackages: {
+              include: {
+                tarefas: true,
+                recursos: true
+              }
+            }
+          }
+        });
+
+        let rascunhos: Rascunho[] = [];
+        if (apenasAlocados && userId) {
+          rascunhos = await ctx.db.rascunho.findMany({
+            where: { userId },
+            orderBy: { updatedAt: 'desc' }
+          });
+        }
+
+        const items = projetos.map(projeto => {
           let totalTarefas = 0;
           let tarefasConcluidas = 0;
 
-          // Percorrer todos os workpackages e suas tarefas
           projeto.workpackages?.forEach(wp => {
             totalTarefas += wp.tarefas.length;
             tarefasConcluidas += wp.tarefas.filter(tarefa => tarefa.estado === true).length;
           });
 
-          // Calcular o progresso (evitar divisão por zero)
           const progresso = totalTarefas > 0 ? tarefasConcluidas / totalTarefas : 0;
 
-          // Retornar projeto com o campo progresso adicionado
           return {
             ...projeto,
             progresso,
           };
         });
-        
-        return createPaginatedResponse(projetosComProgresso, total, page, limit);
+
+        return {
+          items,
+          ...(rascunhos.length > 0 ? { rascunhos } : {}),
+          pagination: {
+            total,
+            pages: Math.ceil(total / limit),
+            page,
+            limit
+          }
+        };
       } catch (error) {
-        return handlePrismaError(error);
+        console.error("Erro ao listar projetos:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao listar projetos",
+          cause: error
+        });
       }
     }),
   
@@ -231,7 +263,6 @@ export const projetoRouter = createTRPCRouter({
           });
         }
         
-        // Calcular progresso
         let totalTarefas = 0;
         let tarefasConcluidas = 0;
 
@@ -260,7 +291,6 @@ export const projetoRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { projetoId, ano, mes } = input;
       
-      // Obter dados do projeto para acessar o valor_eti
       const projeto = await ctx.db.projeto.findUnique({
         where: { id: projetoId },
         select: {
@@ -276,7 +306,6 @@ export const projetoRouter = createTRPCRouter({
         });
       }
 
-      // 1. Obter alocações com dados dos utilizadores
       const alocacoes = await ctx.db.alocacaoRecurso.findMany({
         where: {
           workpackage: { projetoId },
@@ -294,7 +323,6 @@ export const projetoRouter = createTRPCRouter({
         }
       });
 
-      // 2. Obter materiais do projeto
       const materiais = await ctx.db.material.findMany({
         where: {
           workpackage: { projetoId },
@@ -302,7 +330,6 @@ export const projetoRouter = createTRPCRouter({
         }
       });
 
-      // 3. Calcular totais por utilizador
       const custosPorUser = alocacoes.reduce((acc, alocacao) => {
         const user = alocacao.user;
         if (!acc[user.id]) {
@@ -317,11 +344,9 @@ export const projetoRouter = createTRPCRouter({
           };
         }
         
-        // Adicionar alocação ao total
         if (alocacao.ocupacao) {
           acc[user.id].totalAlocacao = acc[user.id].totalAlocacao.plus(alocacao.ocupacao);
           
-          // Calcular custo real (salário × alocação)
           if (user.salario) {
             const custo = alocacao.ocupacao.times(user.salario);
             acc[user.id].custoTotal = acc[user.id].custoTotal.plus(custo);
@@ -335,7 +360,6 @@ export const projetoRouter = createTRPCRouter({
         custoTotal: Decimal;
       }>);
 
-      // 4. Calcular totais de alocação e custos
       const totalAlocacao = Object.values(custosPorUser).reduce(
         (sum, item) => sum.plus(item.totalAlocacao), 
         new Decimal(0)
@@ -346,7 +370,6 @@ export const projetoRouter = createTRPCRouter({
         new Decimal(0)
       );
       
-      // 5. Calcular custo total de materiais
       const totalCustoMateriais = materiais.reduce(
         (sum, material) => {
           const custoTotal = material.preco.times(new Decimal(material.quantidade));
@@ -355,13 +378,10 @@ export const projetoRouter = createTRPCRouter({
         new Decimal(0)
       );
       
-      // 6. Calcular orçamento estimado (alocação total × valor_eti do projeto)
       const orcamentoEstimado = totalAlocacao.times(projeto.valor_eti || new Decimal(0));
       
-      // 7. Calcular orçamento real (custo recursos + custo materiais)
       const orcamentoReal = totalCustoRecursos.plus(totalCustoMateriais);
 
-      // 8. Processar resultados
       return {
         detalhesPorUser: Object.values(custosPorUser).map(item => ({
           user: item.user,
@@ -387,7 +407,6 @@ export const projetoRouter = createTRPCRouter({
     .input(createProjetoSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        // Validar datas
         if (input.inicio && input.fim) {
           const { success } = projetoDateValidationSchema.safeParse({
             inicio: input.inicio,
@@ -402,7 +421,6 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
-        // Extrair os dados de input
         const { 
           nome, 
           descricao, 
@@ -415,7 +433,6 @@ export const projetoRouter = createTRPCRouter({
           valor_eti = 0 
         } = input;
         
-        // Criar projeto (forçando o tipo para contornar problemas com o TypeScript)
         const createData = {
           nome,
           descricao,
@@ -430,7 +447,7 @@ export const projetoRouter = createTRPCRouter({
               connect: { id: financiamentoId }
             }
           } : {})
-        } as any; // Usando cast para contornar problemas de tipo
+        } as any;
         
         const projeto = await ctx.db.projeto.create({
           data: createData,
@@ -453,7 +470,6 @@ export const projetoRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input: { id, data } }) => {
       try {
-        // Validar datas
         if (data.inicio && data.fim) {
           const dateValidation = projetoDateValidationSchema.safeParse({ inicio: data.inicio, fim: data.fim });
           if (!dateValidation.success) {
@@ -467,7 +483,6 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
-        // Construir dados de atualização
         const updateData: Prisma.ProjetoUpdateInput = {
           nome: data.nome,
           descricao: data.descricao,
@@ -484,7 +499,6 @@ export const projetoRouter = createTRPCRouter({
           }),
         };
         
-        // Atualizar projeto
         const projeto = await ctx.db.projeto.update({
           where: { id },
           data: updateData,
@@ -516,7 +530,6 @@ export const projetoRouter = createTRPCRouter({
     .input(z.string().uuid("ID do projeto inválido"))
     .mutation(async ({ ctx, input: id }) => {
       try {
-        // Verificar se existe workpackages e tarefas associados
         const workpackages = await ctx.db.workpackage.findMany({
           where: { projetoId: id },
           include: {
@@ -524,7 +537,6 @@ export const projetoRouter = createTRPCRouter({
           },
         });
         
-        // Apagar tarefas primeiro
         for (const wp of workpackages) {
           if (wp.tarefas.length > 0) {
             await ctx.db.tarefa.deleteMany({
@@ -533,12 +545,10 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
-        // Apagar workpackages
         await ctx.db.workpackage.deleteMany({
           where: { projetoId: id },
         });
         
-        // Apagar projeto
         await ctx.db.projeto.delete({
           where: { id },
         });
@@ -559,7 +569,6 @@ export const projetoRouter = createTRPCRouter({
       try {
         const { id, estado } = input;
         
-        // Atualizar estado
         const projeto = await ctx.db.projeto.update({
           where: { id },
           data: { estado },
@@ -574,7 +583,6 @@ export const projetoRouter = createTRPCRouter({
   // Criar projeto completo com workpackages, tarefas, entregáveis, materiais e alocações
   createCompleto: protectedProcedure
     .input(z.object({
-      // Dados básicos do projeto
       nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
       descricao: z.string().optional(),
       inicio: z.date().optional(),
@@ -584,43 +592,33 @@ export const projetoRouter = createTRPCRouter({
       overhead: z.number().min(0).max(100).default(0),
       taxa_financiamento: z.number().min(0).max(100).default(0),
       valor_eti: z.number().min(0).default(0),
-      
-      // Workpackages e seus sub-dados
       workpackages: z.array(z.object({
-        id: z.string().optional(), // ID temporário fornecido pelo frontend
+        id: z.string().optional(),
         nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
         descricao: z.string().optional(),
         inicio: z.date().optional(),
         fim: z.date().optional(),
         estado: z.boolean().optional().default(false),
-        
-        // Tarefas do workpackage
         tarefas: z.array(z.object({
           nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
           descricao: z.string().optional(),
           inicio: z.date().optional(),
           fim: z.date().optional(),
           estado: z.boolean().optional().default(false),
-          
-          // Entregáveis da tarefa
           entregaveis: z.array(z.object({
             nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
             descricao: z.string().optional(),
             data: z.date().optional(),
           })).optional().default([]),
         })).optional().default([]),
-        
-        // Materiais do workpackage
         materiais: z.array(z.object({
-          id: z.number().optional(), // ID temporário fornecido pelo frontend
+          id: z.number().optional(),
           nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
           preco: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val),
           quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
           rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
           ano_utilizacao: z.number().int().min(2000, "Ano deve ser válido").max(2100, "Ano deve ser válido"),
         })).optional().default([]),
-        
-        // Alocações de recursos do workpackage
         recursos: z.array(z.object({
           userId: z.string(),
           mes: z.number().min(1).max(12),
@@ -628,13 +626,12 @@ export const projetoRouter = createTRPCRouter({
           ocupacao: z.union([z.string(), z.number()]).transform(val => 
             typeof val === 'string' ? parseFloat(val) : val
           ),
-          workpackageId: z.string().optional(), // Será preenchido após criar o workpackage
+          workpackageId: z.string().optional(),
         })).optional().default([]),
       })).optional().default([]),
     }))
     .mutation(async ({ ctx, input }) => {
       try {
-        // Validar datas do projeto
         if (input.inicio && input.fim) {
           const { success } = projetoDateValidationSchema.safeParse({
             inicio: input.inicio,
@@ -649,7 +646,6 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
-        // Validar datas dos workpackages
         for (const wp of input.workpackages) {
           if (wp.inicio && wp.fim) {
             if (wp.inicio > wp.fim) {
@@ -659,7 +655,6 @@ export const projetoRouter = createTRPCRouter({
               });
             }
             
-            // Verificar se as datas do workpackage estão dentro do período do projeto
             if (input.inicio && wp.inicio < input.inicio) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
@@ -675,7 +670,6 @@ export const projetoRouter = createTRPCRouter({
             }
           }
           
-          // Validar datas das tarefas
           for (const tarefa of wp.tarefas) {
             if (tarefa.inicio && tarefa.fim) {
               if (tarefa.inicio > tarefa.fim) {
@@ -685,7 +679,6 @@ export const projetoRouter = createTRPCRouter({
                 });
               }
               
-              // Verificar se as datas da tarefa estão dentro do período do workpackage
               if (wp.inicio && tarefa.inicio < wp.inicio) {
                 throw new TRPCError({
                   code: "BAD_REQUEST",
@@ -703,7 +696,6 @@ export const projetoRouter = createTRPCRouter({
           }
         }
         
-        // Criar projeto com todos os sub-dados
         const projeto = await ctx.db.projeto.create({
           data: {
             nome: input.nome,
@@ -767,15 +759,12 @@ export const projetoRouter = createTRPCRouter({
           }
         });
         
-        // Criar alocações de recursos após criar os workpackages
         for (const wpInput of input.workpackages) {
           if (!wpInput.recursos || wpInput.recursos.length === 0) continue;
           
-          // Encontrar o workpackage criado com base no nome
           const workpackage = projeto.workpackages.find(w => w.nome === wpInput.nome);
           if (!workpackage) continue;
           
-          // Criar alocações para este workpackage
           for (const recurso of wpInput.recursos) {
             try {
               await ctx.db.alocacaoRecurso.create({
@@ -789,7 +778,6 @@ export const projetoRouter = createTRPCRouter({
               });
             } catch (error) {
               console.error(`Erro ao criar alocação: ${error}`);
-              // Continuar com as próximas alocações mesmo em caso de erro
             }
           }
         }

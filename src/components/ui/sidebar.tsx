@@ -24,19 +24,22 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { User as PrismaUser } from "@prisma/client";
 import { customSignOut } from "@/app/actions/auth-actions";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Permissao } from "@prisma/client";
 
 interface MenuItem {
   icon: React.ElementType;
   label: string;
   href: string;
+  requiredPermission?: "COMUM" | "GESTOR" | "ADMIN" | null;
 }
 
 // Menu items for main navigation
 const menuItems: MenuItem[] = [
-  { icon: Home, label: "Início", href: "/" },
-  { icon: FolderKanban, label: "Projetos", href: "/projetos" },
-  { icon: Users, label: "Utilizadores", href: "/utilizadores" },
-  { icon: Settings, label: "Validações", href: "/validations" },
+  { icon: Home, label: "Início", href: "/", requiredPermission: null },
+  { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
+  { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
+  { icon: Settings, label: "Validações", href: "/validations", requiredPermission: "ADMIN" },
 ];
 
 export const AppSidebar = () => {
@@ -48,6 +51,16 @@ export const AppSidebar = () => {
   const toggleCollapse = () => setCollapsed(!collapsed);
 
   const { data: session } = useSession();
+  const { hasPermission } = usePermissions();
+
+  // Filtrar os itens de menu com base nas permissões
+  const filteredMenuItems = menuItems.filter(item => {
+    // Se não tiver requisito de permissão, todos podem ver
+    if (!item.requiredPermission) return true;
+    
+    // Verificar se o utilizador tem a permissão necessária
+    return hasPermission(item.requiredPermission as Permissao);
+  });
 
   // Função para fazer logout
   const handleLogout = async (e: React.MouseEvent) => {
@@ -197,7 +210,7 @@ export const AppSidebar = () => {
           <nav className="space-y-6">
             {/* Main Menu Items */}
             <div className="space-y-2">
-              {menuItems.map((item) => (
+              {filteredMenuItems.map((item) => (
                 <MenuItem key={item.href} item={item} />
               ))}
             </div>

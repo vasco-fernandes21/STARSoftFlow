@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Prisma } from "@prisma/client";
 
 interface WorkpackageTarefasProps {
   workpackage: WorkpackageCompleto;
@@ -138,7 +139,7 @@ export function WorkpackageTarefas({
   // --- Handlers para entregáveis ---
   
   // Adicionar entregável
-  const handleAddEntregavel = async (tarefaId: string, entregavel: any) => {
+  const handleAddEntregavel = async (tarefaId: string, entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">) => {
     try {
       await mutations.entregavel.create.mutateAsync({
         tarefaId,
@@ -270,7 +271,7 @@ export function WorkpackageTarefas({
                   onUpdate={async () => await handleEstadoChange(tarefa.id)}
                   onRemove={() => openDeleteDialog('tarefa', tarefa.id)}
                   onEdit={(data) => handleEditTarefa(tarefa.id, data)}
-                  onAddEntregavel={(data) => handleAddEntregavel(tarefa.id, data)}
+                  onAddEntregavel={handleAddEntregavel}
                   onEditEntregavel={(id, data) => handleEditEntregavel(id, data)}
                   onRemoveEntregavel={(id) => openDeleteDialog('entregavel', id, tarefa.id)}
                 />

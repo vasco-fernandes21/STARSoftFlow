@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gerarMesesEntreDatas } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { api } from "@/trpc/react";
+import { toast } from "sonner";
 
 interface FormProps {
   workpackageId: string;
@@ -34,6 +35,7 @@ interface FormProps {
       ocupacao: any;
     }>;
   } | null;
+  projetoEstado: "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO";
 }
 
 type NovaAlocacao = {
@@ -62,6 +64,24 @@ function parseValorOcupacao(valor: string): number {
   return num;
 }
 
+// Função para determinar se uma alocação pode ser editada
+function canEditAllocation(projetoEstado: string): { 
+  canEditApproved: boolean;
+  canEditPending: boolean;
+} {
+  switch (projetoEstado) {
+    case "RASCUNHO":
+    case "PENDENTE":
+      return { canEditApproved: false, canEditPending: true };
+    case "APROVADO":
+    case "EM_DESENVOLVIMENTO":
+    case "CONCLUIDO":
+      return { canEditApproved: true, canEditPending: false };
+    default:
+      return { canEditApproved: false, canEditPending: false };
+  }
+}
+
 export function Form({ 
   workpackageId, 
   inicio, 
@@ -69,7 +89,8 @@ export function Form({
   utilizadores,
   onAddAlocacao, 
   onCancel,
-  recursoEmEdicao
+  recursoEmEdicao,
+  projetoEstado
 }: FormProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [alocacoes, setAlocacoes] = useState<NovaAlocacao[]>([]);
@@ -124,11 +145,21 @@ export function Form({
       const novosInputValues: Record<string, string> = {};
       
       recursoEmEdicao.alocacoes.forEach(alocacao => {
-        const ocupacao = alocacao.ocupacao instanceof Decimal 
-          ? alocacao.ocupacao.toNumber() 
-          : typeof alocacao.ocupacao === 'string' 
-            ? parseFloat(alocacao.ocupacao) 
-            : Number(alocacao.ocupacao);
+        // Se o projeto estiver aprovado, usar o valor aprovado existente
+        const dadosMes = ocupacoesMensais.find(o => o.mes === alocacao.mes);
+        let ocupacao;
+
+        if (projetoEstado === "APROVADO" || projetoEstado === "EM_DESENVOLVIMENTO" || projetoEstado === "CONCLUIDO") {
+          // Em projetos aprovados, usar o valor aprovado existente
+          ocupacao = dadosMes?.ocupacaoAprovada || 0;
+        } else {
+          // Em outros estados, usar o valor da alocação normalmente
+          ocupacao = alocacao.ocupacao instanceof Decimal 
+            ? alocacao.ocupacao.toNumber() 
+            : typeof alocacao.ocupacao === 'string' 
+              ? parseFloat(alocacao.ocupacao) 
+              : Number(alocacao.ocupacao);
+        }
 
         // Garantir que o valor está entre 0 e 1
         const ocupacaoFinal = ocupacao > 1 ? ocupacao / 100 : ocupacao;
@@ -137,18 +168,17 @@ export function Form({
           userId: recursoEmEdicao.userId,
           mes: alocacao.mes,
           ano: alocacao.ano,
-          ocupacao: ocupacaoFinal // Armazenar como decimal (0-1)
+          ocupacao: ocupacaoFinal
         });
         
         const chave = `${alocacao.mes}-${alocacao.ano}`;
-        // Formatar com 2 casas decimais
         novosInputValues[chave] = ocupacaoFinal.toFixed(2).replace('.', ',');
       });
       
       setAlocacoes(novasAlocacoes);
       setInputValues(novosInputValues);
     }
-  }, [recursoEmEdicao]);
+  }, [recursoEmEdicao, ocupacoesMensais, projetoEstado]);
   
   // Validar entrada apenas com números, vírgulas e pontos
   const validarEntrada = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -182,9 +212,60 @@ export function Form({
     }
   };
   
+  // Atualizar a função que calcula a ocupação total
+  const calcularOcupacoes = (mes: number, ano: number) => {
+    const dadosMes = ocupacoesMensais.find(o => o.mes === mes) || {
+      ocupacaoAprovada: 0,
+      ocupacaoPendente: 0
+    };
+
+    const ocupacaoAtual = getOcupacao(mes, ano) * 100;
+    const isApprovedProject = projetoEstado === "APROVADO" || 
+                             projetoEstado === "EM_DESENVOLVIMENTO" || 
+                             projetoEstado === "CONCLUIDO";
+
+    // Em modo de edição
+    if (recursoEmEdicao) {
+      if (isApprovedProject) {
+        // Em projetos aprovados, mostrar e editar o valor aprovado
+        return {
+          atual: ocupacaoAtual,
+          aprovada: ocupacaoAtual,
+          pendente: dadosMes.ocupacaoPendente * 100,
+          total: ocupacaoAtual + (dadosMes.ocupacaoPendente * 100),
+          isEditable: true
+        };
+      } else {
+        // Em projetos não aprovados, mostrar e editar o valor pendente
+        return {
+          atual: ocupacaoAtual,
+          aprovada: dadosMes.ocupacaoAprovada * 100,
+          pendente: ocupacaoAtual,
+          total: (dadosMes.ocupacaoAprovada * 100) + ocupacaoAtual,
+          isEditable: true
+        };
+      }
+    }
+
+    // Em modo de criação
+    return {
+      atual: ocupacaoAtual,
+      aprovada: dadosMes.ocupacaoAprovada * 100,
+      pendente: dadosMes.ocupacaoPendente * 100,
+      total: ocupacaoAtual + (dadosMes.ocupacaoAprovada * 100) + (dadosMes.ocupacaoPendente * 100),
+      isEditable: !isApprovedProject // Só pode editar se não for projeto aprovado
+    };
+  };
+  
   // Manipular alteração de ocupação
   const handleOcupacaoChange = (mes: number, ano: number, valor: string) => {
     const chave = `${mes}-${ano}`;
+    const { canEditApproved, canEditPending } = canEditAllocation(projetoEstado);
+    
+    // Se não puder editar nenhum tipo de alocação, retornar
+    if (!canEditApproved && !canEditPending) {
+      return;
+    }
     
     // Permite entrada vazia para remover alocação completamente
     if (valor === "" || valor === "0" || valor === "0,0" || valor === "0,00") {
@@ -194,7 +275,6 @@ export function Form({
         return newValues;
       });
       
-      // Remover alocação do array quando o valor for vazio ou zero
       setAlocacoes(prev => 
         prev.filter(a => !(a.userId === selectedUserId && a.mes === mes && a.ano === ano))
       );
@@ -217,14 +297,21 @@ export function Form({
     // Converter valor limitando a 1 (100%)
     const ocupacao = parseValorOcupacao(valor);
     
-    // Verificar ocupação total
-    const ocupacaoValidada = ocupacoesMensais.find(
-      o => o.mes === mes
-    )?.ocupacaoAprovada || 0;
-    
-    // Se a ocupação total ultrapassar 100%, alertar o utilizador
-    if (ocupacao + ocupacaoValidada > 1) {
-      alert(`Atenção: A ocupação total para ${format(new Date(ano, mes - 1), 'MMMM', { locale: pt })} será de ${((ocupacao + ocupacaoValidada) * 100).toFixed(0)}%`);
+    // Em modo de edição, validar contra o tipo correto de ocupação
+    if (recursoEmEdicao) {
+      const dadosMes = ocupacoesMensais.find(o => o.mes === mes);
+      const ocupacaoExistente = canEditApproved ? 
+        (dadosMes?.ocupacaoPendente || 0) : 
+        (dadosMes?.ocupacaoAprovada || 0);
+
+      if (ocupacao + ocupacaoExistente > 1) {
+        const tipoAlocacao = canEditApproved ? "aprovada" : "pendente";
+        toast.warning(
+          `Atenção: A ocupação total para ${format(new Date(ano, mes - 1), 'MMMM', { locale: pt })} 
+          será de ${((ocupacao + ocupacaoExistente) * 100).toFixed(0)}%. 
+          Você está editando a alocação ${tipoAlocacao}.`
+        );
+      }
     }
     
     // Atualizar alocações
@@ -325,23 +412,6 @@ export function Form({
     onAddAlocacao(workpackageId, alocacoesFormatadas);
   };
   
-  // Atualizar a função que calcula a ocupação total
-  const calcularOcupacoes = (mes: number, ano: number) => {
-    const ocupacaoAtual = getOcupacao(mes, ano) * 100; // Converter para percentagem
-    const dadosMes = ocupacoesMensais.find(o => o.mes === mes) || {
-      ocupacaoAprovada: 0,
-      ocupacaoPendente: 0
-    };
-
-    // Multiplicar valores por 100 para converter em percentagem
-    return {
-      atual: ocupacaoAtual,
-      aprovada: dadosMes.ocupacaoAprovada * 100,
-      pendente: dadosMes.ocupacaoPendente * 100,
-      total: ocupacaoAtual + (dadosMes.ocupacaoAprovada * 100) + (dadosMes.ocupacaoPendente * 100)
-    };
-  };
-
   // Função para determinar o status da ocupação
   const getOcupacaoStatus = (ocupacaoTotal: number) => {
     if (ocupacaoTotal > 100) return "sobre-alocado";
@@ -460,7 +530,7 @@ export function Form({
 
                 {anosDisponiveis.map(ano => (
                   <TabsContent key={ano} value={ano.toString()} className="mt-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3 max-w-screen-xl mx-auto">
                       {mesesDisponiveis
                         .filter(mes => mes.ano === ano)
                         .map(mes => {
@@ -561,6 +631,7 @@ export function Form({
                                     status === "sobre-alocado" ? "border-red-300 focus:border-red-500" : ""
                                   }`}
                                   placeholder="0,00"
+                                  disabled={!ocupacoes.isEditable}
                                 />
                               </div>
                             </div>

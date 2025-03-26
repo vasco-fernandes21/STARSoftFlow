@@ -16,6 +16,8 @@ import { BarraProgresso } from "@/components/common/BarraProgresso";
 import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
 import { type ProjetoEstado } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useSession } from "next-auth/react";
 
 // Interface básica para o projeto
 interface Projeto {
@@ -100,6 +102,9 @@ const extrairPaginacao = (apiResponse: any) => {
 
 export default function Projetos() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const { userPermission, isComum } = usePermissions();
+  const userId = (session?.user as any)?.id;
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [estadoFilter, setEstadoFilter] =
@@ -108,12 +113,17 @@ export default function Projetos() {
     useState<"nome" | "fim" | "progresso" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // Fetch all data with pagination limits
+  // Determina os parâmetros de consulta com base na permissão
   const queryParams = useMemo(() => ({
     page: 1,
-    limit: 100 // API limit
-  }), []);
+    limit: 100,
+    // Se for utilizador comum, filtra apenas pelos projetos dele
+    userId: isComum ? userId : undefined,
+    // Parâmetro que indica se deve filtrar por projetos alocados
+    apenasAlocados: isComum
+  }), [isComum, userId]);
 
+  // Consulta com parâmetros baseados em permissão
   const { 
     data, 
     isLoading 
@@ -346,6 +356,27 @@ export default function Projetos() {
       />
 
       <StatsGrid stats={stats} className="my-4" />
+
+      {/* Seção de rascunhos para utilizadores COMUM */}
+      {isComum && data?.rascunhos && data.rascunhos.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">Seus Rascunhos</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.rascunhos.map(rascunho => (
+              <div 
+                key={rascunho.id}
+                className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => router.push(`/projetos/rascunho/${rascunho.id}`)}
+              >
+                <h3 className="font-medium text-gray-900">{rascunho.titulo}</h3>
+                <p className="text-sm text-gray-500">
+                  Última atualização: {format(new Date(rascunho.updatedAt), "dd MMM yyyy", { locale: ptBR })}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <TabelaDados<Projeto>
         title=""

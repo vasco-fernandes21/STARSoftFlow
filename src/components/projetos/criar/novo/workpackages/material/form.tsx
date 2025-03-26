@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, Plus, Pencil } from "lucide-react";
+import { Package, Plus, Pencil, X, Percent, Briefcase } from "lucide-react";
 import { Rubrica } from "@prisma/client";
 import { useMutations } from "@/hooks/useMutations";
 import { TextField, TextareaField, MoneyField, SelectField, NumberField } from "@/components/projetos/criar/components/FormFields";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Save } from "lucide-react";
 
 interface MaterialData {
   nome: string;
@@ -192,100 +195,172 @@ export function Form({
   };
   
   return (
-    <Card className="p-4 border border-azul/10 shadow-sm bg-white/70 backdrop-blur-sm mt-2">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
-          {isEditMode ? 
-            <Pencil className="h-4 w-4 text-azul" /> : 
-            <Package className="h-4 w-4 text-azul" />
-          }
+    <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
+      {/* Cabeçalho do Form */}
+      <div className="p-4 flex justify-between items-center border-b border-azul/10 bg-white">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
+            {isEditMode ? 
+              <Pencil className="h-4 w-4 text-azul" /> : 
+              <Package className="h-4 w-4 text-azul" />
+            }
+          </div>
+          <div>
+            <h5 className="text-sm font-medium text-azul">
+              {isEditMode ? "Editar Material" : "Adicionar Material"}
+            </h5>
+            <Badge variant="outline" className="px-2 py-0 text-[10px] h-5 bg-azul/5 text-azul/80 border-azul/20">
+              {isEditMode ? "Edição" : "Novo"}
+            </Badge>
+          </div>
         </div>
-        <h4 className="text-base font-medium text-azul">
-          {isEditMode ? "Editar Material" : "Novo Material"}
-        </h4>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          className="h-8 w-8 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <TextField
-          label="Nome do Material"
-          value={nome}
-          onChange={setNome}
-          placeholder="Ex: Servidor para processamento de dados"
-          required
-          helpText={erros.nome}
-        />
-        
-        <TextareaField
-          label="Descrição"
-          value={descricao || ""}
-          onChange={(value) => setDescricao(value === "" ? null : value)}
-          placeholder="Descreva o material em detalhes..."
-          rows={3}
-        />
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MoneyField
-            label="Preço Unitário"
-            value={preco}
-            onChange={(value) => value !== null && setPreco(value)}
-            required
-            helpText={erros.preco}
-          />
+      {/* Conteúdo do Form */}
+      <form onSubmit={handleSubmit} className="p-4 bg-azul/5 space-y-6">
+        {/* Informações Básicas */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+              <Package className="h-3.5 w-3.5 text-azul" />
+            </div>
+            <Label className="text-sm font-medium text-azul/80">
+              Informações Básicas
+            </Label>
+          </div>
           
-          <NumberField
-            label="Quantidade"
-            value={quantidade}
-            onChange={setQuantidade}
-            min={1}
-            required
-            helpText={erros.quantidade}
-          />
+          <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-4">
+            <TextField
+              label="Nome do Material"
+              value={nome}
+              onChange={setNome}
+              placeholder="Ex: Servidor para processamento de dados"
+              required
+              helpText={erros.nome}
+            />
+            
+            <TextareaField
+              label="Descrição"
+              value={descricao || ""}
+              onChange={(value) => setDescricao(value === "" ? null : value)}
+              placeholder="Descreva o material em detalhes..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Informações Financeiras */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+              <Percent className="h-3.5 w-3.5 text-azul" />
+            </div>
+            <Label className="text-sm font-medium text-azul/80">
+              Informações Financeiras
+            </Label>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-azul/10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <MoneyField
+                label="Preço Unitário"
+                value={preco}
+                onChange={(value) => value !== null && setPreco(value)}
+                required
+                helpText={erros.preco}
+              />
+              
+              <NumberField
+                label="Quantidade"
+                value={quantidade}
+                onChange={setQuantidade}
+                min={1}
+                required
+                helpText={erros.quantidade}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Classificação */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+              <Briefcase className="h-3.5 w-3.5 text-azul" />
+            </div>
+            <Label className="text-sm font-medium text-azul/80">
+              Classificação
+            </Label>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-azul/10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {anosDisponiveis.length > 0 ? (
+                <SelectField
+                  label="Ano de Utilização"
+                  value={anoUtilizacaoStr}
+                  onChange={handleAnoChange}
+                  options={anosDisponiveis}
+                  required
+                  helpText={erros.anoUtilizacao}
+                />
+              ) : (
+                <NumberField
+                  label="Ano de Utilização"
+                  value={anoUtilizacao}
+                  onChange={setAnoUtilizacao}
+                  min={anoMinimo}
+                  max={anoMaximo}
+                  required
+                  helpText={erros.anoUtilizacao}
+                />
+              )}
+              
+              <SelectField
+                label="Rubrica"
+                value={rubrica}
+                onChange={(value) => setRubrica(value as Rubrica)}
+                options={rubricaOptions}
+                required
+              />
+            </div>
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {anosDisponiveis.length > 0 ? (
-            <SelectField
-              label="Ano de Utilização"
-              value={anoUtilizacaoStr}
-              onChange={handleAnoChange}
-              options={anosDisponiveis}
-              required
-              helpText={erros.anoUtilizacao}
-            />
-          ) : (
-            <NumberField
-              label="Ano de Utilização"
-              value={anoUtilizacao}
-              onChange={setAnoUtilizacao}
-              min={anoMinimo}
-              max={anoMaximo}
-              required
-              helpText={erros.anoUtilizacao}
-            />
-          )}
-          
-          <SelectField
-            label="Rubrica"
-            value={rubrica}
-            onChange={(value) => setRubrica(value as Rubrica)}
-            options={rubricaOptions}
-            required
-          />
-        </div>
-        
-        <div className="flex justify-end gap-2 pt-2">
+        {/* Botões de ação */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-azul/10">
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
+            className="h-9 px-6 rounded-lg"
           >
             Cancelar
           </Button>
-          <Button type="submit" className="bg-azul hover:bg-azul/90 text-white">
-            {isEditMode ? 
-              "Atualizar Material" : 
-              "Adicionar Material"
-            }
+          <Button 
+            type="submit" 
+            className="h-9 px-6 rounded-lg bg-azul hover:bg-azul/90"
+          >
+            {isEditMode ? (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Guardar Alterações
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Material
+              </>
+            )}
           </Button>
         </div>
       </form>

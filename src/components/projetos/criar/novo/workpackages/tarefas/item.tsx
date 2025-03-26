@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ptBR } from "date-fns/locale";
 import { TarefaForm } from "./form";
+import { Prisma } from "@prisma/client";
 
 interface TarefaItemProps {
   tarefa: TarefaWithRelations;
@@ -21,7 +22,7 @@ interface TarefaItemProps {
   onUpdate: () => Promise<void>;
   onRemove: () => void;
   onEdit: (data: any) => Promise<void>;
-  onAddEntregavel: (data: any) => Promise<void>;
+  onAddEntregavel: (tarefaId: string, entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">) => Promise<void>;
   onEditEntregavel: (id: string, data: any) => Promise<void>;
   onRemoveEntregavel: (id: string) => void;
 }
@@ -74,11 +75,6 @@ export function TarefaItem({
       console.error("Erro ao atualizar tarefa:", error);
       toast.error("Erro ao atualizar tarefa");
     }
-  };
-
-  const handleAddEntregavel = async (tarefaId: string, entregavel: any) => {
-    // Esta função ainda precisa ser movida para o componente pai
-    // e recebida como prop, similar ao onEdit
   };
 
   const calcularProgresso = () => {
@@ -219,7 +215,10 @@ export function TarefaItem({
                       fim: tarefa.fim ? new Date(tarefa.fim) : new Date()
                     }}
                     onCancel={() => setAddingEntregavel(false)}
-                    onSubmit={handleAddEntregavel}
+                    onSubmit={async (tarefaId, entregavel) => {
+                      await onAddEntregavel(tarefaId, entregavel);
+                      setAddingEntregavel(false);
+                    }}
                   />
                 ) : (
                   <div className="space-y-2">

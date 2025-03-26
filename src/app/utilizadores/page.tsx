@@ -28,6 +28,7 @@ import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
 import { Badge } from "@/components/ui/badge";
 import { Permissao, Regime } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 const PERMISSAO_LABELS: Record<string, string> = {
   ADMIN: 'Admin',
@@ -370,40 +371,42 @@ const Users = () => {
   ];
 
   return (
-    <PageLayout className="h-screen overflow-hidden">
-      <div className="space-y-6">
-        <PaginaHeader
-          title="Utilizadores"
-          subtitle="Consulte os utilizadores do sistema"
-          action={<NovoUtilizadorModal />}
-        />
+    <ProtectedRoute blockPermission={"COMUM" as Permissao}>
+      <PageLayout className="h-screen overflow-hidden">
+        <div className="space-y-6">
+          <PaginaHeader
+            title="Utilizadores"
+            subtitle="Consulte os utilizadores do sistema"
+            action={<NovoUtilizadorModal />}
+          />
 
-        <StatsGrid stats={stats} className="my-4" />
+          <StatsGrid stats={stats} className="my-4" />
 
-        <div className="flex-1 overflow-visible">
-          {isLoading ? (
-            <TableSkeleton />
-          ) : (
-            <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px] rounded-2xl overflow-hidden">
-              <TabelaDados<any>
-                title=""
-                subtitle=""
-                data={utilizadores}
-                isLoading={isLoading}
-                columns={columns}
-                searchPlaceholder="Procurar utilizadores..."
-                filterConfigs={filterConfigs}
-                onRowClick={handleRowClick}
-                emptyStateMessage={{
-                  title: "Nenhum utilizador encontrado",
-                  description: "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa para ver todos os utilizadores."
-                }}
-              />
-            </div>
-          )}
+          <div className="flex-1 overflow-visible">
+            {isLoading ? (
+              <TableSkeleton />
+            ) : (
+              <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px] rounded-2xl overflow-hidden">
+                <TabelaDados<any>
+                  title=""
+                  subtitle=""
+                  data={utilizadores}
+                  isLoading={isLoading}
+                  columns={columns}
+                  searchPlaceholder="Procurar utilizadores..."
+                  filterConfigs={filterConfigs}
+                  onRowClick={handleRowClick}
+                  emptyStateMessage={{
+                    title: "Nenhum utilizador encontrado",
+                    description: "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa para ver todos os utilizadores."
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </PageLayout>
+      </PageLayout>
+    </ProtectedRoute>
   );
 };
 

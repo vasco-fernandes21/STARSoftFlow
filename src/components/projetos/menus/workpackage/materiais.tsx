@@ -202,6 +202,10 @@ export function WorkpackageMateriais({
           >
             <MaterialForm
               workpackageId={workpackage.id}
+              workpackageDates={{
+                inicio: workpackage.inicio,
+                fim: workpackage.fim
+              }}
               onSubmit={handleSubmitMaterial}
               onCancel={() => setShowForm(false)}
             />

@@ -59,7 +59,8 @@ export function EntregavelForm({
     onSubmit(tarefaId, {
       nome: formData.nome,
       data: formData.data ? formData.data.toISOString() : null,
-      estado: false
+      estado: false,
+      descricao: null
     });
   };
 

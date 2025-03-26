@@ -377,6 +377,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                             setRecursoEmEdicao(null);
                           }}
                           recursoEmEdicao={null}
+                          projetoEstado={state.estado}
                         />
                       </div>
                     )}
@@ -440,6 +441,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                                 }))}
                                 inicio={selectedWorkpackage?.inicio ? new Date(selectedWorkpackage.inicio) : new Date()}
                                 fim={selectedWorkpackage?.fim ? new Date(selectedWorkpackage.fim) : new Date(new Date().setMonth(new Date().getMonth() + 6))}
+                                projetoEstado={state.estado}
                               />
                             );
                           })}

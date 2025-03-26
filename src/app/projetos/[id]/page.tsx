@@ -82,53 +82,78 @@ export default function DetalheProjeto() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 custom-blue-blur">
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-8xl mx-auto space-y-6">
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/projetos')}
-              className="h-9 flex items-center gap-2 text-gray-600 hover:text-customBlue transition-colors duration-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Projetos</span>
-            </Button>
-            <span className="text-gray-400">/</span>
-            <span className="text-gray-600 font-medium truncate max-w-[300px]">{projeto.nome}</span>
-          </nav>
-
-          {/* Cabeçalho */}
-          <div className="flex flex-col md:flex-row gap-6 justify-between">
-            <div className="space-y-4 flex-1">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-3xl font-bold text-gray-900">{projeto.nome}</h1>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        projeto.estado === "CONCLUIDO"
-                          ? "bg-emerald-50/70 text-emerald-600 border-emerald-200"
-                          : projeto.estado === "PENDENTE"
-                          ? "bg-amber-50/70 text-amber-600 border-amber-200"
-                          : "bg-blue-50/70 text-customBlue border-blue-200"
-                      )}
-                    >
-                      {estadoMap[projeto.estado]}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1 max-w-full">{projeto.descricao || "Sem descrição"}</p>
+      <div className="flex-1 overflow-y-auto">
+        {/* Breadcrumb fixo com novo design */}
+        <div className="sticky top-3 z-10 bg-gradient-to-b from-gray-50/90 to-transparent backdrop-blur-[2px] pt-2 pb-1 px-4">
+          <div className="max-w-8xl mx-auto">
+            <div className="flex items-center">
+              <div className="flex items-center gap-1.5 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm hover:shadow-md transition-all duration-300 border border-white/40 group">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push('/projetos')}
+                  className="flex items-center gap-1.5 h-6 px-1.5 py-0 hover:bg-blue-50 transition-colors"
+                  aria-label="Voltar para projetos"
+                >
+                  <ArrowLeft className="h-3 w-3 text-gray-600 group-hover:text-customBlue transition-colors" />
+                  <span className="text-gray-600 hover:text-customBlue font-medium transition-colors text-sm hidden sm:inline-flex">
+                    Projetos
+                  </span>
+                </Button>
+                
+                <span className="text-gray-400">/</span>
+                
+                <div className="flex items-center gap-1.5 transition-all duration-300 hover:bg-white/90 rounded-full pl-1 pr-2 py-0.5">
+                  <div className={cn(
+                    "h-2 w-2 rounded-full transition-colors duration-300",
+                    projeto.estado === "CONCLUIDO"
+                      ? "bg-emerald-500"
+                      : projeto.estado === "PENDENTE"
+                      ? "bg-amber-500"
+                      : "bg-blue-500"
+                  )}></div>
+                  <span className="text-sm truncate max-w-[300px] sm:max-w-[400px] font-medium text-gray-800" title={projeto.nome}>
+                    {projeto.nome.length > 30 
+                      ? `${projeto.nome.substring(0, 30)}...` 
+                      : projeto.nome}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Estatísticas do Projeto */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-              <CardContent className="p-5 flex items-center gap-4">
+        {/* Conteúdo principal com novo design */}
+        <div className="max-w-8xl mx-auto p-4 space-y-4">
+          {/* Cabeçalho do projeto */}
+          <div className="flex flex-col gap-2 mt-1 ml-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-gray-900">{projeto.nome}</h1>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    projeto.estado === "CONCLUIDO"
+                      ? "bg-emerald-50/70 text-emerald-600 border-emerald-200"
+                      : projeto.estado === "PENDENTE"
+                      ? "bg-amber-50/70 text-amber-600 border-amber-200"
+                      : "bg-blue-50/70 text-customBlue border-blue-200"
+                  )}
+                >
+                  {estadoMap[projeto.estado]}
+                </Badge>
+              </div>
+            </div>
+            
+            {projeto.descricao && (
+              <p className="text-sm text-gray-500">{projeto.descricao}</p>
+            )}
+          </div>
+
+          {/* Cards de estatísticas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-1">
+            <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
+              <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-blue-50/70 flex items-center justify-center shadow-md">
                   <FileText className="h-5 w-5 text-customBlue" />
                 </div>
@@ -138,8 +163,8 @@ export default function DetalheProjeto() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-              <CardContent className="p-5 flex items-center gap-4">
+            <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
+              <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-purple-50/70 flex items-center justify-center shadow-md">
                   <CalendarClock className="h-5 w-5 text-purple-600" />
                 </div>
@@ -159,8 +184,8 @@ export default function DetalheProjeto() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-              <CardContent className="p-5 flex items-center gap-4">
+            <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
+              <CardContent className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-amber-50/70 flex items-center justify-center shadow-md">
                   <Calendar className="h-5 w-5 text-amber-600" />
                 </div>
@@ -173,8 +198,8 @@ export default function DetalheProjeto() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-              <CardContent className="p-5 flex items-start gap-4">
+            <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
+              <CardContent className="p-4 flex items-start gap-3">
                 <div className="h-10 w-10 rounded-full bg-emerald-50/70 flex items-center justify-center shadow-md">
                   <LineChart className="h-5 w-5 text-emerald-600" />
                 </div>

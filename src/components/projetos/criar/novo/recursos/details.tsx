@@ -52,6 +52,7 @@ interface DetailsProps {
   utilizadores: Array<{ id: string; name: string; email: string; regime: string }>;
   inicio: Date;
   fim: Date;
+  projetoEstado: "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO";
 }
 
 export function Details({
@@ -70,7 +71,8 @@ export function Details({
   onSaveEdit,
   utilizadores,
   inicio,
-  fim
+  fim,
+  projetoEstado
 }: DetailsProps) {
   // Se estiver editando, mostrar o formulário
   if (isEditing) {
@@ -84,6 +86,7 @@ export function Details({
         onAddAlocacao={onSaveEdit}
         onCancel={onCancelEdit}
         recursoEmEdicao={recurso}
+        projetoEstado={projetoEstado}
       />
     );
   }
