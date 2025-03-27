@@ -1,6 +1,6 @@
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
@@ -62,10 +62,12 @@ const createEntregavelSchema = z.object({
 
 // Schema para atualização de entregável
 const updateEntregavelSchema = z.object({
+  id: z.string().uuid("ID do entregável inválido"),
   nome: z.string().min(1, "Nome é obrigatório").optional(),
   descricao: z.string().optional(),
   data: z.date().optional(),
   anexo: z.string().optional(),
+  estado: z.boolean().optional(),
 });
 
 // Router
@@ -325,23 +327,14 @@ export const tarefaRouter = createTRPCRouter({
     
   // Atualizar entregável
   updateEntregavel: publicProcedure
-    .input(z.object({
-      id: z.string(),
-      data: z.object({
-        nome: z.string().optional(),
-        descricao: z.string().optional(),
-        data: z.date().optional(),
-        anexo: z.string().optional(),
-        estado: z.boolean().optional()
-      })
-    }))
+    .input(updateEntregavelSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const { id, data } = input;
+        const { nome, descricao, data, anexo } = input;
         
         // Verificar se o entregável existe
         const entregavelExistente = await ctx.db.entregavel.findUnique({
-          where: { id },
+          where: { id: input.id },
         });
         
         if (!entregavelExistente) {
@@ -353,8 +346,13 @@ export const tarefaRouter = createTRPCRouter({
         
         // Atualizar entregável
         const entregavel = await ctx.db.entregavel.update({
-          where: { id },
-          data,
+          where: { id: input.id },
+          data: {
+            nome: nome,
+            descricao: descricao,
+            data: data,
+            anexo: anexo
+          },
         });
         
         return entregavel;

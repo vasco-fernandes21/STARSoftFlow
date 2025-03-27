@@ -3,7 +3,6 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { PrismaClient } from "@prisma/client"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare, hash } from "bcryptjs"
-import { Permissao } from "@prisma/client"
 import { ZodError } from "zod"
 import { loginSchema } from "./api/auth/types"
 import { z } from "zod"
@@ -66,7 +65,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           };
           
           // Validar as credenciais usando o loginSchema
-          const validatedData = await loginSchema.parseAsync({ 
+          await loginSchema.parseAsync({ 
             email, 
             password
           });
@@ -132,7 +131,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const { token, password } = await tokenValidationSchema.parseAsync(credentials);
           
           // Primeiro tenta buscar em passwordReset (reset de senha)
-          let passwordReset = await prisma.passwordReset.findUnique({
+          const passwordReset = await prisma.passwordReset.findUnique({
             where: { token }
           });
           
@@ -348,8 +347,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   callbacks: {
-    async jwt({ token, user, account, profile, trigger, session }) {
-      
+    async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
         
@@ -361,7 +359,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.regime = (user as any).regime;
         token.username = (user as any).username;
         token.contratacao = (user as any).contratacao;
-        
       }
       return token;
     },

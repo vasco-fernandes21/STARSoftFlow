@@ -464,9 +464,6 @@ export function Cronograma({
                           
                           <motion.div
                             onClick={() => handleTarefaClick(tarefa)}
-                            initial={{ scaleX: 0 }}
-                            animate={{ scaleX: 1 }}
-                            whileHover={{ y: -1 }}
                             style={{
                               position: 'absolute',
                               left: `${position.left}%`,

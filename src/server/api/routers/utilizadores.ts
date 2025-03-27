@@ -1,9 +1,10 @@
-import { createTRPCRouter, publicProcedure, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Permissao, Regime, Prisma } from "@prisma/client";
+import { Permissao, Regime } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { sendPrimeiroAcessoEmail } from "@/emails/utils/email";
-import { hash, compare } from "bcryptjs";
+import { hash } from "bcryptjs";
 import { z } from "zod";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
@@ -100,6 +101,14 @@ export type UtilizadorFilterInput = z.infer<typeof utilizadorFilterSchema>;
 export type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type PrimeiroAcessoInput = z.infer<typeof primeiroAcessoSchema>;
+
+// Exportar os schemas para uso em validações
+export { 
+  changePasswordSchema,
+  resetPasswordRequestSchema,
+  resetPasswordSchema,
+  primeiroAcessoSchema
+};
 
 // Tipo estendido para o utilizador com as propriedades que precisamos
 type UserWithPermissao = {

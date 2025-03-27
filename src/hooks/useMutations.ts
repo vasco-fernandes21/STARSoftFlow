@@ -151,7 +151,7 @@ export function useMutations(projetoId?: string) {
 
         return { previousData };
       },
-      onSuccess: async (_data, variables) => {
+      onSuccess: async (_data, _variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onSettled: async () => {

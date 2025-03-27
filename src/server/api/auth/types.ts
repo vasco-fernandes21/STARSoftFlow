@@ -1,4 +1,4 @@
-import { object, string, boolean } from "zod";
+import { object, string } from "zod";
 
 export const loginSchema = object({
   email: string({ required_error: "Email é obrigatório" })

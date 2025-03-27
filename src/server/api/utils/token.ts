@@ -1,6 +1,3 @@
-import crypto, { randomUUID } from "crypto";
-
-
 // Função para gerar UUID v4 que funciona tanto no cliente quanto no servidor
 export function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {

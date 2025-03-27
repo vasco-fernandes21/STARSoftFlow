@@ -1,5 +1,4 @@
 import { createTRPCRouter } from "./trpc";
-import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 import { utilizadorRouter } from "./routers/utilizadores";
 import { projetoRouter } from "./routers/projetos";
@@ -8,6 +7,7 @@ import { tarefaRouter } from "./routers/tarefas";
 import { entregavelRouter } from "./routers/entregaveis";
 import { materialRouter } from "./routers/materiais";
 import { financiamentoRouter } from "./routers/financiamento";
+import { dashboardRouter } from "./routers/dashboard";
 /**
  * Este é o router principal da API.
  * Todos os sub-routers devem ser adicionados aqui.
@@ -20,6 +20,7 @@ export const appRouter = createTRPCRouter({
   entregavel: entregavelRouter,
   material: materialRouter,
   financiamento: financiamentoRouter,
+  dashboard: dashboardRouter,
 });
 
 // Tipos de exportação para uso no cliente

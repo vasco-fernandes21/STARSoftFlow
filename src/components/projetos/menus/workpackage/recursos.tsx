@@ -111,7 +111,7 @@ export function WorkpackageRecursos({
   const formatarDataSegura = (ano: string | number, mes: string | number, formatString: string): string => {
     try {
       return format(new Date(Number(ano), Number(mes) - 1), formatString, { locale: pt });
-    } catch (_) {
+    } catch {
       return `${mes}/${ano}`;
     }
   };
