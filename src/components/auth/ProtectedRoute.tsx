@@ -3,7 +3,7 @@
 import { usePermissions } from "@/hooks/usePermissions";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Permissao } from "@prisma/client";
+import type { Permissao } from "@prisma/client";
 
 interface ProtectedRouteProps {
   requiredPermission?: Permissao;  // Original: requer uma permissão específica

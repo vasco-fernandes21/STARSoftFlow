@@ -1,29 +1,20 @@
 import { useState } from "react";
 import { 
   ListTodo, 
-  Package, 
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  Info,
-  Users
+  Package,
+  Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { WorkpackageWithRelations } from "@/components/projetos/types";
+import type { WorkpackageWithRelations } from "@/components/projetos/types";
 import { TarefaForm } from "../tarefas/form";
 import { Form as MaterialForm } from "../material/form";
 import { TarefaItem } from "../tarefas/item";
 import { Item as MaterialItem } from "../material/item";
-import { cn } from "@/lib/utils";
-import { Decimal } from "@prisma/client/runtime/library";
-import { Prisma, Rubrica } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 type TarefaCreateInput = Prisma.TarefaCreateInput;
 type MaterialCreateInput = Prisma.MaterialCreateInput;
@@ -32,7 +23,7 @@ type EntregavelCreateInput = Prisma.EntregavelCreateInput;
 interface WorkpackageItemProps {
   workpackage: WorkpackageWithRelations;
   onEdit: (workpackage: WorkpackageWithRelations) => void;
-  onDelete: (id: string) => void;
+  _onDelete: () => void;
   handlers: {
     addTarefa: (workpackageId: string, tarefa: Omit<TarefaCreateInput, "workpackage">) => Promise<void>;
     updateTarefa: (workpackageId: string, tarefaId: string, data: Partial<TarefaCreateInput>) => Promise<void>;
@@ -51,7 +42,7 @@ interface WorkpackageItemProps {
 export function WorkpackageItem({
   workpackage,
   onEdit,
-  onDelete,
+  _onDelete,
   handlers,
   projetoInicio,
   projetoFim
@@ -63,7 +54,6 @@ export function WorkpackageItem({
   // Contadores
   const tarefasCount = workpackage.tarefas?.length || 0;
   const materiaisCount = workpackage.materiais?.length || 0;
-  const recursosCount = [...new Set(workpackage.recursos?.map(r => r.userId))].length || 0;
 
   return (
     <div className="space-y-6">

@@ -4,21 +4,19 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageLayout } from "@/components/common/PageLayout";
-import { useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
+import { useProjetoForm, ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 import { ProjetoHeader } from "@/components/projetos/criar/ProjetoHeader";
 import { ProjetoProgressContainer } from "@/components/projetos/criar/ProjetoProgressContainer";
 import { ProjetoFormPanel } from "@/components/projetos/criar/ProjetoFormPanel";
 import { ProjetoCronograma } from "@/components/projetos/criar/ProjetoCronograma";
-import { FaseType, fasesOrdem } from "@/components/projetos/types";
+import type { FaseType } from "@/components/projetos/types";
+import { fasesOrdem } from "@/components/projetos/types";
 import { api } from "@/trpc/react";
 import { ProjetoEstado, Rubrica, type Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { generateUUID } from "@/server/api/utils/token";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
 import StateMonitor from "@/components/projetos/StateMonitor";
-import { ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 
 import { 
   InformacoesTab,
@@ -27,7 +25,6 @@ import {
   RecursosTab,
   ResumoTab 
 } from "@/components/projetos/criar/novo";
-import { TarefaWithRelations } from "@/components/projetos/types";
 
 // Tipo para workpackage com todas as relações
 type WorkpackageWithRelations = Prisma.WorkpackageGetPayload<{
@@ -630,46 +627,13 @@ function ProjetoFormContent() {
     }
   };
 
-  // Handler para atualizar dados do projeto
-  const handleUpdateProjeto = (data: Partial<typeof state>) => {
-    dispatch({ type: "UPDATE_PROJETO", data });
-  };
-
-  // Função para calcular custos
-  const calcularCustos = (workpackage: WorkpackageWithRelations) => {
-    // Custos de recursos humanos
-    const custosRH = workpackage.recursos.reduce((total, recurso) => {
-      return total + new Decimal(recurso.ocupacao.toString()).toNumber();
-    }, 0);
-
-    // Custos de materiais
-    const custosMateriais = workpackage.materiais.reduce((total, material) => {
-      return total + material.preco.toNumber() * material.quantidade;
-    }, 0);
-
-    return {
-      custosRH,
-      custosMateriais,
-      total: custosRH + custosMateriais
-    };
-  };
-
-  // Handler para atualizar overhead
-  const handleOverheadChange = (value: number) => {
-    handleUpdateProjeto({ 
-      overhead: new Decimal(value)
-    });
-  };
-
-  // Handler para atualizar taxa de financiamento
-  const handleTaxaFinanciamentoChange = (value: number) => {
-    handleUpdateProjeto({ 
-      taxa_financiamento: new Decimal(value)
-    });
-  };
-
   // Função para enviar o formulário
   const handleSubmit = async () => {
+    if (!state.nome || !state.inicio || !state.fim) {
+      toast.error("Preencha os campos obrigatórios");
+      return;
+    }
+
     // Verificar se todos os dados necessários estão preenchidos
     if (!fasesConcluidas.resumo) {
       toast.error("Complete todas as fases antes de finalizar.");
@@ -773,7 +737,7 @@ function ProjetoFormContent() {
             {/* Formulário com shadow suave */}
             <div className="glass-card border-white/20 shadow-md transition-all duration-500 ease-in-out hover:shadow-lg rounded-2xl">
               <ProjetoFormPanel
-                faseAtual={faseAtual}
+                _faseAtual={faseAtual}
               >
                 {renderizarConteudoFase()}
               </ProjetoFormPanel>
@@ -792,8 +756,8 @@ function ProjetoFormContent() {
           >
               <ProjetoCronograma
               state={state}
-              handleUpdateWorkPackage={handleUpdateWorkPackage}
-              handleUpdateTarefa={handleUpdateTarefa}
+              _handleUpdateWorkPackage={handleUpdateWorkPackage}
+              _handleUpdateTarefa={handleUpdateTarefa}
               />
           </div>
         </div>

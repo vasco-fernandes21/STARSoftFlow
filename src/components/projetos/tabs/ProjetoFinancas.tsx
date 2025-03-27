@@ -1,20 +1,20 @@
 // app/projetos/[projetoId]/financas/page.tsx
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Area, AreaChart
+  XAxis, YAxis, CartesianGrid, Area, AreaChart
 } from "recharts";
-import { ChevronDown, ChevronRight, TrendingUp, Wallet, Users, Calendar, DollarSign, PieChart as PieChartIcon, ArrowUpDown } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Badge, badgeVariants } from "@/components/ui/badge";
+import { ChevronDown, ChevronRight, Wallet, Users, Calendar, DollarSign, PieChartIcon, ArrowUpDown } from "lucide-react";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import type { badgeVariants } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { VariantProps } from "class-variance-authority";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 
 interface ProjetoFinancasProps {
   projetoId: string;
@@ -31,17 +31,6 @@ interface Alocacao {
   ano?: number;
   etis?: number;
   custo?: number;
-}
-
-interface DetalheUser {
-  user: { 
-    id: string; 
-    name: string; 
-    salario: number | null;
-  };
-  totalAlocacao: number;
-  custoTotal: number;
-  alocacoes: Alocacao[];
 }
 
 interface AlocacaoPorWorkpackage {
@@ -128,7 +117,6 @@ interface OrcamentoStatus {
 
 export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState("overview");
   const [workpackageSort, setWorkpackageSort] = useState<"valor" | "nome">("valor");
   const [monthRange, setMonthRange] = useState<"3" | "6" | "12">("6");
   
@@ -203,9 +191,6 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   };
   
   const statusOrcamento = getOrcamentoStatus();
-
-  // Usar as novas percentagens diretamente do custosRealizados
-  const percentagemFormatada = Math.min(custosRealizados.percentagemEstimado || 0, 100).toFixed(1);
   
   // Dados para o orçamento
   const dadosOrcamento = [
@@ -326,7 +311,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
         </Badge>
       </div>
       
-      <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
+      <Tabs defaultValue="overview" className="w-full">
         <TabsList className="mb-4 grid w-full grid-cols-3">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="detalhes">Detalhes por WP</TabsTrigger>
@@ -387,7 +372,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
                     )}
                   </div>
                 } 
-                icon={<TrendingUp className="h-6 w-6 text-blue-700" />}
+                icon={<PieChartIcon className="h-6 w-6 text-blue-700" />}
                 colorClass="bg-blue-50"
               />
             )}

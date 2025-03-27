@@ -5,7 +5,6 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import { AlertCircle, AlertTriangle, CheckCircle, HelpCircle, Info } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
 
 export type AlertDialogType = "confirmacao" | "alerta" | "sucesso" | "erro" | "info";
 

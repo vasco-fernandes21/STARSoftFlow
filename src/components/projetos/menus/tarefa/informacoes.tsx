@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
-import { CalendarIcon, FileTextIcon, CheckIcon, PencilIcon, XIcon, Circle } from "lucide-react";
+import { Calendar, FileText, Check, Pencil, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMutations } from "@/hooks/useMutations";
 
@@ -131,7 +131,7 @@ export function TarefaInformacoes({
           )}
         >
           {tarefa.estado ? (
-            <CheckIcon className="h-4 w-4" />
+            <Check className="h-4 w-4" />
           ) : (
             <Circle className="h-4 w-4" />
           )}
@@ -152,7 +152,7 @@ export function TarefaInformacoes({
             }}
             className="h-6 w-6 rounded-full hover:bg-gray-50"
           >
-            <PencilIcon className="h-3 w-3 text-gray-500" />
+            <Pencil className="h-3 w-3 text-gray-500" />
           </Button>
         </div>
         <Card className="border border-azul/10 shadow-sm p-4 bg-white">
@@ -191,7 +191,7 @@ export function TarefaInformacoes({
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-azul/10 flex items-center justify-center">
-            <CalendarIcon className="h-4 w-4 text-azul" />
+            <Calendar className="h-4 w-4 text-azul" />
           </div>
           <h3 className="text-sm font-medium text-gray-900">Período</h3>
         </div>
@@ -222,7 +222,7 @@ export function TarefaInformacoes({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-azul/10 flex items-center justify-center">
-              <FileTextIcon className="h-4 w-4 text-azul" />
+              <FileText className="h-4 w-4 text-azul" />
             </div>
             <h3 className="text-sm font-medium text-gray-900">Descrição</h3>
           </div>
@@ -235,7 +235,7 @@ export function TarefaInformacoes({
             }}
             className="h-6 w-6 rounded-full hover:bg-gray-50"
           >
-            <PencilIcon className="h-3 w-3 text-gray-500" />
+            <Pencil className="h-3 w-3 text-gray-500" />
           </Button>
         </div>
         <Card className="border border-azul/10 shadow-sm p-4 bg-white">

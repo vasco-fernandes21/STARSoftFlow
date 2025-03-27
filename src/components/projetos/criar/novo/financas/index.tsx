@@ -3,20 +3,10 @@ import { TabNavigation } from "../../components/TabNavigation";
 import { MoneyField, PercentageField } from "../../components/FormFields";
 import { api } from "@/trpc/react";
 import { useState } from "react";
-import { CirclePercent, Settings2, Check } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GerirFinanciamentosModal } from "./GerirFinanciamentosModal";
-import { type Financiamento } from "@prisma/client";
 import { Decimal } from "decimal.js";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DropdownField } from "../../components/FormFields";
 
 // Tipo para o que vem da API

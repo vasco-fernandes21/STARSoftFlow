@@ -1,22 +1,6 @@
-import { useState } from "react";
 import { Item } from "./item";
 import { Form } from "./form";
-import { Decimal } from "decimal.js";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  regime: string;
-}
-
-interface Alocacao {
-  userId: string;
-  mes: number;
-  ano: number;
-  ocupacao: string;
-  user: User;
-}
+import type { Decimal } from "decimal.js";
 
 interface DetailsProps {
   userId: string;
@@ -39,7 +23,7 @@ interface DetailsProps {
   onToggleExpand: () => void;
   onEdit: () => void;
   onRemove: () => void;
-  formatarDataSegura: (ano: string | number, mes: string | number, formatString: string) => string;
+  _formatarDataSegura: (ano: string | number, mes: string | number, formatString: string) => string;
   alocacoesPorAnoMes: Record<string, Record<number, number>>;
   isEditing: boolean;
   onCancelEdit: () => void;
@@ -64,7 +48,7 @@ export function Details({
   onToggleExpand,
   onEdit,
   onRemove,
-  formatarDataSegura,
+  _formatarDataSegura,
   alocacoesPorAnoMes,
   isEditing,
   onCancelEdit,

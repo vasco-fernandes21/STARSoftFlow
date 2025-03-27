@@ -1,46 +1,29 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { 
-  User as UserIcon, 
   Mail, 
   Calendar, 
   Briefcase, 
   Shield, 
   Clock, 
-  Download,
-  FileText,
-  Layers,
-  BarChart2,
   ArrowLeft,
+  FileText,
+  BarChart2,
   Edit,
-  MapPin,
-  Hash,
-  Plus,
-  Users,
-  LineChart,
-  CalendarClock,
-  DollarSign,
-  Settings,
-  Activity,
-  ChevronRight,
-  Filter,
   Building2,
-  GraduationCap,
-  Award,
-  Globe,
-  Phone,
-  Linkedin,
-  Camera,
-  ExternalLink,
-  Send,
-  Share2,
-  PieChart,
+  ChevronRight,
   Grid3X3,
-  Zap
+  Plus,
+  PieChart,
+  Zap,
+  Activity,
+  Send,
+  MapPin,
+  Share2
 } from "lucide-react";
 import { 
   Card, 
@@ -53,9 +36,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
-import { Permissao, Regime, User as PrismaUser } from "@prisma/client";
+import type { Permissao, Regime } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { AlocacoesDetalhadas } from "./AlocacoesDetalhadas";
 import { TabelaAlocacoes } from "./TabelaAlocacoes";
@@ -154,45 +136,26 @@ const REGIME_LABELS: Record<string, string> = {
   INTEGRAL: 'Integral'
 };
 
-// Componente de informação com ícone
-const InfoItem = ({
-  icon,
-  label,
-  value,
-  badge = false
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  badge?: boolean;
-}) => {
-  return (
-    <div className="flex items-center gap-3 py-3 group hover:bg-azul/5 px-3 rounded-xl transition-all duration-200">
-      <div className="bg-azul/10 text-azul rounded-xl p-2.5 flex-shrink-0 group-hover:bg-azul/20 group-hover:scale-105 transition-all duration-300">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-500">{label}</p>
-        {badge ? (
-          <Badge variant="outline" className="mt-1.5 font-medium border-azul/20 text-azul bg-azul/5 px-2.5 py-1">
-            {value}
-          </Badge>
-        ) : (
-          <p className="text-sm font-medium truncate text-gray-700 group-hover:translate-x-1 transition-transform duration-300">{value}</p>
-        )}
-      </div>
-    </div>
-  );
+// Funções auxiliares
+const getPermissaoText = (permissao: Permissao) => {
+  return PERMISSAO_LABELS[permissao] || permissao;
 };
 
-function parseDate(dateString: string | Date | null | undefined): Date {
-  if (!dateString) return new Date();
-  
-  if (dateString instanceof Date) return dateString;
-  
-  const parsed = new Date(dateString);
-  return isNaN(parsed.getTime()) ? new Date() : parsed;
-}
+const getRegimeText = (regime: Regime) => {
+  return REGIME_LABELS[regime] || regime;
+};
+
+const formatarData = (data: Date | null | undefined) => {
+  if (!data) return "Não definido";
+  return new Date(data).toLocaleDateString('pt-PT');
+};
+
+const calcularAnosExperiencia = (dataContratacao: Date | null | undefined) => {
+  if (!dataContratacao) return 0;
+  const hoje = new Date();
+  const contratacao = new Date(dataContratacao);
+  return Math.floor((hoje.getTime() - contratacao.getTime()) / (1000 * 60 * 60 * 24 * 365));
+};
 
 // Schema para validação do utilizador
 const utilizadorSchema = z.object({
@@ -208,8 +171,6 @@ const utilizadorSchema = z.object({
   regime: z.enum(["PARCIAL", "INTEGRAL"]),
   informacoes: z.string().nullable(),
 });
-
-type ValidatedUser = z.infer<typeof utilizadorSchema>;
 
 export default function PerfilUtilizador() {
   const router = useRouter();
@@ -268,26 +229,6 @@ export default function PerfilUtilizador() {
       }))
     )
   ) ?? [];
-
-  // Funções auxiliares
-  const getPermissaoText = (permissao: Permissao) => {
-    return PERMISSAO_LABELS[permissao] || 'Desconhecido';
-  };
-
-  const getRegimeText = (regime: Regime) => {
-    return REGIME_LABELS[regime] || 'Desconhecido';
-  };
-
-  const formatarData = (data: Date | null | undefined) => {
-    if (!data) return "Não definido";
-    return format(new Date(data), "dd MMM yyyy", { locale: pt });
-  };
-
-  const calcularAnosExperiencia = (dataContratacao: Date | null | undefined) => {
-    if (!dataContratacao) return 0;
-    const hoje = new Date();
-    return Math.floor((hoje.getTime() - new Date(dataContratacao).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-  };
 
   // Encontrar o próximo workpackage (com data de início mais próxima)
   const proximoWorkpackage = useMemo<ProximoWorkpackage | null>(() => {

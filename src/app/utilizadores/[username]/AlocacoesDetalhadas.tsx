@@ -1,11 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { pt } from "date-fns/locale";
+import { useState, useEffect, useMemo } from "react";
 import { Calendar, Briefcase } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatarDataSegura } from "@/lib/utils";
 interface WorkpackageInfo {
   id: string;
@@ -65,16 +61,24 @@ export function AlocacoesDetalhadas({ alocacoes }: AlocacoesDetalhadasProps) {
   // Organizar alocações por ano e mês
   const alocacoesPorAnoMes: Record<string, Record<number, number>> = {};
   const detalhesAlocacoes: Record<string, Record<number, AlocacaoDetalhe[]>> = {};
-  const anos: string[] = [];
+  
+  // Use useMemo para aanos para evitar criar um novo array a cada render
+  const anos = useMemo(() => {
+    const uniqueAnos: string[] = [];
+    
+    alocacoes?.forEach(alocacao => {
+      const anoStr = String(alocacao.ano);
+      if (!uniqueAnos.includes(anoStr)) {
+        uniqueAnos.push(anoStr);
+      }
+    });
+    
+    return uniqueAnos;
+  }, [alocacoes]);
   
   alocacoes?.forEach(alocacao => {
     const { ano, mes, ocupacao, workpackage, projeto } = alocacao;
     const anoStr = String(ano);
-    
-    // Coletar anos únicos
-    if (!anos.includes(anoStr)) {
-      anos.push(anoStr);
-    }
     
     // Inicializar estruturas se não existirem
     if (!alocacoesPorAnoMes[anoStr]) {

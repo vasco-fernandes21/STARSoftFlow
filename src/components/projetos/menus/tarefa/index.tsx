@@ -45,22 +45,6 @@ export function MenuTarefa({
     }
   }, [open]);
 
-  const handleSave = async (formData: any) => {
-    try {
-      // Buscar o workpackageId atual
-      const currentWorkpackageId = tarefa?.workpackageId;
-      
-      // Chamar onUpdate com os dados e o workpackageId
-      await onUpdate(formData, currentWorkpackageId);
-      
-      // Fechar o menu para melhor UX
-      onClose();
-    } catch (error) {
-      console.error("Erro ao salvar tarefa:", error);
-      // Não fechar o menu em caso de erro
-    }
-  };
-
   // renderizar loading
   if (isLoading) {
     return (
@@ -198,7 +182,7 @@ export function MenuTarefa({
                   tarefaId={tarefa.id}
                   addingEntregavel={addingEntregavel}
                   setAddingEntregavel={setAddingEntregavel}
-                  onUpdate={() => onUpdate(
+                  _onUpdate={() => onUpdate(
                     {
                       id: tarefa.id,
                       data: {}

@@ -14,15 +14,12 @@ import {
   FileSpreadsheet, 
   Upload,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
 import * as XLSX from "xlsx";
 import { Decimal } from "decimal.js";
-import {
+import type {
   Rubrica,
-  type Material as PrismaMaterial,
-  type Workpackage as PrismaWorkpackage,
-  type Financiamento,
+  Material as PrismaMaterial,
 } from "@prisma/client";
 import { toast } from "sonner";
 import { generateUUID } from "@/server/api/utils/token";
@@ -68,10 +65,6 @@ type FinanciamentoAPI = {
   taxa_financiamento: string;
   valor_eti: string;
 };
-
-interface FinanciamentoResponse {
-  items: FinanciamentoAPI[];
-}
 
 // Funções Utilitárias
 function mapearRubrica(rubricaExcel: string): Rubrica {
@@ -130,7 +123,7 @@ function extrairDadosFinanciamento(
   let tipoFinanciamento = "";
   let taxaFinanciamento: number | null = null;
   let overhead: number | null = null;
-  let valorEti: number | null = null;
+  const valorEti: number | null = null;
 
   for (const linha of dadosBudget) {
     if (linha && linha.length >= 8) {
@@ -468,7 +461,6 @@ function atribuirMateriaisAosWorkpackages(
 
 // Componente Principal
 export default function ImportarProjetoButton() {
-  const router = useRouter();
   const { dispatch } = useProjetoForm();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -664,38 +656,37 @@ export default function ImportarProjetoButton() {
               );
               
               if (financiamentoExistente) {
+                console.log(`💰 Financiamento encontrado: ${financiamentoExistente.nome}`);
+                
                 dispatch({
                   type: "UPDATE_PROJETO",
                   data: {
                     financiamentoId: financiamentoExistente.id,
-                    overhead: new Decimal(financiamentoExistente.overhead),
-                    taxa_financiamento: new Decimal(financiamentoExistente.taxa_financiamento),
-                    valor_eti: new Decimal(financiamentoExistente.valor_eti)
-                  }
+                  },
                 });
                 
-                toast.success(`Financiamento "${tipoFinanciamento}" encontrado e aplicado ao projeto.`);
-              } else {
+                toast.success(`Financiamento "${financiamentoExistente.nome}" aplicado`);
+              } else if (tipoFinanciamento) {
+                console.log(`💰 Novo financiamento necessário: ${tipoFinanciamento}`);
+                
                 setDadosFinanciamento({
                   nome: tipoFinanciamento,
-                  overhead: overhead,
+                  overhead,
                   taxa_financiamento: taxaFinanciamento,
                   valor_eti: valorEti
                 });
                 
-                setOpen(false);
                 setModalFinanciamentosAberto(true);
                 
-                toast.error(`Atenção: O financiamento "${tipoFinanciamento}" não foi encontrado no sistema.`, {
-                  duration: 10000,
-                  description: "Por favor, verifique os dados e crie um novo financiamento com as informações fornecidas.",
+                toast.info(`Não existe financiamento do tipo "${tipoFinanciamento}". Por favor, crie um novo.`, {
                   action: {
-                    label: "Confirmar",
+                    label: "Fechar",
                     onClick: () => toast.dismiss()
                   }
                 });
               }
             } catch (error) {
+              console.error("Erro ao verificar financiamentos existentes:", error);
               toast.error("Erro ao verificar financiamentos existentes.");
             }
           }
@@ -707,20 +698,21 @@ export default function ImportarProjetoButton() {
 
           setOpen(false);
         } catch (error) {
-          console.error("Erro na importação:", error);
+          console.error("Erro na importação", error);
           toast.error("Ocorreu um erro ao processar o ficheiro Excel.");
           setIsLoading(false);
         }
       };
 
       reader.onerror = (error) => {
+        console.error("Erro ao ler o ficheiro", error);
         toast.error("Ocorreu um erro ao ler o ficheiro.");
         setIsLoading(false);
       };
 
       reader.readAsArrayBuffer(file);
     } catch (error) {
-      console.error("Erro na importação:", error);
+      console.error("Erro na importação", error);
       toast.error("Ocorreu um erro ao buscar utilizadores.");
       setIsLoading(false);
     }

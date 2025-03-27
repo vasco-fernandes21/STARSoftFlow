@@ -6,12 +6,9 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  ColumnDef,
   flexRender,
-  SortingState,
-  ColumnFiltersState,
 } from "@tanstack/react-table";
-import { Card } from "@/components/ui/card";
+import type { ColumnDef, SortingState, ColumnFiltersState } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import {
   Table,

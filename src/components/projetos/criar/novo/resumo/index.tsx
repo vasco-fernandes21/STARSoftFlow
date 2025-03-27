@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabTitle } from "../../components/TabTitle";
 import { TabNavigation } from "../../components/TabNavigation";
-import { CheckCircle, FileText, Calendar, Euro, Briefcase, Users, AlertCircle, ClipboardCheck, Code, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, Calendar, Euro, Users, AlertCircle, ClipboardCheck, Code, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -216,7 +215,7 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Briefcase className="h-4 w-4 text-azul/60 mr-2" />
+                  <FileText className="h-4 w-4 text-azul/60 mr-2" />
                   <CardTitle className="text-base">Workpackages</CardTitle>
                 </div>
                 <Badge variant="outline" className="bg-azul/5">
@@ -228,7 +227,7 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
               {state.workpackages && state.workpackages.length > 0 ? (
                 <ScrollArea className="h-[200px]">
                   <div className="space-y-3">
-                    {state.workpackages.map((wp, index) => (
+                    {state.workpackages.map((wp, _index) => (
                       <div key={wp.id} className="border border-azul/10 rounded-md p-3">
                         <div className="flex justify-between items-center mb-2">
                           <h4 className="font-medium text-sm">{wp.nome}</h4>

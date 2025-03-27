@@ -2,17 +2,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, ChevronDown, ChevronUp, Trash, Circle, Check, Edit, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash, Check, Edit, Plus } from "lucide-react";
 import { format } from "date-fns";
-import { TarefaWithRelations } from "../../../../types";
+import type { TarefaWithRelations } from "../../../../types";
 import { EntregavelForm } from "../entregavel/form";
 import { EntregavelItem } from "../entregavel/item";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ptBR } from "date-fns/locale";
 import { TarefaForm } from "./form";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 interface TarefaItemProps {
   tarefa: TarefaWithRelations;
@@ -77,15 +75,6 @@ export function TarefaItem({
       console.error("Erro ao atualizar tarefa:", error);
       toast.error("Erro ao atualizar tarefa");
     }
-  };
-
-  const calcularProgresso = () => {
-    if (!tarefa.entregaveis || tarefa.entregaveis.length === 0) return 0;
-    
-    const total = tarefa.entregaveis.length;
-    const concluidos = tarefa.entregaveis.filter(e => e.estado).length;
-    
-    return Math.round((concluidos / total) * 100);
   };
 
   return (

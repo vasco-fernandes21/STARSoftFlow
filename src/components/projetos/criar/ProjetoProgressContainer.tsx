@@ -1,7 +1,8 @@
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
-import { FaseType, fases } from "../types";
+import type { FaseType } from "../types";
+import { fases } from "../types";
 
 interface ProjetoProgressContainerProps {
   fasesOrdem: readonly FaseType[];

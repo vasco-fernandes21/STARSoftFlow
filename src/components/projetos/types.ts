@@ -1,6 +1,10 @@
-import { type Prisma, Rubrica } from "@prisma/client";
-import { FileText, Calendar, Euro, Briefcase, Users, CheckCircle, LucideIcon } from "lucide-react";
-import { Decimal } from "@prisma/client/runtime/library";
+import type { 
+  Prisma,
+  Rubrica
+} from "@prisma/client";
+import type { LucideIcon } from "lucide-react";
+import { FileText, Euro, Briefcase, Users, CheckCircle } from "lucide-react";
+import type { Decimal } from "@prisma/client/runtime/library";
 
 // Usamos o tipo base do Prisma e estendemos apenas o que precisamos
 export type ProjetoCreateInput = Omit<Prisma.ProjetoCreateInput, 'workpackages' | 'financiamento'> & {

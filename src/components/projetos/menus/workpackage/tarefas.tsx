@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, ClipboardList, XIcon, AlertTriangle } from "lucide-react";
-import { WorkpackageCompleto } from "@/components/projetos/types";
+import type { WorkpackageCompleto } from "@/components/projetos/types";
 import { useMutations } from "@/hooks/useMutations";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
 import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
@@ -16,11 +16,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 interface WorkpackageTarefasProps {
   workpackage: WorkpackageCompleto;
-  workpackageId: string;
+  _workpackageId: string;
   addingTarefa: boolean;
   setAddingTarefa: (adding: boolean) => void;
   projetoId?: string;
@@ -66,7 +66,7 @@ function ConfirmDialog({ title, description, open, onOpenChange, onConfirm }: Co
 
 export function WorkpackageTarefas({ 
   workpackage,
-  workpackageId,
+  _workpackageId,
   addingTarefa,
   setAddingTarefa,
   projetoId

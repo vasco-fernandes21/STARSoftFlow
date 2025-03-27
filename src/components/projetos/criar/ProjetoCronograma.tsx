@@ -1,18 +1,18 @@
 import { Calendar } from "lucide-react";
 import { Cronograma } from "@/components/projetos/tabs/Cronograma";
 import { useProjetoForm } from "./ProjetoFormContext";
-import { ProjetoCompleto, WorkpackageWithRelations } from "@/components/projetos/types";
+import type { ProjetoCompleto } from "@/components/projetos/types";
 
 interface ProjetoCronogramaProps {
-  handleUpdateWorkPackage: (workpackage: any) => void;
-  handleUpdateTarefa: (tarefa: any) => void;
+  _handleUpdateWorkPackage?: (workpackage: any) => void;
+  _handleUpdateTarefa?: (tarefa: any) => void;
   state?: any; 
   height?: string | number;
 }
 
 export function ProjetoCronograma({
-  handleUpdateWorkPackage,
-  handleUpdateTarefa,
+  _handleUpdateWorkPackage,
+  _handleUpdateTarefa,
   state: externalState,
   height = "100%"
 }: ProjetoCronogramaProps) {
@@ -86,7 +86,7 @@ export function ProjetoCronograma({
           workpackages={workpackages}
           startDate={startDate}
           endDate={endDate}
-          onSelectTarefa={(tarefaId) => {}}
+          onSelectTarefa={(_tarefaId) => {}}
           onUpdateWorkPackage={async () => {}}
           onUpdateTarefa={async () => {}}
           options={{ disableInteractions: true }}

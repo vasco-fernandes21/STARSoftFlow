@@ -1,31 +1,25 @@
 import { useState, useEffect, useMemo } from "react";
-import { WorkpackageWithRelations } from "../../../types";
+import type { WorkpackageWithRelations } from "../../../types";
 import { 
   Briefcase, 
   Plus, 
   X, 
-  PlusCircle, 
   Search,
   Package,
   Calendar,
-  Users,
   ListTodo,
   Edit,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   LayoutGrid
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkpackageForm } from "./workpackage/form";
 import { TarefaForm } from "./tarefas/form";
-import { Prisma } from "@prisma/client";
-import { useProjetoForm } from "../../ProjetoFormContext";
+import type { Prisma } from "@prisma/client";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,13 +40,12 @@ import {
 
 import { TabNavigation } from "../../components/TabNavigation";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { TarefaItem } from "./tarefas/item";
 import { Item as MaterialItem } from "./material/item"
 
 // Importar tipo WorkpackageHandlers de onde for necessário
-import { WorkpackageHandlers } from "@/app/projetos/criar/page";
+import type { WorkpackageHandlers } from "@/app/projetos/criar/page";
 
 interface WorkpackagesTabProps {
   workpackages?: WorkpackageWithRelations[];
@@ -73,7 +66,6 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddingTarefa, setIsAddingTarefa] = useState(false);
-  const { state: projeto } = useProjetoForm();
 
   // Verificar se há workpackages
   const hasWorkpackages = workpackages && workpackages.length > 0;
@@ -209,7 +201,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                       </div>
                       <div className={`text-xs mt-0.5 ${selectedWorkpackageId === wp.id ? 'text-white/70' : 'text-azul/60'}`}>
                         {wp.inicio && wp.fim ? (
-                          `${format(new Date(wp.inicio), 'MMM/yy', { locale: ptBR })} - ${format(new Date(wp.fim), 'MMM/yy', { locale: ptBR })}`
+                          `${format(new Date(wp.inicio), 'MMM/yy')} - ${format(new Date(wp.fim), 'MMM/yy')}`
                         ) : 'Sem período definido'}
                       </div>
                     </div>
@@ -316,7 +308,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       <span>
-                        {format(new Date(selectedWorkpackage.inicio), 'MMM/yyyy', { locale: ptBR })} - {format(new Date(selectedWorkpackage.fim), 'MMM/yyyy', { locale: ptBR })}
+                        {format(new Date(selectedWorkpackage.inicio), 'MMM/yyyy')} - {format(new Date(selectedWorkpackage.fim), 'MMM/yyyy')}
                       </span>
                     </div>
                   )}

@@ -3,52 +3,19 @@ import { WorkpackageInformacoes } from "./informacoes";
 import { WorkpackageTarefas } from "./tarefas";
 import { WorkpackageRecursos } from "./recursos";
 import { WorkpackageMateriais } from "./materiais";
-import { useMutations } from "@/hooks/useMutations";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { WorkpackageCompleto, ProjetoCompleto } from "@/components/projetos/types";
-import type { Workpackage, Tarefa, Entregavel, Material, ProjetoEstado } from "@prisma/client";
+import type { WorkpackageCompleto, ProjetoCompleto } from "@/components/projetos/types";
 import { Decimal } from "decimal.js";
-
-// Tipos para os dados completos que vêm do projeto pai
-interface WorkpackageWithRelations extends Workpackage {
-  tarefas: (Tarefa & {
-    entregaveis: Entregavel[];
-  })[];
-  materiais: Material[];
-  recursos: {
-    userId: string;
-    mes: number;
-    ano: number;
-    ocupacao: string;
-    user: {
-      id: string;
-      name: string;
-      salario: string;
-    };
-  }[];
-  projeto: {
-    id: string;
-    nome: string;
-    descricao: string | null;
-    inicio: Date | null;
-    fim: Date | null;
-    estado: ProjetoEstado;
-    overhead: string | null;
-    taxa_financiamento: string | null;
-    valor_eti: string | null;
-    financiamentoId: number | null;
-  };
-}
 
 interface MenuWorkpackageProps {
   workpackageId: string;
   onClose: () => void;
   projetoId: string;
-  onUpdate: () => Promise<void>;
+  _onUpdate: () => Promise<void>;
   open: boolean;
   workpackage?: WorkpackageCompleto; // Usar o tipo específico
   projeto?: ProjetoCompleto; // Usar o tipo específico
@@ -113,13 +80,12 @@ export function MenuWorkpackage({
   workpackageId, 
   onClose, 
   projetoId, 
-  onUpdate, 
+  _onUpdate, 
   open, 
   workpackage: externalWorkpackage,
   projeto 
 }: MenuWorkpackageProps) {
   const [addingTarefa, setAddingTarefa] = useState(false);
-  const [workpackageEstado, setWorkpackageEstado] = useState(false);
   
   // Se não temos o workpackage externamente, buscar da API
   const { data: apiWorkpackage, isLoading } = api.workpackage.findById.useQuery({ id: workpackageId }, {
@@ -135,15 +101,7 @@ export function MenuWorkpackage({
 
   useEffect(() => {
     if (!open) setAddingTarefa(false);
-    if (fullWorkpackage) {
-      setWorkpackageEstado(fullWorkpackage.estado);
-    }
-  }, [open, fullWorkpackage]);
-
-  const handleSave = async () => {
-    await onUpdate();
-    onClose();
-  };
+  }, [open]);
 
   // Loading state enquanto buscamos dados da API (só se necessário)
   if (!externalWorkpackage && isLoading) {
@@ -206,7 +164,7 @@ export function MenuWorkpackage({
               <div className="px-5 py-6">
                 <WorkpackageInformacoes
                   workpackageId={workpackageId}
-                  onClose={onClose}
+                  _onClose={onClose}
                   projetoId={projetoId}
                   workpackage={fullWorkpackage}
                 />
@@ -214,7 +172,7 @@ export function MenuWorkpackage({
               <div className="px-5 py-6">
                 <WorkpackageTarefas
                   workpackage={fullWorkpackage}
-                  workpackageId={fullWorkpackage.id}
+                  _workpackageId={fullWorkpackage.id}
                   addingTarefa={addingTarefa}
                   setAddingTarefa={setAddingTarefa}
                   projetoId={projetoId}
@@ -223,14 +181,14 @@ export function MenuWorkpackage({
               <div className="px-5 py-6">
                 <WorkpackageRecursos 
                   workpackage={fullWorkpackage} 
-                  workpackageId={fullWorkpackage.id}
+                  _workpackageId={fullWorkpackage.id}
                   projetoId={projetoId} 
                 />
               </div>
               <div className="px-5 py-6">
                 <WorkpackageMateriais 
                   workpackage={fullWorkpackage} 
-                  workpackageId={fullWorkpackage.id}
+                  _workpackageId={fullWorkpackage.id}
                   projetoId={projetoId} 
                 />
               </div>

@@ -1,9 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Package, Plus, Pencil, X, Percent, Briefcase } from "lucide-react";
-import { Rubrica } from "@prisma/client";
-import { useMutations } from "@/hooks/useMutations";
+import type { Rubrica } from "@prisma/client";
 import { TextField, TextareaField, MoneyField, SelectField, NumberField } from "@/components/projetos/criar/components/FormFields";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -48,12 +47,6 @@ export function Form({
   onCancel, 
   onUpdate 
 }: MaterialFormProps) {
-  // verificar se é modo de edição
-  const isEditMode = !!initialValues?.id;
-  
-  // Verificar se está no modo de edição com base nas inicialValues
-  const editMode = initialValues !== undefined;
-  
   // Calcular os anos válidos com base nas datas do workpackage
   const { anoMinimo, anoMaximo, anosDisponiveis } = useMemo(() => {
     const dataAtual = new Date();
@@ -173,7 +166,7 @@ export function Form({
       // Preparar o objeto de dados garantindo que descricao seja sempre string ou null
       const materialData = {
         // Se estiver em modo de edição, manter o ID existente se disponível
-        ...(editMode && initialValues?.id && { id: initialValues.id }),
+        ...(initialValues?.id && { id: initialValues.id }),
         nome,
         descricao: descricao === "" ? null : descricao,
         preco,
@@ -197,24 +190,27 @@ export function Form({
     setAnoUtilizacaoStr(value);
     setAnoUtilizacao(anoNumerico);
   };
-  
+
+  // Identificar se estamos em modo de edição
+  const _isEditMode = !!initialValues?.id;
+
   return (
     <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden w-full">
       {/* Cabeçalho do Form */}
       <div className="p-4 flex justify-between items-center border-b border-azul/10 bg-white">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
-            {editMode ? 
+            {_isEditMode ? 
               <Pencil className="h-4 w-4 text-azul" /> : 
               <Package className="h-4 w-4 text-azul" />
             }
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">
-              {editMode ? "Editar Material" : "Adicionar Material"}
+              {_isEditMode ? "Editar Material" : "Adicionar Material"}
             </h5>
             <Badge variant="outline" className="px-2 py-0 text-[10px] h-5 bg-azul/5 text-azul/80 border-azul/20">
-              {editMode ? "Edição" : "Novo"}
+              {_isEditMode ? "Edição" : "Novo"}
             </Badge>
           </div>
         </div>
@@ -354,7 +350,7 @@ export function Form({
             type="submit" 
             className="h-9 px-6 rounded-lg bg-azul hover:bg-azul/90"
           >
-            {editMode ? (
+            {_isEditMode ? (
               <>
                 <Save className="h-4 w-4 mr-2" />
                 Guardar Alterações

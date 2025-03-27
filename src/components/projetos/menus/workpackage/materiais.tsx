@@ -1,21 +1,21 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Package, ChevronDown, ChevronRight } from "lucide-react";
-import { WorkpackageCompleto } from "@/components/projetos/types";
+import type { WorkpackageCompleto } from "@/components/projetos/types";
 import { useMutations } from "@/hooks/useMutations";
 import { Form as MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Rubrica } from "@prisma/client";
+import type { Rubrica } from "@prisma/client";
 import { motion } from "framer-motion";
 import { Item as MaterialItem } from "@/components/projetos/criar/novo/workpackages/material/item";
 import { formatCurrency } from "@/lib/utils";
-import Decimal from "decimal.js";
+import type Decimal from "decimal.js";
 import { cn } from "@/lib/utils";
 
 interface WorkpackageMateriaisProps {
   workpackage: WorkpackageCompleto;
-  workpackageId: string;
+  _workpackageId: string;
   projetoId?: string;
 }
 
@@ -46,7 +46,7 @@ const rubricaParaVariante: Record<Rubrica, "blue" | "purple" | "indigo" | "orang
 
 export function WorkpackageMateriais({ 
   workpackage,
-  workpackageId,
+  _workpackageId,
   projetoId
 }: WorkpackageMateriaisProps) {
   const [showForm, setShowForm] = useState(false);

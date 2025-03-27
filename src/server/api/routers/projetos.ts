@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { ProjetoEstado, Prisma, Rubrica, Rascunho } from "@prisma/client";
-import { handlePrismaError, createPaginatedResponse, calcularAlocacoesPassadas } from "../utils";
-import { paginationSchema, getPaginationParams } from "../schemas/common";
+import { ProjetoEstado, Rubrica } from "@prisma/client";
+import type { Prisma, Rascunho } from "@prisma/client";
+import { handlePrismaError, calcularAlocacoesPassadas } from "../utils";
+import { paginationSchema } from "../schemas/common";
 import { Decimal } from "decimal.js";
 
 // Schema base para projeto

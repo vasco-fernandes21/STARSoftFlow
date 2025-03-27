@@ -4,12 +4,6 @@ import path from 'path';
 import Handlebars from 'handlebars';
 import { env } from '@/env';
 
-// Interface para os tipos de email suportados
-interface EmailTemplate {
-  subject: string;
-  template: string;
-}
-
 // Mapa de templates disponíveis
 const EMAIL_TEMPLATES = {
   welcome: {
@@ -80,16 +74,16 @@ function debugEmail(to: string, subject: string, html: string) {
   // Destacar links encontrados
   if (links.length > 0) {
     console.log('\n🔗 LINKS ENCONTRADOS NO EMAIL:');
-    links.forEach((link, index) => {
+    links.forEach((link, _index) => {
       // Verificar se é um link da aplicação
       const isAppLink = 
         link.includes(env.NEXT_PUBLIC_APP_URL) || 
         link.startsWith('/');
       
       if (isAppLink) {
-        console.log(`🌐 Link da aplicação ${index + 1}: \x1b[36m${link}\x1b[0m`);
+        console.log(`🌐 Link da aplicação ${_index + 1}: \x1b[36m${link}\x1b[0m`);
       } else {
-        console.log(`🔗 Link externo ${index + 1}: ${link}`);
+        console.log(`🔗 Link externo ${_index + 1}: ${link}`);
       }
     });
   }
@@ -107,8 +101,8 @@ function debugEmail(to: string, subject: string, html: string) {
   
   if (tokens.length > 0) {
     console.log('\n🔑 TOKENS ENCONTRADOS:');
-    tokens.forEach((token, index) => {
-      console.log(`   Token ${index + 1}: \x1b[33m${token}\x1b[0m`);
+    tokens.forEach((token, _index) => {
+      console.log(`   Token ${_index + 1}: \x1b[33m${token}\x1b[0m`);
     });
   }
   
@@ -128,7 +122,7 @@ function debugEmail(to: string, subject: string, html: string) {
   
   if (actionLinks.length > 0) {
     console.log('\n🔐 LINKS DE AÇÃO RÁPIDA:');
-    actionLinks.forEach((link, index) => {
+    actionLinks.forEach((link, _index) => {
       console.log(`   \x1b[32m${link}\x1b[0m`);
     });
     console.log('\n   👆 COPIE UM DOS LINKS ACIMA PARA TESTAR DIRETAMENTE 👆');

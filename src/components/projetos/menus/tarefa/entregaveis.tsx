@@ -3,32 +3,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { Plus, FileText, Check, Circle, Upload, Trash, Calendar } from "lucide-react";
+import { Plus, FileText, Check, Upload, Trash, Calendar } from "lucide-react";
 import { EntregavelSubmit } from "@/components/projetos/menus/tarefa/submit";
 import { EntregavelForm } from "@/components/projetos/criar/novo/workpackages/entregavel/form";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import type { Entregavel } from "@prisma/client";
 import { useMutations } from "@/hooks/useMutations";
-
-// Tipo para o que vem da API
-type EntregavelAPI = {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  estado: boolean;
-  data: string | null;
-  anexo: string | null;
-  tarefaId: string;
-};
 
 interface TarefaEntregaveisProps {
   tarefa: any;
   tarefaId: string;
   addingEntregavel: boolean;
   setAddingEntregavel: (adding: boolean) => void;
-  onUpdate?: () => Promise<void>;
+  _onUpdate?: () => Promise<void>;
 }
 
 export function TarefaEntregaveis({ 
@@ -36,7 +23,7 @@ export function TarefaEntregaveis({
   tarefaId, 
   addingEntregavel, 
   setAddingEntregavel,
-  onUpdate
+  _onUpdate
 }: TarefaEntregaveisProps) {
   const [submittingEntregavel, setSubmittingEntregavel] = useState<string | null>(null);
   
@@ -45,9 +32,7 @@ export function TarefaEntregaveis({
 
   // Buscar entregáveis da tarefa
   const { 
-    data: entregaveis = [], 
-    isLoading: isLoadingEntregaveis,
-    refetch: refetchEntregaveis 
+    data: entregaveis = []
   } = api.tarefa.getEntregaveisByTarefa.useQuery(
     tarefaId,
     { enabled: !!tarefaId }
@@ -66,7 +51,7 @@ export function TarefaEntregaveis({
     }
   };
 
-  const handleFileUpload = async (entregavelId: string, file: File) => {
+  const handleFileUpload = async (entregavelId: string, _file: File) => {
     try {
       // Aqui implementaria a lógica real de upload
       // Exemplo simulado:
@@ -100,11 +85,6 @@ export function TarefaEntregaveis({
 
   const handleCancelSubmitEntregavel = () => {
     setSubmittingEntregavel(null);
-  };
-
-  // Função wrapper para compatibilidade de tipos
-  const refetchEntregaveisAsync = async (): Promise<void> => {
-    await refetchEntregaveis();
   };
 
   // Determinar se há entregáveis pendentes

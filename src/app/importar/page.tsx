@@ -7,12 +7,11 @@ import { useProjetoForm, ProjetoFormProvider } from "@/components/projetos/criar
 import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
-import { id, pt } from "date-fns/locale";
-import { User, Calendar, Percent, Users, BarChart2, Package, Briefcase, DollarSign } from "lucide-react";
+import { pt } from "date-fns/locale";
+import { User, Calendar, Percent, Users, Package, Briefcase, DollarSign } from "lucide-react";
 import { Decimal } from "decimal.js";
-import { Rubrica, type Material as PrismaMaterial, type Workpackage as PrismaWorkpackage, type AlocacaoRecurso as PrismaAlocacaoRecurso } from "@prisma/client";
+import type { Rubrica } from "@prisma/client";
 import { toast } from "sonner";
 
 // Interfaces baseadas nos tipos do Prisma
@@ -133,11 +132,10 @@ function ImportarExcelContent() {
     return materiais;
   };
 
-  const extrairDadosRH = (data: any[][]): { workpackages: WorkpackageSimples[], dataInicioProjeto: Date | null, dataFimProjeto: Date | null } => {
+  const extrairDadosRH = (data: any[][]): { workpackages: WorkpackageSimples[] } => {
     const wps: WorkpackageSimples[] = [];
     let wpAtual: WorkpackageSimples | undefined = undefined;
 
-    const anos = data[3]?.slice(6) || [];
     const meses = data[4]?.slice(6) || [];
 
     const excelDateToJS = (excelDate: number) => {
@@ -147,9 +145,6 @@ function ImportarExcelContent() {
         ano: date.getFullYear()
       };
     };
-
-    let dataInicioProjeto: Date | null = null;
-    let dataFimProjeto: Date | null = null;
 
     for (let i = 7; i < data.length; i++) {
       const row = data[i];
@@ -221,30 +216,11 @@ function ImportarExcelContent() {
           wpAtual.dataInicio = dataInicio;
           wpAtual.dataFim = dataFim;
           console.log(`Data de Início: ${dataInicio?.toLocaleDateString('pt-PT')}, Data de Fim: ${dataFim?.toLocaleDateString('pt-PT')}`);
-
-          // Atualizar datas de início e fim do projeto
-          if (!dataInicioProjeto || (dataInicio && dataInicio < dataInicioProjeto)) {
-            dataInicioProjeto = dataInicio;
-          }
-          if (!dataFimProjeto || (dataFim && dataFim > dataFimProjeto)) {
-            dataFimProjeto = dataFim;
-          }
         }
       }
     }
 
-    // Atualizar o estado do projeto com as datas de início e fim
-    if (dataInicioProjeto && dataFimProjeto) {
-      dispatch({
-        type: "UPDATE_PROJETO",
-        data: {
-          inicio: dataInicioProjeto,
-          fim: dataFimProjeto
-        }
-      });
-    }
-
-    return { workpackages: wps, dataInicioProjeto, dataFimProjeto };
+    return { workpackages: wps };
   };
 
   const atribuirMateriaisAosWorkpackages = (
@@ -426,7 +402,7 @@ function ImportarExcelContent() {
         let materiais: MaterialImportacao[] = [];
         
         if (sheetsData['RH_Budget_SUBM']) {
-          const { workpackages: wpsFromRH, dataInicioProjeto, dataFimProjeto } = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
+          const { workpackages: wpsFromRH } = extrairDadosRH(sheetsData['RH_Budget_SUBM']);
           wps = wpsFromRH;
         }
         

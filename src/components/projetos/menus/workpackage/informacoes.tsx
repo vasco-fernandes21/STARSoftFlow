@@ -2,18 +2,18 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { TextField, TextareaField, DateField } from "@/components/projetos/criar/components/FormFields";
 import { useMutations } from "@/hooks/useMutations";
-import { WorkpackageCompleto } from "@/components/projetos/types";
+import type { WorkpackageCompleto } from "@/components/projetos/types";
 
 interface WorkpackageInformacoesProps {
   workpackageId: string;
-  onClose: () => void;
+  _onClose: () => void;
   projetoId?: string;
   workpackage?: WorkpackageCompleto;
 }
 
 export function WorkpackageInformacoes({
   workpackageId,
-  onClose,
+  _onClose,
   projetoId,
   workpackage,
 }: WorkpackageInformacoesProps) {

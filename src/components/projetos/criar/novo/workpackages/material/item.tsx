@@ -3,7 +3,7 @@ import { Package, Edit, Trash2, Coins, Hash, Calendar, ChevronDown, ChevronUp, I
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Rubrica } from "@prisma/client";
+import type { Rubrica } from "@prisma/client";
 import { formatCurrency } from "@/lib/utils";
 import { Form } from "./form";
 import { useQueryClient } from "@tanstack/react-query";

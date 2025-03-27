@@ -4,9 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { pt } from "date-fns/locale";
 import { Decimal } from "decimal.js";
-import { ChevronLeft, ChevronRight, Calendar, User, Percent, Save, Plus, Briefcase, X } from "lucide-react";
+import { Calendar, User, Save, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gerarMesesEntreDatas } from "@/lib/utils";
@@ -307,7 +306,7 @@ export function Form({
       if (ocupacao + ocupacaoExistente > 1) {
         const tipoAlocacao = canEditApproved ? "aprovada" : "pendente";
         toast.warning(
-          `Atenção: A ocupação total para ${format(new Date(ano, mes - 1), 'MMMM', { locale: pt })} 
+          `Atenção: A ocupação total para ${format(new Date(ano, mes - 1), 'MMMM')} 
           será de ${((ocupacao + ocupacaoExistente) * 100).toFixed(0)}%. 
           Você está editando a alocação ${tipoAlocacao}.`
         );
@@ -578,7 +577,7 @@ export function Form({
                             >
                               <div className="flex justify-between text-xs mb-1.5">
                                 <span className={statusClasses.text}>
-                                  {format(new Date(mes.ano, mes.mesNumero - 1), 'MMM', { locale: pt })}
+                                  {format(new Date(mes.ano, mes.mesNumero - 1), 'MMM')}
                                 </span>
                                 <div className="flex flex-col items-end">
                                   <span className={`font-medium ${statusClasses.text}`}>

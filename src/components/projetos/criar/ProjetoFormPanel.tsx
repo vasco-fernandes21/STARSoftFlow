@@ -1,16 +1,14 @@
-import { FaseType, fases } from "../types";
+import type { FaseType } from "../types";
 
 interface ProjetoFormPanelProps {
-  faseAtual: FaseType;
+  _faseAtual: FaseType;
   children: React.ReactNode;
 }
 
 export function ProjetoFormPanel({
-  faseAtual,
+  _faseAtual,
   children
 }: ProjetoFormPanelProps) {
-  const IconComponent = fases[faseAtual].icon;
-  
   return (
     <div className="bg-white rounded-2xl overflow-hidden">
       <div className="p-2">

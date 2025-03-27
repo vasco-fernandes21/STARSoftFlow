@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { Material, Rubrica } from "@prisma/client";
+import type { Rubrica } from "@prisma/client";
 
 // Types for updates
 interface WorkpackageUpdate {
@@ -29,16 +29,6 @@ interface EntregavelCreate {
   anexo?: string | null;
   estado?: boolean;
   tarefaId: string;
-}
-
-interface MaterialCreate {
-  workpackageId: string;
-  nome: string;
-  descricao?: string;
-  preco: number;
-  quantidade: number;
-  ano_utilizacao: number;
-  rubrica: Rubrica;
 }
 
 interface MaterialUpdate {
@@ -180,7 +170,7 @@ export function useMutations(projetoId?: string) {
     }),
     
     addAlocacao: api.workpackage.addAlocacao.useMutation({
-      onSuccess: async (_data, variables) => {
+      onSuccess: async (_data, _variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onSettled: async () => {
@@ -193,7 +183,7 @@ export function useMutations(projetoId?: string) {
     }),
     
     removeAlocacao: api.workpackage.removeAlocacao.useMutation({
-      onSuccess: async (_data, variables) => {
+      onSuccess: async (_data, _variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onSettled: async () => {
@@ -209,7 +199,7 @@ export function useMutations(projetoId?: string) {
   // Tarefa mutations
   const tarefaMutations = {
     create: api.tarefa.create.useMutation({
-      onSuccess: async (_data, variables) => {
+      onSuccess: async (_data, _variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
       },
       onSettled: async () => {

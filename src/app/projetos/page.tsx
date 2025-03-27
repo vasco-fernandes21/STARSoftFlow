@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
+import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -10,10 +10,12 @@ import { api } from "@/trpc/react";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { PageLayout } from "@/components/common/PageLayout";
 import { PaginaHeader } from "@/components/common/PaginaHeader";
-import { TabelaDados, FilterOption } from "@/components/common/TabelaDados";
+import { TabelaDados } from "@/components/common/TabelaDados";
+import type { FilterOption } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { BarraProgresso } from "@/components/common/BarraProgresso";
-import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
+import { StatsGrid } from "@/components/common/StatsGrid";
+import type { StatItem } from "@/components/common/StatsGrid";
 import { type ProjetoEstado } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -82,36 +84,13 @@ const extrairProjetos = (apiResponse: any): Projeto[] => {
   return [];
 };
 
-const extrairPaginacao = (apiResponse: any) => {
-  if (!apiResponse) return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
-  
-  if (apiResponse[0]?.result?.data?.json?.pagination) {
-    return apiResponse[0].result.data.json.pagination;
-  }
-  
-  if (apiResponse.pagination) {
-    return apiResponse.pagination;
-  }
-  
-  if (apiResponse.json?.pagination) {
-    return apiResponse.json.pagination;
-  }
-  
-  return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
-};
-
 export default function Projetos() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { userPermission, isComum } = usePermissions();
+  const { isComum } = usePermissions();
   const userId = (session?.user as any)?.id;
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState<string>("");
   const [estadoFilter, setEstadoFilter] =
     useState<"todos" | typeof uniqueEstados[number]>("todos");
-  const [sortField, setSortField] =
-    useState<"nome" | "fim" | "progresso" | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Determina os parâmetros de consulta com base na permissão
   const queryParams = useMemo(() => ({
@@ -177,22 +156,6 @@ export default function Projetos() {
       }
     ];
   }, [projetos]);
-
-  const handleSort = useCallback((field: string) => {
-    setSortField(prev => {
-      if (prev === field) {
-        setSortDirection(d => d === "asc" ? "desc" : "asc");
-        return prev;
-      }
-      setSortDirection("asc");
-      return field as "nome" | "fim" | "progresso";
-    });
-  }, []);
-
-  const clearAllFilters = useCallback(() => {
-    setSearchQuery("");
-    setEstadoFilter("todos");
-  }, []);
 
   const handleRowClick = useCallback((projeto: Projeto) => {
     router.push(`/projetos/${projeto.id}`);
@@ -305,46 +268,19 @@ export default function Projetos() {
 
     let result = [...projetos];
     
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase();
-      result = result.filter((project: Projeto) => 
-        project.nome.toLowerCase().includes(searchLower) ||
-        project.descricao?.toLowerCase().includes(searchLower)
-      );
-    }
-
     if (estadoFilter !== "todos") {
       result = result.filter((project: Projeto) => 
         project.estado === estadoFilter
       );
     }
 
-    if (sortField) {
-      result = result.sort((a: Projeto, b: Projeto) => {
-        const aValue = a[sortField] ?? '';
-        const bValue = b[sortField] ?? '';
-        const modifier = sortDirection === "asc" ? 1 : -1;
-        
-        if (aValue < bValue) return -1 * modifier;
-        if (aValue > bValue) return 1 * modifier;
-        return 0;
-      });
-    }
-
     return result;
-  }, [projetos, searchQuery, estadoFilter, sortField, sortDirection]);
+  }, [projetos, estadoFilter]);
 
   const paginatedProjects = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    const end = start + itemsPerPage;
+    const start = 0;
+    const end = itemsPerPage;
     return filteredProjects.slice(start, end);
-  }, [filteredProjects, currentPage]);
-
-  const paginationData = useMemo(() => {
-    return {
-      totalItems: filteredProjects.length,
-      totalPages: Math.max(1, Math.ceil(filteredProjects.length / itemsPerPage))
-    };
   }, [filteredProjects]);
 
   return (

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProjetoEstado } from "@prisma/client";
+import type { ProjetoEstado } from "@prisma/client";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Lazy load dos componentes de tab
@@ -311,7 +311,6 @@ const ProjectTabs = memo(({
                   options={{
                     leftColumnWidth: 300,
                     disableInteractions: false,
-                    compactMode: false,
                   }}
                 />
               </div>

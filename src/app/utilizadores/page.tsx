@@ -1,31 +1,21 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Users as UsersIcon,
   UserCheck,
   UserCog,
   Clock,
-  MoreHorizontal,
-  BarChart,
-  FileText,
-  Eye,
-  Plus,
-  Edit,
-  Trash2,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
 import { NovoUtilizadorModal } from "@/components/utilizadores/NovoUtilizadorModal";
 import { PageLayout } from "@/components/common/PageLayout";
 import { PaginaHeader } from "@/components/common/PaginaHeader";
-import { TabelaDados, FilterOption } from "@/components/common/TabelaDados";
+import { TabelaDados } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
-import { StatsGrid, StatItem } from "@/components/common/StatsGrid";
-import { Badge } from "@/components/ui/badge";
+import { StatsGrid } from "@/components/common/StatsGrid";
 import { Permissao, Regime } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -43,8 +33,6 @@ const REGIME_LABELS: Record<string, string> = {
 
 const uniquePermissoes = ["ADMIN", "GESTOR", "COMUM"] as const;
 const uniqueRegimes = ["INTEGRAL", "PARCIAL"] as const;
-
-const itemsPerPage = 6;
 
 // Skeleton para estado de carregamento
 const TableSkeleton = () => {
@@ -111,28 +99,6 @@ const extrairUtilizadores = (apiResponse: any) => {
   return [];
 };
 
-// Extrair informações de paginação
-const extrairPaginacao = (apiResponse: any) => {
-  if (!apiResponse) return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
-  
-  // Novo formato aninhado
-  if (apiResponse[0]?.result?.data?.json?.pagination) {
-    return apiResponse[0].result.data.json.pagination;
-  }
-  
-  // Formato direto
-  if (apiResponse.pagination) {
-    return apiResponse.pagination;
-  }
-  
-  // Formato json aninhado
-  if (apiResponse.json?.pagination) {
-    return apiResponse.json.pagination;
-  }
-  
-  return { total: 0, pages: 1, page: 1, limit: itemsPerPage };
-};
-
 // Componente Avatar simplificado sem animações
 const SimpleAvatar = ({ utilizador }: { utilizador: any }) => {
   return (
@@ -142,33 +108,6 @@ const SimpleAvatar = ({ utilizador }: { utilizador: any }) => {
         {utilizador?.name?.split(' ').map((n: string) => n[0]).join('')}
       </AvatarFallback>
     </Avatar>
-  );
-};
-
-// Componente personalizado para botão de ação com animação
-const AnimatedActionButton = ({ 
-  icon: Icon, 
-  onClick, 
-  title, 
-  hoverColor = "text-azul" 
-}: { 
-  icon: React.ComponentType<any>; 
-  onClick: (e: React.MouseEvent) => void; 
-  title: string; 
-  hoverColor?: string;
-}) => {
-  return (
-    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-      <Button
-        variant="ghost"
-        size="icon"
-        className={`text-gray-500 hover:${hoverColor} hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md`}
-        onClick={onClick}
-        title={title}
-      >
-        <Icon className="h-4 w-4" />
-      </Button>
-    </motion.div>
   );
 };
 
@@ -225,7 +164,7 @@ const Users = () => {
   };
 
   // Configuração dos filtros
-  const permissaoOptions: FilterOption[] = [
+  const permissaoOptions = [
     { id: 'all', label: 'Todas as permissões', value: 'all' },
     ...uniquePermissoes.map(permissao => ({
       id: permissao,
@@ -234,7 +173,7 @@ const Users = () => {
     }))
   ];
 
-  const regimeOptions: FilterOption[] = [
+  const regimeOptions = [
     { id: 'all', label: 'Todos os regimes', value: 'all' },
     ...uniqueRegimes.map(regime => ({
       id: regime,
@@ -339,7 +278,7 @@ const Users = () => {
   const totalAdmins = utilizadoresArray.filter(utilizador => utilizador.permissao === Permissao.ADMIN).length || 0;
 
   // Configuração das estatísticas
-  const stats: StatItem[] = [
+  const stats = [
     {
       icon: UsersIcon,
       label: "Total Utilizadores",
@@ -410,4 +349,4 @@ const Users = () => {
   );
 };
 
-export default Users;
+export default Users; 

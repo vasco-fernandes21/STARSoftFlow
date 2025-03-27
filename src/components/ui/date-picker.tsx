@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format, getYear, getMonth, setMonth, setYear } from "date-fns"
-import { Calendar as CalendarIcon, ChevronDown } from "lucide-react"
+import { Calendar as CalendarIcon } from "lucide-react"
 import { pt } from "date-fns/locale"
 
 import { cn } from "@/lib/utils"
@@ -213,7 +213,7 @@ export function DatePicker({
               }}
               className="p-0 w-full"
               formatters={{
-                formatCaption: (date, options) => {
+                formatCaption: (date, _options) => {
                   return format(date, "MMMM yyyy", { locale: pt });
                 },
               }}

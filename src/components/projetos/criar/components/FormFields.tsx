@@ -1,13 +1,12 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Euro, HelpCircle, Check } from "lucide-react";
+import { HelpCircle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { type ComponentPropsWithoutRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +23,7 @@ interface BaseFieldProps {
   className?: string;
   id?: string;
   icon?: ReactNode;
-  disabled?: boolean;
+  _disabled?: boolean;
 }
 
 // FormLabel simplificado
@@ -62,6 +61,7 @@ interface TextFieldProps extends BaseFieldProps {
   placeholder?: string;
   type?: "text" | "email" | "tel" | "url";
   onBlur?: () => void;
+  _disabled?: boolean;
 }
 
 export function TextField({
@@ -76,7 +76,7 @@ export function TextField({
   id,
   icon,
   tooltip,
-  disabled,
+  _disabled,
   onBlur
 }: TextFieldProps) {
   return (
@@ -95,7 +95,7 @@ export function TextField({
         placeholder={placeholder}
         className="border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30"
         required={required}
-        disabled={disabled}
+        disabled={_disabled}
         onBlur={onBlur}
       />
       {helpText && (
@@ -137,7 +137,7 @@ export function DecimalField({
   helpText,
   className = "",
   id,
-  disabled
+  _disabled
 }: DecimalFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -172,7 +172,7 @@ export function DecimalField({
           min={min}
           max={max}
           required={required}
-          disabled={disabled}
+          disabled={_disabled}
         />
         {suffix && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -231,7 +231,7 @@ export function TextareaField({
   id,
   icon,
   tooltip,
-  disabled
+  _disabled
 }: TextareaFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -249,7 +249,7 @@ export function TextareaField({
         className="border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 min-h-[100px] rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30"
         required={required}
         rows={rows}
-        disabled={disabled}
+        disabled={_disabled}
       />
       {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
     </div>
@@ -275,7 +275,7 @@ export function DateField({
   helpText,
   className = "",
   id,
-  disabled
+  _disabled
 }: DateFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -317,7 +317,7 @@ export function SelectField({
   className = "",
   id,
   tooltip,
-  disabled
+  _disabled
 }: SelectFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -327,7 +327,7 @@ export function SelectField({
       <Select
         value={value}
         onValueChange={onChange}
-        disabled={disabled}
+        disabled={_disabled}
       >
         <SelectTrigger id={id} className="border-azul/20 focus:ring-1 focus:ring-azul/30">
           <SelectValue placeholder={placeholder} />
@@ -370,7 +370,7 @@ export function NumberField({
   helpText,
   className = "",
   id,
-  disabled
+  _disabled
 }: NumberFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -400,7 +400,7 @@ export function NumberField({
           min={min}
           max={max}
           required={required}
-          disabled={disabled}
+          disabled={_disabled}
         />
         {suffix && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -440,7 +440,7 @@ export function DropdownField({
   className = "",
   id,
   tooltip,
-  disabled,
+  _disabled,
   triggerClassName
 }: DropdownFieldProps) {
   const selectedOption = options.find(opt => opt.value === value);
@@ -454,7 +454,7 @@ export function DropdownField({
       <DropdownMenu>
         <DropdownMenuTrigger
           id={id}
-          disabled={disabled}
+          disabled={_disabled}
           className={cn(
             "w-full flex items-center justify-between",
             "h-10 px-3 py-2 text-sm",

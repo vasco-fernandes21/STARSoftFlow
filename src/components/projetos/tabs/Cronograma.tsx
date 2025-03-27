@@ -8,7 +8,7 @@ import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
 import { useMutations } from "@/hooks/useMutations";
-import { WorkpackageCompleto, ProjetoCompleto } from "../types";
+import type { ProjetoCompleto } from "../types";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,8 +16,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface CronogramaOptions {
   leftColumnWidth?: number;
   disableInteractions?: boolean;
-  hideWorkpackageEdit?: boolean;
-  compactMode?: boolean;
 }
 
 type SortType = "data" | "alfabetica";
@@ -250,9 +248,7 @@ export function Cronograma({
 
   const {
     leftColumnWidth = 300,
-    disableInteractions = false,
-    hideWorkpackageEdit = false,
-    compactMode = false
+    disableInteractions = false
   } = options;
 
   const effectiveLeftColumnWidth = isLeftColumnCollapsed ? 40 : leftColumnWidth;
@@ -572,7 +568,7 @@ export function Cronograma({
               tarefaId={selectedTarefa}
               open={!!selectedTarefa}
               onClose={() => setSelectedTarefa(null)}
-              onUpdate={async (data, workpackageId) => {
+              onUpdate={async (_data, _workpackageId) => {
                 if (onUpdateTarefa) await onUpdateTarefa();
               }}
             />
@@ -583,7 +579,7 @@ export function Cronograma({
               workpackageId={selectedWorkpackage}
               onClose={() => setSelectedWorkpackage(null)}
               projetoId={projetoId}
-              onUpdate={async () => {
+              _onUpdate={async () => {
                 if (onUpdateWorkPackage) await onUpdateWorkPackage();
               }}
               open={!!selectedWorkpackage}

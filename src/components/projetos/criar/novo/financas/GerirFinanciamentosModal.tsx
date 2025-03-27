@@ -2,16 +2,12 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { NumberField } from "@/components/projetos/criar/components/FormFields";
-import { Input } from "@/components/ui/input";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, AlertCircle } from "lucide-react";
-import { Financiamento } from "@prisma/client";
 import { TextField } from "@/components/projetos/criar/components/FormFields";
 import { DecimalField } from "@/components/projetos/criar/components/FormFields";
 import { MoneyField } from "@/components/projetos/criar/components/FormFields";
-import { Decimal } from "decimal.js";
 
 // Importar AlertDialog para substituir o useConfirmacao
 import {
@@ -209,27 +205,6 @@ export function GerirFinanciamentosModal({
       removerFinanciamento({ id: deleteFinanciamentoId });
       setIsDeleteAlertOpen(false);
     }
-  };
-
-  const handleOverheadChange = (value: number) => {
-    setNovoFinanciamento(prev => ({
-      ...prev,
-      overhead: value
-    }));
-  };
-
-  const handleTaxaFinanciamentoChange = (value: number) => {
-    setNovoFinanciamento(prev => ({
-      ...prev,
-      taxa_financiamento: value
-    }));
-  };
-
-  const handleValorEtiChange = (value: number) => {
-    setNovoFinanciamento(prev => ({
-      ...prev,
-      valor_eti: value
-    }));
   };
 
   useEffect(() => {

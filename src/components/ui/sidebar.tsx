@@ -4,11 +4,10 @@ import * as React from "react";
 import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Home,
   FolderKanban,
-  FileBarChart2,
   Users,
   Settings,
   User,
@@ -22,10 +21,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
-import { User as PrismaUser } from "@prisma/client";
+import type { User as PrismaUser } from "@prisma/client";
 import { customSignOut } from "@/app/actions/auth-actions";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Permissao } from "@prisma/client";
+import type { Permissao } from "@prisma/client";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -46,7 +45,6 @@ export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   const toggleCollapse = () => setCollapsed(!collapsed);
 

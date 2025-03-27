@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { format, addMonths, differenceInMonths } from "date-fns";
-import { pt, ptBR } from "date-fns/locale";
+import { pt } from "date-fns/locale";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -44,7 +44,7 @@ export const formatarDataSegura = (ano: string | number, mes: string | number, f
   try {
     const data = new Date(Number(ano), Number(mes) - 1, 1);
     return format(data, formatString, { locale: pt });
-  } catch (error) {
+  } catch {
     return `${mes}/${ano}`;
   }
 };

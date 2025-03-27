@@ -118,8 +118,6 @@ export function TabelaAlocacoes({ alocacoes, ano }: TabelaAlocacoesProps) {
   const [valoresEmEdicao, setValoresEmEdicao] = React.useState<Map<string, string>>(new Map());
   const [camposComErro, setCamposComErro] = React.useState<Set<string>>(new Set());
 
-  const PRIMARY_COLOR = "#2C5697";
-
   const meses = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"

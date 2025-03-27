@@ -1,8 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { WorkpackageCompleto } from "@/components/projetos/types";
+import type { WorkpackageCompleto } from "@/components/projetos/types";
 import { useMutations } from "@/hooks/useMutations";
 import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
 import { Card } from "@/components/ui/card";
@@ -10,18 +9,17 @@ import { api } from "@/trpc/react";
 import { Details } from "@/components/projetos/criar/novo/recursos/details";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { Decimal } from "decimal.js";
-import { useQueryClient } from "@tanstack/react-query";
+import type { Decimal } from "decimal.js";
 
 interface WorkpackageRecursosProps {
   workpackage: WorkpackageCompleto;
-  workpackageId: string;
+  _workpackageId: string;
   projetoId?: string;
 }
 
 export function WorkpackageRecursos({ 
   workpackage,
-  workpackageId,
+  _workpackageId,
   projetoId
 }: WorkpackageRecursosProps) {
   // Estado para controlar adição de recurso
@@ -32,7 +30,7 @@ export function WorkpackageRecursos({
   // Mutations usando o projetoId
   const mutations = useMutations(projetoId);
   
-  // Query para obter todos os utilizadores
+  // Query para obter todos os utilizadores usando TanStack
   const { data: utilizadores = { items: [] } } = api.utilizador.findAll.useQuery({ limit: 100 });
   
   // Mapear utilizadores para o formato esperado pelo componente
@@ -54,7 +52,7 @@ export function WorkpackageRecursos({
     // Para cada alocação no array, criar uma alocação individual
     alocacoes.forEach(alocacao => {
       mutations.workpackage.addAlocacao.mutate({
-        workpackageId,
+        workpackageId: _workpackageId,
         userId: alocacao.userId,
         mes: alocacao.mes,
         ano: alocacao.ano,
@@ -77,7 +75,7 @@ export function WorkpackageRecursos({
     // Para cada alocação no array, usar a mutação updateAlocacao (ou addAlocacao com upsert)
     alocacoes.forEach(alocacao => {
       mutations.workpackage.addAlocacao.mutate({
-        workpackageId,
+        workpackageId: _workpackageId,
         userId: alocacao.userId,
         mes: alocacao.mes,
         ano: alocacao.ano,
@@ -100,7 +98,7 @@ export function WorkpackageRecursos({
       // Remover cada alocação individualmente
       alocacoesUsuario.forEach(alocacao => {
         mutations.workpackage.removeAlocacao.mutate({
-          workpackageId,
+          workpackageId: _workpackageId,
           userId: alocacao.userId,
           mes: alocacao.mes,
           ano: alocacao.ano
@@ -113,7 +111,7 @@ export function WorkpackageRecursos({
   const formatarDataSegura = (ano: string | number, mes: string | number, formatString: string): string => {
     try {
       return format(new Date(Number(ano), Number(mes) - 1), formatString, { locale: pt });
-    } catch (error) {
+    } catch (_) {
       return `${mes}/${ano}`;
     }
   };
@@ -177,8 +175,6 @@ export function WorkpackageRecursos({
   };
   
   const recursosPorUtilizador = agruparRecursosPorUtilizador();
-  const totalRecursos = workpackage.recursos?.length || 0;
-  const pessoasAlocadas = recursosPorUtilizador.length;
   
   return (
     <div className="space-y-6">
@@ -229,7 +225,7 @@ export function WorkpackageRecursos({
                 recurso={usuario}
                 membroEquipa={membroEquipa}
                 isExpanded={expandedUsuarioId === usuario.userId}
-                workpackageId={workpackageId}
+                workpackageId={_workpackageId}
                 onToggleExpand={() => {
                   if (expandedUsuarioId === usuario.userId) {
                     setExpandedUsuarioId(null);
@@ -239,7 +235,7 @@ export function WorkpackageRecursos({
                 }}
                 onEdit={() => setEditingUsuarioId(usuario.userId)}
                 onRemove={() => handleRemoveRecurso(usuario.userId)}
-                formatarDataSegura={formatarDataSegura}
+                _formatarDataSegura={formatarDataSegura}
                 alocacoesPorAnoMes={processarAlocacoesPorUsuario(usuario.userId)}
                 isEditing={editingUsuarioId === usuario.userId}
                 onCancelEdit={() => setEditingUsuarioId(null)}

@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Clock, X, Save, Calendar } from "lucide-react";
-import { Prisma } from "@prisma/client";
+import { X, Save, Calendar } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 import { toast } from "sonner";
-import { TarefaWithRelations } from "../../../../types";
+import type { TarefaWithRelations } from "../../../../types";
 
 interface TarefaFormProps {
   workpackageId: string;
