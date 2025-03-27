@@ -8,8 +8,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { api } from "@/trpc/react";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
-import { PageLayout } from "@/components/common/PageLayout";
-import { PaginaHeader } from "@/components/common/PaginaHeader";
 import { TabelaDados } from "@/components/common/TabelaDados";
 import type { FilterOption } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
@@ -295,27 +293,29 @@ export default function Projetos() {
 
   return (
     <div className="min-h-screen bg-[#F6F8FA] p-8">
-      <div className="max-w-8xl mx-auto space-y-8">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-medium text-slate-800 tracking-tight">Projetos</h1>
-          <p className="text-slate-500 text-sm">Consulte os seus projetos e acompanhe o progresso</p>
+      <div className="max-w-8xl mx-auto space-y-6">
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-medium text-slate-800 tracking-tight">Projetos</h1>
+            <p className="text-slate-500 text-sm">Consulte os seus projetos e acompanhe o progresso</p>
+          </div>
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <NovoProjeto />
+          </div>
         </div>
 
-        <div className="flex justify-end">
-          <NovoProjeto />
-        </div>
-
-        <StatsGrid stats={stats} className="my-6" />
+        <StatsGrid stats={stats} />
 
         {/* Seção de rascunhos para utilizadores COMUM */}
         {isComum && data?.rascunhos && data.rascunhos.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-medium mb-4 text-slate-800">Seus Rascunhos</h2>
+          <div className="mb-0">
+            <h2 className="text-lg font-medium mb-3 text-slate-800">Seus Rascunhos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.rascunhos.map(rascunho => (
                 <div 
                   key={rascunho.id}
-                  className="bg-white p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => router.push(`/projetos/rascunho/${rascunho.id}`)}
                 >
                   <h3 className="font-normal text-slate-800">{rascunho.titulo}</h3>

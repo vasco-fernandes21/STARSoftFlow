@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { 
   Calendar, Clock, AlertTriangle, 
   Briefcase, ArrowUpRight, 
@@ -22,6 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AdminDashboard from "./admin/page";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { StatsGrid } from "@/components/common/StatsGrid";
+import type { StatItem } from "@/components/common/StatsGrid";
 
 export default function Page() {
   const router = useRouter();
@@ -52,16 +54,56 @@ export default function Page() {
   });
 
   // Valores padrão e fallbacks seguros para dados que podem não existir na API
-  const tarefasCompletas = 12;
-  const tarefasEmProgresso = 8;
   const tarefasPendentes = dashboardData?.tarefasPendentes || 5;
-  const tarefasAtrasadas = 2;
   const projetosNovosMes = 3;
   const projetosTotal = 15;
   const projetosAtivos = dashboardData?.projetosAtivos || 0;
   const ocupacaoAtual = dashboardData?.ocupacaoMensal || 0;
   const entregaveisSemana = 2;
   const tarefasUrgentes = 1;
+
+  // Define os dados estatísticos fora dos condicionais para evitar erros no Hook
+  const statsItems = useMemo<StatItem[]>(() => [
+    {
+      icon: Briefcase,
+      label: "Projetos Ativos",
+      value: projetosAtivos,
+      iconClassName: "text-blue-600",
+      iconContainerClassName: "bg-blue-50/80",
+      badgeText: `${projetosNovosMes} novos`,
+      badgeIcon: TrendingUp,
+      badgeClassName: "text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100",
+      secondaryText: `de ${projetosTotal}`
+    },
+    {
+      icon: Clock,
+      label: "Ocupação Atual",
+      value: ocupacaoAtual,
+      iconClassName: "text-emerald-600",
+      iconContainerClassName: "bg-emerald-50/80",
+      badgeText: `${ocupacaoAtual}% média`,
+      badgeClassName: "text-emerald-600 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-100",
+      suffix: "%"
+    },
+    {
+      icon: Calendar,
+      label: "Entregáveis Próximos",
+      value: dashboardData?.entregaveisProximos?.length || 0,
+      iconClassName: "text-amber-600",
+      iconContainerClassName: "bg-amber-50/80",
+      badgeText: `Esta semana: ${entregaveisSemana}`,
+      badgeClassName: "text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100"
+    },
+    {
+      icon: AlertTriangle,
+      label: "Tarefas Pendentes",
+      value: tarefasPendentes,
+      iconClassName: "text-red-600",
+      iconContainerClassName: "bg-red-50/80",
+      badgeText: `Urgentes: ${tarefasUrgentes}`,
+      badgeClassName: "text-red-600 bg-red-50/80 hover:bg-red-100/80 border-red-100"
+    }
+  ], [projetosAtivos, projetosTotal, projetosNovosMes, ocupacaoAtual, dashboardData?.entregaveisProximos?.length, entregaveisSemana, tarefasPendentes, tarefasUrgentes]);
 
   // Componente de skeleton para carregamento
   const LoadingSkeleton = () => (
@@ -140,7 +182,7 @@ export default function Page() {
   // Dashboard para utilizadores comuns
   return (
     <div className="min-h-screen bg-[#F6F8FA] p-8">
-      <div className="max-w-8xl mx-auto space-y-8">
+      <div className="max-w-8xl mx-auto space-y-6">
         {/* Header com Boas-vindas e Botões de Ação */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -155,88 +197,9 @@ export default function Page() {
         {isLoadingDashboard ? (
           <LoadingSkeleton />
         ) : (
-          <>
+          <div className="space-y-6">
             {/* Cards de Resumo */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px]">
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center shadow-sm bg-blue-50/80">
-                      <Briefcase className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <Badge variant="outline" className="text-xs text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100 font-normal py-0.5 px-2">
-                      <TrendingUp className="h-2.5 w-2.5 mr-1" />
-                      {projetosNovosMes} novos
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Projetos Ativos</p>
-                    <div className="flex items-baseline gap-1">
-                      <h2 className="text-3xl font-medium text-slate-800">{projetosAtivos}</h2>
-                      <p className="text-xs text-slate-400">de {projetosTotal}</p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px]">
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center shadow-sm bg-emerald-50/80">
-                      <Clock className="h-4 w-4 text-emerald-600" />
-                    </div>
-                    <Badge variant="outline" className="text-xs text-emerald-600 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-100 font-normal py-0.5 px-2">
-                      {ocupacaoAtual}% média
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Ocupação Atual</p>
-                    <div className="flex items-baseline gap-1">
-                      <h2 className="text-3xl font-medium text-slate-800">{ocupacaoAtual}</h2>
-                      <p className="text-3xl font-medium text-slate-800">%</p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px]">
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center shadow-sm bg-amber-50/80">
-                      <Calendar className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <Badge variant="outline" className="text-xs text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100 font-normal py-0.5 px-2">
-                      Esta semana: {entregaveisSemana}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Entregáveis Próximos</p>
-                    <div className="flex items-baseline gap-1">
-                      <h2 className="text-3xl font-medium text-slate-800">{dashboardData?.entregaveisProximos?.length || 0}</h2>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px]">
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center shadow-sm bg-red-50/80">
-                      <AlertTriangle className="h-4 w-4 text-red-600" />
-                    </div>
-                    <Badge variant="outline" className="text-xs text-red-600 bg-red-50/80 hover:bg-red-100/80 border-red-100 font-normal py-0.5 px-2">
-                      Urgentes: {tarefasUrgentes}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Tarefas Pendentes</p>
-                    <div className="flex items-baseline gap-1">
-                      <h2 className="text-3xl font-medium text-slate-800">{tarefasPendentes}</h2>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </div>
+            <StatsGrid stats={statsItems} />
 
             {/* Gráficos */}
             <div className="grid grid-cols-1 gap-6">
@@ -594,7 +557,7 @@ export default function Page() {
                 </CardContent>
               </Card>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
