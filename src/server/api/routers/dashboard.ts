@@ -366,6 +366,159 @@ export const dashboardRouter = createTRPCRouter({
           message: "Erro ao obter atividades recentes",
         });
       }
+    }),
+
+  // Get upcoming tasks and deliverables with permission check
+  getProximasTarefasEntregaveis: protectedProcedure
+    .input(z.object({
+      dias: z.number().default(30), // Período em dias para buscar tarefas/entregáveis
+      limite: z.number().default(10) // Limite de resultados
+    }))
+    .query(async ({ ctx, input }) => {
+      const user = ctx.session.user as SessionUser;
+      const userId = user.id;
+      const { dias, limite } = input;
+      
+      try {
+        // Define a data limite para tarefas e entregáveis próximos
+        const dataLimite = new Date(new Date().setDate(new Date().getDate() + dias));
+        
+        // Verificar permissões do utilizador
+        const isComum = user.permissao === "COMUM";
+        
+        // Definir filtro base para tarefas (não concluídas e prazo de entrega dentro do período)
+        const tarefasWhere: any = {
+          estado: false,
+          fim: {
+            gte: new Date(),
+            lte: dataLimite
+          }
+        };
+        
+        // Definir filtro base para entregáveis
+        const entregaveisWhere: any = {
+          estado: false,
+          data: {
+            gte: new Date(),
+            lte: dataLimite
+          }
+        };
+        
+        // Adicionar filtro para utilizadores comuns (apenas projetos alocados)
+        if (isComum) {
+          // Obter IDs dos workpackages onde o utilizador está alocado
+          const workpackagesAlocados = await ctx.db.alocacaoRecurso.findMany({
+            where: { userId },
+            select: { workpackageId: true }
+          });
+          
+          const workpackageIds = workpackagesAlocados.map(w => w.workpackageId);
+          
+          // Filtrar tarefas para apenas workpackages alocados
+          tarefasWhere.workpackageId = { in: workpackageIds };
+          
+          // Filtrar entregáveis para apenas tarefas em workpackages alocados
+          entregaveisWhere.tarefa = {
+            workpackageId: { in: workpackageIds }
+          };
+        }
+        
+        // Buscar tarefas próximas
+        const tarefasProximas = await ctx.db.tarefa.findMany({
+          where: tarefasWhere,
+          include: {
+            workpackage: {
+              include: {
+                projeto: {
+                  select: {
+                    id: true,
+                    nome: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: { fim: 'asc' },
+          take: limite
+        });
+        
+        // Buscar entregáveis próximos
+        const entregaveisProximos = await ctx.db.entregavel.findMany({
+          where: entregaveisWhere,
+          include: {
+            tarefa: {
+              include: {
+                workpackage: {
+                  include: {
+                    projeto: {
+                      select: {
+                        id: true,
+                        nome: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: { data: 'asc' },
+          take: limite
+        });
+        
+        // Formatar os resultados
+        return {
+          tarefas: tarefasProximas.map(tarefa => {
+            // Acesso seguro aos dados da workpackage e projeto
+            const workpackage = tarefa.workpackage;
+            const projeto = workpackage.projeto;
+            
+            return {
+              id: tarefa.id,
+              nome: tarefa.nome,
+              descricao: tarefa.descricao,
+              fim: tarefa.fim,
+              estado: tarefa.estado,
+              projeto: {
+                id: projeto.id,
+                nome: projeto.nome
+              },
+              workpackage: {
+                id: workpackage.id,
+                nome: workpackage.nome
+              },
+              diasRestantes: Math.ceil((new Date(tarefa.fim || new Date()).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+            };
+          }),
+          entregaveis: entregaveisProximos.map(entregavel => {
+            // Acesso seguro aos dados da tarefa, workpackage e projeto
+            const tarefa = entregavel.tarefa;
+            const workpackage = tarefa.workpackage;
+            const projeto = workpackage.projeto;
+            
+            return {
+              id: entregavel.id,
+              nome: entregavel.nome,
+              descricao: entregavel.descricao,
+              data: entregavel.data,
+              tarefa: {
+                id: tarefa.id,
+                nome: tarefa.nome
+              },
+              projeto: {
+                id: projeto.id,
+                nome: projeto.nome
+              },
+              diasRestantes: Math.ceil((new Date(entregavel.data || new Date()).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+            };
+          })
+        };
+      } catch (error) {
+        console.error("Erro ao obter próximas tarefas e entregáveis:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter próximas tarefas e entregáveis",
+        });
+      }
     })
 });
 

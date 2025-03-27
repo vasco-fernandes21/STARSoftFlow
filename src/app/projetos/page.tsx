@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -130,29 +130,39 @@ export default function Projetos() {
         icon: Briefcase,
         label: "Total de Projetos",
         value: totalProjetos,
-        iconClassName: "text-azul",
-        iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
+        iconClassName: "text-blue-600",
+        iconContainerClassName: "bg-blue-50/80",
+        badgeText: "3 novos",
+        badgeIcon: TrendingUp,
+        badgeClassName: "text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100",
+        secondaryText: "de 15"
       },
       {
         icon: Clock,
         label: "Em Desenvolvimento",
         value: projetosAtivos,
-        iconClassName: "text-azul",
-        iconContainerClassName: "bg-azul/10 hover:bg-azul/20"
+        iconClassName: "text-emerald-600",
+        iconContainerClassName: "bg-emerald-50/80",
+        badgeText: `${Math.round(projetosAtivos / Math.max(totalProjetos, 1) * 100)}% ativos`,
+        badgeClassName: "text-emerald-600 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-100"
       },
       {
         icon: CheckCircle2,
         label: "Concluídos",
         value: projetosConcluidos,
         iconClassName: "text-emerald-600",
-        iconContainerClassName: "bg-emerald-50/70 hover:bg-emerald-100/80"
+        iconContainerClassName: "bg-emerald-50/80",
+        badgeText: `25%`,
+        badgeClassName: "text-emerald-600 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-100"
       },
       {
         icon: AlertCircle,
         label: "Atrasados",
         value: projetosAtrasados,
         iconClassName: "text-amber-600",
-        iconContainerClassName: "bg-amber-50/70 hover:bg-amber-100/80"
+        iconContainerClassName: "bg-amber-50/80",
+        badgeText: "Urgentes: 1",
+        badgeClassName: "text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100"
       }
     ];
   }, [projetos]);
@@ -172,7 +182,7 @@ export default function Projetos() {
       accessorKey: "nome",
       header: "Projeto",
       cell: ({ getValue }) => (
-        <span className="font-medium text-gray-900 group-hover:text-azul transition-colors duration-300 ease-in-out">
+        <span className="font-normal text-slate-800 group-hover:text-azul transition-colors duration-300 ease-in-out">
           {getValue<string>()}
         </span>
       ),
@@ -201,7 +211,7 @@ export default function Projetos() {
       cell: ({ getValue }) => {
         const date = getValue<string | Date | null>();
         return (
-          <span className="text-gray-600">
+          <span className="text-slate-500">
             {date
               ? format(new Date(date), "dd MMM yyyy", { locale: ptBR })
               : "N/A"}
@@ -217,7 +227,7 @@ export default function Projetos() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-gray-500 hover:text-green-600 hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
+            className="text-slate-500 hover:text-green-600 hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
             onClick={(e) => {
               e.stopPropagation();
               handleReportClick(e, row.original.id);
@@ -229,7 +239,7 @@ export default function Projetos() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-gray-500 hover:text-azul hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
+            className="text-slate-500 hover:text-azul hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
             onClick={(e) => {
               e.stopPropagation();
               // Menu de opções adicionais
@@ -284,51 +294,56 @@ export default function Projetos() {
   }, [filteredProjects]);
 
   return (
-    <PageLayout>
-      <PaginaHeader
-        title="Projetos"
-        subtitle="Consulte os seus projetos e acompanhe o progresso"
-        action={<NovoProjeto />}
-      />
-
-      <StatsGrid stats={stats} className="my-4" />
-
-      {/* Seção de rascunhos para utilizadores COMUM */}
-      {isComum && data?.rascunhos && data.rascunhos.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-3">Seus Rascunhos</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.rascunhos.map(rascunho => (
-              <div 
-                key={rascunho.id}
-                className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => router.push(`/projetos/rascunho/${rascunho.id}`)}
-              >
-                <h3 className="font-medium text-gray-900">{rascunho.titulo}</h3>
-                <p className="text-sm text-gray-500">
-                  Última atualização: {format(new Date(rascunho.updatedAt), "dd MMM yyyy", { locale: ptBR })}
-                </p>
-              </div>
-            ))}
-          </div>
+    <div className="min-h-screen bg-[#F6F8FA] p-8">
+      <div className="max-w-8xl mx-auto space-y-8">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-medium text-slate-800 tracking-tight">Projetos</h1>
+          <p className="text-slate-500 text-sm">Consulte os seus projetos e acompanhe o progresso</p>
         </div>
-      )}
 
-      <TabelaDados<Projeto>
-        title=""
-        subtitle=""
-        data={paginatedProjects}
-        isLoading={isLoading}
-        columns={columns}
-        searchPlaceholder="Pesquisar projetos..."
-        filterConfigs={filterConfigs}
-        onRowClick={handleRowClick}
-        emptyStateMessage={{
-          title: "Nenhum projeto encontrado",
-          description:
-            "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
-        }}
-      />
-    </PageLayout>
+        <div className="flex justify-end">
+          <NovoProjeto />
+        </div>
+
+        <StatsGrid stats={stats} className="my-6" />
+
+        {/* Seção de rascunhos para utilizadores COMUM */}
+        {isComum && data?.rascunhos && data.rascunhos.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-medium mb-4 text-slate-800">Seus Rascunhos</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {data.rascunhos.map(rascunho => (
+                <div 
+                  key={rascunho.id}
+                  className="bg-white p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => router.push(`/projetos/rascunho/${rascunho.id}`)}
+                >
+                  <h3 className="font-normal text-slate-800">{rascunho.titulo}</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Última atualização: {format(new Date(rascunho.updatedAt), "dd MMM yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <TabelaDados<Projeto>
+          title=""
+          subtitle=""
+          data={paginatedProjects}
+          isLoading={isLoading}
+          columns={columns}
+          searchPlaceholder="Pesquisar projetos..."
+          filterConfigs={filterConfigs}
+          onRowClick={handleRowClick}
+          emptyStateMessage={{
+            title: "Nenhum projeto encontrado",
+            description:
+              "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
+          }}
+        />
+      </div>
+    </div>
   );
 }

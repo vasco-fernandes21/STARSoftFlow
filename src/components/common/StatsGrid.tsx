@@ -8,6 +8,11 @@ export type StatItem = {
   value: number;
   iconClassName: string;
   iconContainerClassName: string;
+  suffix?: string;
+  badgeText?: string;
+  badgeIcon?: LucideIcon;
+  badgeClassName?: string;
+  secondaryText?: string;
 };
 
 type StatsGridProps = {
@@ -29,6 +34,11 @@ export const StatsGrid = ({
           value={stat.value}
           iconClassName={stat.iconClassName}
           iconContainerClassName={stat.iconContainerClassName}
+          suffix={stat.suffix}
+          badgeText={stat.badgeText}
+          badgeIcon={stat.badgeIcon}
+          badgeClassName={stat.badgeClassName}
+          secondaryText={stat.secondaryText}
         />
       ))}
     </div>
