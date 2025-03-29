@@ -52,7 +52,7 @@ async function main() {
       username: "admin",
       permissao: Permissao.ADMIN,
       regime: Regime.INTEGRAL,
-      salario: new Decimal(5000.00) // Valor de pagamento para o admin
+      salario: new Decimal(2000.00) // Valor de pagamento para o admin
     }
   });
 
@@ -79,7 +79,7 @@ async function main() {
       username: "helga.carvalho",
       permissao: Permissao.GESTOR,
       regime: Regime.INTEGRAL,
-      salario: new Decimal(4500.00) // Valor de pagamento para o gestor
+      salario: new Decimal(2000.00) // Valor de pagamento para o gestor
     }
   });
 
@@ -104,7 +104,7 @@ async function main() {
         username: "ricardo.correia",
         permissao: Permissao.COMUM,
         regime: Regime.PARCIAL,
-        salario: new Decimal(3000.00) // Valor de pagamento para o utilizador
+        salario: new Decimal(2000.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -118,7 +118,7 @@ async function main() {
         username: "ana.i.carvalho",
         permissao: Permissao.COMUM,
         regime: Regime.PARCIAL,
-        salario: new Decimal(3200.00) // Valor de pagamento para o utilizador
+        salario: new Decimal(2000.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -132,7 +132,7 @@ async function main() {
         username: "ana.c.carvalho",
         permissao: Permissao.COMUM,
         regime: Regime.INTEGRAL,
-        salario: new Decimal(3500.00) // Valor de pagamento para o utilizador
+        salario: new Decimal(2000.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -146,7 +146,7 @@ async function main() {
         username: "joao.lopes",
         permissao: Permissao.COMUM,
         regime: Regime.INTEGRAL,
-        salario: new Decimal(3400.00) // Valor de pagamento para o utilizador
+        salario: new Decimal(2000.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -160,7 +160,7 @@ async function main() {
         username: "filipe.coutinho",
         permissao: Permissao.COMUM,
         regime: Regime.INTEGRAL,
-        salario: new Decimal(3600.00) // Valor de pagamento para o utilizador
+        salario: new Decimal(2000.00) // Valor de pagamento para o utilizador
       }
     }),
     prisma.user.create({
@@ -174,7 +174,7 @@ async function main() {
         username: "rui.coimbra",
         permissao: Permissao.COMUM,
         regime: Regime.INTEGRAL,
-        salario: new Decimal(3700.00) // Valor de pagamento para o utilizador
+        salario: new Decimal(2000.00) // Valor de pagamento para o utilizador
       }
     })
   ]);
