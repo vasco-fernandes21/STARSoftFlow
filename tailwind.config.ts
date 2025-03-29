@@ -30,6 +30,10 @@ export default {
   				light: '#4373B5',
   				dark: '#1E3B6A'
   			},
+  			bgApp: {
+          DEFAULT: '#F6F8FA',
+          gradient: 'linear-gradient(to bottom, #F6F8FA, #EEF2F6)'
+        },
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

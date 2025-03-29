@@ -98,7 +98,7 @@
   }
   
   .animate-slide-up {
-    animation: slideUp 0.5s ease-out forwards;
+    animation: slide-up 0.4s ease-out forwards;
   }
   
   .animate-slide-down {
@@ -118,12 +118,12 @@
     }
   }
   
-  @keyframes slideUp {
-    from {
+  @keyframes slide-up {
+    0% {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(10px);
     }
-    to {
+    100% {
       opacity: 1;
       transform: translateY(0);
     }

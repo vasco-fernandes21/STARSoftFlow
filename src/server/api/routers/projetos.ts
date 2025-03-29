@@ -118,6 +118,288 @@ export type UpdateProjetoInput = z.infer<typeof updateProjetoSchema>;
 export type ProjetoFilterInput = z.infer<typeof projetoFilterSchema>;
 export type CreateProjetoCompletoInput = z.infer<typeof createProjetoCompletoSchema>;
 
+/**
+ * Calcula o orçamento submetido de um projeto.
+ * O orçamento submetido é o valor ETI do projeto multiplicado pelo total de alocações dos recursos.
+ * Pode ser filtrado por ano para obter detalhes mais específicos.
+ */
+async function getOrcamentoSubmetido(db: Prisma.TransactionClient, projetoId: string, filtros?: { ano?: number }) {
+  // Buscar o valor ETI do projeto
+  const projeto = await db.projeto.findUnique({
+    where: { id: projetoId },
+    select: { valor_eti: true }
+  });
+
+  if (!projeto || !projeto.valor_eti) {
+    return {
+      valorETI: new Decimal(0),
+      totalAlocacao: new Decimal(0),
+      orcamentoTotal: new Decimal(0),
+      detalhesPorAno: [] as { ano: number; totalAlocacao: Decimal; orcamento: Decimal }[]
+    };
+  }
+
+  // Buscar todas as alocações de recursos do projeto
+  const alocacoes = await db.alocacaoRecurso.findMany({
+    where: {
+      workpackage: { projetoId },
+      ...(filtros?.ano && { ano: filtros.ano })
+    },
+    select: {
+      ocupacao: true,
+      ano: true
+    }
+  });
+
+  // Somar todas as alocações
+  const totalAlocacao = alocacoes.reduce(
+    (sum, alocacao) => sum.plus(alocacao.ocupacao), 
+    new Decimal(0)
+  );
+
+  // Calcular o orçamento submetido total: valor ETI * total de alocações
+  const orcamentoTotal = totalAlocacao.times(projeto.valor_eti);
+
+  // Se solicitar detalhes por ano, calcular o orçamento submetido por ano
+  const detalhesPorAno: { ano: number; totalAlocacao: Decimal; orcamento: Decimal }[] = [];
+  
+  if (alocacoes.length > 0) {
+    // Agrupar alocações por ano
+    const alocacoesPorAno = alocacoes.reduce((acc, alocacao) => {
+      if (!acc[alocacao.ano]) {
+        acc[alocacao.ano] = new Decimal(0);
+      }
+
+      acc[alocacao.ano] = (acc[alocacao.ano] ?? new Decimal(0)).plus(alocacao.ocupacao);
+      return acc;
+    }, {} as Record<number, Decimal>);
+
+    // Calcular orçamento por ano
+    for (const [ano, alocacao] of Object.entries(alocacoesPorAno)) {
+      const anoNum = parseInt(ano);
+      detalhesPorAno.push({
+        ano: anoNum,
+        totalAlocacao: alocacao,
+        orcamento: alocacao.times(projeto.valor_eti)
+      });
+    }
+
+    // Ordenar por ano
+    detalhesPorAno.sort((a, b) => a.ano - b.ano);
+  }
+
+  return {
+    valorETI: projeto.valor_eti,
+    totalAlocacao,
+    orcamentoTotal,
+    detalhesPorAno
+  };
+}
+
+/**
+ * Calcula o orçamento real de um projeto.
+ * O orçamento real é a soma dos custos de recursos humanos (salário * alocação) e custos de materiais.
+ */
+async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string, filtros?: { ano?: number }) {
+  // Buscar todas as alocações de recursos do projeto com informações do usuário (salário)
+  const alocacoes = await db.alocacaoRecurso.findMany({
+    where: {
+      workpackage: { projetoId },
+      ...(filtros?.ano && { ano: filtros.ano })
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          salario: true,
+        }
+      }
+    }
+  });
+
+  // Buscar todos os materiais do projeto
+  const materiais = await db.material.findMany({
+    where: {
+      workpackage: { projetoId },
+      ...(filtros?.ano && { ano_utilizacao: filtros.ano })
+    }
+  });
+
+  // Calcular o custo de recursos humanos
+  const custoRecursos = alocacoes.reduce((sum, alocacao) => {
+    if (!alocacao.user.salario) return sum;
+    const custoAlocacao = alocacao.ocupacao.times(alocacao.user.salario);
+    return sum.plus(custoAlocacao);
+  }, new Decimal(0));
+
+  // Calcular o custo de materiais
+  const custoMateriais = materiais.reduce(
+    (sum, material) => {
+      const custoTotal = material.preco.times(new Decimal(material.quantidade));
+      return sum.plus(custoTotal);
+    },
+    new Decimal(0)
+  );
+
+  // Orçamento real = custo de recursos + custo de materiais
+  return {
+    custoRecursos,
+    custoMateriais,
+    total: custoRecursos.plus(custoMateriais)
+  };
+}
+
+/**
+ * Calcula os totais financeiros de um projeto, incluindo resultado de financiamento.
+ * - resultado_financiamento = (orçamento_submetido * taxa_financiamento) - (custo_real_recursos + custo_materiais) + (custo_real_recursos * 0.15)
+ * - Pode incluir detalhes por ano para facilitar a visualização em listagens
+ */
+async function getTotais(db: Prisma.TransactionClient, projetoId: string, options?: { 
+  ano?: number; 
+  incluirDetalhesPorAno?: boolean;
+}) {
+  // Obter o projeto com taxa de financiamento
+  const projeto = await db.projeto.findUnique({
+    where: { id: projetoId },
+    select: {
+      valor_eti: true,
+      taxa_financiamento: true,
+      overhead: true,
+      inicio: true,
+      fim: true
+    }
+  });
+
+  if (!projeto) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Projeto não encontrado"
+    });
+  }
+
+  // Obter o orçamento submetido
+  const orcamentoSubmetido = await getOrcamentoSubmetido(db, projetoId, { ano: options?.ano });
+  
+  // Obter o orçamento real (custos efetivos)
+  const orcamentoReal = await getOrcamentoReal(db, projetoId, { ano: options?.ano });
+  
+  // Converter taxa de financiamento de percentagem para decimal (ex: 75% -> 0.75)
+  const taxaFinanciamento = projeto.taxa_financiamento ? 
+    projeto.taxa_financiamento.dividedBy(new Decimal(100)) : 
+    new Decimal(0);
+  
+  // Calcular valor financiado (orçamento submetido * taxa de financiamento)
+  const valorFinanciado = orcamentoSubmetido.orcamentoTotal.times(taxaFinanciamento);
+  
+  // Calcular overhead (15% do custo real de recursos humanos)
+  const overhead = orcamentoReal.custoRecursos.times(new Decimal(0.15));
+  
+  // Calcular resultado financeiro
+  // resultado = (valor financiado) - (custo real total) + overhead
+  const resultado = valorFinanciado
+    .minus(orcamentoReal.custoRecursos.plus(orcamentoReal.custoMateriais))
+    .plus(overhead);
+
+  // Base result
+  const resultadoBase = {
+    orcamentoSubmetido: orcamentoSubmetido.orcamentoTotal,
+    taxaFinanciamento: projeto.taxa_financiamento || new Decimal(0),
+    valorFinanciado,
+    custosReais: {
+      recursos: orcamentoReal.custoRecursos,
+      materiais: orcamentoReal.custoMateriais,
+      total: orcamentoReal.total
+    },
+    overhead,
+    resultado
+  };
+
+  // Se não deseja detalhes por ano, retornar apenas o resultado base
+  if (!options?.incluirDetalhesPorAno) {
+    return resultadoBase;
+  }
+
+  // Caso contrário, calcular detalhes por ano
+  // Lista para armazenar os anos para os quais precisamos obter dados
+  const anosSet = new Set<number>();
+  
+  // Adicionar anos do orçamento submetido
+  orcamentoSubmetido.detalhesPorAno.forEach(detalhe => {
+    anosSet.add(detalhe.ano);
+  });
+  
+  // Obter todos os anos com alocações
+  const alocacoes = await db.alocacaoRecurso.findMany({
+    where: { workpackage: { projetoId } },
+    select: { ano: true },
+    distinct: ['ano']
+  });
+  
+  alocacoes.forEach(alocacao => {
+    anosSet.add(alocacao.ano);
+  });
+  
+  // Obter todos os anos com materiais
+  const materiais = await db.material.findMany({
+    where: { workpackage: { projetoId } },
+    select: { ano_utilizacao: true },
+    distinct: ['ano_utilizacao']
+  });
+  
+  materiais.forEach(material => {
+    anosSet.add(material.ano_utilizacao);
+  });
+  
+  // Converter o Set para array e ordenar
+  const anos = Array.from(anosSet).sort();
+  
+  // Calcular os totais para cada ano
+  const detalhesAnuais = await Promise.all(
+    anos.map(async (ano) => {
+      // Obter orçamento real e submetido para este ano
+      const orcamentoRealAno = await getOrcamentoReal(db, projetoId, { ano });
+      const orcamentoSubmetidoAno = await getOrcamentoSubmetido(db, projetoId, { ano });
+      
+      // Calcular valor financiado para este ano
+      const valorFinanciadoAno = orcamentoSubmetidoAno.orcamentoTotal.times(taxaFinanciamento);
+      
+      // Calcular overhead para este ano
+      const overheadAno = orcamentoRealAno.custoRecursos.times(new Decimal(0.15));
+      
+      // Calcular resultado para este ano
+      const resultadoAno = valorFinanciadoAno
+        .minus(orcamentoRealAno.custoRecursos.plus(orcamentoRealAno.custoMateriais))
+        .plus(overheadAno);
+      
+      // Encontrar detalhes de orçamento submetido para este ano
+      const detalheSubmissao = orcamentoSubmetido.detalhesPorAno.find(d => d.ano === ano);
+      
+      return {
+        ano,
+        orcamento: {
+          submetido: orcamentoSubmetidoAno.orcamentoTotal,
+          real: {
+            recursos: orcamentoRealAno.custoRecursos,
+            materiais: orcamentoRealAno.custoMateriais,
+            total: orcamentoRealAno.total
+          }
+        },
+        alocacoes: detalheSubmissao?.totalAlocacao || new Decimal(0),
+        valorFinanciado: valorFinanciadoAno,
+        overhead: overheadAno,
+        resultado: resultadoAno
+      };
+    })
+  );
+  
+  return {
+    ...resultadoBase,
+    detalhesAnuais,
+    anos
+  };
+}
+
 export const projetoRouter = createTRPCRouter({
   // Obter todos os projetos
   findAll: publicProcedure
@@ -171,10 +453,28 @@ export const projetoRouter = createTRPCRouter({
           take: limit,
           include: {
             financiamento: true,
+            responsavel: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
             workpackages: {
               include: {
                 tarefas: true,
-                recursos: true
+                recursos: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        salario: true
+                      }
+                    }
+                  }
+                },
+                materiais: true
               }
             }
           }
@@ -188,7 +488,13 @@ export const projetoRouter = createTRPCRouter({
           });
         }
 
+        // Data atual para cálculos de custos
+        const dataAtual = new Date();
+        const anoAtual = dataAtual.getFullYear();
+        const mesAtual = dataAtual.getMonth() + 1;
+
         const items = projetos.map(projeto => {
+          // Cálculo do progresso físico
           let totalTarefas = 0;
           let tarefasConcluidas = 0;
 
@@ -197,11 +503,49 @@ export const projetoRouter = createTRPCRouter({
             tarefasConcluidas += wp.tarefas.filter(tarefa => tarefa.estado === true).length;
           });
 
-          const progresso = totalTarefas > 0 ? tarefasConcluidas / totalTarefas : 0;
+          const progresso = totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
+
+          // Cálculo do orçamento e custos
+          const orcamentoTotal = projeto.valor_eti ? Number(projeto.valor_eti) : 0;
+          
+          // Custos de materiais (apenas materiais adquiridos)
+          let custoMateriais = 0;
+          projeto.workpackages.forEach(wp => {
+            wp.materiais.forEach(material => {
+              if (material.estado) { // Apenas materiais adquiridos (estado = true)
+                custoMateriais += Number(material.preco) * material.quantidade;
+              }
+            });
+          });
+          
+          // Custos de recursos humanos (apenas alocações passadas)
+          let custoRecursos = 0;
+          projeto.workpackages.forEach(wp => {
+            wp.recursos.forEach(alocacao => {
+              if (alocacao.ano < anoAtual || (alocacao.ano === anoAtual && alocacao.mes <= mesAtual)) {
+                const ocupacao = Number(alocacao.ocupacao);
+                const salario = alocacao.user.salario ? Number(alocacao.user.salario) : 0;
+                custoRecursos += ocupacao * salario;
+              }
+            });
+          });
+
+          const orcamentoUtilizado = custoMateriais + custoRecursos;
+          const progressoFinanceiro = orcamentoTotal > 0 
+            ? Math.round((orcamentoUtilizado / orcamentoTotal) * 100) 
+            : 0;
 
           return {
             ...projeto,
             progresso,
+            progressoFinanceiro,
+            orcamento: {
+              total: orcamentoTotal,
+              utilizado: orcamentoUtilizado,
+              materiais: custoMateriais,
+              recursos: custoRecursos
+            },
+            responsavel: projeto.responsavel
           };
         });
 
@@ -220,126 +564,6 @@ export const projetoRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao listar projetos",
-          cause: error
-        });
-      }
-    }),
-  
-  // Obter projetos para o dashboard (em destaque)
-  getProjetos: publicProcedure
-    .input(z.object({
-      estado: z.array(z.nativeEnum(ProjetoEstado)).optional(),
-      limit: z.number().int().min(1).max(10).optional().default(3),
-      orderBy: z.string().optional().default("updatedAt"),
-      order: z.enum(["asc", "desc"]).optional().default("desc"),
-    }))
-    .query(async ({ ctx, input }) => {
-      try {
-        const { estado, limit, orderBy, order } = input;
-        
-        const where: Prisma.ProjetoWhereInput = {};
-        
-        if (estado && estado.length > 0) {
-          where.estado = {
-            in: estado
-          };
-        }
-        
-        const projetos = await ctx.db.projeto.findMany({
-          where,
-          take: limit,
-          orderBy: {
-            [orderBy]: order
-          },
-          include: {
-            responsavel: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            workpackages: {
-              include: {
-                tarefas: true,
-                recursos: true,
-                materiais: true
-              }
-            }
-          }
-        });
-        
-        // Calcular progresso físico e financeiro de cada projeto
-        return projetos.map(projeto => {
-          // Progresso físico: percentagem de tarefas concluídas
-          let totalTarefas = 0;
-          let tarefasConcluidas = 0;
-          
-          projeto.workpackages.forEach(wp => {
-            totalTarefas += wp.tarefas.length;
-            tarefasConcluidas += wp.tarefas.filter(tarefa => tarefa.estado === true).length;
-          });
-          
-          const progressoFisico = totalTarefas > 0 
-            ? Math.round((tarefasConcluidas / totalTarefas) * 100) 
-            : 0;
-            
-          // Progresso financeiro e orçamento
-          const orcamentoTotal = projeto.valor_eti ? Number(projeto.valor_eti) : 0;
-          
-          // Calcular custos de recursos (RH) e materiais
-          let custoMateriais = 0;
-          let custoRecursos = 0;
-          
-          // Soma dos custos de materiais
-          projeto.workpackages.forEach(wp => {
-            wp.materiais.forEach(material => {
-              custoMateriais += Number(material.preco) * material.quantidade;
-            });
-          });
-          
-          // Para recursos humanos, consideramos apenas alocações passadas
-          const dataAtual = new Date();
-          const anoAtual = dataAtual.getFullYear();
-          const mesAtual = dataAtual.getMonth() + 1;
-          
-          projeto.workpackages.forEach(wp => {
-            wp.recursos.forEach(alocacao => {
-              // Verificar se a alocação é passada
-              if (alocacao.ano < anoAtual || (alocacao.ano === anoAtual && alocacao.mes <= mesAtual)) {
-                // Calcular custo da alocação (simplificado)
-                // TODO: Implementar cálculo mais preciso baseado no salário do recurso
-                const ocupacao = alocacao.ocupacao ? Number(alocacao.ocupacao) : 0;
-                const valorEti = projeto.valor_eti ? Number(projeto.valor_eti) : 0;
-                custoRecursos += ocupacao * valorEti;
-              }
-            });
-          });
-          
-          const orcamentoUtilizado = custoMateriais + custoRecursos;
-          const progressoFinanceiro = orcamentoTotal > 0 
-            ? Math.round((orcamentoUtilizado / orcamentoTotal) * 100) 
-            : 0;
-          
-          return {
-            id: projeto.id,
-            nome: projeto.nome,
-            descricao: projeto.descricao,
-            inicio: projeto.inicio,
-            fim: projeto.fim,
-            estado: projeto.estado,
-            responsavel: projeto.responsavel,
-            progressoFisico,
-            progressoFinanceiro,
-            orcamentoTotal,
-            orcamentoUtilizado
-          };
-        });
-      } catch (error) {
-        console.error("Erro ao buscar projetos em destaque:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao buscar projetos em destaque",
           cause: error
         });
       }
@@ -408,16 +632,16 @@ export const projetoRouter = createTRPCRouter({
     .input(z.object({
       projetoId: z.string().uuid("ID do projeto inválido"),
       ano: z.number().int().min(2000).optional(),
-      mes: z.number().int().min(1).max(12).optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const { projetoId, ano, mes } = input;
+      const { projetoId, ano } = input;
       
       const projeto = await ctx.db.projeto.findUnique({
         where: { id: projetoId },
         select: {
           valor_eti: true,
-          overhead: true
+          overhead: true,
+          taxa_financiamento: true
         }
       });
 
@@ -428,7 +652,17 @@ export const projetoRouter = createTRPCRouter({
         });
       }
 
-      type AlocacaoWithDetails = {
+      // Calcular orçamento submetido
+      const orcamentoSubmetido = await getOrcamentoSubmetido(ctx.db, projetoId, { ano });
+      
+      // Calcular orçamento real com base nos filtros fornecidos
+      const orcamentoReal = await getOrcamentoReal(ctx.db, projetoId, { ano });
+      
+      // Calcular totais financeiros (resultado de financiamento, overhead, etc)
+      const totaisFinanceiros = await getTotais(ctx.db, projetoId, { ano });
+
+      // Buscar alocações com detalhes para relatório
+      type AlocacaoDetalhada = {
         id: string;
         userId: string;
         workpackageId: string;
@@ -450,7 +684,6 @@ export const projetoRouter = createTRPCRouter({
         where: {
           workpackage: { projetoId },
           ...(ano && { ano }),
-          ...(mes && { mes }),
         },
         include: {
           user: {
@@ -467,20 +700,14 @@ export const projetoRouter = createTRPCRouter({
             }
           }
         }
-      }) as AlocacaoWithDetails[];
+      }) as AlocacaoDetalhada[];
 
-      const materiais = await ctx.db.material.findMany({
-        where: {
-          workpackage: { projetoId },
-          ...(ano && { ano_utilizacao: ano })
-        }
-      });
-
-      // Materiais já adquiridos (com estado true)
+      // Buscar materiais adquiridos
       const materiaisAdquiridos = await ctx.db.material.findMany({
         where: {
           workpackage: { projetoId },
-          estado: true
+          estado: true,
+          ...(ano && { ano_utilizacao: ano })
         }
       });
 
@@ -501,8 +728,31 @@ export const projetoRouter = createTRPCRouter({
       const { custos: custosAlocacoesPassadas, etis: etisAlocacoesPassadas } = 
         calcularAlocacoesPassadas(alocacoes, anoAtual, mesAtual);
 
+      // Tipo para detalhes de alocação por usuário
+      type UserAlocacaoDetails = {
+        user: {
+          id: string;
+          name: string;
+          salario: Decimal | null;
+        };
+        totalAlocacao: Decimal;
+        custoTotal: Decimal;
+        alocacoes: Array<{
+          alocacaoId: string;
+          workpackage: {
+            id: string;
+            nome: string;
+          };
+          data: Date;
+          mes: number;
+          ano: number;
+          etis: number;
+          custo: number;
+        }>;
+      };
+
+      // Organizar detalhes por usuário
       const custosPorUser = alocacoes.reduce((acc, alocacao) => {
-        // Podemos confiar que user e workpackage existem, pois forçamos o tipo com AlocacaoWithDetails
         const user = alocacao.user;
         const workpackage = alocacao.workpackage;
         
@@ -520,21 +770,7 @@ export const projetoRouter = createTRPCRouter({
         }
         
         if (alocacao.ocupacao) {
-          // Using type assertion to inform TypeScript that this exists
-          const userEntry = acc[user.id] as {
-            user: { id: string; name: string; salario: Decimal | null };
-            totalAlocacao: Decimal;
-            custoTotal: Decimal;
-            alocacoes: Array<{
-              alocacaoId: string;
-              workpackage: { id: string; nome: string };
-              data: Date;
-              mes: number;
-              ano: number;
-              etis: number;
-              custo: number;
-            }>;
-          };
+          const userEntry = acc[user.id] as UserAlocacaoDetails;
           
           userEntry.totalAlocacao = userEntry.totalAlocacao.plus(alocacao.ocupacao);
           
@@ -551,73 +787,40 @@ export const projetoRouter = createTRPCRouter({
               id: workpackage.id,
               nome: workpackage.nome
             },
-            data: new Date(alocacao.ano, alocacao.mes - 1, 1), // Primeiro dia do mês
+            data: new Date(alocacao.ano, alocacao.mes - 1, 1),
             mes: alocacao.mes,
             ano: alocacao.ano,
-            etis: alocacao.ocupacao.toNumber(), // ETIs em vez de horas
+            etis: alocacao.ocupacao.toNumber(),
             custo: custo.toNumber()
           });
         }
         
         return acc;
-      }, {} as Record<string, {
-        user: { id: string; name: string; salario: Decimal | null };
-        totalAlocacao: Decimal;
-        custoTotal: Decimal;
-        alocacoes: Array<{
-          alocacaoId: string;
-          workpackage: { id: string; nome: string };
-          data: Date;
-          mes: number;
-          ano: number;
-          etis: number;
-          custo: number;
-        }>;
-      }>);
-
-      const totalAlocacao = Object.values(custosPorUser).reduce(
-        (sum, item) => sum.plus(item.totalAlocacao), 
-        new Decimal(0)
-      );
-      
-      const totalCustoRecursos = Object.values(custosPorUser).reduce(
-        (sum, item) => sum.plus(item.custoTotal), 
-        new Decimal(0)
-      );
-      
-      const totalCustoMateriais = materiais.reduce(
-        (sum, material) => {
-          const custoTotal = material.preco.times(new Decimal(material.quantidade));
-          return sum.plus(custoTotal);
-        },
-        new Decimal(0)
-      );
-      
-      const orcamentoEstimado = totalAlocacao.times(projeto.valor_eti || new Decimal(0));
-      
-      const orcamentoReal = totalCustoRecursos.plus(totalCustoMateriais);
+      }, {} as Record<string, UserAlocacaoDetails>);
 
       return {
-        detalhesPorUser: Object.values(custosPorUser).map(item => ({
-          user: item.user,
-          totalAlocacao: item.totalAlocacao.toNumber(),
-          custoTotal: item.custoTotal.toNumber(),
-          alocacoes: item.alocacoes.sort((a, b) => {
-            // Ordenar por ano e depois por mês
-            if (a.ano !== b.ano) return a.ano - b.ano;
-            return a.mes - b.mes;
-          })
-        })),
-        resumo: {
-          totalAlocacao: totalAlocacao.toNumber(),
-          orcamento: {
-            estimado: orcamentoEstimado.toNumber(),
-            real: {
-              totalRecursos: totalCustoRecursos.toNumber(),
-              totalMateriais: totalCustoMateriais.toNumber(),
-              total: orcamentoReal.toNumber()
-            }
+        parametros: {
+          valor_eti: projeto.valor_eti?.toNumber() || 0,
+          taxa_financiamento: projeto.taxa_financiamento?.toNumber() || 0,
+          overhead: projeto.overhead?.toNumber() || 0
+        },
+        orcamento: {
+          submetido: orcamentoSubmetido.orcamentoTotal.toNumber(),
+          detalhesSubmissao: orcamentoSubmetido.detalhesPorAno.map(d => ({
+            ano: d.ano,
+            totalAlocacao: d.totalAlocacao.toNumber(),
+            orcamento: d.orcamento.toNumber()
+          })),
+          real: {
+            recursos: orcamentoReal.custoRecursos.toNumber(),
+            materiais: orcamentoReal.custoMateriais.toNumber(),
+            total: orcamentoReal.total.toNumber()
           }
+        },
+        financeiro: {
+          valorFinanciado: totaisFinanceiros.valorFinanciado.toNumber(),
+          overhead: totaisFinanceiros.overhead.toNumber(),
+          resultado: totaisFinanceiros.resultado.toNumber()
         },
         custosRealizados: {
           alocacoes: {
@@ -629,15 +832,22 @@ export const projetoRouter = createTRPCRouter({
             quantidade: materiaisAdquiridos.length
           },
           total: custosAlocacoesPassadas.plus(custoMaterialAdquirido).toNumber(),
-          // Calcular percentagem em relação ao orçamento real
-          percentagemReal: orcamentoReal.greaterThan(0)
-            ? (custosAlocacoesPassadas.plus(custoMaterialAdquirido).dividedBy(orcamentoReal).times(100)).toNumber()
+          percentagemOrcamentoReal: orcamentoReal.total.greaterThan(0)
+            ? (custosAlocacoesPassadas.plus(custoMaterialAdquirido).dividedBy(orcamentoReal.total).times(100)).toNumber()
             : 0,
-          // Calcular percentagem em relação ao orçamento estimado
-          percentagemEstimado: orcamentoEstimado.greaterThan(0)
-            ? (custosAlocacoesPassadas.plus(custoMaterialAdquirido).dividedBy(orcamentoEstimado).times(100)).toNumber()
+          percentagemOrcamentoSubmetido: orcamentoSubmetido.orcamentoTotal.greaterThan(0)
+            ? (custosAlocacoesPassadas.plus(custoMaterialAdquirido).dividedBy(orcamentoSubmetido.orcamentoTotal).times(100)).toNumber()
             : 0
-        }
+        },
+        detalhesPorUser: Object.values(custosPorUser).map(item => ({
+          user: item.user,
+          totalAlocacao: item.totalAlocacao.toNumber(),
+          custoTotal: item.custoTotal.toNumber(),
+          alocacoes: item.alocacoes.sort((a, b) => {
+            if (a.ano !== b.ano) return a.ano - b.ano;
+            return a.mes - b.mes;
+          })
+        })),
       };
     }),
   
@@ -1066,6 +1276,82 @@ export const projetoRouter = createTRPCRouter({
           throw error;
         }
         return handlePrismaError(error);
+      }
+    }),
+
+  /**
+   * Obter os totais financeiros do projeto, incluindo cálculo do resultado de financiamento
+   * Inclui detalhes por ano quando solicitado para facilitar visualização em listagens
+   */
+  getTotaisFinanceiros: publicProcedure
+    .input(z.object({
+      projetoId: z.string().uuid("ID do projeto inválido"),
+      ano: z.number().int().min(2000).optional(),
+      incluirDetalhesPorAno: z.boolean().optional().default(false)
+    }))
+    .query(async ({ ctx, input }) => {
+      const { projetoId, ano, incluirDetalhesPorAno } = input;
+      
+      try {
+        // Usar a função getTotais para calcular os resultados financeiros
+        const totais = await getTotais(ctx.db, projetoId, { 
+          ano, 
+          incluirDetalhesPorAno
+        });
+
+        // Base da resposta (sempre presente)
+        const resposta = {
+          orcamentoSubmetido: totais.orcamentoSubmetido.toNumber(),
+          taxaFinanciamento: totais.taxaFinanciamento.toNumber(),
+          valorFinanciado: totais.valorFinanciado.toNumber(),
+          custosReais: {
+            recursos: totais.custosReais.recursos.toNumber(),
+            materiais: totais.custosReais.materiais.toNumber(),
+            total: totais.custosReais.total.toNumber()
+          },
+          overhead: totais.overhead.toNumber(),
+          resultado: totais.resultado.toNumber(),
+          meta: {
+            filtroAno: ano,
+            incluiDetalhes: incluirDetalhesPorAno
+          }
+        };
+
+        // Adicionar detalhes por ano se solicitado
+        if (incluirDetalhesPorAno && 'detalhesAnuais' in totais) {
+          return {
+            ...resposta,
+            anos: totais.anos,
+            detalhesAnuais: totais.detalhesAnuais.map(detalhe => ({
+              ano: detalhe.ano,
+              orcamento: {
+                submetido: detalhe.orcamento.submetido.toNumber(),
+                real: {
+                  recursos: detalhe.orcamento.real.recursos.toNumber(),
+                  materiais: detalhe.orcamento.real.materiais.toNumber(),
+                  total: detalhe.orcamento.real.total.toNumber()
+                }
+              },
+              alocacoes: detalhe.alocacoes.toNumber(),
+              valorFinanciado: detalhe.valorFinanciado.toNumber(),
+              overhead: detalhe.overhead.toNumber(),
+              resultado: detalhe.resultado.toNumber()
+            }))
+          };
+        }
+
+        return resposta;
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        console.error("Erro ao calcular totais financeiros:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao calcular totais financeiros",
+          cause: error
+        });
       }
     }),
 });

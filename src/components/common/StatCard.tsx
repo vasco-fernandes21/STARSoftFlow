@@ -31,10 +31,10 @@ export const StatCard = ({
 }: StatCardProps) => {
   return (
     <Card className="overflow-hidden">
-      <CardContent className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", iconContainerClassName)}>
-            <Icon className={cn("h-5 w-5", iconClassName)} />
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", iconContainerClassName)}>
+            <Icon className={cn("h-4 w-4", iconClassName)} />
           </div>
           
           {badgeText && (
@@ -49,16 +49,16 @@ export const StatCard = ({
         </div>
         
         <div>
-          <p className="text-sm text-muted-foreground mb-1">{label}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
           <div className="flex items-baseline gap-1">
-            <h2 className="text-2xl font-semibold">
+            <h2 className="text-xl font-semibold">
               {value.toLocaleString('pt-PT')}
             </h2>
             {secondaryText && (
               <p className="text-xs text-muted-foreground">{secondaryText}</p>
             )}
             {suffix && !secondaryText && (
-              <p className="text-2xl font-semibold">{suffix}</p>
+              <p className="text-xl font-semibold">{suffix}</p>
             )}
           </div>
         </div>

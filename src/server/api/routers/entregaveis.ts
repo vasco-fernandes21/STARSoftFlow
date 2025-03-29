@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { ProjetoEstado } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 // Schemas
 export const entregavelBaseSchema = z.object({
@@ -116,6 +118,7 @@ export const entregavelRouter = createTRPCRouter({
       });
     }),
 
+
   // Atualizar anexo do entregável
   updateAnexo: protectedProcedure
     .input(entregavelAnexoSchema)
@@ -123,6 +126,117 @@ export const entregavelRouter = createTRPCRouter({
       return ctx.db.entregavel.update({
         where: { id: input.id },
         data: { anexo: input.anexo },
+      });
+    }),
+
+  // Obter próximos entregáveis e atrasados
+  findProximos: protectedProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(50).optional().default(10)
+    }))
+    .query(async ({ ctx, input }) => {
+      const dataAtual = new Date();
+      const userId = ctx.session.user.id;
+      // Workaround para o tipo da sessão
+      const userPermissao = (ctx.session.user as any).permissao || 'COMUM';
+      
+      // Base where condition
+      let whereCondition: Prisma.EntregavelWhereInput = {
+        data: { not: null }, // apenas entregáveis com data definida
+        estado: false, // apenas não concluídos
+        tarefa: {
+          workpackage: {
+            projeto: {
+              estado: {
+                in: [ProjetoEstado.EM_DESENVOLVIMENTO, ProjetoEstado.APROVADO]
+              }
+            }
+          }
+        }
+      };
+
+      // Se o usuário tem permissão COMUM, filtrar apenas projetos onde ele está alocado
+      if (userPermissao === 'COMUM') {
+        whereCondition = {
+          ...whereCondition,
+          tarefa: {
+            workpackage: {
+              AND: [
+                {
+                  projeto: {
+                    estado: {
+                      in: [ProjetoEstado.EM_DESENVOLVIMENTO, ProjetoEstado.APROVADO]
+                    }
+                  }
+                },
+                {
+                  recursos: {
+                    some: {
+                      userId
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        };
+      }
+
+      const entregaveis = await ctx.db.entregavel.findMany({
+        where: whereCondition,
+        take: input.limit,
+        orderBy: {
+          data: "asc"
+        },
+        include: {
+          tarefa: {
+            include: {
+              workpackage: {
+                include: {
+                  projeto: {
+                    include: {
+                      responsavel: {
+                        select: {
+                          id: true,
+                          name: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Calcular dias restantes para cada entregável
+      return entregaveis.map((entregavel) => {
+        const diasRestantes = entregavel.data 
+          ? Math.ceil((entregavel.data.getTime() - dataAtual.getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+
+        return {
+          id: entregavel.id,
+          nome: entregavel.nome,
+          descricao: entregavel.descricao,
+          data: entregavel.data,
+          estado: entregavel.estado,
+          diasRestantes,
+          tarefa: {
+            id: entregavel.tarefa.id,
+            nome: entregavel.tarefa.nome,
+            workpackage: {
+              id: entregavel.tarefa.workpackage.id,
+              nome: entregavel.tarefa.workpackage.nome,
+              projeto: {
+                id: entregavel.tarefa.workpackage.projeto.id,
+                nome: entregavel.tarefa.workpackage.projeto.nome,
+                responsavel: entregavel.tarefa.workpackage.projeto.responsavel
+              }
+            }
+          }
+        };
       });
     }),
 });

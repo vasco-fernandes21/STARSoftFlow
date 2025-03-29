@@ -24,6 +24,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
+import type { AtividadeRecente } from "@/server/api/routers/dashboard";
 
 // Importação dinâmica para evitar problemas de circular dependency
 const AdminDashboard = dynamic(() => import("@/components/admin/Dashboard"), { 
@@ -47,26 +48,20 @@ export default function Page() {
   const { 
     data: dashboardData, 
     isLoading: isLoadingDashboard 
-  } = api.dashboard.getUserDashboard.useQuery(undefined, {
+  } = api.dashboard.getDashboard.useQuery(undefined, {
     enabled: !isAdmin && !!session
   });
   
-  // Obter atividades recentes (apenas para utilizadores não-admin)
-  const { 
-    data: atividadesRecentes, 
-    isLoading: isLoadingAtividades 
-  } = api.dashboard.getAtividadesRecentes.useQuery(undefined, {
-    enabled: !isAdmin && !!session
-  });
-
   // Valores padrão e fallbacks seguros para dados que podem não existir na API
   const tarefasPendentes = dashboardData?.tarefasPendentes || 5;
   const projetosNovosMes = 3;
   const projetosTotal = 15;
   const projetosAtivos = dashboardData?.projetosAtivos || 0;
   const ocupacaoAtual = dashboardData?.ocupacaoMensal || 0;
-  const entregaveisSemana = 2;
-  const tarefasUrgentes = 1;
+  const entregaveisSemana = dashboardData?.entregaveisProximos?.filter(e => e.diasRestantes >= 0 && e.diasRestantes <= 7).length || 0;
+  const tarefasUrgentes = dashboardData?.entregaveisProximos?.filter(e => e.diasRestantes < 0).length || 0;
+  const atividadesRecentes = dashboardData?.atividadesRecentes || [];
+  const isLoadingAtividades = isLoadingDashboard;
 
   // Define os dados estatísticos fora dos condicionais para evitar erros no Hook
   const statsItems = useMemo<StatItem[]>(() => [
@@ -185,9 +180,59 @@ export default function Page() {
     { mes: "Dez", ocupacao: 0 },
   ];
 
+  // Renderizar atividades recentes
+  const renderAtividades = () => {
+    if (isLoadingAtividades) {
+      return (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (!atividadesRecentes?.length) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-sm text-gray-500">Nenhuma atividade recente</p>
+        </div>
+      );
+    }
+
+    return atividadesRecentes.map((atividade: AtividadeRecente) => (
+      <div key={atividade.id} className="flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors">
+        <Avatar className="h-10 w-10">
+          <AvatarImage src={atividade.usuario.foto || undefined} />
+          <AvatarFallback>{atividade.usuario.name?.[0] || "U"}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 space-y-1">
+          <p className="text-sm text-gray-800">
+            {atividade.descricao}
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">
+              {format(new Date(atividade.data), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+            </span>
+            <Circle className="h-1 w-1 fill-current text-gray-300" />
+            <span className="text-xs text-gray-500">
+              {atividade.projetoNome}
+            </span>
+          </div>
+        </div>
+      </div>
+    ));
+  };
+
   // Dashboard para utilizadores comuns
   return (
-    <div className="min-h-screen bg-[#F6F8FA] p-8">
+    <div className="h-full bg-bgApp p-8">
       <div className="max-w-8xl mx-auto space-y-6">
         {/* Header com Boas-vindas e Botões de Ação */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -424,142 +469,6 @@ export default function Page() {
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Projetos em Destaque e Atividades Recentes */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Projetos em Destaque */}
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
-                <CardHeader className="border-b border-slate-100/50 px-6 py-4 flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="font-medium text-slate-800">Projetos em Destaque</CardTitle>
-                    <CardDescription className="text-slate-500">Seus projetos ativos e seu progresso</CardDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push('/projetos')}
-                    className="text-xs font-normal hover:bg-slate-50 transition-colors"
-                  >
-                    Ver todos
-                  </Button>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {dashboardData?.projetos && dashboardData.projetos.length > 0 ? (
-                    <div className="divide-y divide-slate-100/50">
-                      {dashboardData.projetos.slice(0, 4).map((projeto) => (
-                        <div key={projeto.id} className="p-4 hover:bg-slate-50/50 transition-colors">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-full backdrop-blur-sm flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-300 bg-blue-50/80">
-                                <Layers className="h-5 w-5 text-blue-600" />
-                              </div>
-                              <div>
-                                <p className="font-normal text-slate-800">{projeto.nome}</p>
-                                <p className="text-xs text-slate-500">
-                                  {projeto.workpackages} workpackages • {projeto.totalTarefas} tarefas
-                                </p>
-                              </div>
-                            </div>
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              className="gap-1 h-8 font-normal hover:bg-slate-50"
-                              onClick={() => router.push(`/projetos/${projeto.id}`)}
-                            >
-                              <ArrowUpRight className="h-3.5 w-3.5" />
-                              Ver
-                            </Button>
-                          </div>
-                          
-                          <div className="space-y-1 mt-3">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-500">Progresso</span>
-                              <span className="font-normal text-slate-700">{projeto.percentualConcluido}%</span>
-                            </div>
-                            <Progress 
-                              value={projeto.percentualConcluido} 
-                              className="h-1.5" 
-                              indicatorClassName={cn(
-                                projeto.percentualConcluido < 30 ? "bg-red-500" :
-                                projeto.percentualConcluido < 70 ? "bg-amber-500" :
-                                "bg-emerald-500"
-                              )}
-                            />
-                          </div>
-                          
-                          <div className="flex gap-2 mt-3">
-                            <Badge variant="outline" className="text-xs text-slate-600 font-normal">
-                              Início: {projeto.inicio ? format(new Date(projeto.inicio), "dd MMM yyyy", { locale: ptBR }) : "Indefinido"}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs text-slate-600 font-normal">
-                              Fim: {projeto.fim ? format(new Date(projeto.fim), "dd MMM yyyy", { locale: ptBR }) : "Indefinido"}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center py-6 text-slate-500">Não há projetos em desenvolvimento.</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Atividades Recentes */}
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
-                <CardHeader className="border-b border-slate-100/50 px-6 py-4 flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="font-medium text-slate-800">Atividades Recentes</CardTitle>
-                    <CardDescription className="text-slate-500">Últimas atualizações nos seus projetos</CardDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push('/atividades')}
-                    className="text-xs font-normal hover:bg-slate-50 transition-colors"
-                  >
-                    Ver todas
-                  </Button>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {isLoadingAtividades ? (
-                    <div className="space-y-4 p-4">
-                      {[...Array(3)].map((_, i) => (
-                        <div key={i} className="flex items-start gap-4">
-                          <Skeleton className="h-10 w-10 rounded-full" />
-                          <div className="space-y-2 flex-1">
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-3 w-24" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : atividadesRecentes && atividadesRecentes.length > 0 ? (
-                    <div className="divide-y divide-slate-100/50">
-                      {atividadesRecentes.slice(0, 4).map((atividade) => (
-                        <div key={atividade.id} className="flex items-start p-4 hover:bg-slate-50/50 transition-colors">
-                          <Avatar className="h-10 w-10 mr-3 ring-2 ring-white shadow-sm">
-                            <AvatarImage src={atividade.usuario.foto || undefined} alt={atividade.usuario.name || ""} />
-                            <AvatarFallback>{atividade.usuario.name?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm">
-                              <span className="font-normal text-slate-800">{atividade.usuario.name}</span>
-                              {" "}
-                              <span className="text-slate-600">{atividade.descricao}</span>
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {format(new Date(atividade.data), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center py-6 text-slate-500">Não há atividades recentes.</p>
-                  )}
                 </CardContent>
               </Card>
             </div>
