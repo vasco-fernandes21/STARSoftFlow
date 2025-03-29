@@ -53,6 +53,11 @@ interface DetalheAnualMapped {
       detalhesRecursos: DetalheRecursoMapped[]; // Should always be array due to mapping default
     };
   };
+  custosConcluidos: {
+    total: number;
+    recursos: number;
+    materiais: number;
+  };
   alocacoes: number;
   valorFinanciado: number;
   overhead: number;
@@ -61,13 +66,6 @@ interface DetalheAnualMapped {
   margem: number;
   vabCustosPessoal: number;
 }
-
-// Interface representing the full shape when details are included
-// Extends the base to ensure all base fields are present
-// interface FinancasComDetalhes extends FinancasBaseOutput {
-//   detalhesAnuais: DetalheAnualMapped[];
-//   anos: number[];
-// }
 
 // Use type intersection instead of extends for better compatibility with inferred types
 type FinancasComDetalhes = FinancasBaseOutput & {
@@ -89,6 +87,11 @@ interface DisplayData {
   orcamentoSubmetido: number | null;
   taxaFinanciamento: number | null;
   custosReais: {
+    total: number | null;
+    recursos: number | null;
+    materiais: number | null;
+  };
+  custosConcluidos: {
     total: number | null;
     recursos: number | null;
     materiais: number | null;
@@ -249,6 +252,11 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
         recursos: financas.custosReais.recursos,
         materiais: financas.custosReais.materiais
       },
+      custosConcluidos: {
+        total: (financas as any).custosConcluidos?.total || 0,
+        recursos: (financas as any).custosConcluidos?.recursos || 0,
+        materiais: (financas as any).custosConcluidos?.materiais || 0
+      },
       valorFinanciado: financas.valorFinanciado,
       overhead: financas.overhead,
       resultado: financas.resultado,
@@ -271,6 +279,11 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
           recursos: anoSelecionadoData.orcamento.real.recursos,
           materiais: anoSelecionadoData.orcamento.real.materiais
         },
+        custosConcluidos: {
+          total: (anoSelecionadoData as any).custosConcluidos?.total || 0,
+          recursos: (anoSelecionadoData as any).custosConcluidos?.recursos || 0,
+          materiais: (anoSelecionadoData as any).custosConcluidos?.materiais || 0
+        },
         valorFinanciado: anoSelecionadoData.valorFinanciado,
         overhead: anoSelecionadoData.overhead,
         resultado: anoSelecionadoData.resultado,
@@ -283,6 +296,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
       displayData = { 
         orcamentoSubmetido: null, taxaFinanciamento: null, 
         custosReais: { total: null, recursos: null, materiais: null },
+        custosConcluidos: { total: null, recursos: null, materiais: null },
         valorFinanciado: null, overhead: null, resultado: null,
         margem: null, vab: null, vabCustosPessoal: null 
       };
@@ -291,7 +305,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   // --- End Data Filtering Logic ---
 
   // Status based on filtered data
-  const statusOrcamento = getOrcamentoStatus(displayData.orcamentoSubmetido, displayData.custosReais.total);
+  const statusOrcamento = getOrcamentoStatus(displayData.orcamentoSubmetido, displayData.custosConcluidos.total);
 
   // --- Chart Data Preparation (Unfiltered) --- 
   const dadosGraficoComparacao = detalhesAnuais.map((detalhe: DetalheAnualMapped) => ({
@@ -317,9 +331,16 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   }));
   // --- End Chart Data Preparation ---
 
-  // Progress calculation based on filtered data
-  const progressoOrcamento = (displayData.orcamentoSubmetido ?? 0) > 0
-    ? Math.min(((displayData.custosReais.total ?? 0) / (displayData.orcamentoSubmetido ?? 1)) * 100, 100)
+  // Progress calculation based on filtered data - using custosConcluidos instead of custosReais
+  // Modificando para usar os custos reais como base para 100% da barra de progresso
+  const baseOrcamento = displayData.custosReais.total ?? 0;
+  const progressoOrcamento = baseOrcamento > 0
+    ? Math.min(((displayData.custosConcluidos.total ?? 0) / baseOrcamento) * 100, 100)
+    : 0;
+  
+  // Calcular a posição do valor financiado como percentagem dos custos reais
+  const posicaoValorFinanciado = baseOrcamento > 0
+    ? Math.min(((displayData.valorFinanciado ?? 0) / baseOrcamento) * 100, 100)
     : 0;
 
   // Overall total ETIs (unfiltered)
@@ -376,10 +397,10 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
               <StatCard 
                 title="Orçamento Real" 
                 value={formatCurrency(displayData.custosReais.total)} 
-                subtitle={`Progresso: ${formatPercentage(progressoOrcamento, 0)}`}
+                subtitle={`Concluído: ${formatPercentage(progressoOrcamento, 0)}`}
                 icon={<DollarSign className="h-6 w-6 text-blue-500" />}
                 colorClass="bg-blue-50"
-                tooltipText="Custos reais totais incorridos (Recursos + Materiais)."
+                tooltipText="Custos reais totais projetados (Recursos + Materiais). A percentagem 'Concluído' mostra quanto do orçamento já foi gasto."
               />
               <StatCard 
                 title="Valor Financiado" 
@@ -434,31 +455,45 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>Progresso</span>
                   <span>
-                    {formatCurrency(displayData.custosReais.total)}
-                    {(displayData.orcamentoSubmetido ?? 0) > 0 && ` / ${formatCurrency(displayData.orcamentoSubmetido)}`}
+                    {formatCurrency(displayData.custosConcluidos.total)}
+                    {(displayData.custosReais.total ?? 0) > 0 && ` / ${formatCurrency(displayData.custosReais.total)}`}
                   </span>
                 </div>
             
                 <div className="space-y-1">
-                  <Progress 
-                    value={progressoOrcamento} 
-                    className="h-3 w-full bg-gray-100" 
-                  />
+                  <div className="relative">
+                    <Progress 
+                      value={progressoOrcamento} 
+                      className="h-3 w-full bg-gray-100" 
+                    />
+                    {/* Indicador do valor financiado */}
+                    {posicaoValorFinanciado > 0 && posicaoValorFinanciado < 100 && (
+                      <div 
+                        className="absolute top-0 w-0.5 h-5 bg-green-600" 
+                        style={{ left: `${posicaoValorFinanciado}%`, transform: 'translateX(-50%)' }}
+                        title={`Valor Financiado: ${formatCurrency(displayData.valorFinanciado)}`}
+                      >
+                        <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-green-700 whitespace-nowrap">
+                          Financiado
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>0%</span>
                     <span>50%</span>
-                    <span>100%</span>
+                    <span>100% ({formatCurrency(baseOrcamento)})</span>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
                   <div className="rounded-lg bg-blue-50 p-4">
-                    <p className="text-xs font-medium text-blue-800">Custos Recursos</p>
-                    <p className="text-lg font-semibold text-blue-900">{formatCurrency(displayData.custosReais.recursos)}</p>
+                    <p className="text-xs font-medium text-blue-800">Custos com Recursos</p>
+                    <p className="text-lg font-semibold text-blue-900">{formatCurrency(displayData.custosConcluidos.recursos)}</p>
                   </div>
                   <div className="rounded-lg bg-gray-100 p-4">
-                    <p className="text-xs font-medium text-gray-700">Custos Materiais</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatCurrency(displayData.custosReais.materiais)}</p>
+                    <p className="text-xs font-medium text-gray-700">Custos com Materiais</p>
+                    <p className="text-lg font-semibold text-gray-900">{formatCurrency(displayData.custosConcluidos.materiais)}</p>
                   </div>
                 </div>
               </div>
@@ -700,18 +735,29 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
                       <h3 className="text-sm font-medium text-gray-700">Progresso Custos (Geral)</h3>
                       <p className="text-2xl font-semibold text-gray-900">
                         {formatPercentage( 
-                          (financas.orcamentoSubmetido ?? 0) > 0 ? 
-                          Math.min(((financas.custosReais.total ?? 0) / (financas.orcamentoSubmetido ?? 1)) * 100, 100) : 0,
+                          (financas.custosReais.total ?? 0) > 0 ? 
+                          Math.min(((financas.custosConcluidos?.total ?? 0) / (financas.custosReais.total ?? 1)) * 100, 100) : 0,
                           0
                         )}
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-2 relative">
                         <Progress 
-                          value={(financas.orcamentoSubmetido ?? 0) > 0 ? 
-                            Math.min(((financas.custosReais.total ?? 0) / (financas.orcamentoSubmetido ?? 1)) * 100, 100) : 0
+                          value={(financas.custosReais.total ?? 0) > 0 ? 
+                            Math.min(((financas.custosConcluidos?.total ?? 0) / (financas.custosReais.total ?? 1)) * 100, 100) : 0
                           }
-                           className="h-2" 
-                         />
+                          className="h-2" 
+                        />
+                        {/* Indicador do valor financiado na barra de progresso geral */}
+                        {(financas.valorFinanciado ?? 0) > 0 && 
+                         (financas.custosReais.total ?? 0) > 0 && (
+                          <div 
+                            className="absolute top-0 w-0.5 h-3 bg-green-600" 
+                            style={{ 
+                              left: `${Math.min(((financas.valorFinanciado ?? 0) / (financas.custosReais.total ?? 1)) * 100, 100)}%`, 
+                              transform: 'translateX(-50%)' 
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>

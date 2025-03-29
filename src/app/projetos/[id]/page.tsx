@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, memo, lazy, Suspense } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, Users, LineChart, DollarSign, ArrowLeft, FileText, Calendar } from "lucide-react";
+import { CalendarClock, Users, LineChart, DollarSign, ArrowLeft, FileText, Calendar, Package } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));
 const ProjetoFinancas = lazy(() => import("@/components/projetos/tabs/ProjetoFinancas"));
+const ProjetoRecursos = lazy(() => import("@/components/projetos/tabs/ProjetoRecursos"));
+const ProjetoMateriais = lazy(() => import("@/components/projetos/tabs/ProjetoMateriais"));
+const VisaoGeral = lazy(() => import("@/components/projetos/tabs/VisaoGeral"));
 
 // Mapeamento de estados para texto
 const ESTADO_MAP: Record<ProjetoEstado, string> = {
@@ -244,18 +247,6 @@ const OverviewTab = memo(({
   </Card>
 ));
 
-// Componente para a tab de Resources
-const ResourcesTab = memo(() => (
-  <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-    <CardHeader className="border-b border-white/10 px-6 py-4 bg-white/70 backdrop-blur-sm">
-      <CardTitle className="text-lg font-semibold text-gray-900">Recursos</CardTitle>
-    </CardHeader>
-    <CardContent className="p-6">
-      <p className="text-sm text-gray-600">Recursos ainda não implementados nesta vista.</p>
-    </CardContent>
-  </Card>
-));
-
 // Componente para as tabs
 const ProjectTabs = memo(({ 
   separadorAtivo, 
@@ -286,6 +277,10 @@ const ProjectTabs = memo(({
         <TabsTrigger value="resources" className={cn("flex items-center gap-2 px-4 py-2 rounded-lg", separadorAtivo === "resources" ? "text-customBlue" : "text-gray-600")}>
           <Users className="h-4 w-4" />
           <span>Recursos</span>
+        </TabsTrigger>
+        <TabsTrigger value="materials" className={cn("flex items-center gap-2 px-4 py-2 rounded-lg", separadorAtivo === "materials" ? "text-customBlue" : "text-gray-600")}>
+          <Package className="h-4 w-4" />
+          <span>Materiais</span>
         </TabsTrigger>
         <TabsTrigger value="finances" className={cn("flex items-center gap-2 px-4 py-2 rounded-lg", separadorAtivo === "finances" ? "text-customBlue" : "text-gray-600")}>
           <DollarSign className="h-4 w-4" />
@@ -320,16 +315,29 @@ const ProjectTabs = memo(({
       </TabsContent>
 
       <TabsContent value="overview" className="mt-4">
-        <OverviewTab 
-          dataInicio={calculatedValues.dataInicio}
-          dataFim={calculatedValues.dataFim}
-          duracaoMeses={calculatedValues.duracaoMeses}
-          financiamento={projeto.financiamento}
-        />
+        <Suspense fallback={<div>A carregar visão geral...</div>}>
+          <VisaoGeral projetoId={projeto.id} />
+        </Suspense>
       </TabsContent>
 
       <TabsContent value="resources" className="mt-4">
-        <ResourcesTab />
+        <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
+          <CardContent className="p-6">
+            <Suspense fallback={<div>A carregar dados de recursos...</div>}>
+              <ProjetoRecursos projetoId={projeto.id} />
+            </Suspense>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="materials" className="mt-4">
+        <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
+          <CardContent className="p-6">
+            <Suspense fallback={<div>A carregar dados de materiais...</div>}>
+              <ProjetoMateriais projetoId={projeto.id} />
+            </Suspense>
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <TabsContent value="finances" className="mt-4">
@@ -349,7 +357,7 @@ const ProjectTabs = memo(({
 export default function DetalheProjeto() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const [separadorAtivo, setSeparadorAtivo] = useState("cronograma");
+  const [separadorAtivo, setSeparadorAtivo] = useState("overview");
   const queryClient = useQueryClient();
 
   // Query principal do projeto

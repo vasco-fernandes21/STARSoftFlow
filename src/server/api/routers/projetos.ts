@@ -201,6 +201,10 @@ async function getOrcamentoSubmetido(db: Prisma.TransactionClient, projetoId: st
  * O orçamento real é a soma dos custos de recursos humanos (salário * alocação * fatores de ajuste) e custos de materiais.
  */
 async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string, filtros?: { ano?: number }) {
+  // Fatores de ajuste para o cálculo real do custo de recursos
+  const VALOR_SALARIO = new Decimal(1.223);
+  const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
+
   // Buscar todas as alocações de recursos do projeto com informações do usuário (salário)
   const alocacoes = await db.alocacaoRecurso.findMany({
     where: {
@@ -226,10 +230,6 @@ async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string,
     }
   });
 
-  // Fatores de ajuste para o cálculo real do custo de recursos
-  const FATOR_SEGURANCA_SOCIAL = new Decimal(1.223);
-  const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
-
   // Detalhes de custo por utilizador
   const detalhesRecursos: Array<{
     userId: string;
@@ -250,7 +250,7 @@ async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string,
 
     // Cálculo com a nova fórmula: alocacao * (salario * 1.223 * 14/11)
     const salarioAjustado = alocacao.user.salario
-      .times(FATOR_SEGURANCA_SOCIAL)
+      .times(VALOR_SALARIO)
       .times(FATOR_MESES);
     
     const custoAlocacao = alocacao.ocupacao.times(salarioAjustado);
@@ -299,6 +299,15 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
   ano?: number; 
   incluirDetalhesPorAno?: boolean;
 }) {
+  // Constantes para cálculos de salários ajustados
+  const VALOR_SALARIO = new Decimal(1.223);
+  const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
+  
+  // Obter data atual para comparação em cálculos de custos
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const mesAtual = hoje.getMonth() + 1;
+
   // Obter o projeto com taxa de financiamento
   const projeto = await db.projeto.findUnique({
     where: { id: projetoId },
@@ -333,12 +342,12 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
   // Calcular valor financiado (orçamento submetido * taxa de financiamento)
   const valorFinanciado = orcamentoSubmetido.orcamentoTotal.times(taxaFinanciamento);
   // Calcular overhead (15% do custo real de recursos humanos)
-  const overhead = orcamentoReal.custoRecursos.negated().times(new Decimal(0.15));
+  const overhead = orcamentoReal.custoRecursos.times(new Decimal(-0.15));
   
   // Calcular resultado financeiro
   // resultado = (valor financiado) - (custo real total) + overhead
   const resultado = valorFinanciado
-    .minus(orcamentoReal.custoRecursos.plus(orcamentoReal.custoMateriais))
+    .minus(orcamentoReal.total) 
     .plus(overhead);
 
   // Calcular VAB (Valor Acrescentado Bruto)
@@ -355,7 +364,64 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
     new Decimal(0) : 
     vab.dividedBy(orcamentoReal.custoRecursos);
 
-  // Base result
+  // Calcular custos concluídos (alocações passadas + materiais concluídos)
+  // 1. Buscar todas as alocações do projeto com dados do usuário
+  const alocacoes = await db.alocacaoRecurso.findMany({
+    where: {
+      workpackage: { projetoId },
+      ...(options?.ano && { ano: options.ano })
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          salario: true,
+        }
+      }
+    }
+  });
+
+  // 2. Filtrar alocações passadas (ano anterior ou mesmo ano mas mês <= mesAtual)
+  const alocacoesPassadas = alocacoes.filter(a => 
+    a.ano < anoAtual || (a.ano === anoAtual && a.mes <= mesAtual)
+  );
+
+  // 3. Calcular custo das alocações passadas com ajustes
+  const custosAlocacoesPassadas = alocacoesPassadas.reduce((sum, alocacao) => {
+    if (!alocacao.user.salario) return sum;
+    
+    // Usar a mesma fórmula do getOrcamentoReal para consistência
+    const salarioAjustado = alocacao.user.salario
+      .times(VALOR_SALARIO)
+      .times(FATOR_MESES);
+      
+    const custoAlocacao = alocacao.ocupacao.times(salarioAjustado);
+    return sum.plus(custoAlocacao);
+  }, new Decimal(0));
+
+  // 4. Buscar materiais concluídos
+  const materiaisConcluidos = await db.material.findMany({
+    where: {
+      workpackage: { projetoId },
+      estado: true, // Apenas materiais concluídos/adquiridos
+      ...(options?.ano && { ano_utilizacao: options.ano })
+    }
+  });
+
+  // 5. Calcular custo dos materiais concluídos
+  const custoMateriaisConcluidos = materiaisConcluidos.reduce(
+    (sum, material) => {
+      const custoTotal = material.preco.times(new Decimal(material.quantidade));
+      return sum.plus(custoTotal);
+    },
+    new Decimal(0)
+  );
+
+  // 6. Total de custos concluídos
+  const totalCustosConcluidos = custosAlocacoesPassadas.plus(custoMateriaisConcluidos);
+
+  // Base result com custosConcluidos
   const resultadoBase = {
     orcamentoSubmetido: orcamentoSubmetido.orcamentoTotal,
     taxaFinanciamento: projeto.taxa_financiamento || new Decimal(0),
@@ -365,6 +431,11 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
       materiais: orcamentoReal.custoMateriais,
       total: orcamentoReal.total,
       detalhesRecursos: orcamentoReal.detalhesRecursos
+    },
+    custosConcluidos: {
+      recursos: custosAlocacoesPassadas,
+      materiais: custoMateriaisConcluidos,
+      total: totalCustosConcluidos
     },
     overhead,
     resultado,
@@ -387,13 +458,13 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
   });
   
   // Obter todos os anos com alocações
-  const alocacoes = await db.alocacaoRecurso.findMany({
+  const todasAlocacoes = await db.alocacaoRecurso.findMany({
     where: { workpackage: { projetoId } },
     select: { ano: true },
     distinct: ['ano']
   });
   
-  alocacoes.forEach(alocacao => {
+  todasAlocacoes.forEach(alocacao => {
     anosSet.add(alocacao.ano);
   });
   
@@ -422,11 +493,11 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
       const valorFinanciadoAno = orcamentoSubmetidoAno.orcamentoTotal.times(taxaFinanciamento);
       
       // Calcular overhead para este ano
-      const overheadAno = orcamentoRealAno.custoRecursos.negated().times(new Decimal(0.15));
+      const overheadAno = orcamentoRealAno.custoRecursos.times(new Decimal(-0.15));
       
       // Calcular resultado para este ano
       const resultadoAno = valorFinanciadoAno
-        .minus(orcamentoRealAno.custoRecursos.plus(orcamentoRealAno.custoMateriais))
+        .minus(orcamentoRealAno.total)
         .plus(overheadAno);
 
       // Calcular VAB para este ano (valor financiado - custo materiais)
@@ -441,6 +512,45 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
         new Decimal(0) : 
         vabAno.dividedBy(orcamentoRealAno.custoRecursos);
       
+      // Calcular custos concluídos para este ano
+      // 1. Filtrar alocações passadas para este ano
+      const alocacoesPassadasAno = alocacoes.filter(a => 
+        a.ano === ano && (ano < anoAtual || (ano === anoAtual && a.mes <= mesAtual))
+      );
+
+      // 2. Calcular custo das alocações passadas com ajustes
+      const custosAlocacoesPassadasAno = alocacoesPassadasAno.reduce((sum, alocacao) => {
+        if (!alocacao.user.salario) return sum;
+        
+        const salarioAjustado = alocacao.user.salario
+          .times(VALOR_SALARIO)
+          .times(FATOR_MESES);
+          
+        const custoAlocacao = alocacao.ocupacao.times(salarioAjustado);
+        return sum.plus(custoAlocacao);
+      }, new Decimal(0));
+
+      // 3. Filtrar materiais concluídos para este ano
+      const materiaisConcluidosAno = await db.material.findMany({
+        where: {
+          workpackage: { projetoId },
+          estado: true, 
+          ano_utilizacao: ano
+        }
+      });
+
+      // 4. Calcular custo dos materiais concluídos para este ano
+      const custoMateriaisConcluidosAno = materiaisConcluidosAno.reduce(
+        (sum, material) => {
+          const custoTotal = material.preco.times(new Decimal(material.quantidade));
+          return sum.plus(custoTotal);
+        },
+        new Decimal(0)
+      );
+
+      // 5. Total de custos concluídos para este ano
+      const totalCustosConcluidosAno = custosAlocacoesPassadasAno.plus(custoMateriaisConcluidosAno);
+      
       return {
         ano,
         orcamento: {
@@ -451,6 +561,11 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
             total: orcamentoRealAno.total,
             detalhesRecursos: orcamentoRealAno.detalhesRecursos
           }
+        },
+        custosConcluidos: {
+          recursos: custosAlocacoesPassadasAno,
+          materiais: custoMateriaisConcluidosAno,
+          total: totalCustosConcluidosAno
         },
         alocacoes: orcamentoSubmetidoAno.totalAlocacao,
         valorFinanciado: valorFinanciadoAno,
@@ -850,7 +965,7 @@ export const projetoRouter = createTRPCRouter({
           userEntry.totalAlocacao = userEntry.totalAlocacao.plus(alocacao.ocupacao);
           
           // Calcular o custo com os fatores de ajuste (1.223 * 14/11)
-          const FATOR_SEGURANCA_SOCIAL = new Decimal(1.223);
+          const VALOR_SALARIO = new Decimal(1.223);
           const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
           
           let custo = new Decimal(0);
@@ -862,7 +977,7 @@ export const projetoRouter = createTRPCRouter({
             
             // Custo ajustado com os fatores
             const salarioAjustado = user.salario
-              .times(FATOR_SEGURANCA_SOCIAL)
+              .times(VALOR_SALARIO)
               .times(FATOR_MESES);
             
             custoAjustado = alocacao.ocupacao.times(salarioAjustado);
@@ -885,7 +1000,7 @@ export const projetoRouter = createTRPCRouter({
             custoAjustado: custoAjustado.toNumber(),
             // Incluir os fatores para explicar o cálculo
             fatores: {
-              segurancaSocial: FATOR_SEGURANCA_SOCIAL.toNumber(),
+              segurancaSocial: VALOR_SALARIO.toNumber(),
               meses: FATOR_MESES.toNumber()
             }
           });
@@ -1449,6 +1564,11 @@ export const projetoRouter = createTRPCRouter({
               }
             })) || []
           },
+          custosConcluidos: {
+            recursos: totais.custosConcluidos?.recursos.toNumber() || 0,
+            materiais: totais.custosConcluidos?.materiais.toNumber() || 0,
+            total: totais.custosConcluidos?.total.toNumber() || 0
+          },
           overhead: totais.overhead.toNumber(),
           resultado: totais.resultado.toNumber(),
           vab: totais.vab.toNumber(),
@@ -1487,6 +1607,11 @@ export const projetoRouter = createTRPCRouter({
                     }
                   })) || []
                 }
+              },
+              custosConcluidos: {
+                recursos: detalhe.custosConcluidos?.recursos.toNumber() || 0,
+                materiais: detalhe.custosConcluidos?.materiais.toNumber() || 0,
+                total: detalhe.custosConcluidos?.total.toNumber() || 0
               },
               alocacoes: detalhe.alocacoes.toNumber(),
               valorFinanciado: detalhe.valorFinanciado.toNumber(),

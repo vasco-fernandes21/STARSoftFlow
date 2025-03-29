@@ -1,29 +1,30 @@
-import { createTRPCRouter } from "./trpc";
+import { createTRPCRouter } from "@/server/api/trpc";
 
 import { utilizadorRouter } from "./routers/utilizadores";
 import { projetoRouter } from "./routers/projetos";
+import { financiamentoRouter } from "./routers/financiamento";
 import { workpackageRouter } from "./routers/workpackages";
 import { tarefaRouter } from "./routers/tarefas";
 import { entregavelRouter } from "./routers/entregaveis";
 import { materialRouter } from "./routers/materiais";
-import { financiamentoRouter } from "./routers/financiamento";
 import { dashboardRouter } from "./routers/dashboard";
 /**
- * Este é o router principal da API.
- * Todos os sub-routers devem ser adicionados aqui.
+ * This is the primary router for your server.
+ *
+ * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
   utilizador: utilizadorRouter,
   projeto: projetoRouter,
+  financiamento: financiamentoRouter,
   workpackage: workpackageRouter,
   tarefa: tarefaRouter,
   entregavel: entregavelRouter,
   material: materialRouter,
-  financiamento: financiamentoRouter,
   dashboard: dashboardRouter,
 });
 
-// Tipos de exportação para uso no cliente
+// export type definition of API
 export type AppRouter = typeof appRouter;
 
 // Adicione esta função para criar um caller

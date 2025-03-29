@@ -199,5 +199,71 @@ export const materialRouter = createTRPCRouter({
           cause: error,
         });
       }
-    })
+    }),
+
+  // Atualizar o estado de um material (concluído ou não)
+  atualizarEstado: protectedProcedure
+    .input(
+      z.object({
+        materialId: z.number(),
+        estado: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verificar se o material existe
+      const material = await ctx.db.material.findUnique({
+        where: {
+          id: input.materialId,
+        },
+        include: {
+          workpackage: true,
+        },
+      });
+
+      if (!material) {
+        throw new Error("Material não encontrado");
+      }
+
+      // Atualizar o estado do material
+      const materialAtualizado = await ctx.db.material.update({
+        where: {
+          id: input.materialId,
+        },
+        data: {
+          estado: input.estado,
+        },
+      });
+
+      return materialAtualizado;
+    }),
+
+  // Listar todos os materiais
+  listarTodos: protectedProcedure
+    .input(
+      z.object({
+        projetoId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const materiais = await ctx.db.material.findMany({
+        where: {
+          workpackage: {
+            projetoId: input.projetoId,
+          },
+        },
+        include: {
+          workpackage: {
+            select: {
+              id: true,
+              nome: true,
+            },
+          },
+        },
+        orderBy: {
+          nome: "asc",
+        },
+      });
+
+      return materiais;
+    }),
 }); 
