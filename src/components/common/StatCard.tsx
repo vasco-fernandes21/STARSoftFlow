@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { TrendingUp } from "lucide-react";
@@ -30,39 +30,39 @@ export const StatCard = ({
   secondaryText
 }: StatCardProps) => {
   return (
-    <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg hover:translate-y-[-1px]">
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shadow-sm", iconContainerClassName)}>
-            <Icon className={cn("h-4 w-4", iconClassName)} />
+    <Card className="overflow-hidden">
+      <CardContent className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", iconContainerClassName)}>
+            <Icon className={cn("h-5 w-5", iconClassName)} />
           </div>
           
           {badgeText && (
             <Badge 
               variant="outline" 
-              className={cn("text-xs font-normal py-0.5 px-2", badgeClassName)}
+              className={cn("text-xs", badgeClassName)}
             >
-              {BadgeIcon && <BadgeIcon className="h-2.5 w-2.5 mr-1" />}
+              {BadgeIcon && <BadgeIcon className="h-3 w-3 mr-1" />}
               {badgeText}
             </Badge>
           )}
         </div>
         
         <div>
-          <p className="text-xs text-slate-500 mb-1">{label}</p>
+          <p className="text-sm text-muted-foreground mb-1">{label}</p>
           <div className="flex items-baseline gap-1">
-            <h2 className="text-3xl font-medium text-slate-800">
+            <h2 className="text-2xl font-semibold">
               {value.toLocaleString('pt-PT')}
             </h2>
             {secondaryText && (
-              <p className="text-xs text-slate-400">{secondaryText}</p>
+              <p className="text-xs text-muted-foreground">{secondaryText}</p>
             )}
             {suffix && !secondaryText && (
-              <p className="text-3xl font-medium text-slate-800">{suffix}</p>
+              <p className="text-2xl font-semibold">{suffix}</p>
             )}
           </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }; 

@@ -47,6 +47,22 @@ const uniqueEstados = [
   "CONCLUIDO",
 ] as const;
 
+const uniquePrazos = [
+  "todos",
+  "este_mes", 
+  "proximo_mes",
+  "este_ano",
+  "atrasados"
+] as const;
+
+const PRAZO_LABELS: Record<string, string> = {
+  todos: "Todos os prazos",
+  este_mes: "Este mês",
+  proximo_mes: "Próximo mês",
+  este_ano: "Este ano",
+  atrasados: "Atrasados"
+} as const;
+
 const itemsPerPage = 6;
 
 // Função melhorada para extrair projetos da resposta da API
@@ -89,6 +105,8 @@ export default function Projetos() {
   const userId = (session?.user as any)?.id;
   const [estadoFilter, setEstadoFilter] =
     useState<"todos" | typeof uniqueEstados[number]>("todos");
+  const [prazoFilter, setPrazoFilter] =
+    useState<typeof uniquePrazos[number]>("todos");
 
   // Determina os parâmetros de consulta com base na permissão
   const queryParams = useMemo(() => ({
@@ -217,39 +235,7 @@ export default function Projetos() {
         );
       },
     },
-    {
-      id: "acoes",
-      header: "Ações",
-      cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-slate-500 hover:text-green-600 hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReportClick(e, row.original.id);
-            }}
-            title="Ver relatório"
-          >
-            <BarChart className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-slate-500 hover:text-azul hover:bg-white/60 rounded-full transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Menu de opções adicionais
-            }}
-            title="Mais opções"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ], [handleReportClick]);
+  ], []);
 
   const filterOptions = useMemo<FilterOption[]>(() => [
     { id: "todos", label: "Todos os estados", value: "todos" },
@@ -257,7 +243,51 @@ export default function Projetos() {
       id: estado,
       label: ESTADO_LABELS[estado] || "",
       value: estado,
+      badge: {
+        status: estado,
+        variant: 'projeto'
+      }
     })),
+  ], []);
+
+  const prazoOptions = useMemo<FilterOption[]>(() => [
+    { id: "todos", label: "Todos os prazos", value: "todos" },
+    { 
+      id: "este_mes", 
+      label: "Este mês", 
+      value: "este_mes",
+      badge: {
+        status: "ESTE_MES",
+        variant: 'prazo'
+      }
+    },
+    { 
+      id: "proximo_mes", 
+      label: "Próximo mês", 
+      value: "proximo_mes",
+      badge: {
+        status: "PROXIMO_MES",
+        variant: 'prazo'
+      }
+    },
+    { 
+      id: "este_ano", 
+      label: "Este ano", 
+      value: "este_ano",
+      badge: {
+        status: "ESTE_ANO",
+        variant: 'prazo'
+      }
+    },
+    { 
+      id: "atrasados", 
+      label: "Atrasados", 
+      value: "atrasados",
+      badge: {
+        status: "ATRASADO",
+        variant: 'prazo'
+      }
+    },
   ], []);
 
   const filterConfigs = useMemo(() => [
@@ -269,35 +299,68 @@ export default function Projetos() {
         setEstadoFilter(value as "todos" | typeof uniqueEstados[number]),
       options: filterOptions,
     },
-  ], [estadoFilter, filterOptions]);
+    {
+      id: "prazo",
+      label: "Prazo",
+      value: prazoFilter,
+      onChange: (value: string) =>
+        setPrazoFilter(value as typeof uniquePrazos[number]),
+      options: prazoOptions,
+    }
+  ], [estadoFilter, prazoFilter, filterOptions, prazoOptions]);
 
   const filteredProjects = useMemo(() => {
     if (!projetos.length) return [];
 
     let result = [...projetos];
     
+    // Filtro por estado
     if (estadoFilter !== "todos") {
       result = result.filter((project: Projeto) => 
         project.estado === estadoFilter
       );
     }
 
+    // Filtro por prazo
+    if (prazoFilter !== "todos") {
+      const hoje = new Date();
+      const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      const ultimoDiaProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 2, 0);
+      const ultimoDiaAno = new Date(hoje.getFullYear(), 11, 31);
+
+      result = result.filter((project: Projeto) => {
+        if (!project.fim) return false;
+        const dataFim = new Date(project.fim);
+        
+        switch (prazoFilter) {
+          case "este_mes":
+            return dataFim <= ultimoDiaMes && dataFim >= hoje;
+          case "proximo_mes":
+            return dataFim > ultimoDiaMes && dataFim <= ultimoDiaProximoMes;
+          case "este_ano":
+            return dataFim <= ultimoDiaAno && dataFim >= hoje;
+          case "atrasados":
+            return dataFim < hoje && project.estado !== "CONCLUIDO";
+          default:
+            return true;
+        }
+      });
+    }
+
     return result;
-  }, [projetos, estadoFilter]);
+  }, [projetos, estadoFilter, prazoFilter]);
 
   const paginatedProjects = useMemo(() => {
-    const start = 0;
-    const end = itemsPerPage;
-    return filteredProjects.slice(start, end);
+    return filteredProjects.slice(0, itemsPerPage);
   }, [filteredProjects]);
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] p-8">
+    <div className="min-h-screen bg-[#F6F8FA] p-8"> 
       <div className="max-w-8xl mx-auto space-y-6">
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl font-medium text-slate-800 tracking-tight">Projetos</h1>
+            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Projetos</h1>
             <p className="text-slate-500 text-sm">Consulte os seus projetos e acompanhe o progresso</p>
           </div>
           <div className="flex items-center gap-3 self-end sm:self-auto">

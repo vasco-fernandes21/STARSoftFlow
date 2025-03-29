@@ -19,11 +19,17 @@ import { useRouter } from "next/navigation";
 import { format, isBefore, addDays, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
-import AdminDashboard from "./admin/page";
+import dynamic from "next/dynamic";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
+
+// Importação dinâmica para evitar problemas de circular dependency
+const AdminDashboard = dynamic(() => import("@/components/admin/Dashboard"), { 
+  loading: () => <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8"><Skeleton className="h-full w-full" /></div>,
+  ssr: false
+});
 
 export default function Page() {
   const router = useRouter();
@@ -33,7 +39,7 @@ export default function Page() {
   // Redirecionar para a página de login se não houver sessão
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/auth/login");
+      router.push("/(auth)/login");
     }
   }, [status, router]);
 
@@ -151,8 +157,8 @@ export default function Page() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8">
         <div className="max-w-8xl mx-auto text-center py-20">
-          <h1 className="text-3xl font-bold">Bem-vindo ao Sistema de Gestão de Projetos</h1>
-          <p className="mt-4">Por favor, faça login para acessar o seu painel de controlo.</p>
+          <h1 className="text-3xl font-extrabold">Bem-vindo ao Sistema de Gestão de Projetos</h1>
+          <p className="mt-4">Por favor, faça login para aceder ao seu painel de controlo.</p>
         </div>
       </div>
     );
@@ -167,7 +173,7 @@ export default function Page() {
   const ocupacaoAnual = [
     { mes: "Jan", ocupacao: 65 },
     { mes: "Fev", ocupacao: 59 },
-    { mes: "Mar", ocupacao: 80 },
+    { mes: "Mar", ocupacao: 80 }, 
     { mes: "Abr", ocupacao: 81 },
     { mes: "Mai", ocupacao: dashboardData?.ocupacaoMensal || 75 },
     { mes: "Jun", ocupacao: 0 },
@@ -186,7 +192,7 @@ export default function Page() {
         {/* Header com Boas-vindas e Botões de Ação */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl font-medium text-slate-800 tracking-tight">Olá, {session?.user?.name?.split(' ')[0]}</h1>
+            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Olá, {session?.user?.name?.split(' ')[0]}</h1>
             <p className="text-slate-500 text-sm">Bem-vindo ao seu painel de controlo.</p>
           </div>
           <div className="flex items-center gap-3 self-end sm:self-auto">

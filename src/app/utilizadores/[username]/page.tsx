@@ -162,10 +162,17 @@ const utilizadorSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string(),
-  emailVerified: z.string().nullable().transform(str => str ? new Date(str) : null),
+  emailVerified: z.union([
+    z.string().nullable(),
+    z.date().nullable(),
+    z.null()
+  ]).transform(val => val ? new Date(val) : null),
   foto: z.string().nullable(),
-  atividade: z.string(),
-  contratacao: z.string().transform(str => new Date(str)),
+  atividade: z.string().nullable().default(""),
+  contratacao: z.union([
+    z.string(),
+    z.date()
+  ]).transform(val => new Date(val)),
   username: z.string(),
   permissao: z.enum(["ADMIN", "GESTOR", "COMUM"]),
   regime: z.enum(["PARCIAL", "INTEGRAL"]),
@@ -180,14 +187,18 @@ export default function PerfilUtilizador() {
   // Dados do utilizador
   const { 
     data: utilizador, 
-    isLoading 
+    isLoading: isLoadingUser,
+    error: userError
   } = api.utilizador.getByUsername.useQuery(username as string, {
     enabled: !!username,
     refetchOnWindowFocus: false
   });
 
   // Dados das alocações
-  const { data: projetos } = api.utilizador.getProjetosWithUser.useQuery(
+  const { 
+    data: projetos,
+    isLoading: isLoadingProjetos 
+  } = api.utilizador.getProjetosWithUser.useQuery(
     utilizador?.id ?? "",
     {
       enabled: !!utilizador?.id,
@@ -195,46 +206,51 @@ export default function PerfilUtilizador() {
     }
   );
 
-  // Preparar dados para os componentes
-  const alocacoesDetalhadas: AlocacaoDetalhada[] = projetos?.flatMap((projeto: Projeto) => 
-    projeto.workpackages.flatMap((wp: Workpackage) => 
-      wp.alocacoes.map((alocacao) => ({
-        ...alocacao,
-        ocupacao: Number(alocacao.ocupacao),
-        projeto: {
-          id: projeto.id,
-          nome: projeto.nome
-        },
-        workpackage: {
-          id: wp.id,
-          nome: wp.nome
-        }
-      }))
-    )
-  ) ?? [];
+  // Estado de carregamento geral
+  const isLoading = isLoadingUser || isLoadingProjetos;
 
-  const alocacoesTabela: AlocacaoOriginal[] = projetos?.flatMap((projeto: Projeto) => 
-    projeto.workpackages.flatMap((wp: Workpackage) => 
-      wp.alocacoes.map((alocacao) => ({
-        ...alocacao,
-        ocupacao: Number(alocacao.ocupacao),
-        projeto: {
-          id: projeto.id,
-          nome: projeto.nome
-        },
-        workpackage: {
-          id: wp.id,
-          nome: wp.nome
-        }
-      }))
-    )
-  ) ?? [];
+  // Preparar dados para os componentes
+  const alocacoesDetalhadas: AlocacaoDetalhada[] = useMemo(() => 
+    projetos?.flatMap((projeto: Projeto) => 
+      projeto.workpackages.flatMap((wp: Workpackage) => 
+        wp.alocacoes.map((alocacao) => ({
+          ...alocacao,
+          ocupacao: Number(alocacao.ocupacao),
+          projeto: {
+            id: projeto.id,
+            nome: projeto.nome
+          },
+          workpackage: {
+            id: wp.id,
+            nome: wp.nome
+          }
+        }))
+      )
+    ) ?? []
+  , [projetos]);
+
+  // Converter alocacoesDetalhadas para alocacoesTabela para manter a tipagem correta
+  const alocacoesTabela: AlocacaoOriginal[] = useMemo(() => 
+    alocacoesDetalhadas.map(alocacao => ({
+      ...alocacao,
+      ano: Number(alocacao.ano),
+      ocupacao: Number(alocacao.ocupacao),
+      projeto: {
+        id: alocacao.projeto.id,
+        nome: alocacao.projeto.nome
+      },
+      workpackage: {
+        id: alocacao.workpackage.id,
+        nome: alocacao.workpackage.nome
+      }
+    }))
+  , [alocacoesDetalhadas]);
 
   // Encontrar o próximo workpackage (com data de início mais próxima)
   const proximoWorkpackage = useMemo<ProximoWorkpackage | null>(() => {
+    const agora = new Date();
     if (!projetos || projetos.length === 0) return null;
     
-    const agora = new Date();
     let candidato: ProximoWorkpackage | null = null;
     let menorDiferenca = Infinity;
     
@@ -265,7 +281,43 @@ export default function PerfilUtilizador() {
     return candidato;
   }, [projetos]);
 
-  // Validar e transformar os dados do utilizador
+  // Componente de loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
+        <div className="w-16 h-16 relative animate-spin">
+          <div className="absolute inset-0 rounded-full border-t-2 border-b-2 border-azul/30"></div>
+          <div className="absolute inset-0 rounded-full border-t-2 border-azul animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Componente de erro
+  if (userError || !utilizador) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
+          <div className="bg-red-50 rounded-full p-4 w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+            <FileText className="h-8 w-8 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Erro ao carregar dados</h2>
+          <p className="text-gray-600 mb-6">
+            {userError?.message || "Não foi possível carregar os dados do utilizador. Por favor, tente novamente mais tarde."}
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/utilizadores')}
+            className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar para a lista
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   try {
     const validatedUser = utilizadorSchema.parse(utilizador);
     const anosExperiencia = calcularAnosExperiencia(validatedUser.contratacao);
@@ -278,25 +330,13 @@ export default function PerfilUtilizador() {
       email: validatedUser.email,
       emailVerified: validatedUser.emailVerified,
       foto: validatedUser.foto,
-      atividade: validatedUser.atividade,
+      atividade: validatedUser.atividade ?? "",
       contratacao: validatedUser.contratacao,
       username: validatedUser.username,
       permissao: validatedUser.permissao,
       regime: validatedUser.regime,
       informacoes: validatedUser.informacoes
     };
-
-    // Estado de carregamento
-    if (isLoading) {
-      return (
-        <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
-          <div className="w-16 h-16 relative animate-spin">
-            <div className="absolute inset-0 rounded-full border-t-2 border-b-2 border-azul/30"></div>
-            <div className="absolute inset-0 rounded-full border-t-2 border-azul animate-pulse"></div>
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6">
@@ -748,6 +788,30 @@ export default function PerfilUtilizador() {
     );
   } catch (error) {
     console.error("Erro ao validar dados do utilizador:", error);
-    return <div>Erro ao carregar dados do utilizador</div>;
+    if (error instanceof z.ZodError) {
+      console.error("Detalhes da validação:", JSON.stringify(error.errors, null, 2));
+      console.error("Dados recebidos:", JSON.stringify(utilizador, null, 2));
+    }
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
+          <div className="bg-red-50 rounded-full p-4 w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+            <FileText className="h-8 w-8 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Erro ao processar dados</h2>
+          <p className="text-gray-600 mb-6">
+            Ocorreu um erro ao processar os dados do utilizador. Por favor, tente novamente mais tarde.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/utilizadores')}
+            className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar para a lista
+          </Button>
+        </div>
+      </div>
+    );
   }
 } 

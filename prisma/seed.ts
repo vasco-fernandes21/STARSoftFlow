@@ -469,8 +469,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP1 - Levantamento de Requisitos e Especificação",
-      inicio: new Date("2024-09-01"),
-      fim: new Date("2025-02-28"),
+      inicio: new Date("2025-04-01"),
+      fim: new Date("2025-09-30"),
       estado: false
     }
   });
@@ -479,8 +479,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP2 - Arquitetura e Desenvolvimento",
-      inicio: new Date("2025-01-01"),
-      fim: new Date("2026-02-28"),
+      inicio: new Date("2025-08-01"),
+      fim: new Date("2026-07-31"),
       estado: false
     }
   });
@@ -489,8 +489,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP3 - Pilotos e Validação",
-      inicio: new Date("2025-09-01"),
-      fim: new Date("2026-06-30"),
+      inicio: new Date("2026-04-01"),
+      fim: new Date("2027-01-31"),
       estado: false
     }
   });
@@ -499,8 +499,8 @@ async function main() {
     data: {
       projetoId: projeto2.id,
       nome: "WP4 - Disseminação e Exploração",
-      inicio: new Date("2025-03-01"),
-      fim: new Date("2026-08-31"),
+      inicio: new Date("2025-10-01"),
+      fim: new Date("2027-03-31"),
       estado: false
     }
   });
@@ -511,46 +511,46 @@ async function main() {
       {
         workpackageId: wp1Projeto2.id,
         nome: "T1.1 - Análise de estado da arte",
-        inicio: new Date("2024-09-01"),
-        fim: new Date("2024-10-31"),
+        inicio: new Date("2025-04-01"),
+        fim: new Date("2025-05-31"),
         estado: false
       },
       {
         workpackageId: wp1Projeto2.id,
         nome: "T1.2 - Workshops com stakeholders",
-        inicio: new Date("2024-11-01"),
-        fim: new Date("2025-01-15"),
+        inicio: new Date("2025-06-01"),
+        fim: new Date("2025-08-15"),
         estado: false
       },
       {
         workpackageId: wp1Projeto2.id,
         nome: "T1.3 - Definição de especificações técnicas",
-        inicio: new Date("2025-01-15"),
-        fim: new Date("2025-02-28"),
+        inicio: new Date("2025-08-15"),
+        fim: new Date("2025-09-30"),
         estado: false
       }
     ]
   });
 
-  // Projeto 3 - Em estado RASCUNHO
+  // Projeto 3 - Em estado EM_DESENVOLVIMENTO (agora em desenvolvimento)
   const projeto3 = await prisma.projeto.create({
     data: {
       nome: "ECO-MANUFATURA - Sistemas de Manufatura Sustentável",
       descricao: "Pesquisa e desenvolvimento de metodologias e ferramentas para otimização de processos de manufatura visando redução de consumo energético e impacto ambiental.",
-      inicio: new Date("2024-11-01"),
-      fim: new Date("2026-10-31"),
-      estado: ProjetoEstado.RASCUNHO,
+      inicio: new Date("2025-06-15"),
+      fim: new Date("2028-05-31"),
+      estado: ProjetoEstado.EM_DESENVOLVIMENTO, // Alterado para EM_DESENVOLVIMENTO
       financiamentoId: horizonteEuropa.id,
     }
   });
 
-  // Workpackages básicos para Projeto 3 (ainda em rascunho)
+  // Workpackages básicos para Projeto 3 (agora em desenvolvimento)
   const wp1Projeto3 = await prisma.workpackage.create({
     data: {
       projetoId: projeto3.id,
       nome: "WP1 - Coordenação e Gestão",
-      inicio: new Date("2024-11-01"),
-      fim: new Date("2026-10-31"),
+      inicio: new Date("2025-06-15"),
+      fim: new Date("2028-05-31"),
       estado: false
     }
   });
@@ -559,9 +559,90 @@ async function main() {
     data: {
       projetoId: projeto3.id,
       nome: "WP2 - Análise e Modelação",
-      inicio: new Date("2024-11-01"),
-      fim: new Date("2025-08-31"),
+      inicio: new Date("2025-06-15"),
+      fim: new Date("2026-06-30"),
       estado: false
+    }
+  });
+
+  const wp3Projeto3 = await prisma.workpackage.create({
+    data: {
+      projetoId: projeto3.id,
+      nome: "WP3 - Desenvolvimento de Sistemas",
+      inicio: new Date("2026-01-01"),
+      fim: new Date("2027-06-30"),
+      estado: false
+    }
+  });
+
+  const wp4Projeto3 = await prisma.workpackage.create({
+    data: {
+      projetoId: projeto3.id,
+      nome: "WP4 - Validação e Implementação",
+      inicio: new Date("2027-01-01"),
+      fim: new Date("2028-05-31"),
+      estado: false
+    }
+  });
+
+  // Tarefas para WP4 do Projeto 3
+  await prisma.tarefa.createMany({
+    data: [
+      {
+        workpackageId: wp4Projeto3.id,
+        nome: "T4.1 - Implementação em ambiente piloto",
+        inicio: new Date("2027-01-01"),
+        fim: new Date("2027-09-30"),
+        estado: false
+      },
+      {
+        workpackageId: wp4Projeto3.id,
+        nome: "T4.2 - Validação e avaliação de impacto",
+        inicio: new Date("2027-10-01"),
+        fim: new Date("2028-03-31"),
+        estado: false
+      },
+      {
+        workpackageId: wp4Projeto3.id,
+        nome: "T4.3 - Documentação e relatório final",
+        inicio: new Date("2028-04-01"),
+        fim: new Date("2028-05-31"),
+        estado: false
+      }
+    ]
+  });
+
+  // Materiais para Projeto 3
+  await prisma.material.create({
+    data: {
+      nome: "Sensores IoT industriais",
+      preco: new Decimal(12500.00),
+      quantidade: 15,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wp3Projeto3.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Software de modelação de processos industriais",
+      preco: new Decimal(8800.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.SERVICOS_TERCEIROS,
+      workpackageId: wp2Projeto3.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Equipamento de medição de consumo energético",
+      preco: new Decimal(7500.00),
+      quantidade: 2,
+      ano_utilizacao: 2027,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wp4Projeto3.id
     }
   });
 
@@ -724,6 +805,529 @@ async function main() {
     }
   }
 
+  console.log('🏗️ A criar o projeto VIRTUA...');
+  
+  // Projeto VIRTUA
+  const projetoVirtua = await prisma.projeto.create({
+    data: {
+      nome: "VIRTUA",
+      descricao: "Projeto de inovação em tecnologias de virtualização e automação para ambientes industriais",
+      inicio: new Date("2025-06-01"),
+      fim: new Date("2028-05-31"),
+      estado: ProjetoEstado.EM_DESENVOLVIMENTO, // Alterar para EM_DESENVOLVIMENTO
+      financiamentoId: fct.id,
+    }
+  });
+
+  // Workpackages para Projeto VIRTUA
+  const wpA1Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A1 - Estudos Preliminares e Definição de Especificações Técnicas",
+      inicio: new Date("2025-06-01"),
+      fim: new Date("2026-02-28"),
+      estado: false
+    }
+  });
+
+  // Tarefas para WP A1 do Projeto VIRTUA
+  await prisma.tarefa.createMany({
+    data: [
+      {
+        workpackageId: wpA1Virtua.id,
+        nome: "T1.1 - Levantamento do estado da arte",
+        inicio: new Date("2025-06-01"),
+        fim: new Date("2025-08-15"),
+        estado: false
+      },
+      {
+        workpackageId: wpA1Virtua.id,
+        nome: "T1.2 - Análise de requisitos",
+        inicio: new Date("2025-08-01"),
+        fim: new Date("2025-10-31"),
+        estado: false
+      },
+      {
+        workpackageId: wpA1Virtua.id,
+        nome: "T1.3 - Definição de especificações técnicas",
+        inicio: new Date("2025-11-01"),
+        fim: new Date("2026-02-28"),
+        estado: false
+      }
+    ]
+  });
+
+  const wpA2Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A2 - Sistema de localização com utilização de tags passivas",
+      inicio: null,
+      fim: null,
+      estado: false
+    }
+  });
+
+  const wpA3Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A3 - Sistema de robots / veículos autónomos",
+      inicio: new Date("2025-10-01"),
+      fim: new Date("2027-08-31"),
+      estado: false
+    }
+  });
+
+  // Tarefas para WP A3 do Projeto VIRTUA
+  await prisma.tarefa.createMany({
+    data: [
+      {
+        workpackageId: wpA3Virtua.id,
+        nome: "T3.1 - Desenvolvimento de sistemas de navegação",
+        inicio: new Date("2025-10-01"),
+        fim: new Date("2026-06-30"),
+        estado: false
+      },
+      {
+        workpackageId: wpA3Virtua.id,
+        nome: "T3.2 - Implementação de algoritmos de controlo autónomo",
+        inicio: new Date("2026-05-01"),
+        fim: new Date("2027-02-28"),
+        estado: false
+      },
+      {
+        workpackageId: wpA3Virtua.id,
+        nome: "T3.3 - Testes de integração e validação",
+        inicio: new Date("2027-03-01"),
+        fim: new Date("2027-08-31"),
+        estado: false
+      }
+    ]
+  });
+
+  const wpA4Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A4 - Implementação de rede 5G e comunicações M2M",
+      inicio: null,
+      fim: null,
+      estado: false
+    }
+  });
+
+  const wpA5Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A5 - Desenvolvimento e upgrade de plataforma",
+      inicio: null,
+      fim: null,
+      estado: false
+    }
+  });
+
+  const wpA6Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A6 - Integração e demonstração",
+      inicio: new Date("2027-07-01"),
+      fim: new Date("2028-03-31"),
+      estado: false
+    }
+  });
+
+  const wpA7Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A7 - Comunicação, disseminação e valorização",
+      inicio: new Date("2026-03-01"),
+      fim: new Date("2028-05-31"),
+      estado: false
+    }
+  });
+
+  const wpA8Virtua = await prisma.workpackage.create({
+    data: {
+      projetoId: projetoVirtua.id,
+      nome: "A8 - Gestão e coordenação do projeto",
+      inicio: new Date("2025-06-01"),
+      fim: new Date("2028-05-31"),
+      estado: false
+    }
+  });
+
+  // Criação de materiais para o workpackage A1
+  await prisma.material.create({
+    data: {
+      nome: "Laptop para desenvolvimento",
+      preco: new Decimal(1800.00),
+      quantidade: 3,
+      ano_utilizacao: 2025,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wpA1Virtua.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Software de simulação",
+      preco: new Decimal(5000.00),
+      quantidade: 1,
+      ano_utilizacao: 2025,
+      rubrica: Rubrica.SERVICOS_TERCEIROS,
+      workpackageId: wpA1Virtua.id
+    }
+  });
+
+  // Criação de materiais para o workpackage A3
+  await prisma.material.create({
+    data: {
+      nome: "Sistema de carregamento de Drones - Skycharge",
+      preco: new Decimal(6250.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wpA3Virtua.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Material para estrutura AGV",
+      preco: new Decimal(30000.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.CUSTOS_ESTRUTURA,
+      workpackageId: wpA3Virtua.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "LiDAR (3D)",
+      preco: new Decimal(5000.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wpA3Virtua.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Unidade de Controlo",
+      preco: new Decimal(2000.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wpA3Virtua.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Motores, Encoders?",
+      preco: new Decimal(400.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wpA3Virtua.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Bateria (ref Flow - LiFePo4 1.5 kWh (@48 Vdc)\t)",
+      preco: new Decimal(400.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wpA3Virtua.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Componentes (inversor, conversor, BMS)",
+      preco: new Decimal(1200.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wpA3Virtua.id
+    }
+  });
+
+  // Criação de material para o workpackage A7
+  await prisma.material.create({
+    data: {
+      nome: "Conferência",
+      preco: new Decimal(2000.00),
+      quantidade: 1,
+      ano_utilizacao: 2027,
+      rubrica: Rubrica.DESLOCACAO_ESTADIAS,
+      workpackageId: wpA7Virtua.id
+    }
+  });
+
+  // Atualizar as datas dos projetos existentes para estarem antes de março de 2025 ou entre 2025-2030
+  if (projeto1) {
+    await prisma.projeto.update({
+      where: { id: projeto1.id },
+      data: {
+        inicio: new Date("2023-03-01"),
+        fim: new Date("2025-02-28")
+      }
+    });
+  }
+
+  if (projeto2) {
+    await prisma.projeto.update({
+      where: { id: projeto2.id },
+      data: {
+        inicio: new Date("2025-04-01"), // Projeto em desenvolvimento que começa após 15 de março de 2025
+        fim: new Date("2027-03-31"),
+        estado: ProjetoEstado.EM_DESENVOLVIMENTO // Alterar para EM_DESENVOLVIMENTO
+      }
+    });
+  }
+
+  if (projeto3) {
+    await prisma.projeto.update({
+      where: { id: projeto3.id },
+      data: {
+        inicio: new Date("2025-06-15"), // Projeto em desenvolvimento que começa após 15 de março de 2025
+        fim: new Date("2028-05-31"),
+        estado: ProjetoEstado.APROVADO // Mudar para APROVADO para indicar que está em desenvolvimento
+      }
+    });
+  }
+
+  if (projeto4) {
+    await prisma.projeto.update({
+      where: { id: projeto4.id },
+      data: {
+        inicio: new Date("2022-01-15"),
+        fim: new Date("2023-07-31")
+      }
+    });
+  }
+
+  // Criar alocações para o projeto VIRTUA
+  console.log('👥 A criar alocações para o projeto VIRTUA...');
+  
+  // Recuperar os utilizadores específicos para alocação
+  const ricardoCorreia = await prisma.user.findFirst({
+    where: { username: "ricardo.correia" }
+  });
+  
+  const anaIsabelCarvalho = await prisma.user.findFirst({
+    where: { username: "ana.i.carvalho" }
+  });
+  
+  const anaClaudiaCarvalho = await prisma.user.findFirst({
+    where: { username: "ana.c.carvalho" }
+  });
+  
+  const joaoLopes = await prisma.user.findFirst({
+    where: { username: "joao.lopes" }
+  });
+  
+  const ruiCoimbra = await prisma.user.findFirst({
+    where: { username: "rui.coimbra" }
+  });
+  
+  const filipeCoutinho = await prisma.user.findFirst({
+    where: { username: "filipe.coutinho" }
+  });
+  
+  // Verificar se encontrou todos os utilizadores
+  if (!ricardoCorreia || !anaIsabelCarvalho || !anaClaudiaCarvalho || 
+      !joaoLopes || !ruiCoimbra || !filipeCoutinho) {
+    console.warn('⚠️ Não foi possível encontrar todos os utilizadores necessários para o projeto VIRTUA.');
+  }
+  
+  // Função para criar alocações em massa
+  const criarAlocacoesMassa = async (alocacoes: Array<{
+    workpackageId: string;
+    userId: string;
+    mes: number;
+    ano: number;
+    ocupacao: string;
+  }>): Promise<void> => {
+    console.log(`📊 Criando ${alocacoes.length} alocações de recursos...`);
+    let contador = 0;
+    
+    for (const alocacao of alocacoes) {
+      try {
+        await prisma.alocacaoRecurso.create({
+          data: {
+            workpackageId: alocacao.workpackageId,
+            userId: alocacao.userId,
+            mes: alocacao.mes,
+            ano: alocacao.ano,
+            ocupacao: new Decimal(alocacao.ocupacao)
+          }
+        });
+        contador++;
+      } catch (error: any) {
+        console.warn(`Erro ao criar alocação: ${error.message}`);
+      }
+    }
+    
+    console.log(`✅ ${contador} alocações criadas com sucesso.`);
+  };
+
+  // Alocações para WP A1
+  if (wpA1Virtua && ricardoCorreia && anaIsabelCarvalho && anaClaudiaCarvalho && 
+      joaoLopes && filipeCoutinho && ruiCoimbra) {
+    const alocacoesA1 = [
+      // Alocações para Ricardo Correia (user1)
+      { userId: ricardoCorreia.id, mes: 6, ano: 2025, ocupacao: "0.25", workpackageId: wpA1Virtua.id },
+      { userId: ricardoCorreia.id, mes: 7, ano: 2025, ocupacao: "0.25", workpackageId: wpA1Virtua.id },
+      { userId: ricardoCorreia.id, mes: 9, ano: 2025, ocupacao: "0.25", workpackageId: wpA1Virtua.id },
+      { userId: ricardoCorreia.id, mes: 10, ano: 2025, ocupacao: "0.2", workpackageId: wpA1Virtua.id },
+      { userId: ricardoCorreia.id, mes: 11, ano: 2025, ocupacao: "0.2", workpackageId: wpA1Virtua.id },
+      { userId: ricardoCorreia.id, mes: 12, ano: 2025, ocupacao: "0.2", workpackageId: wpA1Virtua.id },
+      
+      // Alocações para Ana Isabel Carvalho (user2)
+      { userId: anaIsabelCarvalho.id, mes: 6, ano: 2025, ocupacao: "0.175", workpackageId: wpA1Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 7, ano: 2025, ocupacao: "0.175", workpackageId: wpA1Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 9, ano: 2025, ocupacao: "0.175", workpackageId: wpA1Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 10, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 11, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 12, ano: 2025, ocupacao: "0.05", workpackageId: wpA1Virtua.id },
+      
+      // Alocações para Ana Claudia Carvalho (user3)
+      { userId: anaClaudiaCarvalho.id, mes: 6, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 7, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 9, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 10, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 11, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 12, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      
+      // Alocações para João Lopes (user4)
+      { userId: joaoLopes.id, mes: 6, ano: 2025, ocupacao: "0.2", workpackageId: wpA1Virtua.id },
+      { userId: joaoLopes.id, mes: 7, ano: 2025, ocupacao: "0.2", workpackageId: wpA1Virtua.id },
+      { userId: joaoLopes.id, mes: 9, ano: 2025, ocupacao: "0.2", workpackageId: wpA1Virtua.id },
+      { userId: joaoLopes.id, mes: 10, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      { userId: joaoLopes.id, mes: 11, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      { userId: joaoLopes.id, mes: 12, ano: 2025, ocupacao: "0.125", workpackageId: wpA1Virtua.id },
+      
+      // Alocações para Filipe Coutinho (user5)
+      { userId: filipeCoutinho.id, mes: 6, ano: 2025, ocupacao: "0.05", workpackageId: wpA1Virtua.id },
+      { userId: filipeCoutinho.id, mes: 7, ano: 2025, ocupacao: "0.05", workpackageId: wpA1Virtua.id },
+      { userId: filipeCoutinho.id, mes: 9, ano: 2025, ocupacao: "0.05", workpackageId: wpA1Virtua.id },
+      { userId: filipeCoutinho.id, mes: 10, ano: 2025, ocupacao: "0.05", workpackageId: wpA1Virtua.id },
+      { userId: filipeCoutinho.id, mes: 11, ano: 2025, ocupacao: "0.05", workpackageId: wpA1Virtua.id },
+      { userId: filipeCoutinho.id, mes: 12, ano: 2025, ocupacao: "0.05", workpackageId: wpA1Virtua.id },
+      
+      // Alocações para Rui Coimbra (user6)
+      { userId: ruiCoimbra.id, mes: 6, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id },
+      { userId: ruiCoimbra.id, mes: 7, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id },
+      { userId: ruiCoimbra.id, mes: 9, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id },
+      { userId: ruiCoimbra.id, mes: 10, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id },
+      { userId: ruiCoimbra.id, mes: 11, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id },
+      { userId: ruiCoimbra.id, mes: 12, ano: 2025, ocupacao: "0.1", workpackageId: wpA1Virtua.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesA1);
+  }
+
+  // Alocações para WP A3
+  if (wpA3Virtua && ricardoCorreia && anaIsabelCarvalho && anaClaudiaCarvalho && 
+      joaoLopes && filipeCoutinho && ruiCoimbra) {
+    const alocacoesA3 = [
+      // Alocações para Ricardo Correia em 2025
+      { userId: ricardoCorreia.id, mes: 10, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      { userId: ricardoCorreia.id, mes: 11, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      { userId: ricardoCorreia.id, mes: 12, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      
+      // Alocações para Ricardo Correia em 2026
+      { userId: ricardoCorreia.id, mes: 1, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      { userId: ricardoCorreia.id, mes: 2, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      { userId: ricardoCorreia.id, mes: 3, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      
+      // Alocações para Ana Isabel Carvalho em 2025
+      { userId: anaIsabelCarvalho.id, mes: 10, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 11, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 12, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      
+      // Alocações para Ana Isabel Carvalho em 2026
+      { userId: anaIsabelCarvalho.id, mes: 1, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 2, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 3, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      
+      // Alocações para Ana Claudia Carvalho em 2025
+      { userId: anaClaudiaCarvalho.id, mes: 10, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 11, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 12, ano: 2025, ocupacao: "0.25", workpackageId: wpA3Virtua.id },
+      
+      // Alocações para Ana Claudia Carvalho em 2026
+      { userId: anaClaudiaCarvalho.id, mes: 1, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 2, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id },
+      { userId: anaClaudiaCarvalho.id, mes: 3, ano: 2026, ocupacao: "0.5", workpackageId: wpA3Virtua.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesA3);
+  }
+
+  // Alocações para WP A6
+  if (wpA6Virtua && ricardoCorreia && anaIsabelCarvalho && anaClaudiaCarvalho && joaoLopes) {
+    const alocacoesA6 = [
+      // Alocações para Ricardo Correia em 2027-2028
+      { userId: ricardoCorreia.id, mes: 7, ano: 2027, ocupacao: "0.3", workpackageId: wpA6Virtua.id },
+      { userId: ricardoCorreia.id, mes: 9, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: ricardoCorreia.id, mes: 10, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: ricardoCorreia.id, mes: 11, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: ricardoCorreia.id, mes: 12, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: ricardoCorreia.id, mes: 1, ano: 2028, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: ricardoCorreia.id, mes: 2, ano: 2028, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: ricardoCorreia.id, mes: 3, ano: 2028, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      
+      // Alocações para Ana Isabel Carvalho em 2027-2028
+      { userId: anaIsabelCarvalho.id, mes: 7, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 9, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 10, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 11, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 12, ano: 2027, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 1, ano: 2028, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 2, ano: 2028, ocupacao: "0.5", workpackageId: wpA6Virtua.id },
+      { userId: anaIsabelCarvalho.id, mes: 3, ano: 2028, ocupacao: "0.5", workpackageId: wpA6Virtua.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesA6);
+  }
+
+  // Alocações para WP A7
+  if (wpA7Virtua && ricardoCorreia && gestor) {
+    const alocacoesA7 = [
+      // Algumas alocações para comunicação e divulgação
+      { userId: ricardoCorreia.id, mes: 3, ano: 2026, ocupacao: "0.1", workpackageId: wpA7Virtua.id },
+      { userId: ricardoCorreia.id, mes: 4, ano: 2026, ocupacao: "0.1", workpackageId: wpA7Virtua.id },
+      { userId: ricardoCorreia.id, mes: 5, ano: 2026, ocupacao: "0.1", workpackageId: wpA7Virtua.id },
+      
+      { userId: gestor.id, mes: 3, ano: 2026, ocupacao: "0.1", workpackageId: wpA7Virtua.id },
+      { userId: gestor.id, mes: 4, ano: 2026, ocupacao: "0.1", workpackageId: wpA7Virtua.id },
+      { userId: gestor.id, mes: 5, ano: 2026, ocupacao: "0.1", workpackageId: wpA7Virtua.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesA7);
+  }
+
+  // Alocações para WP A8 (Gestão)
+  if (wpA8Virtua && ricardoCorreia && gestor) {
+    const alocacoesA8 = [
+      // Alocações de gestão contínuas
+      { userId: ricardoCorreia.id, mes: 6, ano: 2025, ocupacao: "0.1", workpackageId: wpA8Virtua.id },
+      { userId: ricardoCorreia.id, mes: 7, ano: 2025, ocupacao: "0.1", workpackageId: wpA8Virtua.id },
+      { userId: ricardoCorreia.id, mes: 9, ano: 2025, ocupacao: "0.1", workpackageId: wpA8Virtua.id },
+      
+      { userId: gestor.id, mes: 6, ano: 2025, ocupacao: "0.1", workpackageId: wpA8Virtua.id },
+      { userId: gestor.id, mes: 7, ano: 2025, ocupacao: "0.1", workpackageId: wpA8Virtua.id },
+      { userId: gestor.id, mes: 9, ano: 2025, ocupacao: "0.1", workpackageId: wpA8Virtua.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesA8);
+  }
+
   // Recuperar todas as tarefas
   const todasTarefas = await prisma.tarefa.findMany();
   
@@ -850,6 +1454,335 @@ async function main() {
     }
   }
 
+  // Projeto 5 - Novo projeto com datas entre 2026-2029
+  console.log('📋 A criar projeto adicional (NEXGEN)...');
+  
+  const projeto5 = await prisma.projeto.create({
+    data: {
+      nome: "NEXGEN - Próxima Geração de Redes de Comunicação",
+      descricao: "Desenvolvimento de novas tecnologias e protocolos para redes de comunicação de próxima geração, focando em eficiência energética, segurança e alta disponibilidade.",
+      inicio: new Date("2026-06-01"),
+      fim: new Date("2029-05-31"),
+      estado: ProjetoEstado.PENDENTE,
+      financiamentoId: horizonteEuropa.id,
+    }
+  });
+
+  // Workpackages para Projeto 5
+  const wp1Projeto5 = await prisma.workpackage.create({
+    data: {
+      projetoId: projeto5.id,
+      nome: "WP1 - Coordenação e Gestão",
+      inicio: new Date("2026-06-01"),
+      fim: new Date("2029-05-31"),
+      estado: false
+    }
+  });
+
+  const wp2Projeto5 = await prisma.workpackage.create({
+    data: {
+      projetoId: projeto5.id,
+      nome: "WP2 - Arquitetura de Rede 7G",
+      inicio: new Date("2026-06-01"),
+      fim: new Date("2027-11-30"),
+      estado: false
+    }
+  });
+
+  const wp3Projeto5 = await prisma.workpackage.create({
+    data: {
+      projetoId: projeto5.id,
+      nome: "WP3 - Protocolos de Segurança Avançados",
+      inicio: new Date("2027-06-01"),
+      fim: new Date("2028-11-30"),
+      estado: false
+    }
+  });
+
+  const wp4Projeto5 = await prisma.workpackage.create({
+    data: {
+      projetoId: projeto5.id,
+      nome: "WP4 - Implementação e Validação",
+      inicio: new Date("2028-06-01"),
+      fim: new Date("2029-04-30"),
+      estado: false
+    }
+  });
+
+  const wp5Projeto5 = await prisma.workpackage.create({
+    data: {
+      projetoId: projeto5.id,
+      nome: "WP5 - Disseminação e Exploração",
+      inicio: new Date("2026-10-01"),
+      fim: new Date("2029-05-31"),
+      estado: false
+    }
+  });
+
+  // Tarefas para WP2 do Projeto 5
+  await prisma.tarefa.createMany({
+    data: [
+      {
+        workpackageId: wp2Projeto5.id,
+        nome: "T2.1 - Definição de requisitos da rede 7G",
+        inicio: new Date("2026-06-01"),
+        fim: new Date("2026-10-31"),
+        estado: false
+      },
+      {
+        workpackageId: wp2Projeto5.id,
+        nome: "T2.2 - Especificação da arquitetura",
+        inicio: new Date("2026-11-01"),
+        fim: new Date("2027-05-31"),
+        estado: false
+      },
+      {
+        workpackageId: wp2Projeto5.id,
+        nome: "T2.3 - Simulação e modelagem",
+        inicio: new Date("2027-06-01"),
+        fim: new Date("2027-11-30"),
+        estado: false
+      }
+    ]
+  });
+
+  // Tarefas para WP3 do Projeto 5
+  await prisma.tarefa.createMany({
+    data: [
+      {
+        workpackageId: wp3Projeto5.id,
+        nome: "T3.1 - Análise de vulnerabilidades em redes 7G",
+        inicio: new Date("2027-06-01"),
+        fim: new Date("2027-10-31"),
+        estado: false
+      },
+      {
+        workpackageId: wp3Projeto5.id,
+        nome: "T3.2 - Desenvolvimento de protocolos de encriptação avançada",
+        inicio: new Date("2027-11-01"),
+        fim: new Date("2028-05-31"),
+        estado: false
+      },
+      {
+        workpackageId: wp3Projeto5.id,
+        nome: "T3.3 - Implementação de sistemas de deteção de intrusão",
+        inicio: new Date("2028-06-01"),
+        fim: new Date("2028-11-30"),
+        estado: false
+      }
+    ]
+  });
+
+  // Tarefas para WP4 do Projeto 5
+  await prisma.tarefa.createMany({
+    data: [
+      {
+        workpackageId: wp4Projeto5.id,
+        nome: "T4.1 - Implementação de protótipo de rede 7G",
+        inicio: new Date("2028-06-01"),
+        fim: new Date("2028-10-31"),
+        estado: false
+      },
+      {
+        workpackageId: wp4Projeto5.id,
+        nome: "T4.2 - Testes de validação em ambiente controlado",
+        inicio: new Date("2028-11-01"),
+        fim: new Date("2029-02-28"),
+        estado: false
+      },
+      {
+        workpackageId: wp4Projeto5.id,
+        nome: "T4.3 - Avaliação de desempenho e ajustes finais",
+        inicio: new Date("2029-03-01"),
+        fim: new Date("2029-04-30"),
+        estado: false
+      }
+    ]
+  });
+
+  // Materiais para o Projeto 5
+  await prisma.material.create({
+    data: {
+      nome: "Servidores de alto desempenho",
+      preco: new Decimal(15000.00),
+      quantidade: 4,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wp2Projeto5.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Software de simulação de redes",
+      preco: new Decimal(8500.00),
+      quantidade: 1,
+      ano_utilizacao: 2026,
+      rubrica: Rubrica.SERVICOS_TERCEIROS,
+      workpackageId: wp2Projeto5.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Dispositivos de teste de rede",
+      preco: new Decimal(12000.00),
+      quantidade: 2,
+      ano_utilizacao: 2027,
+      rubrica: Rubrica.MATERIAIS,
+      workpackageId: wp3Projeto5.id
+    }
+  });
+
+  await prisma.material.create({
+    data: {
+      nome: "Participação em conferências internacionais",
+      preco: new Decimal(5000.00),
+      quantidade: 3,
+      ano_utilizacao: 2028,
+      rubrica: Rubrica.DESLOCACAO_ESTADIAS,
+      workpackageId: wp5Projeto5.id
+    }
+  });
+
+  // Adicionar alocações para o projeto NEXGEN
+  console.log('👥 A criar alocações para o projeto NEXGEN...');
+  
+  // Alocações para WP2 do projeto NEXGEN
+  if (wp2Projeto5 && ricardoCorreia && anaClaudiaCarvalho && joaoLopes) {
+    const alocacoesWP2NEXGEN = [
+      // Alocações para Ricardo Correia em 2026
+      { userId: ricardoCorreia.id, mes: 6, ano: 2026, ocupacao: "0.3", workpackageId: wp2Projeto5.id },
+      { userId: ricardoCorreia.id, mes: 7, ano: 2026, ocupacao: "0.3", workpackageId: wp2Projeto5.id },
+      { userId: ricardoCorreia.id, mes: 8, ano: 2026, ocupacao: "0.3", workpackageId: wp2Projeto5.id },
+      { userId: ricardoCorreia.id, mes: 9, ano: 2026, ocupacao: "0.3", workpackageId: wp2Projeto5.id },
+      
+      // Alocações para Ana Claudia Carvalho em 2026
+      { userId: anaClaudiaCarvalho.id, mes: 6, ano: 2026, ocupacao: "0.25", workpackageId: wp2Projeto5.id },
+      { userId: anaClaudiaCarvalho.id, mes: 7, ano: 2026, ocupacao: "0.25", workpackageId: wp2Projeto5.id },
+      { userId: anaClaudiaCarvalho.id, mes: 8, ano: 2026, ocupacao: "0.25", workpackageId: wp2Projeto5.id },
+      { userId: anaClaudiaCarvalho.id, mes: 9, ano: 2026, ocupacao: "0.25", workpackageId: wp2Projeto5.id },
+      
+      // Alocações para João Lopes em 2026
+      { userId: joaoLopes.id, mes: 6, ano: 2026, ocupacao: "0.2", workpackageId: wp2Projeto5.id },
+      { userId: joaoLopes.id, mes: 7, ano: 2026, ocupacao: "0.2", workpackageId: wp2Projeto5.id },
+      { userId: joaoLopes.id, mes: 8, ano: 2026, ocupacao: "0.2", workpackageId: wp2Projeto5.id },
+      { userId: joaoLopes.id, mes: 9, ano: 2026, ocupacao: "0.2", workpackageId: wp2Projeto5.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesWP2NEXGEN);
+  }
+
+  // Alocações para WP1 do projeto NEXGEN (Coordenação e Gestão)
+  if (wp1Projeto5 && gestor && anaIsabelCarvalho) {
+    const alocacoesWP1NEXGEN = [
+      // Alocações para a gestora (Helga Carvalho) em 2026
+      { userId: gestor.id, mes: 6, ano: 2026, ocupacao: "0.15", workpackageId: wp1Projeto5.id },
+      { userId: gestor.id, mes: 7, ano: 2026, ocupacao: "0.15", workpackageId: wp1Projeto5.id },
+      { userId: gestor.id, mes: 8, ano: 2026, ocupacao: "0.15", workpackageId: wp1Projeto5.id },
+      { userId: gestor.id, mes: 9, ano: 2026, ocupacao: "0.15", workpackageId: wp1Projeto5.id },
+      { userId: gestor.id, mes: 10, ano: 2026, ocupacao: "0.15", workpackageId: wp1Projeto5.id },
+      { userId: gestor.id, mes: 11, ano: 2026, ocupacao: "0.15", workpackageId: wp1Projeto5.id },
+      { userId: gestor.id, mes: 12, ano: 2026, ocupacao: "0.15", workpackageId: wp1Projeto5.id },
+      
+      // Alocações para o suporte administrativo (Ana Isabel Carvalho) em 2026
+      { userId: anaIsabelCarvalho.id, mes: 6, ano: 2026, ocupacao: "0.1", workpackageId: wp1Projeto5.id },
+      { userId: anaIsabelCarvalho.id, mes: 7, ano: 2026, ocupacao: "0.1", workpackageId: wp1Projeto5.id },
+      { userId: anaIsabelCarvalho.id, mes: 8, ano: 2026, ocupacao: "0.1", workpackageId: wp1Projeto5.id },
+      { userId: anaIsabelCarvalho.id, mes: 9, ano: 2026, ocupacao: "0.1", workpackageId: wp1Projeto5.id },
+      { userId: anaIsabelCarvalho.id, mes: 10, ano: 2026, ocupacao: "0.1", workpackageId: wp1Projeto5.id },
+      { userId: anaIsabelCarvalho.id, mes: 11, ano: 2026, ocupacao: "0.1", workpackageId: wp1Projeto5.id },
+      { userId: anaIsabelCarvalho.id, mes: 12, ano: 2026, ocupacao: "0.1", workpackageId: wp1Projeto5.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesWP1NEXGEN);
+  }
+
+  // Alocações para WP3 do projeto NEXGEN
+  if (wp3Projeto5 && filipeCoutinho && ruiCoimbra) {
+    const alocacoesWP3NEXGEN = [
+      // Alocações para Filipe Coutinho em 2027
+      { userId: filipeCoutinho.id, mes: 6, ano: 2027, ocupacao: "0.4", workpackageId: wp3Projeto5.id },
+      { userId: filipeCoutinho.id, mes: 7, ano: 2027, ocupacao: "0.4", workpackageId: wp3Projeto5.id },
+      { userId: filipeCoutinho.id, mes: 8, ano: 2027, ocupacao: "0.4", workpackageId: wp3Projeto5.id },
+      { userId: filipeCoutinho.id, mes: 9, ano: 2027, ocupacao: "0.4", workpackageId: wp3Projeto5.id },
+      { userId: filipeCoutinho.id, mes: 10, ano: 2027, ocupacao: "0.4", workpackageId: wp3Projeto5.id },
+      
+      // Alocações para Rui Coimbra em 2027
+      { userId: ruiCoimbra.id, mes: 6, ano: 2027, ocupacao: "0.35", workpackageId: wp3Projeto5.id },
+      { userId: ruiCoimbra.id, mes: 7, ano: 2027, ocupacao: "0.35", workpackageId: wp3Projeto5.id },
+      { userId: ruiCoimbra.id, mes: 8, ano: 2027, ocupacao: "0.35", workpackageId: wp3Projeto5.id },
+      { userId: ruiCoimbra.id, mes: 9, ano: 2027, ocupacao: "0.35", workpackageId: wp3Projeto5.id },
+      { userId: ruiCoimbra.id, mes: 10, ano: 2027, ocupacao: "0.35", workpackageId: wp3Projeto5.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesWP3NEXGEN);
+  }
+
+  // Alocações para o projeto ECO-MANUFATURA (projeto3)
+  console.log('👥 A criar alocações para o projeto ECO-MANUFATURA...');
+  
+  // Alocações para WP2 do projeto ECO-MANUFATURA
+  if (wp2Projeto3 && ricardoCorreia && joaoLopes) {
+    const alocacoesWP2ECO = [
+      // Alocações para Ricardo Correia em 2025
+      { userId: ricardoCorreia.id, mes: 7, ano: 2025, ocupacao: "0.3", workpackageId: wp2Projeto3.id },
+      { userId: ricardoCorreia.id, mes: 8, ano: 2025, ocupacao: "0.3", workpackageId: wp2Projeto3.id },
+      { userId: ricardoCorreia.id, mes: 9, ano: 2025, ocupacao: "0.3", workpackageId: wp2Projeto3.id },
+      { userId: ricardoCorreia.id, mes: 10, ano: 2025, ocupacao: "0.3", workpackageId: wp2Projeto3.id },
+      { userId: ricardoCorreia.id, mes: 11, ano: 2025, ocupacao: "0.3", workpackageId: wp2Projeto3.id },
+      { userId: ricardoCorreia.id, mes: 12, ano: 2025, ocupacao: "0.3", workpackageId: wp2Projeto3.id },
+      
+      // Alocações para João Lopes em 2025
+      { userId: joaoLopes.id, mes: 7, ano: 2025, ocupacao: "0.25", workpackageId: wp2Projeto3.id },
+      { userId: joaoLopes.id, mes: 8, ano: 2025, ocupacao: "0.25", workpackageId: wp2Projeto3.id },
+      { userId: joaoLopes.id, mes: 9, ano: 2025, ocupacao: "0.25", workpackageId: wp2Projeto3.id },
+      { userId: joaoLopes.id, mes: 10, ano: 2025, ocupacao: "0.25", workpackageId: wp2Projeto3.id },
+      { userId: joaoLopes.id, mes: 11, ano: 2025, ocupacao: "0.25", workpackageId: wp2Projeto3.id },
+      { userId: joaoLopes.id, mes: 12, ano: 2025, ocupacao: "0.25", workpackageId: wp2Projeto3.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesWP2ECO);
+  }
+  
+  // Alocações para WP3 do projeto ECO-MANUFATURA
+  if (wp3Projeto3 && anaClaudiaCarvalho && ruiCoimbra) {
+    const alocacoesWP3ECO = [
+      // Alocações para Ana Claudia Carvalho em 2026
+      { userId: anaClaudiaCarvalho.id, mes: 1, ano: 2026, ocupacao: "0.35", workpackageId: wp3Projeto3.id },
+      { userId: anaClaudiaCarvalho.id, mes: 2, ano: 2026, ocupacao: "0.35", workpackageId: wp3Projeto3.id },
+      { userId: anaClaudiaCarvalho.id, mes: 3, ano: 2026, ocupacao: "0.35", workpackageId: wp3Projeto3.id },
+      { userId: anaClaudiaCarvalho.id, mes: 4, ano: 2026, ocupacao: "0.35", workpackageId: wp3Projeto3.id },
+      
+      // Alocações para Rui Coimbra em 2026
+      { userId: ruiCoimbra.id, mes: 3, ano: 2026, ocupacao: "0.4", workpackageId: wp3Projeto3.id },
+      { userId: ruiCoimbra.id, mes: 4, ano: 2026, ocupacao: "0.4", workpackageId: wp3Projeto3.id },
+      { userId: ruiCoimbra.id, mes: 5, ano: 2026, ocupacao: "0.4", workpackageId: wp3Projeto3.id },
+      { userId: ruiCoimbra.id, mes: 6, ano: 2026, ocupacao: "0.4", workpackageId: wp3Projeto3.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesWP3ECO);
+  }
+  
+  // Alocações para WP1 (Gestão) do projeto ECO-MANUFATURA
+  if (wp1Projeto3 && gestor && anaIsabelCarvalho) {
+    const alocacoesWP1ECO = [
+      // Alocações para gestor
+      { userId: gestor.id, mes: 6, ano: 2025, ocupacao: "0.1", workpackageId: wp1Projeto3.id },
+      { userId: gestor.id, mes: 7, ano: 2025, ocupacao: "0.1", workpackageId: wp1Projeto3.id },
+      { userId: gestor.id, mes: 8, ano: 2025, ocupacao: "0.1", workpackageId: wp1Projeto3.id },
+      { userId: gestor.id, mes: 9, ano: 2025, ocupacao: "0.1", workpackageId: wp1Projeto3.id },
+      
+      // Alocações para Ana Isabel Carvalho (suporte administrativo)
+      { userId: anaIsabelCarvalho.id, mes: 6, ano: 2025, ocupacao: "0.15", workpackageId: wp1Projeto3.id },
+      { userId: anaIsabelCarvalho.id, mes: 7, ano: 2025, ocupacao: "0.15", workpackageId: wp1Projeto3.id },
+      { userId: anaIsabelCarvalho.id, mes: 8, ano: 2025, ocupacao: "0.15", workpackageId: wp1Projeto3.id },
+      { userId: anaIsabelCarvalho.id, mes: 9, ano: 2025, ocupacao: "0.15", workpackageId: wp1Projeto3.id }
+    ];
+    
+    await criarAlocacoesMassa(alocacoesWP1ECO);
+  }
+
   console.log('✅ Seed concluído com sucesso!');
   
   const stats = {
@@ -868,10 +1801,13 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Erro durante o seed:', e);
+  .catch(error => {
+    console.error(error);
     process.exit(1);
   })
-  .finally(async () => {
-    await prisma.$disconnect();
+  .finally(() => {
+    // Correção do erro "Promise returned in function argument where a void return was expected"
+    prisma.$disconnect().catch(() => {
+      console.error('Erro ao desconectar do Prisma');
+    });
   });

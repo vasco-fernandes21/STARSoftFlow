@@ -39,7 +39,9 @@ export default function LoginPage() {
         });
       } else {
         // Redirecionar para a página inicial
-        router.push("/");
+        
+        // Usar replace em vez de push para evitar problemas com histórico de navegação
+        router.replace("/");
       }
     } catch (error) {
       if (error instanceof ZodError) {

@@ -125,11 +125,6 @@ export function WorkpackageTarefas({
         }
       });
       
-      toast.success(
-        tarefa.estado 
-          ? "Tarefa marcada como pendente" 
-          : "Tarefa marcada como concluída"
-      );
     } catch (error) {
       console.error("Erro ao atualizar estado:", error);
       toast.error("Erro ao atualizar estado da tarefa");

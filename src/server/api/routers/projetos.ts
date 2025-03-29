@@ -225,6 +225,126 @@ export const projetoRouter = createTRPCRouter({
       }
     }),
   
+  // Obter projetos para o dashboard (em destaque)
+  getProjetos: publicProcedure
+    .input(z.object({
+      estado: z.array(z.nativeEnum(ProjetoEstado)).optional(),
+      limit: z.number().int().min(1).max(10).optional().default(3),
+      orderBy: z.string().optional().default("updatedAt"),
+      order: z.enum(["asc", "desc"]).optional().default("desc"),
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { estado, limit, orderBy, order } = input;
+        
+        const where: Prisma.ProjetoWhereInput = {};
+        
+        if (estado && estado.length > 0) {
+          where.estado = {
+            in: estado
+          };
+        }
+        
+        const projetos = await ctx.db.projeto.findMany({
+          where,
+          take: limit,
+          orderBy: {
+            [orderBy]: order
+          },
+          include: {
+            responsavel: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            workpackages: {
+              include: {
+                tarefas: true,
+                recursos: true,
+                materiais: true
+              }
+            }
+          }
+        });
+        
+        // Calcular progresso físico e financeiro de cada projeto
+        return projetos.map(projeto => {
+          // Progresso físico: percentagem de tarefas concluídas
+          let totalTarefas = 0;
+          let tarefasConcluidas = 0;
+          
+          projeto.workpackages.forEach(wp => {
+            totalTarefas += wp.tarefas.length;
+            tarefasConcluidas += wp.tarefas.filter(tarefa => tarefa.estado === true).length;
+          });
+          
+          const progressoFisico = totalTarefas > 0 
+            ? Math.round((tarefasConcluidas / totalTarefas) * 100) 
+            : 0;
+            
+          // Progresso financeiro e orçamento
+          const orcamentoTotal = projeto.valor_eti ? Number(projeto.valor_eti) : 0;
+          
+          // Calcular custos de recursos (RH) e materiais
+          let custoMateriais = 0;
+          let custoRecursos = 0;
+          
+          // Soma dos custos de materiais
+          projeto.workpackages.forEach(wp => {
+            wp.materiais.forEach(material => {
+              custoMateriais += Number(material.preco) * material.quantidade;
+            });
+          });
+          
+          // Para recursos humanos, consideramos apenas alocações passadas
+          const dataAtual = new Date();
+          const anoAtual = dataAtual.getFullYear();
+          const mesAtual = dataAtual.getMonth() + 1;
+          
+          projeto.workpackages.forEach(wp => {
+            wp.recursos.forEach(alocacao => {
+              // Verificar se a alocação é passada
+              if (alocacao.ano < anoAtual || (alocacao.ano === anoAtual && alocacao.mes <= mesAtual)) {
+                // Calcular custo da alocação (simplificado)
+                // TODO: Implementar cálculo mais preciso baseado no salário do recurso
+                const ocupacao = alocacao.ocupacao ? Number(alocacao.ocupacao) : 0;
+                const valorEti = projeto.valor_eti ? Number(projeto.valor_eti) : 0;
+                custoRecursos += ocupacao * valorEti;
+              }
+            });
+          });
+          
+          const orcamentoUtilizado = custoMateriais + custoRecursos;
+          const progressoFinanceiro = orcamentoTotal > 0 
+            ? Math.round((orcamentoUtilizado / orcamentoTotal) * 100) 
+            : 0;
+          
+          return {
+            id: projeto.id,
+            nome: projeto.nome,
+            descricao: projeto.descricao,
+            inicio: projeto.inicio,
+            fim: projeto.fim,
+            estado: projeto.estado,
+            responsavel: projeto.responsavel,
+            progressoFisico,
+            progressoFinanceiro,
+            orcamentoTotal,
+            orcamentoUtilizado
+          };
+        });
+      } catch (error) {
+        console.error("Erro ao buscar projetos em destaque:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao buscar projetos em destaque",
+          cause: error
+        });
+      }
+    }),
+  
   // Obter projeto por ID
   findById: publicProcedure
     .input(z.string().uuid("ID do projeto inválido"))
