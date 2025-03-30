@@ -11,10 +11,15 @@ interface InformacoesTabProps {
 export function InformacoesTab({ onNavigateForward }: InformacoesTabProps) {
   const { state, dispatch } = useProjetoForm();
 
-  const updateField = (field: keyof ProjetoCreateInput, value: unknown) => {
+  // Usando um tipo explícito para os campos permitidos
+  type PermittedFields = "nome" | "descricao" | "inicio" | "fim" | "estado" | 
+                         "overhead" | "taxa_financiamento" | "valor_eti" | "financiamentoId";
+                       
+  const updateField = (field: PermittedFields, value: unknown) => {
     dispatch({ 
-      type: "UPDATE_PROJETO", 
-      data: { [field]: value } 
+      type: "SET_FIELD", 
+      field, 
+      value 
     });
   };
 

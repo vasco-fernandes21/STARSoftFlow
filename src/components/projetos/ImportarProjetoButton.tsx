@@ -304,7 +304,13 @@ function extrairDadosRH(
       console.log(`📦 WP: ${wpAtual.codigo} - ${wpAtual.nome}`);
     }
     // Também verifica workpackages implícitos (A1 sem código na coluna)
-    else if (!row[1] && row[2]?.startsWith("A1 -") && !wpAtual) {
+    else if (
+      !row[1] && 
+      row[2] && 
+      typeof row[2] === "string" && 
+      row[2].startsWith("A1 -") && 
+      !wpAtual
+    ) {
       wpAtual = {
         codigo: "A1",
         nome: row[2],
@@ -551,11 +557,11 @@ export default function ImportarProjetoButton() {
           dispatch({ type: "RESET" });
           
           // Atualizar os dados do projeto de uma só vez
-            dispatch({
-              type: "UPDATE_PROJETO",
-              data: {
+          dispatch({
+            type: "UPDATE_PROJETO",
+            data: {
               nome: nomeProjeto,
-                inicio: dataInicioProjeto,
+              inicio: dataInicioProjeto,
               fim: dataFimProjeto,
               overhead: overhead ? new Decimal(overhead / 100) : new Decimal(0),
               taxa_financiamento: taxaFinanciamento
@@ -581,7 +587,7 @@ export default function ImportarProjetoButton() {
                 tarefas: [],
                 materiais: [],
                 recursos: [],
-                projetoId: "seu-projeto-id-aqui",
+            
               },
             });
             
@@ -601,7 +607,6 @@ export default function ImportarProjetoButton() {
                     mes: alocacao.mes,
                     ano: alocacao.ano,
                     ocupacao: new Decimal(alocacao.percentagem / 100),
-                    workpackageId: wpId,
                   },
                 });
               });
@@ -621,7 +626,6 @@ export default function ImportarProjetoButton() {
                   quantidade: material.quantidade,
                   ano_utilizacao: material.ano_utilizacao,
                   rubrica: material.rubrica,
-                  workpackageId: wpId,
                   descricao: null,
                   estado: false
                 },

@@ -1,21 +1,36 @@
 import { createContext, useContext, useReducer, type ReactNode, useEffect } from "react";
-import { type Prisma, type Projeto, type Workpackage, type Tarefa, type Entregavel, type Material, type AlocacaoRecurso } from "@prisma/client";
+import { type Prisma, type Projeto, type Workpackage, type Tarefa, type Entregavel, type Material, type AlocacaoRecurso, type User } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { useSession } from "next-auth/react";
 
-// Tipo base do estado usando o modelo Projeto do Prisma com todas as relações
-type ProjetoState = Omit<Projeto, "id"> & {
-  workpackages: Array<
-    Omit<Workpackage, "projeto"> & {
-      tarefas: Array<
-        Omit<Tarefa, "workpackage"> & {
-          entregaveis: Omit<Entregavel, "tarefa">[];
-        }
-      >;
-      materiais: Omit<Material, "workpackage">[];
-      recursos: Omit<AlocacaoRecurso, "workpackage" | "user">[];
-    }
-  >;
+// Tipo para o responsável com campos relevantes
+type ResponsavelInfo = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  foto: string | null;
+  permissao: User["permissao"];
+};
+
+// Definir tipos para o estado
+type EntregavelState = Omit<Entregavel, "tarefaId">;
+type TarefaState = Omit<Tarefa, "workpackageId"> & { entregaveis: EntregavelState[] };
+type MaterialState = Omit<Material, "workpackageId">;
+// Remover AlocacaoRecursoState, pois não é utilizado diretamente
+type RecursoState = Omit<AlocacaoRecurso, "workpackageId" | "id">; 
+type WorkpackageState = Omit<Workpackage, "projetoId"> & { 
+  tarefas: TarefaState[]; 
+  materiais: MaterialState[];
+  recursos: RecursoState[];
+};
+
+// Exportar os tipos necessários
+export type { EntregavelState, TarefaState, MaterialState, RecursoState, WorkpackageState };
+
+// Tipo base do estado usando o modelo Projeto do Prisma
+type ProjetoState = Omit<Projeto, "id" | "responsavel" | "responsavelId"> & {
+  responsavel: ResponsavelInfo | null;
+  workpackages: WorkpackageState[];
 };
 
 // Estado inicial mais limpo
@@ -29,44 +44,42 @@ const initialState: ProjetoState = {
   taxa_financiamento: new Decimal(0),
   valor_eti: new Decimal(0),
   financiamentoId: null,
-  responsavelId: null,
+  responsavel: null,
   workpackages: []
 };
 
 // Ações atualizadas usando os tipos do Prisma
 type Action = 
-  | { type: "UPDATE_FIELD"; field: keyof Omit<ProjetoState, "workpackages">; value: any }
-  | { type: "ADD_WORKPACKAGE"; workpackage: ProjetoState["workpackages"][0] }
-  | { type: "UPDATE_WORKPACKAGE"; id: string; data: Partial<ProjetoState["workpackages"][0]> }
+  | { type: "SET_FIELD"; field: keyof Omit<ProjetoState, 'workpackages' | 'responsavel'>; value: any }
+  | { type: "SET_RESPONSAVEL"; responsavel: ResponsavelInfo | null }
+  | { type: "ADD_WORKPACKAGE"; workpackage: WorkpackageState }
+  | { type: "UPDATE_WORKPACKAGE"; id: string; data: Partial<WorkpackageState> }
   | { type: "REMOVE_WORKPACKAGE"; id: string }
-  | { type: "ADD_TAREFA"; workpackageId: string; tarefa: ProjetoState["workpackages"][0]["tarefas"][0] }
-  | { type: "UPDATE_TAREFA"; workpackageId: string; tarefaId: string; data: Partial<ProjetoState["workpackages"][0]["tarefas"][0]> }
+  | { type: "ADD_TAREFA"; workpackageId: string; tarefa: TarefaState }
+  | { type: "UPDATE_TAREFA"; workpackageId: string; tarefaId: string; data: Partial<TarefaState> }
   | { type: "REMOVE_TAREFA"; workpackageId: string; tarefaId: string }
-  | { type: "ADD_MATERIAL"; workpackageId: string; material: ProjetoState["workpackages"][0]["materiais"][0] }
+  | { type: "ADD_MATERIAL"; workpackageId: string; material: MaterialState }
+  | { type: "UPDATE_MATERIAL"; workpackageId: string; materialId: number; data: Partial<MaterialState> }
   | { type: "REMOVE_MATERIAL"; workpackageId: string; materialId: number }
-  | { type: "UPDATE_PROJETO"; data: Partial<ProjetoState> }
+  | { type: "ADD_ALOCACAO"; workpackageId: string; alocacao: RecursoState }
+  | { type: "UPDATE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number; data: Partial<RecursoState> }
+  | { type: "REMOVE_RECURSO_COMPLETO"; workpackageId: string; userId: string }
+  | { type: "SET_STATE"; state: ProjetoState }
   | { type: "RESET" }
-  | { type: "ADD_ALOCACAO"; workpackageId: string; alocacao: Omit<AlocacaoRecurso, "workpackage" | "user"> }
-  | { type: "UPDATE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number; data: Partial<Omit<AlocacaoRecurso, "workpackage" | "user">> }
-  | { type: "REMOVE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number }
-  | { type: "REMOVE_RECURSO_COMPLETO"; workpackageId: string; userId: string };
+  | { type: "UPDATE_PROJETO"; data: Partial<Omit<ProjetoState, 'workpackages' | 'responsavel'>> };
 
 function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
   switch (action.type) {
-    case "UPDATE_FIELD":
+    case "SET_FIELD":
       return { ...state, [action.field]: action.value };
+
+    case "SET_RESPONSAVEL":
+      return { ...state, responsavel: action.responsavel };
 
     case "ADD_WORKPACKAGE":
       return {
         ...state,
-        workpackages: [
-          ...state.workpackages,
-          {
-            ...action.workpackage,
-            inicio: action.workpackage.inicio,
-            fim: action.workpackage.fim
-          }
-        ]
+        workpackages: [...state.workpackages, action.workpackage]
       };
 
     case "UPDATE_WORKPACKAGE":
@@ -90,15 +103,7 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                tarefas: [
-                  ...wp.tarefas,
-                  {
-                    ...action.tarefa,
-                    workpackageId: action.workpackageId,
-                    entregaveis: action.tarefa.entregaveis || [],
-                    estado: false
-                  }
-                ]
+                tarefas: [...wp.tarefas, action.tarefa]
               }
             : wp
         )
@@ -136,14 +141,22 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                materiais: [
-                  ...wp.materiais,
-                  {
-                    ...action.material,
-                    id: action.material.id,
-                    workpackageId: action.workpackageId
-                  }
-                ]
+                materiais: [...wp.materiais, action.material]
+              }
+            : wp
+        )
+      };
+
+    case "UPDATE_MATERIAL":
+      return {
+        ...state,
+        workpackages: state.workpackages.map(wp =>
+          wp.id === action.workpackageId
+            ? {
+                ...wp,
+                materiais: wp.materiais.map(material =>
+                  material.id === action.materialId ? { ...material, ...action.data } : material
+                )
               }
             : wp
         )
@@ -159,12 +172,6 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
         )
       };
 
-    case "UPDATE_PROJETO":
-      return { ...state, ...action.data };
-
-    case "RESET":
-      return initialState;
-
     case "ADD_ALOCACAO":
       return {
         ...state,
@@ -172,13 +179,7 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                recursos: [
-                  ...(wp.recursos || []),
-                  {
-                    ...action.alocacao,
-                    workpackageId: action.workpackageId
-                  }
-                ]
+                recursos: [...wp.recursos, action.alocacao]
               }
             : wp
         )
@@ -191,28 +192,13 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                recursos: wp.recursos?.map(recurso =>
+                recursos: wp.recursos.map(recurso =>
                   recurso.userId === action.userId &&
                   recurso.mes === action.mes &&
                   recurso.ano === action.ano
                     ? { ...recurso, ...action.data }
                     : recurso
-                ) || []
-              }
-            : wp
-        )
-      };
-
-    case "REMOVE_ALOCACAO":
-      return {
-        ...state,
-        workpackages: state.workpackages.map(wp =>
-          wp.id === action.workpackageId
-            ? {
-                ...wp,
-                recursos: wp.recursos?.filter(
-                  r => !(r.userId === action.userId && r.mes === action.mes && r.ano === action.ano)
-                ) || []
+                )
               }
             : wp
         )
@@ -225,12 +211,22 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                recursos: wp.recursos?.filter(
-                  r => r.userId !== action.userId
-                ) || []
+                recursos: wp.recursos.filter(r => r.userId !== action.userId)
               }
             : wp
         )
+      };
+
+    case "SET_STATE":
+      return action.state;
+      
+    case "RESET":
+      return initialState;
+      
+    case "UPDATE_PROJETO":
+      return {
+        ...state,
+        ...action.data
       };
 
     default:
@@ -250,6 +246,7 @@ function convertStateToCreateInput(state: ProjetoState): Prisma.ProjetoCreateInp
     taxa_financiamento: state.taxa_financiamento,
     valor_eti: state.valor_eti,
     financiamento: state.financiamentoId ? { connect: { id: state.financiamentoId } } : undefined,
+    responsavel: state.responsavel ? { connect: { id: state.responsavel.id } } : undefined,
     workpackages: {
       create: state.workpackages.map(wp => ({
         nome: wp.nome,
@@ -296,7 +293,6 @@ function convertStateToCreateInput(state: ProjetoState): Prisma.ProjetoCreateInp
   };
 }
 
-// Contexto e Provider mantêm-se similares
 const ProjetoFormContext = createContext<{
   state: ProjetoState;
   dispatch: React.Dispatch<Action>;
@@ -306,15 +302,21 @@ export function ProjetoFormProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(projetoReducer, initialState);
   const { data: session } = useSession();
   
-  // Definir o responsavelId com o ID do utilizador logado
   useEffect(() => {
-    if (session?.user?.id && !state.responsavelId) {
+    const user = session?.user;
+    if (user?.id && !state.responsavel) {
       dispatch({ 
-        type: "UPDATE_PROJETO", 
-        data: { responsavelId: session.user.id } 
+        type: "SET_RESPONSAVEL", 
+        responsavel: {
+          id: user.id,
+          name: typeof user.name === 'string' ? user.name : null,
+          email: typeof user.email === 'string' ? user.email : null,
+          foto: typeof user.image === 'string' ? user.image : null,
+          permissao: "COMUM" // Valor padrão, idealmente viria da sessão
+        }
       });
     }
-  }, [session, state.responsavelId]);
+  }, [session, state.responsavel]);
 
   return (
     <ProjetoFormContext.Provider value={{ state, dispatch }}>

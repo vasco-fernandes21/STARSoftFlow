@@ -46,13 +46,13 @@ import { z } from "zod";
 // Interfaces e mapeamentos
 interface UserWithDetails {
   id: string;
-  name: string;
-  email: string;
+  name: string | null;
+  email: string | null;
   emailVerified: Date | null;
   foto: string | null;
   atividade: string;
-  contratacao: Date;
-  username: string;
+  contratacao: Date | null;
+  username: string | null;
   permissao: Permissao;
   regime: Regime;
   informacoes: string | null;
@@ -160,8 +160,8 @@ const calcularAnosExperiencia = (dataContratacao: Date | null | undefined) => {
 // Schema para validação do utilizador
 const utilizadorSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  email: z.string(),
+  name: z.string().nullable(),
+  email: z.string().email().nullable(),
   emailVerified: z.union([
     z.string().nullable(),
     z.date().nullable(),
@@ -172,11 +172,11 @@ const utilizadorSchema = z.object({
   contratacao: z.union([
     z.string(),
     z.date()
-  ]).transform(val => new Date(val)),
-  username: z.string(),
+  ]).nullable().transform(val => val ? new Date(val) : null),
+  username: z.string().nullable(),
   permissao: z.enum(["ADMIN", "GESTOR", "COMUM"]),
   regime: z.enum(["PARCIAL", "INTEGRAL"]),
-  informacoes: z.string().nullable(),
+  informacoes: z.string().nullable().optional(),
 });
 
 export default function PerfilUtilizador() {
@@ -326,13 +326,13 @@ export default function PerfilUtilizador() {
     const utilizadorComDetalhes: UserWithDetails = {
       ...validatedUser,
       id: validatedUser.id,
-      name: validatedUser.name,
-      email: validatedUser.email,
+      name: validatedUser.name ?? "Nome não disponível",
+      email: validatedUser.email ?? "Email não disponível",
       emailVerified: validatedUser.emailVerified,
       foto: validatedUser.foto,
       atividade: validatedUser.atividade ?? "",
       contratacao: validatedUser.contratacao,
-      username: validatedUser.username,
+      username: validatedUser.username ?? "Username não disponível",
       permissao: validatedUser.permissao,
       regime: validatedUser.regime,
       informacoes: validatedUser.informacoes

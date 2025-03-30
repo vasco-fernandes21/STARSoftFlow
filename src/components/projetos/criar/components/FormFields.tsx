@@ -23,7 +23,7 @@ interface BaseFieldProps {
   className?: string;
   id?: string;
   icon?: ReactNode;
-  _disabled?: boolean;
+  disabled?: boolean;
 }
 
 // FormLabel simplificado
@@ -61,7 +61,6 @@ interface TextFieldProps extends BaseFieldProps {
   placeholder?: string;
   type?: "text" | "email" | "tel" | "url";
   onBlur?: () => void;
-  _disabled?: boolean;
 }
 
 export function TextField({
@@ -76,9 +75,10 @@ export function TextField({
   id,
   icon,
   tooltip,
-  _disabled,
+  disabled,
   onBlur
 }: TextFieldProps) {
+  const _disabled = disabled;
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center gap-1.5">
@@ -90,8 +90,11 @@ export function TextField({
       <Input
         id={id}
         type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={value || ""}
+        onChange={(e) => {
+          console.log("TextField onChange:", e.target.value);  // Depuração
+          if (onChange) onChange(e.target.value);
+        }}
         placeholder={placeholder}
         className="border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30"
         required={required}
@@ -137,8 +140,9 @@ export function DecimalField({
   helpText,
   className = "",
   id,
-  _disabled
+  disabled
 }: DecimalFieldProps) {
+  const _disabled = disabled;
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
@@ -155,12 +159,13 @@ export function DecimalField({
           type="number"
           value={value ?? ""}  // Usa string vazia quando for null
           onChange={(e) => {
+            console.log("DecimalField onChange:", e.target.value);
             const val = e.target.value;
             if (val === "") {
-              onChange(null);
+              if (onChange) onChange(null);
             } else {
               const newValue = parseFloat(val);
-              onChange(isNaN(newValue) ? null : newValue);
+              if (onChange) onChange(isNaN(newValue) ? null : newValue);
             }
           }}
           className={cn(
@@ -200,13 +205,32 @@ export function MoneyField(props: Omit<DecimalFieldProps, "prefix" | "step" | "m
 
 // PercentageField atualizado
 export function PercentageField(props: Omit<DecimalFieldProps, "suffix" | "step" | "min" | "max">) {
+  // Componente modificado para exibir percentual como número inteiro (0-100)
+  // mas armazenar internamente como decimal (0-1)
+  const { value, onChange, ...restProps } = props;
+  
+  // Converter o valor decimal para exibição (0.85 -> 85)
+  const displayValue = value !== null ? value * 100 : null;
+  
+  // Função para converter o valor de entrada (85) para decimal (0.85)
+  const handleChange = (newValue: number | null) => {
+    if (newValue === null) {
+      onChange(null);
+    } else {
+      // Dividir por 100 para transformar em decimal
+      onChange(newValue / 100);
+    }
+  };
+
   return (
     <DecimalField
-      {...props}
+      {...restProps}
+      value={displayValue}
+      onChange={handleChange}
       suffix="%"
-      step={0.1}
+      step={1}
       min={0}
-      max={100}
+      max={10000}
     />
   );
 }
@@ -231,8 +255,9 @@ export function TextareaField({
   id,
   icon,
   tooltip,
-  _disabled
+  disabled
 }: TextareaFieldProps) {
+  const _disabled = disabled;
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center gap-1.5">
@@ -243,8 +268,11 @@ export function TextareaField({
       </div>
       <Textarea
         id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={value || ""}
+        onChange={(e) => {
+          console.log("TextareaField onChange:", e.target.value);
+          if (onChange) onChange(e.target.value);
+        }}
         placeholder={placeholder}
         className="border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 min-h-[100px] rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30"
         required={required}
@@ -275,8 +303,9 @@ export function DateField({
   helpText,
   className = "",
   id,
-  _disabled
+  disabled
 }: DateFieldProps) {
+  const _disabled = disabled;
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
@@ -284,7 +313,10 @@ export function DateField({
       </FormLabel>
       <DatePicker
         value={value ?? undefined}
-        onChange={(date) => onChange(date ?? null)}
+        onChange={(date) => {
+          console.log("DateField onChange:", date);
+          if (onChange) onChange(date ?? null);
+        }}
         minDate={minDate}
         maxDate={maxDate}
       />
@@ -317,7 +349,7 @@ export function SelectField({
   className = "",
   id,
   tooltip,
-  _disabled
+  disabled
 }: SelectFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -326,8 +358,11 @@ export function SelectField({
       </FormLabel>
       <Select
         value={value}
-        onValueChange={onChange}
-        disabled={_disabled}
+        onValueChange={(val) => {
+          console.log("SelectField onChange:", val);
+          if (onChange) onChange(val);
+        }}
+        disabled={disabled}
       >
         <SelectTrigger id={id} className="border-azul/20 focus:ring-1 focus:ring-azul/30">
           <SelectValue placeholder={placeholder} />
@@ -370,8 +405,9 @@ export function NumberField({
   helpText,
   className = "",
   id,
-  _disabled
+  disabled
 }: NumberFieldProps) {
+  const _disabled = disabled;
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
@@ -388,8 +424,9 @@ export function NumberField({
           type="number"
           value={value}
           onChange={(e) => {
+            console.log("NumberField onChange:", e.target.value);
             const newValue = e.target.value ? parseInt(e.target.value) : 0;
-            onChange(newValue);
+            if (onChange) onChange(newValue);
           }}
           className={cn(
             "border-azul/20 focus:border-azul focus:ring-1 focus:ring-azul/30",
@@ -440,9 +477,10 @@ export function DropdownField({
   className = "",
   id,
   tooltip,
-  _disabled,
+  disabled,
   triggerClassName
 }: DropdownFieldProps) {
+  const _disabled = disabled;
   const selectedOption = options.find(opt => opt.value === value);
 
   return (

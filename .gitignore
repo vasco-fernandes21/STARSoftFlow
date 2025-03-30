@@ -5,6 +5,10 @@
 /.pnp
 .pnp.js
 
+#Cursor
+.cursorrules
+/.cursor
+
 # testing
 /coverage
 

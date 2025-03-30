@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import React from "react";
 import type { Decimal } from "decimal.js";
 import { Form } from "./form";
+import { Item } from "./item";
 import { api } from "@/trpc/react";
 
 interface RecursosTabProps {
@@ -89,6 +90,21 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
       return acc;
     }, {});
   }, [selectedWorkpackage]);
+
+  // Converter alocacoes para o formato esperado pelo componente Item
+  const converterParaAlocacoesPorAnoMes = (alocacoes: Array<{ mes: number; ano: number; ocupacao: number }>) => {
+    return alocacoes.reduce((acc: Record<string, Record<number, number>>, alocacao) => {
+      const { ano, mes, ocupacao } = alocacao;
+      
+      if (!acc[ano]) {
+        acc[ano] = {};
+      }
+      
+      acc[ano][mes] = ocupacao * 100; // Converter para porcentagem
+      
+      return acc;
+    }, {});
+  };
 
   // Função para adicionar alocação
   const handleAddAlocacao = (workpackageId: string, alocacoes: Array<{
@@ -306,67 +322,33 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                   {Object.values(recursosAgrupados).map(recurso => {
                     const user = membrosEquipa.find((m: MembroEquipa) => m.id === recurso.userId);
                     const isExpanded = expandedRecursoId === recurso.userId;
-                    const isEditing = editingRecursoId === recurso.userId;
+                    
+                    if (!user) return null;
+                    
+                    // Converter as alocações para o formato esperado pelo componente Item
+                    const alocacoesPorAnoMes = converterParaAlocacoesPorAnoMes(recurso.alocacoes);
                     
                     return (
-                      <div 
-                        key={recurso.userId} 
-                        className="border rounded-lg overflow-hidden bg-white"
-                      >
-                        <div className="p-4 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-azul/10 flex items-center justify-center text-azul">
-                              {user?.name?.charAt(0) || "U"}
-                            </div>
-                            <div>
-                              <div className="font-medium">{user?.name || 'Utilizador desconhecido'}</div>
-                              <div className="text-xs text-gray-500">{user?.email || ''}</div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => {
-                                setEditingRecursoId(recurso.userId);
-                                setAddingRecurso(true);
-                                setRecursoEmEdicao(recurso);
-                              }}
-                            >
-                              Editar
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleRemoveRecurso(selectedWorkpackageId, recurso.userId, recurso.alocacoes)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => setExpandedRecursoId(isExpanded ? null : recurso.userId)}
-                            >
-                              {isExpanded ? "Colapsar" : "Expandir"}
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {isExpanded && !isEditing && (
-                          <div className="p-4 bg-gray-50 border-t">
-                            <p className="text-sm font-medium mb-2">Alocações</p>
-                            <div className="text-sm text-gray-600">
-                              {recurso.alocacoes.map((a, i) => (
-                                <div key={i} className="flex items-center justify-between py-1">
-                                  <span>{formatarDataSegura(a.ano, a.mes, 'MMMM/yyyy')}</span>
-                                  <span className="font-medium">{(Number(a.ocupacao) * 100).toFixed(0)}%</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <Item 
+                        key={recurso.userId}
+                        user={{
+                          id: user.id,
+                          name: user.name || "Utilizador desconhecido",
+                          email: user.email || "",
+                          regime: user.regime
+                        }}
+                        alocacoesPorAnoMes={alocacoesPorAnoMes}
+                        isExpanded={isExpanded}
+                        onToggleExpand={() => setExpandedRecursoId(isExpanded ? null : recurso.userId)}
+                        onEdit={() => {
+                          setEditingRecursoId(recurso.userId);
+                          setAddingRecurso(true);
+                          setRecursoEmEdicao(recurso);
+                        }}
+                        onRemove={() => handleRemoveRecurso(selectedWorkpackageId, recurso.userId, recurso.alocacoes)}
+                        inicio={selectedWorkpackage.inicio || new Date()}
+                        fim={selectedWorkpackage.fim || new Date()}
+                      />
                     );
                   })}
                 </div>

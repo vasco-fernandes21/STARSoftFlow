@@ -159,18 +159,17 @@ export function GerirFinanciamentosModal({
       return;
     }
 
-    // Validar se todos os campos numéricos estão preenchidos
-    if (novoFinanciamento.overhead === null || 
-        novoFinanciamento.taxa_financiamento === null || 
+    // Validar apenas taxa de financiamento e valor ETI como obrigatórios
+    if (novoFinanciamento.taxa_financiamento === null || 
         novoFinanciamento.valor_eti === null) {
-      toast.error("Todos os campos numéricos são obrigatórios");
+      toast.error("Taxa de financiamento e Valor ETI são obrigatórios");
       return;
     }
 
     const dadosParaEnviar = {
       nome: novoFinanciamento.nome,
-      overhead: novoFinanciamento.overhead,
-      taxa_financiamento: novoFinanciamento.taxa_financiamento,
+      overhead: novoFinanciamento.overhead !== null ? novoFinanciamento.overhead / 100 : 0, // Converte para decimal (25 -> 0.25)
+      taxa_financiamento: novoFinanciamento.taxa_financiamento / 100, // Converte para decimal (85 -> 0.85)
       valor_eti: novoFinanciamento.valor_eti
     };
 
@@ -188,8 +187,8 @@ export function GerirFinanciamentosModal({
     setModoEdicao(financiamento.id);
     setNovoFinanciamento({
       nome: financiamento.nome,
-      overhead: Number(financiamento.overhead),
-      taxa_financiamento: Number(financiamento.taxa_financiamento),
+      overhead: Number(financiamento.overhead) * 100, // Converte para percentagem (0.25 -> 25)
+      taxa_financiamento: Number(financiamento.taxa_financiamento) * 100, // Converte para percentagem (0.85 -> 85)
       valor_eti: Number(financiamento.valor_eti)
     });
   };
@@ -257,8 +256,7 @@ export function GerirFinanciamentosModal({
                 min={0}
                 max={100}
                 step={0.01}
-                required
-                tooltip="Percentagem de overhead aplicada ao financiamento"
+                tooltip="Percentagem de overhead aplicada ao financiamento (opcional)"
               />
               
               <DecimalField
@@ -320,11 +318,11 @@ export function GerirFinanciamentosModal({
                       <div>
                         <h4 className="font-medium text-azul">{financiamento.nome}</h4>
                         <div className="mt-2 space-y-1 text-sm text-azul/80">
-                          <p>Overhead: {(Number(financiamento.overhead)).toLocaleString('pt-PT', {
+                          <p>Overhead: {Number(financiamento.overhead).toLocaleString('pt-PT', {
                             style: 'percent',
                             minimumFractionDigits: 2
                           })}</p>
-                          <p>Taxa: {(Number(financiamento.taxa_financiamento)).toLocaleString('pt-PT', {
+                          <p>Taxa: {Number(financiamento.taxa_financiamento).toLocaleString('pt-PT', {
                             style: 'percent',
                             minimumFractionDigits: 2
                           })}</p>

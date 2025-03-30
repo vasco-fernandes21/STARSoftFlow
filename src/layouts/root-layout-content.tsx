@@ -21,8 +21,10 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen w-full overflow-hidden bg-bgApp text-foreground">
         <div className="w-64 bg-slate-900" />
-        <main className="flex-1 overflow-y-auto relative">
-          {children}
+        <main className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            {children}
+          </div>
         </main>
       </div>
     );
@@ -37,12 +39,14 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bgApp text-foreground">
       <AppSidebar />
-      <main className="flex-1 overflow-y-auto relative">
-        <AlertDialogProvider>
-          <ProjetoFormProvider>
-            {children}
-          </ProjetoFormProvider>
-        </AlertDialogProvider>
+      <main className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          <AlertDialogProvider>
+            <ProjetoFormProvider>
+              {children}
+            </ProjetoFormProvider>
+          </AlertDialogProvider>
+        </div>
       </main>
     </div>
   );

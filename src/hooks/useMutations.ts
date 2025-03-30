@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import type { Rubrica } from "@prisma/client";
+import type { Rubrica, ProjetoEstado } from "@prisma/client";
+import { getQueryKey } from "@trpc/react-query";
 
 // Types for updates
 interface WorkpackageUpdate {
@@ -89,6 +90,18 @@ interface EntregavelUpdate {
   };
 }
 
+interface UpdateProjetoData {
+  nome?: string;
+  descricao?: string;
+  inicio?: Date;
+  fim?: Date;
+  overhead?: number;
+  taxa_financiamento?: number;
+  valor_eti?: number;
+  financiamentoId?: number;
+  estado?: ProjetoEstado;
+}
+
 // Helper function to ensure date is in ISO string format
 function ensureDateString(value: any): string | null {
   if (!value) return null;
@@ -97,8 +110,9 @@ function ensureDateString(value: any): string | null {
   return null;
 }
 
-export function useMutations(projetoId?: string) {
+export function useMutations(projetoId: string) {
   const queryClient = useQueryClient();
+  const projetoKey = getQueryKey(api.projeto.findById, projetoId);
 
   // Helper function to invalidate project-related queries
   const invalidateProjetoRelatedQueries = async (specificProjetoId?: string) => {
@@ -120,6 +134,42 @@ export function useMutations(projetoId?: string) {
     await queryClient.refetchQueries({
       type: 'active'
     });
+  };
+
+  // Projeto mutations
+  const projetoMutations = {
+    update: api.projeto.update.useMutation({
+      onMutate: async (variables: UpdateProjetoData) => {
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({ queryKey: projetoKey });
+
+        // Snapshot the previous value
+        const previousProjeto = queryClient.getQueryData(projetoKey);
+
+        // Optimistically update to the new value
+        queryClient.setQueryData(projetoKey, (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            ...variables,
+          };
+        });
+
+        // Return a context object with the snapshotted value
+        return { previousProjeto };
+      },
+      onError: (err, variables, context) => {
+        // If the mutation fails, use the context returned from onMutate to roll back
+        if (context?.previousProjeto) {
+          queryClient.setQueryData(projetoKey, context.previousProjeto);
+        }
+        toast.error("Erro ao atualizar projeto");
+      },
+      onSettled: () => {
+        // Always refetch after error or success
+        void queryClient.invalidateQueries({ queryKey: projetoKey });
+      },
+    }),
   };
 
   // Workpackage mutations
@@ -582,6 +632,7 @@ export function useMutations(projetoId?: string) {
   });
 
   return {
+    projeto: projetoMutations,
     workpackage: workpackageMutations,
     tarefa: tarefaMutations,
     entregavel: entregavelMutations,

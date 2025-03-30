@@ -6,11 +6,11 @@ import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { CalendarClock, Users, LineChart, DollarSign, ArrowLeft, FileText, Calendar, Package } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import type { ProjetoEstado } from "@prisma/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { EditarProjeto } from "@/components/projetos/EditarProjeto";
 
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));
@@ -19,86 +19,62 @@ const ProjetoRecursos = lazy(() => import("@/components/projetos/tabs/ProjetoRec
 const ProjetoMateriais = lazy(() => import("@/components/projetos/tabs/ProjetoMateriais"));
 const VisaoGeral = lazy(() => import("@/components/projetos/tabs/VisaoGeral"));
 
-// Mapeamento de estados para texto
-const ESTADO_MAP: Record<ProjetoEstado, string> = {
-  RASCUNHO: "Rascunho",
-  PENDENTE: "Pendente",
-  APROVADO: "Aprovado",
-  EM_DESENVOLVIMENTO: "Em Desenvolvimento",
-  CONCLUIDO: "Concluído",
-};
-
 // Componente para o breadcrumb
 const ProjectBreadcrumb = memo(({ nome, estado, onBack }: { 
   nome: string, 
   estado: ProjetoEstado, 
-  onBack: () => void 
+  onBack: () => void
 }) => (
-  <div className="sticky top-3 z-10 bg-gradient-to-b from-gray-50/90 to-transparent backdrop-blur-[2px] pt-2 pb-1 px-4">
-    <div className="max-w-8xl mx-auto">
-      <div className="flex items-center">
-        <div className="flex items-center gap-1.5 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm hover:shadow-md transition-all duration-300 border border-white/40 group">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            className="flex items-center gap-1.5 h-6 px-1.5 py-0 hover:bg-blue-50 transition-colors"
-            aria-label="Voltar para projetos"
-          >
-            <ArrowLeft className="h-3 w-3 text-gray-600 group-hover:text-customBlue transition-colors" />
-            <span className="text-gray-600 hover:text-customBlue font-medium transition-colors text-sm hidden sm:inline-flex">
-              Projetos
-            </span>
-          </Button>
-          
-          <span className="text-gray-400">/</span>
-          
-          <div className="flex items-center gap-1.5 transition-all duration-300 hover:bg-white/90 rounded-full pl-1 pr-2 py-0.5">
-            <div className={cn(
-              "h-2 w-2 rounded-full transition-colors duration-300",
-              estado === "CONCLUIDO"
-                ? "bg-emerald-500"
-                : estado === "PENDENTE"
-                ? "bg-amber-500"
-                : "bg-blue-500"
-            )}></div>
-            <span className="text-sm truncate max-w-[300px] sm:max-w-[400px] font-medium text-gray-800" title={nome}>
-              {nome.length > 30 ? `${nome.substring(0, 30)}...` : nome}
-            </span>
-          </div>
-        </div>
+  <div className="flex items-center justify-between w-full -ml-2">
+    <div className="flex items-center text-sm font-medium">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onBack}
+        className="flex items-center gap-1 h-7 px-2 py-0 text-gray-500 hover:text-azul"
+        aria-label="Voltar para projetos"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span>Projetos</span>
+      </Button>
+      <span className="text-gray-400 mx-1">/</span>
+      <div className="flex items-center gap-1.5">
+        <div className={cn(
+          "h-2 w-2 rounded-full",
+          estado === "CONCLUIDO"
+            ? "bg-emerald-500"
+            : estado === "PENDENTE"
+            ? "bg-amber-500"
+            : "bg-blue-500"
+        )}></div>
+        <span className="truncate max-w-[300px] sm:max-w-[400px] text-gray-700" title={nome}>
+          {nome.length > 30 ? `${nome.substring(0, 30)}...` : nome}
+        </span>
       </div>
     </div>
   </div>
 ));
 
 // Componente para o cabeçalho do projeto
-const ProjectHeader = memo(({ nome, estado, descricao }: {
+const ProjectHeader = memo(({ nome, descricao, editTrigger }: {
   nome: string;
-  estado: ProjetoEstado;
   descricao?: string | null;
+  editTrigger?: React.ReactNode;
 }) => (
-  <div className="flex flex-col gap-2 mt-1 ml-3">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">{nome}</h1>
-        <Badge
-          variant="outline"
-          className={cn(
-            estado === "CONCLUIDO"
-              ? "bg-emerald-50/70 text-emerald-600 border-emerald-200"
-              : estado === "PENDENTE"
-              ? "bg-amber-50/70 text-amber-600 border-amber-200"
-              : "bg-blue-50/70 text-customBlue border-blue-200"
-          )}
-        >
-          {ESTADO_MAP[estado]}
-        </Badge>
-      </div>
+  <div className="w-full space-y-3">
+    <div className="flex items-center gap-3">
+      <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+        {nome}
+      </h1>
+      {editTrigger}
     </div>
     
     {descricao && (
-      <p className="text-sm text-gray-500">{descricao}</p>
+      <div className="w-full">
+        <p className="text-base text-gray-500 leading-relaxed">
+          {descricao}
+        </p>
+      </div>
     )}
   </div>
 ));
@@ -130,7 +106,7 @@ const StatisticsCards = memo(({
           <FileText className="h-5 w-5 text-customBlue" />
         </div>
         <div>
-          <p className="text-sm text-gray-500">Work Packages</p>
+          <p className="text-sm text-gray-500">WorkPackages</p>
           <p className="text-2xl font-semibold">{workpackagesCount}</p>
         </div>
       </CardContent>
@@ -203,50 +179,6 @@ const StatisticsCards = memo(({
   </div>
 ));
 
-// Componente para a tab de Overview
-const OverviewTab = memo(({ 
-  dataInicio, 
-  dataFim, 
-  duracaoMeses, 
-  financiamento 
-}: {
-  dataInicio: Date | null;
-  dataFim: Date | null;
-  duracaoMeses: number;
-  financiamento?: { nome: string } | null;
-}) => (
-  <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-    <CardHeader className="border-b border-white/10 px-6 py-4 bg-white/70 backdrop-blur-sm">
-      <CardTitle className="text-lg font-semibold text-gray-900">Detalhes do Projeto</CardTitle>
-    </CardHeader>
-    <CardContent className="p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        <div className="space-y-4">
-          <h3 className="font-medium text-gray-700">Informações Gerais</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Data de Início</p>
-              <p className="font-medium">{dataInicio?.toLocaleDateString("pt-BR") || "N/A"}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Data de Fim</p>
-              <p className="font-medium">{dataFim?.toLocaleDateString("pt-BR") || "N/A"}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Duração</p>
-              <p className="font-medium">{duracaoMeses} meses</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Financiamento</p>
-              <p className="font-medium">{financiamento?.nome || "Nenhum"}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-));
-
 // Componente para as tabs
 const ProjectTabs = memo(({ 
   separadorAtivo, 
@@ -289,12 +221,12 @@ const ProjectTabs = memo(({
       </TabsList>
     </div>
 
-    <div className="flex-1 overflow-y-auto">
-      <TabsContent value="cronograma" className="mt-6">
+    <div className="flex-1 mt-3 min-h-[calc(100vh-250px)]">
+      <TabsContent value="cronograma" className="h-full">
         {calculatedValues.dataInicio && calculatedValues.dataFim && (
           <Suspense fallback={<div>A carregar cronograma...</div>}>
-            <Card className="glass-card border-white/20 shadow-xl overflow-hidden rounded-2xl">
-              <div className="h-[calc(100vh-420px)]">
+            <Card className="glass-card border-white/20 shadow-xl overflow-hidden rounded-2xl h-full">
+              <div className="h-full">
                 <CronogramaTab
                   projeto={projeto}
                   workpackages={projeto.workpackages}
@@ -314,15 +246,15 @@ const ProjectTabs = memo(({
         )}
       </TabsContent>
 
-      <TabsContent value="overview" className="mt-4">
+      <TabsContent value="overview" className="h-full">
         <Suspense fallback={<div>A carregar visão geral...</div>}>
-          <VisaoGeral projetoId={projeto.id} />
+          <VisaoGeral projeto={projeto} />
         </Suspense>
       </TabsContent>
 
-      <TabsContent value="resources" className="mt-4">
-        <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-          <CardContent className="p-6">
+      <TabsContent value="resources" className="h-full">
+        <Card className="glass-card border-white/20 shadow-xl rounded-2xl h-full">
+          <CardContent className="p-6 h-full">
             <Suspense fallback={<div>A carregar dados de recursos...</div>}>
               <ProjetoRecursos projetoId={projeto.id} />
             </Suspense>
@@ -330,9 +262,9 @@ const ProjectTabs = memo(({
         </Card>
       </TabsContent>
 
-      <TabsContent value="materials" className="mt-4">
-        <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-          <CardContent className="p-6">
+      <TabsContent value="materials" className="h-full">
+        <Card className="glass-card border-white/20 shadow-xl rounded-2xl h-full">
+          <CardContent className="p-6 h-full">
             <Suspense fallback={<div>A carregar dados de materiais...</div>}>
               <ProjetoMateriais projetoId={projeto.id} />
             </Suspense>
@@ -340,9 +272,9 @@ const ProjectTabs = memo(({
         </Card>
       </TabsContent>
 
-      <TabsContent value="finances" className="mt-4">
-        <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
-          <CardContent className="p-6">
+      <TabsContent value="finances" className="h-full">
+        <Card className="glass-card border-white/20 shadow-xl rounded-2xl h-full">
+          <CardContent className="p-6 h-full">
             <Suspense fallback={<div>A carregar finanças...</div>}>
               <ProjetoFinancas projetoId={projeto.id} />
             </Suspense>
@@ -357,7 +289,7 @@ const ProjectTabs = memo(({
 export default function DetalheProjeto() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const [separadorAtivo, setSeparadorAtivo] = useState("overview");
+  const [separadorAtivo, setSeparadorAtivo] = useState("cronograma");
   const queryClient = useQueryClient();
 
   // Query principal do projeto
@@ -365,6 +297,36 @@ export default function DetalheProjeto() {
     enabled: !!id,
     staleTime: 30 * 1000, // 30 segundos
   });
+
+  // Query para obter os financiamentos
+  const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 }, {
+    enabled: !!id,
+  });
+
+  const financiamentos = useMemo(() => {
+    if (!financiamentosData?.items) return [];
+    return financiamentosData.items.map(item => ({
+      id: item.id,
+      nome: item.nome
+    }));
+  }, [financiamentosData]);
+
+  // Preparar dados do projeto para o componente EditarProjeto
+  const projetoFormatado = useMemo(() => {
+    if (!projeto) return null;
+    return {
+      id: projeto.id,
+      nome: projeto.nome,
+      descricao: projeto.descricao,
+      inicio: projeto.inicio,
+      fim: projeto.fim,
+      overhead: Number(projeto.overhead || 0),
+      taxa_financiamento: Number(projeto.taxa_financiamento || 0),
+      valor_eti: Number(projeto.valor_eti || 0),
+      financiamentoId: projeto.financiamentoId,
+      responsavel: projeto.responsavel
+    };
+  }, [projeto]);
 
   // Callbacks memorizados
   const handleBack = useCallback(() => router.push('/projetos'), [router]);
@@ -409,6 +371,11 @@ export default function DetalheProjeto() {
     };
   }, [projeto]);
 
+  // Verifica se o projeto tem responsável
+  const temResponsavel = useMemo(() => {
+    return projeto?.responsavel !== null && projeto?.responsavel !== undefined;
+  }, [projeto]);
+
   // Loading e error states
   if (isLoading) {
     return (
@@ -419,7 +386,7 @@ export default function DetalheProjeto() {
     );
   }
 
-  if (error || !projeto || !calculatedValues) {
+  if (error || !projeto || !calculatedValues || !projetoFormatado) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-500">
         Erro ao carregar o projeto ou projeto não encontrado.
@@ -437,41 +404,46 @@ export default function DetalheProjeto() {
   } = calculatedValues;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 custom-blue-blur">
-      <div className="flex-1 overflow-y-auto">
-        <ProjectBreadcrumb 
-          nome={projeto.nome} 
-          estado={projeto.estado} 
-          onBack={handleBack} 
+    <div className="h-full bg-[#F6F8FA] p-8">
+      <div className="max-w-8xl mx-auto space-y-4">
+        <ProjectBreadcrumb
+          nome={projeto.nome}
+          estado={projeto.estado}
+          onBack={handleBack}
+        />
+        
+        <ProjectHeader
+          nome={projeto.nome}
+          descricao={projeto.descricao}
+          editTrigger={
+            temResponsavel && projetoFormatado ? (
+              <EditarProjeto 
+                projeto={projetoFormatado} 
+                financiamentos={financiamentos}
+              />
+            ) : null
+          }
         />
 
-        <div className="max-w-8xl mx-auto p-4 space-y-4">
-          <ProjectHeader 
-            nome={projeto.nome} 
-            estado={projeto.estado} 
-            descricao={projeto.descricao} 
-          />
+        <StatisticsCards
+          workpackagesCount={projeto.workpackages.length}
+          totalTarefas={totalTarefas}
+          tarefasConcluidas={tarefasConcluidas}
+          tarefasPendentes={tarefasPendentes}
+          dataInicio={dataInicio}
+          dataFim={dataFim}
+          duracaoMeses={duracaoMeses}
+          progresso={projeto.progresso}
+        />
 
-          <StatisticsCards 
-            workpackagesCount={projeto.workpackages.length}
-            totalTarefas={totalTarefas}
-            tarefasConcluidas={tarefasConcluidas}
-            tarefasPendentes={tarefasPendentes}
-            dataInicio={dataInicio}
-            dataFim={dataFim}
-            duracaoMeses={duracaoMeses}
-            progresso={projeto.progresso}
-          />
-
-          <ProjectTabs
-            separadorAtivo={separadorAtivo}
-            onTabChange={setSeparadorAtivo}
-            projeto={projeto}
-            calculatedValues={calculatedValues}
-            onUpdateWorkPackage={handleUpdateWorkPackage}
-            onUpdateTarefa={handleUpdateTarefa}
-          />
-        </div>
+        <ProjectTabs
+          separadorAtivo={separadorAtivo}
+          onTabChange={setSeparadorAtivo}
+          projeto={projeto}
+          calculatedValues={calculatedValues}
+          onUpdateWorkPackage={handleUpdateWorkPackage}
+          onUpdateTarefa={handleUpdateTarefa}
+        />
       </div>
     </div>
   );

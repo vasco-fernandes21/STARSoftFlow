@@ -18,7 +18,7 @@ type FinanciamentoAPI = {
   valor_eti: string;
 };
 
-// Tipo para conversão interna
+// Tipo para os dados formatados
 type FinanciamentoInterno = {
   id: number;
   nome: string;
@@ -27,9 +27,11 @@ type FinanciamentoInterno = {
   valor_eti: Decimal;
 };
 
-interface FinanciamentoResponse {
+// Tipo para a resposta da API
+type FinanciamentoResponse = {
   items: FinanciamentoAPI[];
-}
+  total: number;
+};
 
 interface FinancasTabProps {
   onNavigateForward: () => void;
@@ -53,7 +55,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
 
   const handleOverheadChange = (value: number | null) => {
     dispatch({
-      type: "UPDATE_FIELD",
+      type: "SET_FIELD",
       field: "overhead",
       value: value ?? 0
     });
@@ -61,7 +63,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
 
   const handleTaxaFinanciamentoChange = (value: number | null) => {
     dispatch({
-      type: "UPDATE_FIELD",
+      type: "SET_FIELD",
       field: "taxa_financiamento",
       value: value ?? 0
     });
@@ -69,7 +71,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
 
   const handleValorEtiChange = (value: number | null) => {
     dispatch({
-      type: "UPDATE_FIELD",
+      type: "SET_FIELD",
       field: "valor_eti",
       value: value ?? 0
     });
@@ -82,18 +84,27 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
     
     if (selectedFinanciamento) {
       dispatch({
-        type: "UPDATE_FIELD",
+        type: "SET_FIELD",
         field: "financiamentoId",
         value: selectedFinanciamento.id
       });
 
       dispatch({
-        type: "UPDATE_PROJETO",
-        data: {
-          overhead: selectedFinanciamento.overhead,
-          taxa_financiamento: selectedFinanciamento.taxa_financiamento,
-          valor_eti: selectedFinanciamento.valor_eti
-        }
+        type: "SET_FIELD",
+        field: "overhead",
+        value: selectedFinanciamento.overhead
+      });
+      
+      dispatch({
+        type: "SET_FIELD",
+        field: "taxa_financiamento",
+        value: selectedFinanciamento.taxa_financiamento
+      });
+      
+      dispatch({
+        type: "SET_FIELD",
+        field: "valor_eti",
+        value: selectedFinanciamento.valor_eti
       });
     }
   };
@@ -108,18 +119,27 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
     };
 
     dispatch({
-      type: "UPDATE_FIELD",
+      type: "SET_FIELD",
       field: "financiamentoId",
       value: financiamentoInterno.id
     });
 
     dispatch({
-      type: "UPDATE_PROJETO",
-      data: {
-        overhead: financiamentoInterno.overhead,
-        taxa_financiamento: financiamentoInterno.taxa_financiamento,
-        valor_eti: financiamentoInterno.valor_eti
-      }
+      type: "SET_FIELD",
+      field: "overhead",
+      value: financiamentoInterno.overhead
+    });
+    
+    dispatch({
+      type: "SET_FIELD",
+      field: "taxa_financiamento",
+      value: financiamentoInterno.taxa_financiamento
+    });
+    
+    dispatch({
+      type: "SET_FIELD",
+      field: "valor_eti",
+      value: financiamentoInterno.valor_eti
     });
   };
 

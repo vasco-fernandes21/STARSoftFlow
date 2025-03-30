@@ -851,8 +851,8 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         innerRadius={100}
                         label={({name, value}) => `${name}: ${formatNumber(value, 1)} ETI`}
                       >
-                        {alocacoesPorRecurso.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        {alocacoesPorRecurso.map((recurso, index) => (
+                          <Cell key={`cell-${recurso.userId}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                       <RechartsTooltip
@@ -930,7 +930,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                                     .find(w => w.id === wp.id)
                                     ?.recursos.slice(0, 3)
                                     .map((recurso) => (
-                                      <Avatar key={recurso.userId} className="h-6 w-6 border-2 border-white">
+                                      <Avatar key={`${wp.id}-${recurso.userId}-${recurso.ano}`} className="h-6 w-6 border-2 border-white">
                                         <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
                                           {(recurso.user.name?.charAt(0) || "U").toUpperCase()}
                                         </AvatarFallback>
@@ -1061,7 +1061,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                               .find(w => w.id === wp.id)
                               ?.recursos.slice(0, 4)
                               .map((recurso) => (
-                                <Avatar key={recurso.userId} className="h-6 w-6 border-2 border-white">
+                                <Avatar key={`${wp.id}-${recurso.userId}-${recurso.ano}`} className="h-6 w-6 border-2 border-white">
                                   <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
                                     {(recurso.user.name?.charAt(0) || "U").toUpperCase()}
                                   </AvatarFallback>
@@ -1104,8 +1104,8 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                           innerRadius={100}
                           paddingAngle={2}
                         >
-                          {alocacoesPorWorkpackage.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          {alocacoesPorWorkpackage.map((wp, index) => (
+                            <Cell key={`cell-${wp.id}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
                         <RechartsTooltip
@@ -1234,7 +1234,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                                 
                                 return (
                                   <div 
-                                    key={wp.id} 
+                                    key={`${recurso.userId}-${wp.id}`} 
                                     className={`${wpBadgeClass} border rounded-md p-2`}
                                   >
                                     <div className="flex justify-between text-xs mb-1.5">

@@ -24,7 +24,18 @@ export const projetoBaseSchema = z.object({
 export const createProjetoSchema = projetoBaseSchema;
 
 // Schema para atualização de projeto
-export const updateProjetoSchema = projetoBaseSchema.partial();
+export const updateProjetoSchema = z.object({
+  id: z.string().uuid("ID do projeto inválido"),
+  nome: z.string().optional(),
+  descricao: z.string().optional(),
+  inicio: z.date().optional(),
+  fim: z.date().optional(),
+  overhead: z.number().optional(),
+  taxa_financiamento: z.number().optional(),
+  valor_eti: z.number().optional(),
+  financiamentoId: z.number().optional(),
+  estado: z.enum(["RASCUNHO", "PENDENTE", "APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"]).optional(),
+});
 
 // Schema para filtros de projeto
 export const projetoFilterSchema = z.object({
@@ -754,6 +765,91 @@ export const projetoRouter = createTRPCRouter({
       }
     }),
   
+  // Nova rota para obter projetos com dados financeiros para o dashboard do admin
+  findAllWithFinancialData: publicProcedure
+    .input(z.object({
+      limit: z.number().optional().default(10),
+      cursor: z.string().nullish(),
+      estado: z.nativeEnum(ProjetoEstado).optional(),
+      includeFinancialDetails: z.boolean().optional().default(false)
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { limit, cursor, estado, includeFinancialDetails } = input;
+        const skip = cursor ? 1 : 0;
+        
+        // query conditions
+        const where: Prisma.ProjetoWhereInput = {};
+        if (estado) {
+          where.estado = estado;
+        }
+        
+        // execute query
+        const items = await ctx.db.projeto.findMany({
+          take: limit + 1,
+          skip,
+          cursor: cursor ? { id: cursor } : undefined,
+          orderBy: {
+            id: 'desc'
+          },
+          where,
+          include: {
+            responsavel: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        });
+        
+        const nextCursor = items.length > limit ? items[limit - 1]!.id : null;
+        const projetosBase = items.slice(0, limit);
+        
+        // If financial details are requested, fetch them for each project
+        let projetosWithFinances = projetosBase;
+        
+        if (includeFinancialDetails) {
+          projetosWithFinances = await Promise.all(
+            projetosBase.map(async (projeto) => {
+              try {
+                // Use the existing getTotaisFinanceiros function
+                const financasData = await getTotais(ctx.db, projeto.id, { incluirDetalhesPorAno: true });
+                return {
+                  ...projeto,
+                  financas: financasData,
+                };
+              } catch (error) {
+                console.error(`Error fetching finances for project ${projeto.id}:`, error);
+                return {
+                  ...projeto,
+                  financas: null,
+                };
+              }
+            })
+          );
+        }
+        
+        return {
+          items: projetosWithFinances,
+          nextCursor,
+          pagination: {
+            total: await ctx.db.projeto.count({ where }),
+            pageSize: limit,
+            page: cursor ? Math.floor(skip / limit) + 1 : 1,
+          },
+        };
+      } catch (error) {
+        console.error("Erro ao listar projetos com dados financeiros:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao listar projetos com dados financeiros",
+          cause: error
+        });
+      }
+    }),
+
   // Obter projeto por ID
   findById: publicProcedure
     .input(z.string().uuid("ID do projeto inválido"))
@@ -763,6 +859,13 @@ export const projetoRouter = createTRPCRouter({
           where: { id },
           include: {
             financiamento: true,
+            responsavel: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
             workpackages: {
               include: {
                 tarefas: {
@@ -1152,64 +1255,110 @@ export const projetoRouter = createTRPCRouter({
   
   // Atualizar projeto
   update: protectedProcedure
-    .input(z.object({
-      id: z.string().uuid("ID do projeto inválido"),
-      data: updateProjetoSchema,
-    }))
-    .mutation(async ({ ctx, input: { id, data } }) => {
+    .input(updateProjetoSchema)
+    .mutation(async ({ ctx, input }) => {
       try {
-        if (data.inicio && data.fim) {
-          const dateValidation = projetoDateValidationSchema.safeParse({ inicio: data.inicio, fim: data.fim });
-          if (!dateValidation.success) {
-            return {
-              success: false,
-              error: {
-                message: "Erro de validação",
-                errors: dateValidation.error.flatten().fieldErrors,
-              },
-            };
-          }
+        // Get the project first to check permissions
+        const projeto = await ctx.db.projeto.findUnique({
+          where: { id: input.id },
+          select: { responsavelId: true }
+        });
+
+        if (!projeto) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Projeto não encontrado",
+          });
         }
-        
+
+        // Get user with permission
+        const user = await ctx.db.user.findUnique({
+          where: { id: ctx.session.user.id },
+          select: { permissao: true }
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        // Check if user has permission (admin, gestor or responsavel)
+        const isAdmin = user.permissao === "ADMIN";
+        const isGestor = user.permissao === "GESTOR";
+        const isResponsavel = projeto.responsavelId === ctx.session.user.id;
+
+        if (!isAdmin && !isGestor && !isResponsavel) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Sem permissão para editar este projeto",
+          });
+        }
+
+        // Prepare update data
         const updateData: Prisma.ProjetoUpdateInput = {
-          nome: data.nome,
-          descricao: data.descricao,
-          inicio: data.inicio,
-          fim: data.fim,
-          estado: data.estado,
-          overhead: data.overhead,
-          taxa_financiamento: data.taxa_financiamento,
-          valor_eti: data.valor_eti,
-          ...(data.financiamentoId !== undefined && {
-            financiamento: data.financiamentoId ? {
-              connect: { id: data.financiamentoId }
+          nome: input.nome,
+          descricao: input.descricao,
+          inicio: input.inicio,
+          fim: input.fim,
+          overhead: input.overhead,
+          taxa_financiamento: input.taxa_financiamento,
+          valor_eti: input.valor_eti,
+          ...(input.financiamentoId !== undefined && {
+            financiamento: input.financiamentoId ? {
+              connect: { id: input.financiamentoId }
             } : { disconnect: true }
           }),
         };
-        
-        const projeto = await ctx.db.projeto.update({
-          where: { id },
+
+        // Update the project
+        const updatedProjeto = await ctx.db.projeto.update({
+          where: { id: input.id },
           data: updateData,
           include: {
-            financiamento: true,
-          },
-        });
-        
-        return {
-          success: true,
-          data: projeto
-        };
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          return {
-            success: false,
-            error: {
-              message: "Erro de validação",
-              errors: error.flatten().fieldErrors,
+            responsavel: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
             },
-          };
-        }
-        return handlePrismaError(error);
+            financiamento: true,
+            workpackages: {
+              include: {
+                tarefas: {
+                  include: {
+                    entregaveis: true
+                  }
+                },
+                materiais: true,
+                recursos: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        salario: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        return updatedProjeto;
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        
+        console.error("Erro ao atualizar projeto:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao atualizar projeto",
+          cause: error
+        });
       }
     }),
   
@@ -1634,6 +1783,114 @@ export const projetoRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao calcular totais financeiros",
+          cause: error
+        });
+      }
+    }),
+
+  // Obter totais financeiros de todos os projetos APROVADOS e EM_DESENVOLVIMENTO
+  getTotaisFinanceirosTodos: publicProcedure
+    .input(z.object({
+      apenasAtivos: z.boolean().optional().default(true)
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const { apenasAtivos } = input;
+        
+        // Buscamos todos os projetos APROVADOS e EM_DESENVOLVIMENTO
+        const projetos = await ctx.db.projeto.findMany({
+          where: {
+            estado: apenasAtivos 
+              ? { in: ["APROVADO", "EM_DESENVOLVIMENTO"] }
+              : undefined
+          },
+          select: {
+            id: true,
+            nome: true,
+            responsavel: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        });
+
+        // Para cada projeto, buscamos seus dados financeiros
+        const dadosFinanceiros = await Promise.all(
+          projetos.map(async (projeto) => {
+            try {
+              const financas = await getTotais(ctx.db, projeto.id);
+              return {
+                ...projeto,
+                financas
+              };
+            } catch (error) {
+              console.error(`Erro ao obter dados financeiros do projeto ${projeto.id}:`, error);
+              return {
+                ...projeto,
+                financas: null
+              };
+            }
+          })
+        );
+
+        // Calculamos totais consolidados
+        const totaisConsolidados = {
+          totalProjetos: dadosFinanceiros.length,
+          projetosComFinancas: dadosFinanceiros.filter(p => p.financas !== null).length,
+          orcamentoTotalSubmitted: dadosFinanceiros.reduce((acc, p) => 
+            acc + (p.financas?.orcamentoSubmetido ? Number(p.financas.orcamentoSubmetido) : 0), 0),
+          valorTotalFinanciado: dadosFinanceiros.reduce((acc, p) => 
+            acc + (p.financas?.valorFinanciado ? Number(p.financas.valorFinanciado) : 0), 0),
+          custosReaisTotal: dadosFinanceiros.reduce((acc, p) => 
+            acc + (p.financas?.custosReais?.total ? Number(p.financas.custosReais.total) : 0), 0),
+          custosReaisRecursos: dadosFinanceiros.reduce((acc, p) => 
+            acc + (p.financas?.custosReais?.recursos ? Number(p.financas.custosReais.recursos) : 0), 0),
+          custosReaisMateriais: dadosFinanceiros.reduce((acc, p) => 
+            acc + (p.financas?.custosReais?.materiais ? Number(p.financas.custosReais.materiais) : 0), 0),
+          overheadTotal: dadosFinanceiros.reduce((acc, p) => 
+            acc + (p.financas?.overhead ? Number(p.financas.overhead) : 0), 0),
+          resultadoTotal: dadosFinanceiros.reduce((acc, p) => 
+            acc + (p.financas?.resultado ? Number(p.financas.resultado) : 0), 0),
+        };
+
+        // Segmentar projetos por estado financeiro
+        const projetosClassificados = {
+          saudaveis: dadosFinanceiros.filter(p => 
+            p.financas && p.financas.orcamentoSubmetido && 
+            (Number(p.financas.custosReais.total) / Number(p.financas.orcamentoSubmetido)) <= 0.7).length,
+          emRisco: dadosFinanceiros.filter(p => 
+            p.financas && p.financas.orcamentoSubmetido && 
+            (Number(p.financas.custosReais.total) / Number(p.financas.orcamentoSubmetido)) > 0.7 && 
+            (Number(p.financas.custosReais.total) / Number(p.financas.orcamentoSubmetido)) <= 0.9).length,
+          criticos: dadosFinanceiros.filter(p => 
+            p.financas && p.financas.orcamentoSubmetido && 
+            (Number(p.financas.custosReais.total) / Number(p.financas.orcamentoSubmetido)) > 0.9).length,
+          comResultadoPositivo: dadosFinanceiros.filter(p => 
+            p.financas && Number(p.financas.resultado) > 0).length,
+          comResultadoNegativo: dadosFinanceiros.filter(p => 
+            p.financas && Number(p.financas.resultado) < 0).length
+        };
+
+        return {
+          projetos: dadosFinanceiros,
+          totaisConsolidados,
+          projetosClassificados,
+          // Taxa média de financiamento
+          taxaMediaFinanciamento: totaisConsolidados.orcamentoTotalSubmitted > 0 
+            ? (totaisConsolidados.valorTotalFinanciado / totaisConsolidados.orcamentoTotalSubmitted) * 100 
+            : 0,
+          // Margem média (resultado / orçamento)
+          margemMedia: totaisConsolidados.orcamentoTotalSubmitted > 0 
+            ? (totaisConsolidados.resultadoTotal / totaisConsolidados.orcamentoTotalSubmitted) * 100 
+            : 0
+        };
+      } catch (error) {
+        console.error("Erro ao obter visão geral financeira:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter visão geral financeira dos projetos",
           cause: error
         });
       }

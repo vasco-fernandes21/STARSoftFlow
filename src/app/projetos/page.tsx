@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { MoreHorizontal, BarChart, Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -47,21 +46,7 @@ const uniqueEstados = [
   "CONCLUIDO",
 ] as const;
 
-const uniquePrazos = [
-  "todos",
-  "este_mes", 
-  "proximo_mes",
-  "este_ano",
-  "atrasados"
-] as const;
-
-const PRAZO_LABELS: Record<string, string> = {
-  todos: "Todos os prazos",
-  este_mes: "Este mês",
-  proximo_mes: "Próximo mês",
-  este_ano: "Este ano",
-  atrasados: "Atrasados"
-} as const;
+type PrazoFilter = "todos" | "este_mes" | "proximo_mes" | "este_ano" | "atrasados";
 
 const itemsPerPage = 6;
 
@@ -106,7 +91,7 @@ export default function Projetos() {
   const [estadoFilter, setEstadoFilter] =
     useState<"todos" | typeof uniqueEstados[number]>("todos");
   const [prazoFilter, setPrazoFilter] =
-    useState<typeof uniquePrazos[number]>("todos");
+    useState<PrazoFilter>("todos");
 
   // Determina os parâmetros de consulta com base na permissão
   const queryParams = useMemo(() => ({
@@ -185,11 +170,6 @@ export default function Projetos() {
 
   const handleRowClick = useCallback((projeto: Projeto) => {
     router.push(`/projetos/${projeto.id}`);
-  }, [router]);
-
-  const handleReportClick = useCallback((e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    router.push(`/projetos/${id}/report`);
   }, [router]);
 
   // Definição das colunas usando TanStack Table
@@ -304,7 +284,7 @@ export default function Projetos() {
       label: "Prazo",
       value: prazoFilter,
       onChange: (value: string) =>
-        setPrazoFilter(value as typeof uniquePrazos[number]),
+        setPrazoFilter(value as PrazoFilter),
       options: prazoOptions,
     }
   ], [estadoFilter, prazoFilter, filterOptions, prazoOptions]);

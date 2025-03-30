@@ -3,37 +3,27 @@
 import { 
   Briefcase, 
   TrendingUp, 
-  DollarSign, 
   AlertTriangle,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DespesasRecursosPorMes } from "@/components/admin/DespesasRecursosPorMes";
 import ProjetosDestaque from "@/app/dashboard/components/ProjetosDestaque";
 import { ProximosEntregaveis } from "@/components/entregaveis/ProximosEntregaveis";
 import type { StatItem } from "@/components/common/StatsGrid";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from "recharts";
 import type { RouterOutputs } from "@/trpc/react";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { ProjetosFinancasOverview } from "@/components/admin/ProjetosFinancasOverview";
 
 type ProjetoWithProgress = RouterOutputs["projeto"]["findAll"]["items"][number];
 
 export default function AdminDashboard() {
   const router = useRouter();
-  // Pagination state for ProjetosDestaque
-  const [projetoPage, setProjetoPage] = useState(0);
-  const projsPerPage = 3;
 
   // Fetch dashboard data
   const {
@@ -73,27 +63,6 @@ export default function AdminDashboard() {
     orcamentoUtilizado: p.orcamento.utilizado,
     responsavel: p.responsavel
   }));
-
-  // Calculate total pages for projects pagination
-  const totalProjetosPages = projetosDestaque ? Math.ceil(projetosDestaque.length / projsPerPage) : 0;
-  
-  // Get current page projects
-  const currentProjetos = projetosDestaque 
-    ? projetosDestaque.slice(projetoPage * projsPerPage, (projetoPage + 1) * projsPerPage) 
-    : [];
-
-  // Navigation handlers
-  const nextProjetoPage = () => {
-    if (projetoPage < totalProjetosPages - 1) {
-      setProjetoPage(prev => prev + 1);
-    }
-  };
-
-  const prevProjetoPage = () => {
-    if (projetoPage > 0) {
-      setProjetoPage(prev => prev - 1);
-    }
-  };
 
   // Stats cards data
   const statsItems: StatItem[] = [
@@ -247,6 +216,9 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
+            {/* Add the Projetos Finanças Overview Component */}
+            <ProjetosFinancasOverview />
+            
             {/* Gráfico de Despesas */}
             <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
               <CardHeader className="border-b border-slate-100/50 px-6 py-4">

@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import type { WorkpackageWithRelations } from "../../../types";
+// Remove WorkpackageWithRelations import if no longer needed elsewhere
+// import type { WorkpackageWithRelations } from "../../../types";
 import { 
   Briefcase, 
   Plus, 
-  X, 
   Search,
   Package,
   Calendar,
@@ -16,7 +16,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkpackageForm } from "./workpackage/form";
 import { TarefaForm } from "./tarefas/form";
-import type { Prisma } from "@prisma/client";
+// Import *exported* state types from context
+import type { WorkpackageState, TarefaState, MaterialState } from "../../ProjetoFormContext";
+// Remove unused Prisma import
+// import type { Prisma } from "@prisma/client";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,16 +47,14 @@ import { toast } from "sonner";
 import { TarefaItem } from "./tarefas/item";
 import { Item as MaterialItem } from "./material/item"
 
-// Importar tipo WorkpackageHandlers de onde for necessário
+// Importar tipo WorkpackageHandlers de onde for necessário (now uses 'any')
 import type { WorkpackageHandlers } from "@/app/projetos/criar/page";
 
 interface WorkpackagesTabProps {
-  workpackages?: WorkpackageWithRelations[];
-  handlers: WorkpackageHandlers & {
-    addWorkpackage: (workpackage: Omit<WorkpackageWithRelations, "id" | "tarefas" | "materiais" | "recursos">) => void;
-    updateWorkpackage: (id: string, data: Partial<WorkpackageWithRelations>) => void;
-    removeWorkpackage: (id: string) => void;
-  };
+  // Use WorkpackageState from context
+  workpackages?: WorkpackageState[];
+  // Inherit handler types ('any') directly from the imported WorkpackageHandlers
+  handlers: WorkpackageHandlers;
   onNavigateForward: () => void;
   onNavigateBack: () => void;
 }
@@ -61,7 +62,8 @@ interface WorkpackagesTabProps {
 export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward, onNavigateBack }: WorkpackagesTabProps) {
   const [selectedWorkpackageId, setSelectedWorkpackageId] = useState<string>("");
   const [addingWorkpackage, setAddingWorkpackage] = useState(false);
-  const [editingWorkpackage, setEditingWorkpackage] = useState<WorkpackageWithRelations | null>(null);
+  // Use WorkpackageState for editing state
+  const [editingWorkpackage, setEditingWorkpackage] = useState<WorkpackageState | null>(null);
   const [deleteWorkpackageId, setDeleteWorkpackageId] = useState<string | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -77,38 +79,52 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
   useEffect(() => {
     if (hasWorkpackages && !selectedWorkpackageId && workpackages[0]) {
       setSelectedWorkpackageId(workpackages[0].id);
+    } else if (!hasWorkpackages) {
+      // Clear selection if no workpackages exist
+      setSelectedWorkpackageId("");
     }
   }, [hasWorkpackages, selectedWorkpackageId, workpackages]);
 
   // Obter workpackage selecionado
   const selectedWorkpackage = workpackages.find(wp => wp.id === selectedWorkpackageId);
 
-  // Funções para gerenciar workpackages
-  const handleAddWorkpackage = (workpackage: Omit<Prisma.WorkpackageCreateInput, "projeto">) => {
-    const completeWorkpackage = {
-      ...workpackage,
-    } as Omit<WorkpackageWithRelations, "id" | "tarefas" | "materiais" | "recursos">;
-    
-    handlers.addWorkpackage(completeWorkpackage);
+  // Define local handlers with specific types for internal use
+  const handleAddWorkpackageLocal = (formData: any) => {
+    // Process form data to match expected input format
+    const processedData = {
+      ...formData,
+      descricao: formData.descricao === undefined ? null : formData.descricao,
+      inicio: formData.inicio ? new Date(formData.inicio) : null,
+      fim: formData.fim ? new Date(formData.fim) : null,
+    };
+    handlers.addWorkpackage(processedData);
     setAddingWorkpackage(false);
-    toast.success("Workpackage adicionado com sucesso");
   };
 
-  const handleEditWorkpackage = (workpackage: WorkpackageWithRelations) => {
-    setEditingWorkpackage(workpackage);
+  const handleEditWorkpackageLocal = (workpackage: WorkpackageState) => {
+    // Prepare data for the form (converting Date objects to ISO strings if needed)
+    const initialDataForForm = {
+      ...workpackage,
+      inicio: workpackage.inicio instanceof Date 
+        ? workpackage.inicio 
+        : workpackage.inicio ? new Date(workpackage.inicio) : null,
+      fim: workpackage.fim instanceof Date 
+        ? workpackage.fim 
+        : workpackage.fim ? new Date(workpackage.fim) : null,
+    };
+    setEditingWorkpackage(initialDataForForm);
   };
 
-  const handleUpdateWorkpackage = (id: string, data: Partial<Prisma.WorkpackageCreateInput>) => {
-    const formattedData = {
-      ...data,
-      descricao: data.descricao === null ? undefined : data.descricao,
-      inicio: data.inicio === null ? undefined : data.inicio,
-      fim: data.fim === null ? undefined : data.fim,
-    } as Partial<WorkpackageWithRelations>;
-    
-    handlers.updateWorkpackage(id, formattedData);
+  const handleUpdateWorkpackageLocal = (id: string, formData: any) => {
+    // Process form data to match expected format for the handler
+    const processedData = {
+      ...formData,
+      descricao: formData.descricao === undefined ? null : formData.descricao,
+      inicio: formData.inicio ? new Date(formData.inicio) : null,
+      fim: formData.fim ? new Date(formData.fim) : null,
+    };
+    handlers.updateWorkpackage(id, processedData);
     setEditingWorkpackage(null);
-    toast.success("Workpackage atualizado com sucesso");
   };
 
   const openDeleteWorkpackageDialog = (id: string) => {
@@ -121,7 +137,9 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
       handlers.removeWorkpackage(deleteWorkpackageId);
       
       if (deleteWorkpackageId === selectedWorkpackageId) {
-        setSelectedWorkpackageId("");
+        // Use .find() instead of .filter()[0]
+        const nextSelectedWorkpackage = workpackages.find(wp => wp.id !== deleteWorkpackageId);
+        setSelectedWorkpackageId(nextSelectedWorkpackage?.id || "");
       }
       
       setDeleteWorkpackageId(null);
@@ -139,20 +157,117 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
   }, [workpackages, searchQuery]);
 
   // Obter estatísticas do workpackage selecionado
-  const getWorkpackageStats = (wp?: WorkpackageWithRelations) => {
+  const getWorkpackageStats = (wp?: WorkpackageState) => {
     if (!wp) return {
       tarefasCount: 0,
-      materiaisCount: 0
+      materiaisCount: 0,
+      recursosCount: 0,
     };
     
     const tarefasCount = wp.tarefas?.length || 0;
     const materiaisCount = wp.materiais?.length || 0;
+    const recursosCount = wp.recursos?.length || 0;
     
-    return { tarefasCount, materiaisCount };
+    return { tarefasCount, materiaisCount, recursosCount };
   };
 
+  // --- Local Handler Definitions for Tasks, Materials etc. ---
+  const handleAddTarefaLocal = (workpackageId: string, tarefaData: any) => {
+    // Process tarefa data to match expected format
+    const processedData = {
+      ...tarefaData,
+      descricao: tarefaData.descricao === undefined ? null : tarefaData.descricao,
+      inicio: tarefaData.inicio ? new Date(tarefaData.inicio) : null,
+      fim: tarefaData.fim ? new Date(tarefaData.fim) : null,
+    };
+    handlers.addTarefa(workpackageId, processedData);
+    setIsAddingTarefa(false);
+  }
+
+  const handleUpdateTarefaLocal = (workpackageId: string, tarefaId: string, data: any) => {
+    // Process tarefa data to match expected format
+    const processedData = {
+      ...data,
+      descricao: data.descricao === undefined ? null : data.descricao,
+      inicio: data.inicio ? new Date(data.inicio) : null,
+      fim: data.fim ? new Date(data.fim) : null,
+    };
+    handlers.updateTarefa(workpackageId, tarefaId, processedData);
+  }
+
+  const handleRemoveTarefaLocal = (workpackageId: string, tarefaId: string) => {
+    handlers.removeTarefa(workpackageId, tarefaId);
+  }
+
+  const handleAddEntregavelLocal = (workpackageId: string, tarefaId: string, entregavelData: any) => {
+    // Process entregavel data to match expected format
+    const processedData = {
+      ...entregavelData,
+      descricao: entregavelData.descricao === undefined ? null : entregavelData.descricao,
+      data: entregavelData.data ? new Date(entregavelData.data) : null,
+    };
+    handlers.addEntregavel(workpackageId, tarefaId, processedData);
+  }
+
+  const handleUpdateEntregavelLocal = (workpackageId: string, tarefaId: string, entregavelId: string, data: any) => {
+    // Process entregavel data to match expected format
+    const processedData = {
+      ...data,
+      descricao: data.descricao === undefined ? null : data.descricao,
+      data: data.data ? new Date(data.data) : null,
+    };
+    handlers.updateEntregavel(workpackageId, tarefaId, entregavelId, processedData);
+  }
+
+  const handleRemoveEntregavelLocal = (workpackageId: string, tarefaId: string, entregavelId: string) => {
+    handlers.removeEntregavel(workpackageId, tarefaId, entregavelId);
+  }
+
+  const handleAddMaterialLocal = (workpackageId: string, materialData: any) => {
+    // Process material data to match expected format
+    const processedData = {
+      ...materialData,
+      descricao: materialData.descricao === undefined ? null : materialData.descricao,
+      preco: materialData.preco, // Let the handler handle Decimal conversion
+      quantidade: Number(materialData.quantidade || 1),
+      ano_utilizacao: Number(materialData.ano_utilizacao || new Date().getFullYear()),
+    };
+    handlers.addMaterial(workpackageId, processedData);
+  }
+  
+  const handleUpdateMaterialLocal = (workpackageId: string, materialId: number, data: any) => {
+    // Process material data to match expected format
+    const processedData = {
+      ...data,
+      descricao: data.descricao === undefined ? null : data.descricao,
+      // Let the handler handle Decimal conversion if needed
+    };
+    handlers.updateMaterial(workpackageId, materialId, processedData);
+  }
+
+  const handleRemoveMaterialLocal = (workpackageId: string, materialId: number) => {
+    handlers.removeMaterial(workpackageId, materialId);
+  }
+
+  // --- JSX Rendering --- 
   return (
     <div className="flex flex-col">
+      {/* Dialog para adição de workpackage - sempre disponível independente do estado */}
+      <Dialog open={addingWorkpackage} onOpenChange={setAddingWorkpackage}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Novo Workpackage</DialogTitle>
+            <DialogDescription>
+              Adicione um novo workpackage ao projeto
+            </DialogDescription>
+          </DialogHeader>
+          <WorkpackageForm
+            onSubmit={handleAddWorkpackageLocal}
+            onCancel={() => setAddingWorkpackage(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
       <div className="flex">
         {/* Painel lateral para listar workpackages */}
         <div className="w-72 border-r border-azul/10 bg-white/90 p-4">
@@ -262,30 +377,19 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
               <div className="bg-white border-b border-azul/10 p-4 flex items-center justify-between sticky top-0 z-10">
                 <div className="flex items-center space-x-2">
                   <Button
-                    onClick={() => setAddingWorkpackage(!addingWorkpackage)}
-                    className={`rounded-lg ${addingWorkpackage 
-                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200" 
-                      : "bg-azul text-white hover:bg-azul/90"}`}
+                    onClick={() => setAddingWorkpackage(true)}
+                    className="bg-azul text-white hover:bg-azul/90 rounded-lg"
                     size="sm"
                   >
-                    {addingWorkpackage ? (
-                      <>
-                        <X className="h-4 w-4 mr-2" />
-                        Cancelar
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Adicionar Workpackage
-                      </>
-                    )}
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Workpackage
                   </Button>
                   {selectedWorkpackage && (
                     <>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditWorkpackage(selectedWorkpackage)}
+                        onClick={() => handleEditWorkpackageLocal(selectedWorkpackage)}
                         className="h-8 text-azul border-azul/20 hover:bg-azul/5"
                       >
                         <Edit className="h-4 w-4 mr-2" />
@@ -317,19 +421,9 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
               
               {/* Conteúdo principal */}
               <div className="flex-1">
-                {/* Formulário para adicionar/editar workpackage */}
                 <ScrollArea className="h-[600px]">
                   <div className="p-4 space-y-3">
-                    {/* Formulário para adicionar/editar workpackage */}
-                    {addingWorkpackage && (
-                      <div className="mb-4">
-                        <WorkpackageForm
-                          onSubmit={handleAddWorkpackage}
-                          onCancel={() => setAddingWorkpackage(false)}
-                        />
-                      </div>
-                    )}
-                    
+                    {/* Formulário para editar workpackage */}
                     {editingWorkpackage && (
                       <div className="mb-4">
                         <WorkpackageForm
@@ -339,13 +433,13 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                             inicio: editingWorkpackage.inicio || undefined,
                             fim: editingWorkpackage.fim || undefined
                           }}
-                          onSubmit={(data) => handleUpdateWorkpackage(editingWorkpackage.id, data)}
+                          onSubmit={(data) => handleUpdateWorkpackageLocal(editingWorkpackage.id, data)}
                           onCancel={() => setEditingWorkpackage(null)}
                         />
                       </div>
                     )}
                     
-                    {!addingWorkpackage && !editingWorkpackage && selectedWorkpackage && (
+                    {!editingWorkpackage && selectedWorkpackage && (
                       <div className="space-y-6">
                         {/* Lista de Tarefas */}
                         <Card className="bg-white rounded-lg overflow-hidden">
@@ -370,30 +464,64 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                           {selectedWorkpackage.tarefas && selectedWorkpackage.tarefas.length > 0 ? (
                             <div className="p-4">
                               <div className="space-y-4">
-                                {selectedWorkpackage.tarefas.map((tarefa) => (
-                                  <TarefaItem
-                                    key={tarefa.id}
-                                    tarefa={tarefa}
-                                    workpackageId={selectedWorkpackage.id}
-                                    workpackageInicio={selectedWorkpackage.inicio || new Date()}
-                                    workpackageFim={selectedWorkpackage.fim || new Date()}
-                                    onUpdate={async () => {
-                                      await handlers.updateTarefa(selectedWorkpackage.id, tarefa.id, { estado: !tarefa.estado });
-                                    }}
-                                    onRemove={() => handlers.removeTarefa(selectedWorkpackage.id, tarefa.id)}
-                                    onEdit={async (data) => {
-                                      await handlers.updateTarefa(selectedWorkpackage.id, tarefa.id, data);
-                                    }}
-                                    onAddEntregavel={async (tarefaId, entregavel) => {
-                                      await handlers.addEntregavel(selectedWorkpackage.id, tarefaId, entregavel);
-                                    }}
-                                    onEditEntregavel={async (id, data) => {
-                                      await handlers.updateEntregavel(selectedWorkpackage.id, tarefa.id, id, data);
-                                    }}
-                                    onRemoveEntregavel={(id) => handlers.removeEntregavel(selectedWorkpackage.id, tarefa.id, id)}
-                                    hideState={true}
-                                  />
-                                ))}
+                                {selectedWorkpackage.tarefas.map((tarefa: TarefaState) => {
+                                  // Map entregaveis to add tarefaId back for TarefaItem prop
+                                  const entregaveisWithTarefaId = tarefa.entregaveis.map(e => ({ 
+                                    ...e, 
+                                    tarefaId: tarefa.id 
+                                  }));
+
+                                  // Add workpackageId to the tarefa object for the TarefaItem prop
+                                  const tarefaWithWorkpackageId = {
+                                    ...tarefa,
+                                    workpackageId: selectedWorkpackage.id,
+                                    entregaveis: entregaveisWithTarefaId
+                                  };
+                                  
+                                  return (
+                                    <TarefaItem
+                                      key={tarefa.id}
+                                      tarefa={tarefaWithWorkpackageId}
+                                      workpackageId={selectedWorkpackage.id}
+                                      workpackageInicio={selectedWorkpackage.inicio || new Date()}
+                                      workpackageFim={selectedWorkpackage.fim || new Date()}
+                                      onUpdate={async () => {
+                                        await handleUpdateTarefaLocal(selectedWorkpackage.id, tarefa.id, { estado: !tarefa.estado });
+                                      }}
+                                      onRemove={() => handleRemoveTarefaLocal(selectedWorkpackage.id, tarefa.id)}
+                                      onEdit={async (data) => {
+                                        // Adjust data from TarefaItem form if necessary (similar to workpackage form)
+                                        const adjustedData = {
+                                          ...data,
+                                          ...(data.descricao !== undefined && { descricao: data.descricao === undefined ? null : data.descricao }),
+                                          ...(data.inicio !== undefined && { inicio: data.inicio ? new Date(data.inicio) : null }),
+                                          ...(data.fim !== undefined && { fim: data.fim ? new Date(data.fim) : null }),
+                                        }
+                                        await handleUpdateTarefaLocal(selectedWorkpackage.id, tarefa.id, adjustedData);
+                                      }}
+                                      onAddEntregavel={async (tarefaId, entregavel) => {
+                                        // Adjust entregavel data if necessary
+                                        const adjustedEntregavel = {
+                                          ...entregavel,
+                                          ...(entregavel.descricao !== undefined && { descricao: entregavel.descricao === undefined ? null : entregavel.descricao }),
+                                          ...(entregavel.data !== undefined && { data: entregavel.data ? new Date(entregavel.data) : null }),
+                                        }
+                                        await handleAddEntregavelLocal(selectedWorkpackage.id, tarefaId, adjustedEntregavel);
+                                      }}
+                                      onEditEntregavel={async (id, data) => {
+                                        // Adjust entregavel data if necessary
+                                         const adjustedData = {
+                                          ...data,
+                                          ...(data.descricao !== undefined && { descricao: data.descricao === undefined ? null : data.descricao }),
+                                          ...(data.data !== undefined && { data: data.data ? new Date(data.data) : null }),
+                                        }
+                                        await handleUpdateEntregavelLocal(selectedWorkpackage.id, tarefa.id, id, adjustedData);
+                                      }}
+                                      onRemoveEntregavel={(id) => handleRemoveEntregavelLocal(selectedWorkpackage.id, tarefa.id, id)}
+                                      hideState={true}
+                                    />
+                                  );
+                                })}
                               </div>
                             </div>
                           ) : (
@@ -417,7 +545,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handlers.addMaterial(selectedWorkpackage.id, {
+                                onClick={() => handleAddMaterialLocal(selectedWorkpackage.id, {
                                   nome: "Novo Material",
                                   descricao: "",
                                   estado: false,
@@ -437,7 +565,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                           {selectedWorkpackage.materiais && selectedWorkpackage.materiais.length > 0 ? (
                             <div className="p-4">
                               <div className="space-y-2">
-                                {selectedWorkpackage.materiais.map((material) => (
+                                {selectedWorkpackage.materiais.map((material: MaterialState) => (
                                   <MaterialItem
                                     key={material.id}
                                     material={{
@@ -446,9 +574,9 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
                                       workpackageId: selectedWorkpackage.id
                                     }}
                                     onEdit={(workpackageId, materialData) => {
-                                      handlers.updateMaterial(selectedWorkpackage.id, material.id, materialData);
+                                      handleUpdateMaterialLocal(selectedWorkpackage.id, material.id, materialData);
                                     }}
-                                    onRemove={() => handlers.removeMaterial(selectedWorkpackage.id, material.id)}
+                                    onRemove={() => handleRemoveMaterialLocal(selectedWorkpackage.id, material.id)}
                                     onUpdate={() => {
                                       // Optional callback after successful updates
                                     }}
@@ -523,7 +651,7 @@ export function WorkpackagesTab({ workpackages = [], handlers, onNavigateForward
               workpackageInicio={selectedWorkpackage.inicio || new Date()}
               workpackageFim={selectedWorkpackage.fim || new Date()}
               onSubmit={(workpackageId, data) => {
-                handlers.addTarefa(workpackageId, data);
+                handleAddTarefaLocal(workpackageId, data);
                 setIsAddingTarefa(false);
               }}
               onCancel={() => setIsAddingTarefa(false)}

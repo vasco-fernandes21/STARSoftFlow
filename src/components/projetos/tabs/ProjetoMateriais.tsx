@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "sonner";
 import type { Rubrica } from "@prisma/client";
 import { useMutations } from "@/hooks/useMutations";
+import { cn } from "@/lib/utils";
 
 interface ProjetoMateriaisProps {
   projetoId: string;
@@ -149,14 +150,25 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
   // Estados de loading e erro
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <div className="grid grid-cols-4 gap-4">
+      <div className="space-y-6 p-4">
+        {/* Skeleton para cabeçalho */}
+        <div className="flex items-center justify-between mb-6">
+          <Skeleton className="h-10 w-1/3" />
+          <div className="flex items-center space-x-2">
+            <Skeleton className="h-8 w-20 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+          </div>
+        </div>
+        {/* Skeleton para estatísticas */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 mb-6">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
           ))}
         </div>
-        <Skeleton className="h-64 w-full" />
+        {/* Skeleton para filtros */}
+        <Skeleton className="h-16 w-full rounded-xl mb-6" />
+        {/* Skeleton para tabela */}
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );
   }
@@ -170,106 +182,92 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
   }
   
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl overflow-hidden mb-6">
-        <div className="px-6 py-5 bg-white/80 backdrop-blur-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Materiais e Serviços</h1>
-            <p className="text-sm text-gray-500">Gestão de materiais, serviços e outros custos do projeto</p>
+    <div className="space-y-6 p-1 animate-fade-in">
+      {/* Cabeçalho */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Materiais e Serviços</h1>
+          <p className="text-sm text-gray-500 mt-1">Gestão de materiais, serviços e outros custos do projeto.</p>
+        </div>
+        <div className="flex items-center space-x-2 flex-shrink-0">
+          <Badge variant="outline" className="px-3 py-1.5 text-sm font-medium border-blue-200 bg-blue-50/80 text-blue-800 shadow-sm rounded-full">
+            {estatisticas.total} {estatisticas.total !== 1 ? 'Itens' : 'Item'}
+          </Badge>
+          <Badge variant="outline" className="px-3 py-1.5 text-sm font-medium border-emerald-200 bg-emerald-50/80 text-emerald-800 shadow-sm rounded-full">
+            {formatCurrency(estatisticas.valorTotal)}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        {/* Total */}
+        <div className="bg-white/70 backdrop-blur-sm border border-slate-100/50 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-4">
+          <div className="rounded-full p-3 bg-blue-50 flex-shrink-0 shadow-inner border border-blue-100">
+            <Package className="h-5 w-5 text-blue-600" />
           </div>
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="px-3 py-1.5 text-sm font-medium border-blue-200 bg-blue-50 text-blue-800 shadow-sm">
-              {estatisticas.total} {estatisticas.total !== 1 ? 'Itens' : 'Item'}
-            </Badge>
-            <Badge variant="outline" className="px-3 py-1.5 text-sm font-medium border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm">
-              {formatCurrency(estatisticas.valorTotal)}
-            </Badge>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total de Itens</p>
+            <div className="mt-1 text-xl font-semibold text-slate-700">{estatisticas.total}</div>
+          </div>
+        </div>
+        {/* Concluídos */}
+        <div className="bg-white/70 backdrop-blur-sm border border-slate-100/50 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-4">
+          <div className="rounded-full p-3 bg-emerald-50 flex-shrink-0 shadow-inner border border-emerald-100">
+            <Check className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Concluídos</p>
+            <div className="mt-1 text-xl font-semibold text-emerald-600">{estatisticas.concluidos}</div>
+            <p className="text-xs text-gray-500">{Math.round((estatisticas.concluidos / estatisticas.total) * 100) || 0}% do total</p>
+          </div>
+        </div>
+        {/* Pendentes */}
+        <div className="bg-white/70 backdrop-blur-sm border border-slate-100/50 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-4">
+          <div className="rounded-full p-3 bg-amber-50 flex-shrink-0 shadow-inner border border-amber-100">
+            <X className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Pendentes</p>
+            <div className="mt-1 text-xl font-semibold text-amber-600">{estatisticas.pendentes}</div>
+            <p className="text-xs text-gray-500">{Math.round((estatisticas.pendentes / estatisticas.total) * 100) || 0}% do total</p>
+          </div>
+        </div>
+        {/* Valor Total */}
+        <div className="bg-white/70 backdrop-blur-sm border border-slate-100/50 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-4">
+          <div className="rounded-full p-3 bg-purple-50 flex-shrink-0 shadow-inner border border-purple-100">
+            <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Valor Total</p>
+            <div className="mt-1 text-xl font-semibold text-purple-600">{formatCurrency(estatisticas.valorTotal)}</div>
+            <p className="text-xs text-gray-500">{formatCurrency(estatisticas.valorConcluido)} concluído</p>
           </div>
         </div>
       </div>
-      
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 mb-6">
-        <Card className="overflow-hidden border-none shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total de Itens</p>
-                <div className="mt-1 text-2xl font-semibold text-slate-700">{estatisticas.total}</div>
-              </div>
-              <div className="rounded-full p-3 bg-blue-50 flex-shrink-0 shadow-sm border border-blue-100">
-                <Package className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="overflow-hidden border-none shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Concluídos</p>
-                <div className="mt-1 text-2xl font-semibold text-emerald-600">{estatisticas.concluidos}</div>
-                <p className="text-xs text-gray-500">{Math.round((estatisticas.concluidos / estatisticas.total) * 100) || 0}% do total</p>
-              </div>
-              <div className="rounded-full p-3 bg-emerald-50 flex-shrink-0 shadow-sm border border-emerald-100">
-                <Check className="h-6 w-6 text-emerald-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="overflow-hidden border-none shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Pendentes</p>
-                <div className="mt-1 text-2xl font-semibold text-amber-600">{estatisticas.pendentes}</div>
-                <p className="text-xs text-gray-500">{Math.round((estatisticas.pendentes / estatisticas.total) * 100) || 0}% do total</p>
-              </div>
-              <div className="rounded-full p-3 bg-amber-50 flex-shrink-0 shadow-sm border border-amber-100">
-                <X className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="overflow-hidden border-none shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Valor Total</p>
-                <div className="mt-1 text-2xl font-semibold text-purple-600">{formatCurrency(estatisticas.valorTotal)}</div>
-                <p className="text-xs text-gray-500">{formatCurrency(estatisticas.valorConcluido)} concluído</p>
-              </div>
-              <div className="rounded-full p-3 bg-purple-50 flex-shrink-0 shadow-sm border border-purple-100">
-                <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
+
       {/* Filtros e Pesquisa */}
-      <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl overflow-hidden mb-6">
-        <div className="border-b border-slate-100/50 px-6 py-3 flex flex-wrap items-center gap-4 bg-white/80 backdrop-blur-sm">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <div className="mb-6 p-4 bg-gradient-to-r from-white/60 to-slate-50/60 backdrop-blur-md rounded-xl border border-slate-200/50 shadow-sm">
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          {/* Pesquisa */}
+          <div className="relative flex-1 w-full md:w-auto">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <Input
-              placeholder="Pesquisar materiais..."
-              className="w-full pl-10 pr-4 py-2 rounded-full border-gray-200 bg-white/90 shadow-sm focus:ring-2 focus:ring-emerald-200 text-gray-700 hover:shadow-md transition-all duration-300 ease-in-out"
+              placeholder="Pesquisar por nome, descrição, workpackage..."
+              className="w-full pl-10 pr-4 py-2 rounded-full border-gray-200 bg-white/80 shadow-sm focus:ring-2 focus:ring-emerald-200 text-gray-700 hover:shadow transition-all duration-300 ease-in-out text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
-          <div className="flex flex-wrap gap-4">
+
+          {/* Filtros Dropdown */}
+          <div className="flex flex-wrap justify-start md:justify-end gap-3 w-full md:w-auto flex-shrink-0">
             <Select value={rubricaFilter} onValueChange={setRubricaFilter}>
-              <SelectTrigger className="w-[180px] rounded-full bg-white/90 hover:bg-gray-50/80 text-xs text-gray-600 hover:text-emerald-500 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out">
-                <Filter className="mr-2 h-4 w-4 text-gray-400" />
-                <SelectValue placeholder="Filtrar por rubrica" />
+              <SelectTrigger className="w-full sm:w-[170px] rounded-full bg-white/80 hover:bg-gray-50/80 text-xs text-gray-600 hover:text-emerald-500 shadow-sm hover:shadow transition-all duration-300 ease-in-out">
+                <Filter className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                <SelectValue placeholder="Rubrica" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border border-slate-100/80 bg-white/95 backdrop-blur-sm shadow-lg">
                 <SelectItem value="todas">Todas as Rubricas</SelectItem>
@@ -278,10 +276,10 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                 ))}
               </SelectContent>
             </Select>
-            
+
             <Select value={estadoFilter} onValueChange={setEstadoFilter}>
-              <SelectTrigger className="w-[180px] rounded-full bg-white/90 hover:bg-gray-50/80 text-xs text-gray-600 hover:text-emerald-500 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out">
-                <SelectValue placeholder="Filtrar por estado" />
+              <SelectTrigger className="w-full sm:w-[140px] rounded-full bg-white/80 hover:bg-gray-50/80 text-xs text-gray-600 hover:text-emerald-500 shadow-sm hover:shadow transition-all duration-300 ease-in-out">
+                <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border border-slate-100/80 bg-white/95 backdrop-blur-sm shadow-lg">
                 <SelectItem value="todos">Todos</SelectItem>
@@ -289,11 +287,11 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                 <SelectItem value="concluidos">Concluídos</SelectItem>
               </SelectContent>
             </Select>
-            
+
             {estatisticas.anosDisponiveis.length > 0 && (
               <Select value={anoFilter} onValueChange={setAnoFilter}>
-                <SelectTrigger className="w-[180px] rounded-full bg-white/90 hover:bg-gray-50/80 text-xs text-gray-600 hover:text-emerald-500 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out">
-                  <SelectValue placeholder="Filtrar por ano" />
+                <SelectTrigger className="w-full sm:w-[130px] rounded-full bg-white/80 hover:bg-gray-50/80 text-xs text-gray-600 hover:text-emerald-500 shadow-sm hover:shadow transition-all duration-300 ease-in-out">
+                  <SelectValue placeholder="Ano" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border border-slate-100/80 bg-white/95 backdrop-blur-sm shadow-lg">
                   <SelectItem value="todos">Todos os Anos</SelectItem>
@@ -304,209 +302,218 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
               </Select>
             )}
           </div>
-          
-          {/* Exibe badges para filtros ativos */}
-          {(rubricaFilter !== "todas" || estadoFilter !== "todos" || anoFilter !== "todos") && (
-            <div className="flex flex-wrap gap-2 w-full mt-2 animate-in fade-in slide-in-from-top-4 duration-300 ease-in-out">
-              {rubricaFilter !== "todas" && (
-                <Badge 
-                  className="h-9 px-3 rounded-full flex items-center gap-2 transition-all duration-300 ease-in-out bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300"
-                >
-                  <span>Rubrica: {RUBRICA_LABELS[rubricaFilter as Rubrica]}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setRubricaFilter("todas")}
-                    className="h-5 w-5 ml-1 p-0 rounded-full hover:bg-blue-100/70 hover:text-blue-700 transition-colors duration-200 ease-in-out"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
-              
-              {estadoFilter !== "todos" && (
-                <Badge 
-                  className={`h-9 px-3 rounded-full flex items-center gap-2 transition-all duration-300 ease-in-out ${
-                    estadoFilter === "concluidos" 
-                      ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300" 
-                      : "bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:border-amber-300"
-                  }`}
-                >
-                  <span>Estado: {estadoFilter === "concluidos" ? "Concluídos" : "Pendentes"}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setEstadoFilter("todos")}
-                    className={`h-5 w-5 ml-1 p-0 rounded-full transition-colors duration-200 ease-in-out ${
-                      estadoFilter === "concluidos" 
-                        ? "hover:bg-emerald-100/70 hover:text-emerald-700"
-                        : "hover:bg-amber-100/70 hover:text-amber-700"
-                    }`}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
-              
-              {anoFilter !== "todos" && (
-                <Badge 
-                  className="h-9 px-3 rounded-full flex items-center gap-2 transition-all duration-300 ease-in-out bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-300"
-                >
-                  <span>Ano: {anoFilter}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setAnoFilter("todos")}
-                    className="h-5 w-5 ml-1 p-0 rounded-full hover:bg-purple-100/70 hover:text-purple-700 transition-colors duration-200 ease-in-out"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
-              
-              {(rubricaFilter !== "todas" || estadoFilter !== "todos" || anoFilter !== "todos") && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    setRubricaFilter("todas");
-                    setEstadoFilter("todos");
-                    setAnoFilter("todos");
-                  }}
-                  className="text-xs text-slate-500 hover:text-emerald-500 h-9 px-3 rounded-full hover:bg-slate-50 transition-all duration-300 ease-in-out"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Limpar todos
-                </Button>
-              )}
-            </div>
-          )}
         </div>
-      </div>
-      
-      {/* Tabela de Materiais */}
-      <Card className="overflow-hidden border-none shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl">
-        <CardHeader className="bg-gray-50/80 backdrop-blur-sm p-4 border-b border-slate-100/50">
-          <CardTitle className="text-lg font-medium text-slate-700">Lista de Materiais e Serviços</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 bg-white/80 backdrop-blur-sm">
-          {materiaisFiltrados.length > 0 ? (
-            <div className="overflow-x-auto px-6">
-              <Table className="w-full border-collapse">
-                <TableHeader>
-                  <TableRow className="border-b border-slate-100/50 hover:bg-transparent">
-                    <TableHead className="w-[40px] text-sm font-medium text-slate-700 py-3">Estado</TableHead>
-                    <TableHead className="text-sm font-medium text-slate-700 py-3">Nome</TableHead>
-                    <TableHead className="text-sm font-medium text-slate-700 py-3">Descrição</TableHead>
-                    <TableHead className="text-sm font-medium text-slate-700 py-3">Workpackage</TableHead>
-                    <TableHead className="w-[150px] text-sm font-medium text-slate-700 py-3">Rubrica</TableHead>
-                    <TableHead className="text-right text-sm font-medium text-slate-700 py-3">Preço</TableHead>
-                    <TableHead className="text-right text-sm font-medium text-slate-700 py-3">Qtd.</TableHead>
-                    <TableHead className="text-right text-sm font-medium text-slate-700 py-3">Total</TableHead>
-                    <TableHead className="text-center text-sm font-medium text-slate-700 py-3">Ano</TableHead>
-                    <TableHead className="w-[50px] text-sm font-medium text-slate-700 py-3">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {materiaisFiltrados.map((material) => {
-                    const total = Number(material.preco) * material.quantidade;
-                    const { bg, text, border } = RUBRICA_COLORS[material.rubrica];
-                    
-                    return (
-                      <TableRow 
-                        key={material.id} 
-                        className={`group relative border-b border-slate-100/50 hover:bg-emerald-50/30 transition-colors duration-300 ease-in-out ${material.estado ? "bg-gray-50/30" : ""}`}
-                      >
-                        <TableCell className="py-3 px-2">
-                          <Button
-                            variant={material.estado ? "default" : "outline"}
-                            size="icon"
-                            className={`h-7 w-7 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out ${
-                              material.estado ? "bg-emerald-500 hover:bg-emerald-600 border-emerald-500" : "hover:border-emerald-500 hover:text-emerald-500"
-                            }`}
-                            onClick={() => toggleEstadoMaterial(material.id, material.estado)}
-                            disabled={materialMutations.update.isPending}
-                          >
-                            <Check className={`h-4 w-4 ${material.estado ? "text-white" : "text-gray-400 group-hover:text-emerald-500"}`} />
-                          </Button>
-                        </TableCell>
-                        <TableCell className="py-3 px-2 text-slate-700 text-sm group-hover:text-emerald-600 transition-colors duration-300 font-medium">{material.nome}</TableCell>
-                        <TableCell className="py-3 px-2 text-slate-500 text-sm group-hover:text-emerald-600 transition-colors duration-300 max-w-[250px] truncate">
-                          {material.descricao || "-"}
-                        </TableCell>
-                        <TableCell className="py-3 px-2 text-slate-700 text-sm group-hover:text-emerald-600 transition-colors duration-300">{material.workpackageName}</TableCell>
-                        <TableCell className="py-3 px-2 text-sm">
-                          <Badge variant="outline" className={`${bg} ${text} ${border} shadow-sm`}>
-                            {RUBRICA_LABELS[material.rubrica]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-3 px-2 text-slate-700 text-sm group-hover:text-emerald-600 transition-colors duration-300 text-right">{formatCurrency(Number(material.preco))}</TableCell>
-                        <TableCell className="py-3 px-2 text-slate-700 text-sm group-hover:text-emerald-600 transition-colors duration-300 text-right">{material.quantidade}</TableCell>
-                        <TableCell className="py-3 px-2 text-slate-700 text-sm group-hover:text-emerald-600 transition-colors duration-300 text-right font-medium">{formatCurrency(total)}</TableCell>
-                        <TableCell className="py-3 px-2 text-slate-700 text-sm group-hover:text-emerald-600 transition-colors duration-300 text-center">{material.ano_utilizacao}</TableCell>
-                        <TableCell className="py-3 px-2">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 rounded-full hover:bg-white/50 hover:text-emerald-500 transition-all duration-300 ease-in-out"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                                </svg>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl border border-slate-100/80 bg-white/95 backdrop-blur-sm shadow-lg">
-                              <DropdownMenuItem 
-                                onClick={() => toggleEstadoMaterial(material.id, material.estado)}
-                                className="text-sm hover:text-emerald-500 transition-colors duration-200"
-                              >
-                                {material.estado ? "Marcar como pendente" : "Marcar como concluído"}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="py-12 text-center">
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div className="h-12 w-12 rounded-full bg-slate-50/80 backdrop-blur-sm flex items-center justify-center shadow-sm border border-white/50">
-                  <Package className="h-6 w-6 text-slate-400" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-base font-medium text-slate-700">Nenhum material encontrado</p>
-                  <p className="text-sm text-slate-500">
-                    {searchTerm || rubricaFilter !== "todas" || estadoFilter !== "todos" || anoFilter !== "todos"
-                      ? "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa."
-                      : "Ainda não existem materiais ou serviços registados neste projeto."}
-                  </p>
-                </div>
-                {(searchTerm || rubricaFilter !== "todas" || estadoFilter !== "todos" || anoFilter !== "todos") && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="rounded-full border-slate-200 bg-white/90 text-slate-700 hover:text-emerald-500 hover:bg-white/50 hover:border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setRubricaFilter("todas");
-                      setEstadoFilter("todos");
-                      setAnoFilter("todos");
-                    }}
-                  >
-                    Limpar filtros
-                  </Button>
+
+        {/* Filtros Ativos e Botão Limpar */}
+        {(rubricaFilter !== "todas" || estadoFilter !== "todos" || anoFilter !== "todos") && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/60 pt-3 animate-in fade-in slide-in-from-top-2 duration-300 ease-in-out">
+            <span className="text-xs text-gray-500 mr-2">Filtros ativos:</span>
+            {rubricaFilter !== "todas" && (
+              <Badge
+                variant="outline"
+                className="h-7 px-2.5 rounded-full flex items-center gap-1.5 transition-all duration-300 ease-in-out bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300 text-xs"
+              >
+                <span>{RUBRICA_LABELS[rubricaFilter as Rubrica]}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setRubricaFilter("todas")}
+                  className="h-4 w-4 p-0 rounded-full hover:bg-blue-100/70 hover:text-blue-700 transition-colors duration-200 ease-in-out"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {estadoFilter !== "todos" && (
+              <Badge
+                variant="outline"
+                className={cn("h-7 px-2.5 rounded-full flex items-center gap-1.5 transition-all duration-300 ease-in-out text-xs",
+                  estadoFilter === "concluidos"
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300"
+                    : "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 hover:border-amber-300"
                 )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              >
+                <span>{estadoFilter === "concluidos" ? "Concluídos" : "Pendentes"}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setEstadoFilter("todos")}
+                  className={cn("h-4 w-4 p-0 rounded-full transition-colors duration-200 ease-in-out",
+                    estadoFilter === "concluidos"
+                      ? "hover:bg-emerald-100/70 hover:text-emerald-700"
+                      : "hover:bg-amber-100/70 hover:text-amber-700"
+                  )}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            {anoFilter !== "todos" && (
+              <Badge
+                variant="outline"
+                className="h-7 px-2.5 rounded-full flex items-center gap-1.5 transition-all duration-300 ease-in-out bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100 hover:border-purple-300 text-xs"
+              >
+                <span>Ano: {anoFilter}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setAnoFilter("todos")}
+                  className="h-4 w-4 p-0 rounded-full hover:bg-purple-100/70 hover:text-purple-700 transition-colors duration-200 ease-in-out"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+             <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRubricaFilter("todas");
+                  setEstadoFilter("todos");
+                  setAnoFilter("todos");
+                  setSearchTerm(""); // Limpar também a pesquisa
+                }}
+                className="text-xs text-slate-500 hover:text-emerald-500 h-7 px-2.5 rounded-full hover:bg-slate-100/70 transition-all duration-300 ease-in-out ml-auto"
+              >
+                <X className="h-2.5 w-2.5 mr-1" />
+                Limpar filtros
+              </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Tabela de Materiais */}
+      <div className="overflow-hidden border border-slate-200/50 rounded-xl shadow-sm bg-white/70 backdrop-blur-sm">
+         {materiaisFiltrados.length > 0 ? (
+           <div className="overflow-x-auto">
+             <Table className="w-full text-sm">
+               <TableHeader className="bg-slate-50/80 sticky top-0 z-[1] backdrop-blur-sm"> {/* Cabeçalho fixo */}
+                 <TableRow className="border-b border-slate-200/60 hover:bg-transparent">
+                   <TableHead className="w-[50px] px-3 py-2.5 font-semibold text-slate-600">Estado</TableHead>
+                   <TableHead className="px-3 py-2.5 font-semibold text-slate-600 min-w-[150px]">Nome</TableHead>
+                   <TableHead className="px-3 py-2.5 font-semibold text-slate-600 min-w-[200px]">Descrição</TableHead>
+                   <TableHead className="px-3 py-2.5 font-semibold text-slate-600 min-w-[150px]">Workpackage</TableHead>
+                   <TableHead className="w-[160px] px-3 py-2.5 font-semibold text-slate-600">Rubrica</TableHead>
+                   <TableHead className="text-right px-3 py-2.5 font-semibold text-slate-600 w-[100px]">Preço</TableHead>
+                   <TableHead className="text-right px-3 py-2.5 font-semibold text-slate-600 w-[60px]">Qtd.</TableHead>
+                   <TableHead className="text-right px-3 py-2.5 font-semibold text-slate-600 w-[100px]">Total</TableHead>
+                   <TableHead className="text-center px-3 py-2.5 font-semibold text-slate-600 w-[70px]">Ano</TableHead>
+                   <TableHead className="w-[50px] px-3 py-2.5 text-center font-semibold text-slate-600">Ações</TableHead>
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+                 {materiaisFiltrados.map((material, index) => {
+                   const total = Number(material.preco) * material.quantidade;
+                   const { bg, text, border } = RUBRICA_COLORS[material.rubrica];
+                   const isEvenRow = index % 2 === 0;
+
+                   return (
+                     <TableRow
+                       key={material.id}
+                       className={cn(
+                         "group relative border-b border-slate-100/80 transition-colors duration-150 ease-in-out",
+                         isEvenRow ? "bg-white/60" : "bg-slate-50/50", // Zebra striping
+                         "hover:bg-emerald-50/50", // Hover effect
+                         material.estado && "opacity-70 hover:opacity-100" // Slightly dim completed items
+                       )}
+                     >
+                       <TableCell className="px-3 py-2">
+                         <Button
+                           variant="ghost" // Changed to ghost for a lighter look
+                           size="icon"
+                           className={cn(
+                             "h-7 w-7 rounded-full shadow-sm border transition-all duration-300 ease-in-out flex items-center justify-center",
+                             material.estado
+                               ? "bg-emerald-100/70 border-emerald-200 text-emerald-600 hover:bg-emerald-200/70"
+                               : "bg-white border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-500 hover:bg-emerald-50/50"
+                           )}
+                           onClick={() => toggleEstadoMaterial(material.id, material.estado)}
+                           disabled={materialMutations.update.isPending}
+                           aria-label={material.estado ? "Marcar como pendente" : "Marcar como concluído"}
+                         >
+                           <Check className={cn("h-4 w-4 transition-opacity", material.estado ? "opacity-100" : "opacity-0 group-hover:opacity-100")} />
+                           {!material.estado && <div className="h-2 w-2 rounded-full bg-slate-300 group-hover:bg-emerald-400 transition-colors"></div>}
+                         </Button>
+                       </TableCell>
+                       <TableCell className="px-3 py-2 text-slate-700 font-medium group-hover:text-emerald-700 transition-colors duration-150">{material.nome}</TableCell>
+                       <TableCell className="px-3 py-2 text-slate-500 group-hover:text-slate-700 transition-colors duration-150 max-w-[250px] truncate" title={material.descricao ?? undefined}>
+                         {material.descricao || <span className="text-slate-400 italic">Sem descrição</span>}
+                       </TableCell>
+                       <TableCell className="px-3 py-2 text-slate-600 group-hover:text-emerald-700 transition-colors duration-150">{material.workpackageName}</TableCell>
+                       <TableCell className="px-3 py-2">
+                         <Badge variant="outline" className={`${bg} ${text} ${border} shadow-sm text-xs px-2 py-0.5 rounded`}>
+                           {RUBRICA_LABELS[material.rubrica]}
+                         </Badge>
+                       </TableCell>
+                       <TableCell className="px-3 py-2 text-slate-600 group-hover:text-emerald-700 transition-colors duration-150 text-right">{formatCurrency(Number(material.preco))}</TableCell>
+                       <TableCell className="px-3 py-2 text-slate-600 group-hover:text-emerald-700 transition-colors duration-150 text-right">{material.quantidade}</TableCell>
+                       <TableCell className="px-3 py-2 text-slate-700 group-hover:text-emerald-700 transition-colors duration-150 text-right font-medium">{formatCurrency(total)}</TableCell>
+                       <TableCell className="px-3 py-2 text-slate-600 group-hover:text-emerald-700 transition-colors duration-150 text-center">{material.ano_utilizacao}</TableCell>
+                       <TableCell className="px-3 py-2 text-center">
+                         <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                             <Button
+                               variant="ghost"
+                               size="icon"
+                               className="h-7 w-7 rounded-full text-slate-400 hover:bg-slate-100/80 hover:text-emerald-500 transition-all duration-150 ease-in-out"
+                             >
+                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                               </svg>
+                               <span className="sr-only">Opções</span>
+                             </Button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent align="end" className="rounded-xl border border-slate-100/80 bg-white/95 backdrop-blur-sm shadow-lg text-sm">
+                             <DropdownMenuItem
+                               onClick={() => toggleEstadoMaterial(material.id, material.estado)}
+                               className="hover:text-emerald-500 transition-colors duration-150 cursor-pointer"
+                             >
+                               {material.estado ? "Marcar como pendente" : "Marcar como concluído"}
+                             </DropdownMenuItem>
+                             {/* Adicionar mais opções aqui se necessário (Editar, Remover, etc.) */}
+                           </DropdownMenuContent>
+                         </DropdownMenu>
+                       </TableCell>
+                     </TableRow>
+                   );
+                 })}
+               </TableBody>
+             </Table>
+           </div>
+         ) : (
+           <div className="py-16 text-center">
+             <div className="flex flex-col items-center justify-center space-y-4">
+               <div className="h-16 w-16 rounded-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center shadow-md border border-slate-200/50">
+                 <Package className="h-8 w-8 text-slate-400" />
+               </div>
+               <div className="space-y-1">
+                 <p className="text-base font-medium text-slate-700">Nenhum material ou serviço encontrado</p>
+                 <p className="text-sm text-slate-500 max-w-md mx-auto">
+                   {searchTerm || rubricaFilter !== "todas" || estadoFilter !== "todos" || anoFilter !== "todos"
+                     ? "Nenhum item corresponde aos critérios de pesquisa/filtro. Tente ajustar ou limpar os filtros."
+                     : "Ainda não existem materiais ou serviços registados neste projeto ou associados aos workpackages."}
+                 </p>
+               </div>
+               {(searchTerm || rubricaFilter !== "todas" || estadoFilter !== "todos" || anoFilter !== "todos") && (
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="rounded-full border-slate-200 bg-white/90 text-slate-700 hover:text-emerald-500 hover:bg-white/50 hover:border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out mt-4"
+                   onClick={() => {
+                     setSearchTerm("");
+                     setRubricaFilter("todas");
+                     setEstadoFilter("todos");
+                     setAnoFilter("todos");
+                   }}
+                 >
+                   <X className="h-3 w-3 mr-1.5"/>
+                   Limpar pesquisa e filtros
+                 </Button>
+               )}
+             </div>
+           </div>
+         )}
+      </div>
     </div>
   );
 } 
