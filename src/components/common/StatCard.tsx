@@ -30,7 +30,7 @@ export const StatCard = ({
   secondaryText
 }: StatCardProps) => {
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] transition-shadow duration-200">
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-2">
           <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", iconContainerClassName)}>

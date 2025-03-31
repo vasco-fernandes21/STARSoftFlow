@@ -11,6 +11,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { ProjetoEstado } from "@prisma/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { EditarProjeto } from "@/components/projetos/EditarProjeto";
+import { StatsGrid } from "@/components/common/StatsGrid";
+import type { StatItem } from "@/components/common/StatsGrid";
+import { BarraProgresso } from "@/components/common/BarraProgresso";
 
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));
@@ -98,86 +101,52 @@ const StatisticsCards = memo(({
   dataFim: Date | null;
   duracaoMeses: number;
   progresso: number;
-}) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-1">
-    <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-blue-50/70 flex items-center justify-center shadow-md">
-          <FileText className="h-5 w-5 text-customBlue" />
-        </div>
-        <div>
-          <p className="text-sm text-gray-500">WorkPackages</p>
-          <p className="text-2xl font-semibold">{workpackagesCount}</p>
-        </div>
-      </CardContent>
-    </Card>
-    <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-purple-50/70 flex items-center justify-center shadow-md">
-          <CalendarClock className="h-5 w-5 text-purple-600" />
-        </div>
-        <div>
-          <p className="text-sm text-gray-500">Tarefas</p>
-          <p className="text-2xl font-semibold">{totalTarefas}</p>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="flex items-center">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 mr-1"></span>
-              {tarefasConcluidas} Concluídas
-            </span>
-            <span className="flex items-center">
-              <span className="h-2 w-2 rounded-full bg-amber-500 mr-1"></span>
-              {tarefasPendentes} Pendentes
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-    <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-amber-50/70 flex items-center justify-center shadow-md">
-          <Calendar className="h-5 w-5 text-amber-600" />
-        </div>
-        <div>
-          <p className="text-sm text-gray-500">Período</p>
-          <p className="text-base font-semibold">
-            {dataInicio?.toLocaleDateString("pt")} - {dataFim?.toLocaleDateString("pt")}
-          </p>
-          <p className="text-xs text-gray-500">{duracaoMeses} meses</p>
-        </div>
-      </CardContent>
-    </Card>
-    <Card className="glass-card border-white/20 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl h-full">
-      <CardContent className="p-4 flex items-start gap-3">
-        <div className="h-10 w-10 rounded-full bg-emerald-50/70 flex items-center justify-center shadow-md">
-          <LineChart className="h-5 w-5 text-emerald-600" />
-        </div>
-        <div className="w-full">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-500">Progresso</p>
-            <p className="font-semibold">{Math.round(progresso * 100)}%</p>
-          </div>
-          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-1000 ease-in-out",
-                progresso === 1
-                  ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
-                  : progresso >= 0.75
-                  ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
-                  : progresso >= 0.5
-                  ? "bg-gradient-to-r from-blue-400 to-blue-500"
-                  : progresso >= 0.25
-                  ? "bg-gradient-to-r from-amber-400 to-amber-500"
-                  : "bg-gradient-to-r from-rose-400 to-rose-500"
-              )}
-              style={{ width: `${progresso * 100}%` }}
-            ></div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-));
+}) => {
+  const stats: Array<StatItem> = [
+    {
+      icon: FileText,
+      label: "WorkPackages",
+      value: workpackagesCount,
+      iconClassName: "text-blue-600",
+      iconContainerClassName: "bg-blue-50/80",
+      badgeText: "Total de pacotes de trabalho",
+    },
+    {
+      icon: CalendarClock,
+      label: "Tarefas",
+      value: totalTarefas,
+      iconClassName: "text-gray-600",
+      iconContainerClassName: "bg-gray-50/80",
+      badgeText: `${tarefasConcluidas} Concluídas, ${tarefasPendentes} Pendentes`,
+    },
+    {
+      icon: Calendar,
+      label: "Período",
+      value: dataInicio && dataFim ? duracaoMeses : 0,
+      suffix: dataInicio && dataFim ? " meses" : "",
+      iconClassName: "text-gray-600",
+      iconContainerClassName: "bg-gray-50/80",
+      secondaryText: dataInicio && dataFim 
+        ? `${dataInicio.toLocaleDateString("pt")} - ${dataFim.toLocaleDateString("pt")}`
+        : "Não definido",
+    },
+    {
+      icon: LineChart,
+      label: "Progresso",
+      value: Math.round(progresso * 100),
+      suffix: "%",
+      iconClassName: progresso >= 0.75 ? "text-green-600" : progresso >= 0.5 ? "text-gray-600" : "text-red-600",
+      iconContainerClassName: progresso >= 0.75 ? "bg-green-50/80" : progresso >= 0.5 ? "bg-gray-50/80" : "bg-red-50/80",
+      badgeText: "Progresso total do projeto",
+    }
+  ];
+
+  return (
+    <div className="pb-1">
+      <StatsGrid stats={stats} className="lg:grid-cols-4" />
+    </div>
+  );
+});
 
 // Componente para as tabs
 const ProjectTabs = memo(({ 
@@ -404,7 +373,7 @@ export default function DetalheProjeto() {
   } = calculatedValues;
 
   return (
-    <div className="h-full bg-[#F6F8FA] p-8">
+    <div className="h-full bg-[#F7F9FC] p-8">
       <div className="max-w-8xl mx-auto space-y-4">
         <ProjectBreadcrumb
           nome={projeto.nome}

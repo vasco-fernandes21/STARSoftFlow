@@ -37,15 +37,17 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-bgApp text-foreground">
+    <div className="flex h-screen w-full overflow-hidden bg-[#F0F4FA] text-foreground">
       <AppSidebar />
-      <main className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <AlertDialogProvider>
-            <ProjetoFormProvider>
-              {children}
-            </ProjetoFormProvider>
-          </AlertDialogProvider>
+      <main className="flex-1 overflow-hidden flex flex-col p-4">
+        <div className="flex-1 h-full overflow-hidden rounded-xl bg-bgApp shadow-sm">
+          <div className="h-full overflow-y-auto">
+            <AlertDialogProvider>
+              <ProjetoFormProvider>
+                {children}
+              </ProjetoFormProvider>
+            </AlertDialogProvider>
+          </div>
         </div>
       </main>
     </div>

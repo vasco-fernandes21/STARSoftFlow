@@ -2,29 +2,26 @@
 
 // Componente que exibe uma visão geral financeira dos projetos
 
-import { useState, Fragment } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
-} from "@/components/ui/select";
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from "@/components/ui/table";
 import { 
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip
 } from "recharts";
 import { 
   DollarSign, TrendingUp, Wallet, ChevronRight, ChevronDown,
-  TrendingDown, Info, Users, Package
+  TrendingDown, Package, Users, ChartBar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
+import { type Rubrica } from "@prisma/client";
 
 // Definição de tipos para representar a resposta da API
 interface DetalheRecurso {
@@ -41,17 +38,56 @@ interface DetalheRecurso {
   };
 }
 
-interface CustosReais {
-  recursos: number;
-  materiais: number;
-  total: number;
-  detalhesRecursos: DetalheRecurso[];
+interface DetalheMaterial {
+  id: number;
+  nome: string;
+  preco: number;
+  quantidade: number;
+  custoTotal: number;
+  workpackage: {
+    id: string;
+    nome: string;
+  };
+  ano_utilizacao: number;
+  estado: boolean;
 }
 
-interface CustosConcluidos {
-  recursos: number;
-  materiais: number;
+interface DetalhesRubrica {
+  rubrica: Rubrica;
   total: number;
+  materiais: DetalheMaterial[];
+}
+
+interface DetalheAnual {
+  ano: number;
+  orcamento: {
+    submetido: number;
+    real: {
+      recursos: number;
+      materiais: number;
+      total: number;
+      detalhesRecursos: Array<{
+        userId: string;
+        userName: string | null;
+        salario: number;
+        alocacao: number;
+        custoAjustado: number;
+      }>;
+    };
+  };
+  custosConcluidos: {
+    recursos: number;
+    materiais: number;
+    total: number;
+  };
+  alocacoes: number;
+  valorFinanciado: number;
+  overhead: number;
+  resultado: number;
+  folga: number;
+  vab: number;
+  margem: number;
+  vabCustosPessoal: number;
 }
 
 interface ProjetoFinancasData {
@@ -62,19 +98,8 @@ interface ProjetoFinancasData {
     recursos: number;
     materiais: number;
     total: number;
-    detalhesRecursos: Array<{
-      userId: string;
-      userName: string | null;
-      salario: number;
-      alocacao: number;
-      custoAjustado: number;
-      detalhesCalculo: {
-        salarioBase: number;
-        salarioAjustado: number;
-        alocacao: number;
-        formulaUsada: string;
-      };
-    }>;
+    detalhesRecursos: DetalheRecurso[];
+    detalhesMateriais: DetalhesRubrica[];
   };
   custosConcluidos: {
     recursos: number;
@@ -96,19 +121,8 @@ interface ProjetoFinancasData {
         recursos: number;
         materiais: number;
         total: number;
-        detalhesRecursos: Array<{
-          userId: string;
-          userName: string | null;
-          salario: number;
-          alocacao: number;
-          custoAjustado: number;
-          detalhesCalculo: {
-            salarioBase: number;
-            salarioAjustado: number;
-            alocacao: number;
-            formulaUsada: string;
-          };
-        }>;
+        detalhesRecursos: DetalheRecurso[];
+        detalhesMateriais: DetalhesRubrica[];
       };
     };
     custosConcluidos: {
@@ -173,6 +187,7 @@ interface VisaoGeralFinanceira {
   margemMedia: number;
   progressoFinanceiroMedio: number;
   progressoFisicoMedio: number;
+  detalhesAnuais?: Array<DetalheAnual>;
 }
 
 // Helpers for formatting
@@ -256,121 +271,22 @@ function StatCard({ title, value, icon: Icon, color = 'blue', subtitle, tooltip,
   );
 }
 
-// Expanded Project Detail Component
-interface ProjetoDetalheExpandidoProps {
-  financas: ProjetoFinancasData;
-}
-
-function ProjetoDetalheExpandido({ financas }: ProjetoDetalheExpandidoProps) {
-  const temDetalhesAnuais = financas.detalhesAnuais && financas.detalhesAnuais.length > 0 && financas.detalhesAnuais.some(d => d.orcamento.submetido > 0 || d.orcamento.real.total > 0);
-
-  return (
-    <div className="p-4 bg-slate-50/50 border-t border-slate-200/50 space-y-4">
-      {/* Mini Stat Cards for the specific project */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-         <StatCard
-          title="Orçamento Sub."
-          value={formatCurrency(financas.orcamentoSubmetido)}
-          icon={Wallet}
-          color="blue"
-          tooltip="Orçamento Submetido do Projeto"
-          size="small"
-        />
-         <StatCard
-          title="Custos Reais"
-          value={formatCurrency(financas.custosReais.total)}
-          icon={TrendingDown}
-          color="orange"
-          tooltip="Custos Reais Totais do Projeto"
-          size="small"
-        />
-         <StatCard
-          title="Valor Financiado"
-          value={formatCurrency(financas.valorFinanciado)}
-          icon={DollarSign}
-          color="green"
-          tooltip="Valor Financiado do Projeto"
-          size="small"
-        />
-        <StatCard
-          title="Overhead"
-          value={formatCurrency(financas.overhead)}
-          icon={Package}
-          color="indigo"
-          tooltip="Overhead do Projeto"
-          size="small"
-        />
-        <StatCard
-          title="Resultado"
-          value={
-             <span className={financas.resultado >= 0 ? 'text-green-700' : 'text-red-700'}>
-              {formatCurrency(financas.resultado)}
-             </span>
-          }
-          icon={financas.resultado >= 0 ? TrendingUp : TrendingDown}
-          color={financas.resultado >= 0 ? 'green' : 'red'}
-          tooltip="Resultado Financeiro do Projeto"
-          size="small"
-        />
-        <StatCard
-          title="Margem"
-          value={formatPercentage(financas.margem)}
-          icon={financas.margem >= 0 ? TrendingUp : TrendingDown}
-          color={financas.margem >= 0 ? 'green' : 'red'}
-          tooltip="Margem Financeira do Projeto"
-          size="small"
-        />
-      </div>
-
-      {/* Annual Breakdown Table (if details exist) */}
-      {temDetalhesAnuais && (
-        <div className="pt-2">
-          <h4 className="text-xs font-medium mb-1.5 text-slate-600">Detalhe Anual</h4>
-          <div className="overflow-x-auto rounded-md border border-slate-200/50 bg-white shadow-sm max-h-48">
-            <Table className="text-[11px]">
-              <TableHeader className="sticky top-0 bg-white/80 backdrop-blur-sm z-10">
-                <TableRow className="hover:bg-slate-50/50">
-                  <TableHead className="w-[50px] px-2 py-1 h-7">Ano</TableHead>
-                  <TableHead className="text-right px-2 py-1 h-7">Orçamento</TableHead>
-                  <TableHead className="text-right px-2 py-1 h-7">Custo Real</TableHead>
-                  <TableHead className="text-right px-2 py-1 h-7">Financiado</TableHead>
-                  <TableHead className="text-right px-2 py-1 h-7">Overhead</TableHead>
-                  <TableHead className="text-right px-2 py-1 h-7">Resultado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {financas.detalhesAnuais?.filter(d => d.orcamento.submetido > 0 || d.orcamento.real.total > 0).map((detalhe) => (
-                  <TableRow key={detalhe.ano} className="hover:bg-slate-50/80 transition-colors">
-                    <TableCell className="font-medium px-2 py-1 h-7">{detalhe.ano}</TableCell>
-                    <TableCell className="text-right px-2 py-1 h-7">{formatCurrency(detalhe.orcamento.submetido)}</TableCell>
-                    <TableCell className="text-right px-2 py-1 h-7">{formatCurrency(detalhe.orcamento.real.total)}</TableCell>
-                    <TableCell className="text-right px-2 py-1 h-7">{formatCurrency(detalhe.valorFinanciado)}</TableCell>
-                    <TableCell className="text-right px-2 py-1 h-7">{formatCurrency(detalhe.overhead)}</TableCell>
-                    <TableCell className={cn(
-                      "text-right font-medium px-2 py-1 h-7",
-                      detalhe.resultado >= 0 ? 'text-green-700' : 'text-red-700'
-                    )}>
-                      {formatCurrency(detalhe.resultado)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface ProjetosFinancasOverviewProps {
   className?: string;
 }
 
-interface ProjetoFinanceiroResponse {
-  projetos: ProjetoFinanceiroItem[];
-  totaisConsolidados: TotaisConsolidados;
-  projetosClassificados: ProjetosClassificados;
+// Helper function to get badge variant based on project status
+function getStatusVariant(estado: string): "default" | "warning" | "destructive" | "outline" {
+  switch (estado.toLowerCase()) {
+    case "em execução":
+      return "default";
+    case "risco":
+      return "warning";
+    case "crítico":
+      return "destructive";
+    default:
+      return "outline";
+  }
 }
 
 export function ProjetosFinancasOverview({ className }: ProjetosFinancasOverviewProps) {
@@ -385,7 +301,7 @@ export function ProjetosFinancasOverview({ className }: ProjetosFinancasOverview
 
   if (isLoading || !data) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center">
         <div className="text-sm text-slate-500">Carregando dados financeiros...</div>
       </div>
     );
@@ -425,179 +341,528 @@ export function ProjetosFinancasOverview({ className }: ProjetosFinancasOverview
     .slice(0, 7);
 
   return (
-    <div className={cn("p-4 sm:p-6 space-y-8 bg-slate-50/30", className)}>
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Visão Financeira Geral</h1>
-          <p className="text-sm text-slate-600 mt-1">
-            {selectedYear === "todos" ? "Análise do estado financeiro de todos os projetos ativos." : `Análise financeira para o ano ${selectedYear}.`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
-          {/* Year Selector */}
-          <select
-            className="h-9 rounded-lg border border-slate-200 bg-white/80 backdrop-blur-sm px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 w-[140px]"
-            value={selectedYear}
-            onChange={(e) => {
-              setSelectedYear(e.target.value);
-              setExpandedProjectId(null);
-            }}
-          >
-            <option value="todos">Todos os Anos</option>
-            {availableYears.map((year) => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 px-4 text-sm border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 bg-white/80 backdrop-blur-sm"
-            asChild
-          >
-            <Link href="/projetos">
-              Ver Todos
-              <ChevronRight className="w-3.5 h-3.5 ml-1" />
-            </Link>
-          </Button>
-        </div>
+    <div className={cn("space-y-6", className)}>
+      {/* Stats Grid - Usando um grid mais compacto e moderno */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Orçamento Total</p>
+                <h3 className="text-xl font-semibold text-slate-800 mt-1">
+                  {formatCurrency(totais.orcamentoTotalSubmetido)}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  {totais.projetosComFinancas} projetos ativos
+                </p>
+              </div>
+              <div className="h-8 w-8 rounded-lg bg-azul-subtle flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-azul" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Custos Reais</p>
+                <h3 className="text-xl font-semibold text-slate-800 mt-1">
+                  {formatCurrency(totais.custosReaisTotal)}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  {((totais.custosReaisTotal / totais.orcamentoTotalSubmetido) * 100).toFixed(1)}% do orçamento
+                </p>
+              </div>
+              <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Wallet className="h-4 w-4 text-slate-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Overhead Total</p>
+                <h3 className="text-xl font-semibold text-slate-800 mt-1">
+                  {formatCurrency(totais.overheadTotal)}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  {((totais.overheadTotal / totais.custosReaisTotal) * 100).toFixed(1)}% dos custos reais
+                </p>
+              </div>
+              <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Package className="h-4 w-4 text-slate-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Resultado Total</p>
+                <h3 className={cn(
+                  "text-xl font-semibold mt-1",
+                  totais.resultadoTotal >= 0 ? "text-emerald-600" : "text-red-600"
+                )}>
+                  {formatCurrency(totais.resultadoTotal)}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  {projetosClassificados.comResultadoPositivo} projetos positivos
+                </p>
+              </div>
+              <div className={cn(
+                "h-8 w-8 rounded-lg flex items-center justify-center",
+                totais.resultadoTotal >= 0 ? "bg-emerald-50" : "bg-red-50"
+              )}>
+                <TrendingUp className={cn(
+                  "h-4 w-4",
+                  totais.resultadoTotal >= 0 ? "text-emerald-600" : "text-red-600"
+                )} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Folga Total</p>
+                <h3 className={cn(
+                  "text-xl font-semibold mt-1",
+                  totais.folgaTotal >= 0 ? "text-emerald-600" : "text-red-600"
+                )}>
+                  {formatCurrency(totais.folgaTotal)}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Margem de {formatPercentage(visaoGeral.margemMedia)}
+                </p>
+              </div>
+              <div className={cn(
+                "h-8 w-8 rounded-lg flex items-center justify-center",
+                totais.folgaTotal >= 0 ? "bg-emerald-50" : "bg-red-50"
+              )}>
+                <TrendingUp className={cn(
+                  "h-4 w-4",
+                  totais.folgaTotal >= 0 ? "text-emerald-600" : "text-red-600"
+                )} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm font-medium text-slate-500">Orçamento Total</div>
-            <div className="mt-1 text-2xl font-semibold text-slate-800">
-              {formatCurrency(totais.orcamentoTotalSubmetido)}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {totais.projetosComFinancas} projetos ativos
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm font-medium text-slate-500">Custos Reais</div>
-            <div className="mt-1 text-2xl font-semibold text-slate-800">
-              {formatCurrency(totais.custosReaisTotal)}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {((totais.custosReaisTotal / totais.orcamentoTotalSubmetido) * 100).toFixed(1)}% do orçamento
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm font-medium text-slate-500">Overhead Total</div>
-            <div className="mt-1 text-2xl font-semibold text-slate-800">
-              {formatCurrency(totais.overheadTotal)}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {((totais.overheadTotal / totais.custosReaisTotal) * 100).toFixed(1)}% dos custos reais
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-sm font-medium text-slate-500">Resultado Total</div>
-            <div className={cn(
-              "mt-1 text-2xl font-semibold",
-              totais.resultadoTotal >= 0 ? "text-emerald-600" : "text-red-600"
-            )}>
-              {formatCurrency(totais.resultadoTotal)}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {projetosClassificados.comResultadoPositivo} projetos positivos
-            </div>
-          </CardContent>
-        </Card>
+      {/* Filtros e Ações */}
+      <div className="flex items-center justify-end gap-2">
+        <select
+          className="h-9 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-azul disabled:cursor-not-allowed disabled:opacity-50 w-[140px]"
+          value={selectedYear}
+          onChange={(e) => {
+            setSelectedYear(e.target.value);
+            setExpandedProjectId(null);
+          }}
+        >
+          <option value="todos">Todos os Anos</option>
+          {availableYears.map((year) => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 px-4 text-sm border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+          asChild
+        >
+          <Link href="/projetos">
+            Ver Todos
+            <ChevronRight className="w-3.5 h-3.5 ml-1" />
+          </Link>
+        </Button>
       </div>
 
-      {/* Charts Section */}
+      {/* Charts Section - Usando cores do tema */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Cost Distribution Chart */}
-        <Card className="p-4">
-          <div className="text-sm font-medium text-slate-700 mb-4">Distribuição de Custos</div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={distribuicaoCustosFiltrada}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {distribuicaoCustosFiltrada.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 0 ? "#3b82f6" : "#f97316"} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        <Card className="bg-white border-none shadow-sm">
+          <CardContent className="p-6">
+            <h3 className="text-sm font-medium text-slate-800 mb-4">Distribuição de Custos</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={distribuicaoCustosFiltrada}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {distribuicaoCustosFiltrada.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={index === 0 ? "#2C5697" : "#94A3B8"} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
         </Card>
 
-        {/* Project Comparison Chart */}
-        <Card className="p-4">
-          <div className="text-sm font-medium text-slate-700 mb-4">Comparação de Projetos (Top 7)</div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={projetosFinanceirosFiltrados}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="nome" />
-                <YAxis />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                <Bar dataKey="orcamentoSubmetido" name="Orçamento" fill="#3b82f6" />
-                <Bar dataKey="custosReais" name="Custos Reais" fill="#f97316" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <Card className="bg-white border-none shadow-sm">
+          <CardContent className="p-6">
+            <h3 className="text-sm font-medium text-slate-800 mb-4">Comparação de Projetos (Top 7)</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={projetosFinanceirosFiltrados}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis 
+                    dataKey="nome" 
+                    tick={{ fill: '#64748B', fontSize: 12 }}
+                    axisLine={{ stroke: '#E2E8F0' }}
+                  />
+                  <YAxis 
+                    tick={{ fill: '#64748B', fontSize: 12 }}
+                    axisLine={{ stroke: '#E2E8F0' }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  <Bar dataKey="orcamentoSubmetido" name="Orçamento" fill="#2C5697" />
+                  <Bar dataKey="custosReais" name="Custos Reais" fill="#94A3B8" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Project Status Summary */}
-      <Card className="p-4">
-        <div className="text-sm font-medium text-slate-700 mb-4">Estado dos Projetos</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="p-3 bg-emerald-50 rounded-lg">
-            <div className="text-sm font-medium text-emerald-700">Saudáveis</div>
-            <div className="mt-1 text-2xl font-semibold text-emerald-600">{projetosClassificados.saudaveis}</div>
-            <div className="mt-1 text-xs text-emerald-500">Custos {'<'} 70% do orçamento</div>
+      {/* Lista de Projetos */}
+      <Card className="bg-white border-none shadow-sm">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-medium text-slate-800 mb-4">Lista de Projetos</h3>
+          <div className="space-y-4">
+            {projetos.map((projeto) => {
+              const percentagemGasta = projeto.financas.orcamentoSubmetido > 0
+                ? (projeto.financas.custosReais.total / projeto.financas.orcamentoSubmetido) * 100
+                : 0;
+
+              return (
+                <div key={projeto.id} className="group">
+                  <div className="flex items-start justify-between gap-4 p-4 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-base font-semibold text-slate-900 truncate">
+                          {projeto.nome}
+                        </h3>
+                        <Badge 
+                          variant={getStatusVariant(projeto.estado)} 
+                          className="text-xs font-normal px-1.5 py-0.5"
+                        >
+                          {projeto.estado}
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-4 w-4" />
+                          <span className="truncate">
+                            Responsável: {projeto.responsavel?.name || "Sem responsável"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <ChartBar className="h-4 w-4" />
+                          <span>Progresso: {formatPercentage(projeto.progresso, 0)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500 mb-0.5">Orçamento Total</div>
+                          <div className="font-medium">{formatCurrency(projeto.financas.orcamentoSubmetido)}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500 mb-0.5">Resultado</div>
+                          <div className={cn(
+                            "font-medium",
+                            projeto.financas.resultado >= 0 ? "text-emerald-600" : "text-red-600"
+                          )}>
+                            {formatCurrency(projeto.financas.resultado)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500 mb-0.5">Folga</div>
+                          <div className={cn(
+                            "font-medium",
+                            projeto.financas.folga >= 0 ? "text-emerald-600" : "text-red-600"
+                          )}>
+                            {(() => {
+                              // Get the first year's overhead to exclude it from the calculation
+                              const primeiroAnoOverhead = projeto.financas.detalhesAnuais?.find(
+                                d => d.ano === Math.min(...(projeto.financas.detalhesAnuais?.map(d => d.ano) ?? []))
+                              )?.overhead ?? 0;
+                              
+                              // Calculate folga excluding first year overhead
+                              const folgaTotal = projeto.financas.orcamentoSubmetido - projeto.financas.custosReais.total + 
+                                (projeto.financas.overhead - primeiroAnoOverhead);
+                              
+                              return formatCurrency(folgaTotal);
+                            })()}
+                          </div>
+                        </div>
+                        <div className="text-right border-l pl-4 border-slate-200">
+                          <div className="text-xs text-slate-500 mb-0.5">Resultado + Folga</div>
+                          {(() => {
+                            // Get the first year's overhead to exclude it from the calculation
+                            const primeiroAnoOverhead = projeto.financas.detalhesAnuais?.find(
+                              d => d.ano === Math.min(...(projeto.financas.detalhesAnuais?.map(d => d.ano) ?? []))
+                            )?.overhead ?? 0;
+                            
+                            // Calculate folga excluding first year overhead
+                            const folgaTotal = projeto.financas.orcamentoSubmetido - projeto.financas.custosReais.total + 
+                              (projeto.financas.overhead - primeiroAnoOverhead);
+                            
+                            // Calculate the sum of resultado and folga
+                            const resultadoMaisFolga = projeto.financas.resultado + folgaTotal;
+                            
+                            return (
+                              <div className={cn(
+                                "font-medium",
+                                resultadoMaisFolga >= 0 ? "text-emerald-600" : "text-red-600"
+                              )}>
+                                {formatCurrency(resultadoMaisFolga)}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 text-slate-400 hover:text-slate-600"
+                          onClick={() => setExpandedProjectId(expandedProjectId === projeto.id ? null : projeto.id)}
+                        >
+                          {expandedProjectId === projeto.id ? (
+                            <ChevronDown className="h-5 w-5" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5" />
+                          )}
+                        </Button>
+                      </div>
+                      <StatusBadge 
+                        orcamento={projeto.financas.orcamentoSubmetido} 
+                        custosReais={projeto.financas.custosReais.total} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Project Details (Expanded) */}
+                  {expandedProjectId === projeto.id && (
+                    <div className="border-t border-slate-200">
+                      {/* Annual Details Table */}
+                      <div className="p-4 bg-slate-50/50">
+                        <h4 className="text-sm font-medium text-slate-700 mb-3">Detalhes por Ano</h4>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Ano</TableHead>
+                                <TableHead className="text-right">Orçamento</TableHead>
+                                <TableHead className="text-right">Custos Reais</TableHead>
+                                <TableHead className="text-right">Valor Financiado</TableHead>
+                                <TableHead className="text-right">Overhead</TableHead>
+                                <TableHead className="text-right">Resultado</TableHead>
+                                <TableHead className="text-right">Margem</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {projetos.some(p => Array.isArray(p.financas.detalhesAnuais) && p.financas.detalhesAnuais.length > 0) ? (
+                                projetos
+                                  .flatMap(projeto => 
+                                    (projeto.financas.detalhesAnuais || [])
+                                      .filter(detalhe => selectedYear === "todos" || detalhe.ano.toString() === selectedYear)
+                                      .map((detalhe: DetalheAnual) => ({
+                                        ...detalhe,
+                                        projetoId: projeto.id,
+                                        projetoNome: projeto.nome
+                                      }))
+                                  )
+                                  .sort((a, b) => b.ano - a.ano)
+                                  .map(detalhe => (
+                                    <TableRow key={`${detalhe.projetoId}-${detalhe.ano}`}>
+                                      <TableCell className="font-medium">{detalhe.projetoNome}</TableCell>
+                                      <TableCell>{detalhe.ano}</TableCell>
+                                      <TableCell>{formatCurrency(detalhe.orcamento.submetido)}</TableCell>
+                                      <TableCell>{formatCurrency(detalhe.orcamento.real.total)}</TableCell>
+                                      <TableCell>
+                                        <span className={cn(
+                                          "font-medium",
+                                          detalhe.resultado > 0 ? "text-green-600" : "text-red-600"
+                                        )}>
+                                          {formatCurrency(detalhe.resultado)}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell>
+                                        <span className={cn(
+                                          "font-medium",
+                                          detalhe.margem > 0 ? "text-green-600" : "text-red-600"
+                                        )}>
+                                          {detalhe.margem.toFixed(1)}%
+                                        </span>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))
+                              ) : (
+                                <TableRow>
+                                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                    Nenhum detalhe anual disponível para os projetos selecionados.
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+
+                      {/* Resource Details */}
+                      {projeto.financas.custosReais.detalhesRecursos?.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium text-slate-700 mb-3">Custos com Recursos</h4>
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Recurso</TableHead>
+                                  <TableHead className="text-right">Alocação Total</TableHead>
+                                  <TableHead className="text-right">Custo Total</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {Object.values(
+                                  (projeto.financas.custosReais.detalhesRecursos || [])
+                                    .reduce<Record<string, {
+                                      userId: string;
+                                      userName: string | null;
+                                      alocacaoTotal: number;
+                                      custoTotal: number;
+                                    }>>((acc, recurso: DetalheRecurso) => {
+                                      const key = recurso.userId;
+                                      if (!acc[key]) {
+                                        acc[key] = {
+                                          userId: recurso.userId,
+                                          userName: recurso.userName,
+                                          alocacaoTotal: 0,
+                                          custoTotal: 0
+                                        };
+                                      }
+                                      acc[key].alocacaoTotal += recurso.alocacao;
+                                      acc[key].custoTotal += recurso.custoAjustado;
+                                      return acc;
+                                    }, {})
+                                ).map((recurso) => (
+                                  <TableRow key={recurso.userId}>
+                                    <TableCell>{recurso.userName || "Sem nome"}</TableCell>
+                                    <TableCell className="text-right">{formatPercentage(recurso.alocacaoTotal)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(recurso.custoTotal)}</TableCell>
+                                  </TableRow>
+                                ))}
+                                {/* Linha de total */}
+                                <TableRow className="border-t-2 border-slate-200">
+                                  <TableCell className="font-medium">Total</TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {formatPercentage(
+                                      (projeto.financas.custosReais.detalhesRecursos || [])
+                                        .reduce((total, recurso) => total + recurso.alocacao, 0)
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {formatCurrency(
+                                      (projeto.financas.custosReais.detalhesRecursos || [])
+                                        .reduce((total, recurso) => total + recurso.custoAjustado, 0)
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Outros Custos Section */}
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-slate-700 mb-3">Outros Custos</h4>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Rubrica</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
+                                <TableHead className="text-right">Nº Materiais</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {projeto.financas.custosReais.detalhesMateriais?.map((detalhe) => (
+                                <TableRow key={detalhe.rubrica}>
+                                  <TableCell>
+                                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                                      {detalhe.rubrica.replace(/_/g, ' ').toLowerCase()}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatCurrency(detalhe.total)}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {detalhe.materiais.length}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                              <TableRow className="border-t-2 border-slate-200">
+                                <TableCell className="font-medium">Total</TableCell>
+                                <TableCell className="text-right font-medium">
+                                  {formatCurrency(projeto.financas.custosReais.materiais)}
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  {projeto.financas.custosReais.detalhesMateriais?.reduce(
+                                    (total, rubrica) => total + rubrica.materiais.length, 
+                                    0
+                                  ) ?? 0}
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          <div className="p-3 bg-amber-50 rounded-lg">
-            <div className="text-sm font-medium text-amber-700">Em Risco</div>
-            <div className="mt-1 text-2xl font-semibold text-amber-600">{projetosClassificados.emRisco}</div>
-            <div className="mt-1 text-xs text-amber-500">Custos entre 70% e 90%</div>
-          </div>
-          <div className="p-3 bg-red-50 rounded-lg">
-            <div className="text-sm font-medium text-red-700">Críticos</div>
-            <div className="mt-1 text-2xl font-semibold text-red-600">{projetosClassificados.criticos}</div>
-            <div className="mt-1 text-xs text-red-500">Custos {'>'} 90% do orçamento</div>
-          </div>
-          <div className="p-3 bg-blue-50 rounded-lg">
-            <div className="text-sm font-medium text-blue-700">Resultado Positivo</div>
-            <div className="mt-1 text-2xl font-semibold text-blue-600">{projetosClassificados.comResultadoPositivo}</div>
-            <div className="mt-1 text-xs text-blue-500">Projetos com lucro</div>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg">
-            <div className="text-sm font-medium text-slate-700">Resultado Negativo</div>
-            <div className="mt-1 text-2xl font-semibold text-slate-600">{projetosClassificados.comResultadoNegativo}</div>
-            <div className="mt-1 text-xs text-slate-500">Projetos com prejuízo</div>
-          </div>
-        </div>
+        </CardContent>
       </Card>
     </div>
   );

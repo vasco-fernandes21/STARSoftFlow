@@ -109,13 +109,73 @@ async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string,
     }
   });
 
-  // Buscar todos os materiais do projeto
+  // Buscar todos os materiais do projeto com detalhes
   const materiais = await db.material.findMany({
     where: {
       workpackage: { projetoId },
       ...(filtros?.ano && { ano_utilizacao: filtros.ano })
+    },
+    select: {
+      id: true,
+      nome: true,
+      preco: true,
+      quantidade: true,
+      rubrica: true,
+      ano_utilizacao: true,
+      estado: true,
+      workpackage: {
+        select: {
+          id: true,
+          nome: true
+        }
+      }
     }
   });
+
+  // Agrupar materiais por rubrica
+  const detalhesMateriais = materiais.reduce((acc, material) => {
+    if (!material.preco || !material.workpackage) return acc;
+    
+    const custoTotal = material.preco.times(new Decimal(material.quantidade));
+    
+    if (!acc[material.rubrica]) {
+      acc[material.rubrica] = {
+        rubrica: material.rubrica,
+        total: new Decimal(0),
+        materiais: []
+      };
+    }
+    
+    acc[material.rubrica].total = acc[material.rubrica].total.plus(custoTotal);
+    acc[material.rubrica].materiais.push({
+      id: material.id,
+      nome: material.nome,
+      preco: material.preco,
+      quantidade: material.quantidade,
+      custoTotal,
+      workpackage: {
+        id: material.workpackage.id,
+        nome: material.workpackage.nome
+      },
+      ano_utilizacao: material.ano_utilizacao,
+      estado: material.estado
+    });
+    
+    return acc;
+  }, {} as Record<string, {
+    rubrica: string;
+    total: Decimal;
+    materiais: Array<{
+      id: number;
+      nome: string;
+      preco: Decimal;
+      quantidade: number;
+      custoTotal: Decimal;
+      workpackage: { id: string; nome: string };
+      ano_utilizacao: number;
+      estado: boolean;
+    }>;
+  }>);
 
   // Detalhes de custo por utilizador
   const detalhesRecursos: Array<{
@@ -173,7 +233,8 @@ async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string,
     custoRecursos,
     custoMateriais,
     total: custoRecursos.plus(custoMateriais),
-    detalhesRecursos
+    detalhesRecursos,
+    detalhesMateriais: Object.values(detalhesMateriais)
   };
 }
 
@@ -228,7 +289,7 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
   // Calcular valor financiado (orçamento submetido * taxa de financiamento)
   const valorFinanciado = orcamentoSubmetido.orcamentoTotal.times(taxaFinanciamento);
   // Calcular overhead (15% do custo real de recursos humanos) - NOTA: o overhead do projeto parece ser um valor percentual, mas a fórmula usa -0.15. Verificar se deve usar projeto.overhead
-  const overheadCalculado = orcamentoReal.custoRecursos.times(new Decimal(projeto.overhead ?? 0).div(100)); // Usando o overhead do projeto
+  const overheadCalculado = orcamentoReal.custoRecursos.times(new Decimal(-0.15)); // Overhead fixo de -15% do custo de recursos
   
   // Calcular resultado financeiro
   // resultado = (valor financiado) - (custo real total) + overhead
@@ -307,10 +368,10 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
   // 6. Total de custos concluídos
   const totalCustosConcluidos = custosAlocacoesPassadas.plus(custoMateriaisConcluidos);
 
-  // Calcular folga (valor financiado - custos reais + overhead)
-  const folga = valorFinanciado
+  // Calculo da folga (orçamento submetido - custos reais + overhead)
+  const folga = orcamentoSubmetido.orcamentoTotal
     .minus(orcamentoReal.total)
-    .plus(overheadCalculado); // Usando o overhead calculado
+    .plus(overheadCalculado);
 
   // Base result com custosConcluidos
   const resultadoBase = {
@@ -444,7 +505,7 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
       const totalCustosConcluidosAno = custosAlocacoesPassadasAno.plus(custoMateriaisConcluidosAno);
       
       // Calcular folga para este ano
-      const folgaAno = valorFinanciadoAno
+      const folgaAno = orcamentoSubmetidoAno.orcamentoTotal
         .minus(orcamentoRealAno.total)
         .plus(overheadAno); // Usando overhead calculado
       

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
+import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -133,37 +133,36 @@ export default function Projetos() {
         value: totalProjetos,
         iconClassName: "text-blue-600",
         iconContainerClassName: "bg-blue-50/80",
-        badgeText: "3 novos",
+        badgeText: "3 novos projetos este mês",
         badgeIcon: TrendingUp,
-        badgeClassName: "text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100",
-        secondaryText: "de 15"
-      },
-      {
-        icon: Clock,
-        label: "Em Desenvolvimento",
-        value: projetosAtivos,
-        iconClassName: "text-emerald-600",
-        iconContainerClassName: "bg-emerald-50/80",
-        badgeText: `${Math.round(projetosAtivos / Math.max(totalProjetos, 1) * 100)}% ativos`,
-        badgeClassName: "text-emerald-600 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-100"
+        badgeClassName: "text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100"
       },
       {
         icon: CheckCircle2,
         label: "Concluídos",
         value: projetosConcluidos,
-        iconClassName: "text-emerald-600",
-        iconContainerClassName: "bg-emerald-50/80",
-        badgeText: `25%`,
-        badgeClassName: "text-emerald-600 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-100"
+        iconClassName: "text-green-600",
+        iconContainerClassName: "bg-green-50/80",
+        badgeText: `${Math.round(projetosConcluidos / Math.max(totalProjetos, 1) * 100)}% do total`,
+        badgeClassName: "text-green-600 bg-green-50/80 hover:bg-green-100/80 border-green-100"
+      },
+      {
+        icon: Clock,
+        label: "Em Desenvolvimento",
+        value: projetosAtivos,
+        iconClassName: "text-amber-600",
+        iconContainerClassName: "bg-amber-50/80",
+        badgeText: `${Math.round(projetosAtivos / Math.max(totalProjetos, 1) * 100)}% ativos`,
+        badgeClassName: "text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100"
       },
       {
         icon: AlertCircle,
         label: "Atrasados",
         value: projetosAtrasados,
-        iconClassName: "text-amber-600",
-        iconContainerClassName: "bg-amber-50/80",
-        badgeText: "Urgentes: 1",
-        badgeClassName: "text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100"
+        iconClassName: "text-red-600",
+        iconContainerClassName: "bg-red-50/80",
+        badgeText: "Requer atenção imediata",
+        badgeClassName: "text-red-600 bg-red-50/80 hover:bg-red-100/80 border-red-100"
       }
     ];
   }, [projetos]);
@@ -198,7 +197,9 @@ export default function Projetos() {
       accessorKey: "progresso",
       header: "Progresso",
       cell: ({ getValue }) => (
-        <BarraProgresso value={Math.round((getValue<number>() || 0) * 100)} />
+        <div className="w-full max-w-[200px]">
+          <BarraProgresso value={Math.round((getValue<number>() || 0) * 100)} />
+        </div>
       ),
     },
     {
@@ -207,11 +208,14 @@ export default function Projetos() {
       cell: ({ getValue }) => {
         const date = getValue<string | Date | null>();
         return (
-          <span className="text-slate-500">
-            {date
-              ? format(new Date(date), "dd MMM yyyy", { locale: ptBR })
-              : "N/A"}
-          </span>
+          <div className="flex items-center gap-2 text-slate-600">
+            <Calendar className="h-4 w-4 text-slate-400" />
+            <span>
+              {date
+                ? format(new Date(date), "dd MMM yyyy", { locale: ptBR })
+                : "N/A"}
+            </span>
+          </div>
         );
       },
     },
@@ -335,7 +339,7 @@ export default function Projetos() {
   }, [filteredProjects]);
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] p-8"> 
+    <div className="min-h-screen bg-[#F7F9FC] p-8"> 
       <div className="max-w-8xl mx-auto space-y-6">
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -352,13 +356,13 @@ export default function Projetos() {
 
         {/* Seção de rascunhos para utilizadores COMUM */}
         {isComum && data?.rascunhos && data.rascunhos.length > 0 && (
-          <div className="mb-0">
+          <div className="mb-6">
             <h2 className="text-lg font-medium mb-3 text-slate-800">Seus Rascunhos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.rascunhos.map(rascunho => (
                 <div 
                   key={rascunho.id}
-                  className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 ease-in-out cursor-pointer border border-slate-100"
                   onClick={() => router.push(`/projetos/rascunho/${rascunho.id}`)}
                 >
                   <h3 className="font-normal text-slate-800">{rascunho.titulo}</h3>
@@ -371,21 +375,23 @@ export default function Projetos() {
           </div>
         )}
 
-        <TabelaDados<Projeto>
-          title=""
-          subtitle=""
-          data={paginatedProjects}
-          isLoading={isLoading}
-          columns={columns}
-          searchPlaceholder="Pesquisar projetos..."
-          filterConfigs={filterConfigs}
-          onRowClick={handleRowClick}
-          emptyStateMessage={{
-            title: "Nenhum projeto encontrado",
-            description:
-              "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
-          }}
-        />
+        <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 ease-in-out border border-slate-100">
+          <TabelaDados<Projeto>
+            title=""
+            subtitle=""
+            data={paginatedProjects}
+            isLoading={isLoading}
+            columns={columns}
+            searchPlaceholder="Pesquisar projetos..."
+            filterConfigs={filterConfigs}
+            onRowClick={handleRowClick}
+            emptyStateMessage={{
+              title: "Nenhum projeto encontrado",
+              description:
+                "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
+            }}
+          />
+        </div>
       </div>
     </div>
   );

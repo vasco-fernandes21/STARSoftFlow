@@ -166,8 +166,8 @@ export function TabelaDados<TData>({
         </div>
       )}
 
-      <div className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg rounded-xl overflow-hidden">
-        <div className="border-b border-slate-100/50 px-6 py-3 flex flex-wrap items-center gap-4 bg-white/80 backdrop-blur-sm">
+      <div className="bg-white border-none shadow-sm hover:shadow-md transition-all duration-300 ease-in-out rounded-xl overflow-hidden">
+        <div className="border-b border-slate-100 px-6 py-3 flex flex-wrap items-center gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -175,7 +175,7 @@ export function TabelaDados<TData>({
               placeholder={searchPlaceholder}
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-full border-gray-200 bg-white/90 shadow-sm focus:ring-2 focus:ring-azul/20 text-gray-700 hover:shadow-md transition-all duration-300 ease-in-out"
+              className="w-full pl-10 pr-4 py-2 rounded-full border-slate-200 bg-white shadow-sm focus:ring-2 focus:ring-azul/20 text-gray-700 hover:border-azul/30 transition-all duration-300 ease-in-out"
             />
           </div>
 
@@ -185,7 +185,7 @@ export function TabelaDados<TData>({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 rounded-full bg-white/90 hover:bg-gray-50/80 text-xs text-gray-600 hover:text-azul gap-2 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out"
+                  className="h-9 rounded-full bg-white hover:bg-slate-50 text-xs text-gray-600 hover:text-azul gap-2 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out border-slate-200 hover:border-azul/30"
                 >
                   <Filter className="h-3 w-3" />
                   <span>Filtros</span>
@@ -367,7 +367,7 @@ export function TabelaDados<TData>({
           )}
         </div>
 
-        <div ref={tableContainerRef} className="relative w-full overflow-hidden bg-white/80 backdrop-blur-sm">
+        <div ref={tableContainerRef} className="relative w-full overflow-hidden">
           {isLoading ? (
             <LoadingTable columns={columns} itemsPerPage={dynamicItemsPerPage} />
           ) : table.getRowModel().rows.length === 0 ? (
@@ -380,7 +380,7 @@ export function TabelaDados<TData>({
               <Table className="w-full border-collapse">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id} className="border-b border-slate-100/50 hover:bg-transparent">
+                    <TableRow key={headerGroup.id} className="border-b border-slate-100 hover:bg-transparent">
                       {headerGroup.headers.map((header) => (
                         <TableHead
                           key={header.id}
@@ -403,7 +403,7 @@ export function TabelaDados<TData>({
                                   variant="ghost"
                                   size="icon"
                                   className={cn(
-                                    "h-6 w-6 rounded-full text-slate-400 hover:text-azul hover:bg-white/50 transition-all duration-200",
+                                    "h-6 w-6 rounded-full text-slate-400 hover:text-azul hover:bg-slate-50 transition-all duration-200",
                                     header.column.getIsSorted() ? "text-azul bg-azul/10" : ""
                                   )}
                                 >
@@ -421,7 +421,10 @@ export function TabelaDados<TData>({
                   {table.getRowModel().rows.map((row) => (
                     <TableRow
                       key={row.id}
-                      className="group relative border-b border-slate-100/50 hover:bg-azul/5 transition-colors duration-300 ease-in-out cursor-pointer"
+                      className={cn(
+                        "group relative border-b border-slate-100 transition-colors duration-300 ease-in-out cursor-pointer",
+                        "hover:bg-slate-50/50"
+                      )}
                       onClick={() => onRowClick?.(row.original)}
                     >
                       {row.getVisibleCells().map((cell) => (
@@ -444,7 +447,7 @@ export function TabelaDados<TData>({
         </div>
 
         {table.getPageCount() > 1 && (
-          <div className="flex items-center justify-between py-3 px-6 border-t border-slate-100/50 bg-white/80 backdrop-blur-sm">
+          <div className="flex items-center justify-between py-3 px-6 border-t border-slate-100">
             <p className="text-sm text-slate-500">
               A mostrar{" "}
               <span className="font-medium text-slate-700">
@@ -459,12 +462,11 @@ export function TabelaDados<TData>({
                 size="icon"
                 disabled={!table.getCanPreviousPage()}
                 onClick={() => table.previousPage()}
-                className="rounded-full h-7 w-7 p-0 border-slate-200 bg-white/90 hover:bg-slate-50/80 text-slate-700 hover:text-azul transition-all duration-300 ease-in-out shadow-sm hover:shadow-md disabled:opacity-50"
+                className="rounded-full h-7 w-7 p-0 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-azul transition-all duration-300 ease-in-out shadow-sm hover:shadow-md disabled:opacity-50 hover:border-azul/30"
               >
                 <ChevronLeft className="h-3 w-3" />
               </Button>
               
-              {/* Mostra apenas 5 páginas de cada vez */}
               {Array.from({ length: Math.min(5, table.getPageCount()) }, (_, i) => {
                 const currentPage = table.getState().pagination.pageIndex;
                 let pageToShow = i;
@@ -482,8 +484,8 @@ export function TabelaDados<TData>({
                     className={cn(
                       "rounded-full h-7 w-7 p-0 transition-all duration-300 ease-in-out shadow-sm hover:shadow-md text-sm",
                       table.getState().pagination.pageIndex === pageToShow
-                        ? "bg-azul text-white hover:bg-azul/90 shadow-md"
-                        : "bg-white/90 text-slate-700 hover:bg-slate-50/80 hover:text-azul border-slate-200"
+                        ? "bg-azul text-white hover:bg-azul/90"
+                        : "bg-white text-slate-700 hover:bg-slate-50 hover:text-azul border-slate-200 hover:border-azul/30"
                     )}
                   >
                     {pageToShow + 1}
@@ -496,7 +498,7 @@ export function TabelaDados<TData>({
                 size="icon"
                 disabled={!table.getCanNextPage()}
                 onClick={() => table.nextPage()}
-                className="rounded-full h-7 w-7 p-0 border-slate-200 bg-white/90 hover:bg-slate-50/80 text-slate-700 hover:text-azul transition-all duration-300 ease-in-out shadow-sm hover:shadow-md disabled:opacity-50"
+                className="rounded-full h-7 w-7 p-0 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-azul transition-all duration-300 ease-in-out shadow-sm hover:shadow-md disabled:opacity-50 hover:border-azul/30"
               >
                 <ChevronRight className="h-3 w-3" />
               </Button>
