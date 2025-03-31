@@ -335,7 +335,7 @@ export default function PerfilUtilizador() {
       username: validatedUser.username ?? "Username não disponível",
       permissao: validatedUser.permissao,
       regime: validatedUser.regime,
-      informacoes: validatedUser.informacoes
+      informacoes: validatedUser.informacoes ?? null
     };
 
     return (

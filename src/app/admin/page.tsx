@@ -6,21 +6,24 @@ import {
   AlertTriangle,
   AlertCircle,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { StatsGrid } from "@/components/common/StatsGrid";
-import { DespesasRecursosPorMes } from "@/components/admin/DespesasRecursosPorMes";
-import ProjetosDestaque from "@/app/dashboard/components/ProjetosDestaque";
-import { ProximosEntregaveis } from "@/components/entregaveis/ProximosEntregaveis";
 import type { StatItem } from "@/components/common/StatsGrid";
 import type { RouterOutputs } from "@/trpc/react";
-import { Button } from "@/components/ui/button";
 import { ProjetosFinancasOverview } from "@/components/admin/ProjetosFinancasOverview";
 
-type ProjetoWithProgress = RouterOutputs["projeto"]["findAll"]["items"][number];
+type ProjetoWithProgress = RouterOutputs["projeto"]["findAll"]["items"][number] & {
+  progresso?: number;
+  progressoFinanceiro?: number;
+  orcamento?: {
+    total?: number;
+    utilizado?: number;
+  };
+};
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -36,7 +39,7 @@ export default function AdminDashboard() {
     data: projetosData, 
     isLoading: isLoadingProjetos 
   } = api.projeto.findAll.useQuery({
-    limit: 10, // Fetch more to enable pagination
+    limit: 10,
     estado: "EM_DESENVOLVIMENTO"
   });
 
@@ -47,22 +50,6 @@ export default function AdminDashboard() {
   } = api.projeto.findAll.useQuery({
     estado: "APROVADO"
   });
-
-  // Transform data to match Projeto interface
-  
-  const projetosDestaque = projetosData?.items.map((p: ProjetoWithProgress) => ({
-    id: p.id,
-    nome: p.nome,
-    descricao: p.descricao,
-    inicio: p.inicio,
-    fim: p.fim,
-    estado: p.estado,
-    progresso: p.progresso,
-    progressoFinanceiro: p.progressoFinanceiro,
-    orcamentoTotal: p.orcamento.total,
-    orcamentoUtilizado: p.orcamento.utilizado,
-    responsavel: p.responsavel
-  }));
 
   // Stats cards data
   const statsItems: StatItem[] = [
@@ -114,28 +101,14 @@ export default function AdminDashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <Card key={i} className="overflow-hidden border-none shadow-sm bg-white">
-            <CardContent className="p-0">
-              <Skeleton className="h-32 w-full" />
-            </CardContent>
+            <Skeleton className="h-32 w-full" />
           </Card>
         ))}
       </div>
-      
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <Card className="overflow-hidden border-none shadow-sm bg-white">
-            <CardContent className="p-0">
-              <Skeleton className="h-80 w-full" />
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card className="overflow-hidden border-none shadow-sm bg-white">
-            <CardContent className="p-0">
-              <Skeleton className="h-80 w-full" />
-            </CardContent>
-          </Card>
-        </div>
+      <div>
+        <Card className="overflow-hidden border-none shadow-sm bg-white">
+          <Skeleton className="h-80 w-full" />
+        </Card>
       </div>
     </div>
   );
@@ -167,69 +140,8 @@ export default function AdminDashboard() {
           {/* KPI Cards */}
           <StatsGrid stats={statsItems} />
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 gap-6">
-            {/* Top Row - Combined Card */}
-            <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
-              <CardContent className="p-0">
-                <div className="flex flex-col lg:flex-row h-full">
-                  {/* Left Side - Projetos Destaque */}
-                  <div className="flex-1 p-4 lg:border-r border-slate-100/50">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-medium text-slate-700">Projetos em Destaque</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push('/projetos')}
-                        className="text-xs font-normal hover:bg-slate-50 transition-colors h-7 px-2"
-                      >
-                        Ver todos
-                      </Button>
-                    </div>
-                    <div className="h-[300px]">
-                      <ProjetosDestaque 
-                        projetos={projetosDestaque || []} 
-                        isLoading={isLoadingProjetos}
-                        title={false}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Side - Entregáveis em Alerta */}
-                  <div className="flex-1 p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-medium text-slate-700">Próximos Entregáveis</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push('/entregaveis')}
-                        className="text-xs font-normal hover:bg-slate-50 transition-colors h-7 px-2"
-                      >
-                        Ver todos
-                      </Button>
-                    </div>
-                    <div className="space-y-3 mt-2">
-                      <ProximosEntregaveis title={false} />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Add the Projetos Finanças Overview Component */}
-            <ProjetosFinancasOverview />
-            
-            {/* Gráfico de Despesas */}
-            <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
-              <CardHeader className="border-b border-slate-100/50 px-6 py-4">
-                <CardTitle className="font-medium text-slate-800">Despesas Mensais</CardTitle>
-                <CardDescription className="text-slate-500">Acompanhamento de despesas da organização</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <DespesasRecursosPorMes title={false} />
-              </CardContent>
-            </Card>
-          </div>
+          {/* Financial Overview */}
+          <ProjetosFinancasOverview />
         </div>
       </div>
     </div>

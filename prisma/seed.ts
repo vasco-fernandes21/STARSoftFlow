@@ -154,13 +154,13 @@ async function main() {
   console.log('💰 A criar tipos de financiamento...');
   const financiamentos = await prisma.financiamento.createMany({
     data: [
-      { nome: "FCT - Fundação para a Ciência e Tecnologia", overhead: new Decimal(0.25), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4500.00) },
-      { nome: "Portugal 2030", overhead: new Decimal(0.20), taxa_financiamento: new Decimal(0.75), valor_eti: new Decimal(4200.00) },
-      { nome: "Horizonte Europa", overhead: new Decimal(0.25), taxa_financiamento: new Decimal(1.00), valor_eti: new Decimal(5000.00) },
-      { nome: "Financiamento Privado", overhead: new Decimal(0.15), taxa_financiamento: new Decimal(1.00), valor_eti: new Decimal(4800.00) },
-      { nome: "Interno", overhead: new Decimal(0.10), taxa_financiamento: new Decimal(1.00), valor_eti: new Decimal(4000.00) },
-      { nome: "Co-promoção", overhead: new Decimal(0.00), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) }, // Added based on image
-      { nome: "RCI", overhead: new Decimal(0.00), taxa_financiamento: new Decimal(0.92), valor_eti: new Decimal(4432.00) },         // Added based on image
+      { nome: "FCT - Fundação para a Ciência e Tecnologia", overhead: new Decimal(0.25), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) },
+      { nome: "Portugal 2030", overhead: new Decimal(0.20), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) },
+      { nome: "Horizonte Europa", overhead: new Decimal(0.25), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) },
+      { nome: "Financiamento Privado", overhead: new Decimal(0.15), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) },
+      { nome: "Interno", overhead: new Decimal(0.10), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) },
+      { nome: "Co-promoção", overhead: new Decimal(0.00), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) },
+      { nome: "RCI", overhead: new Decimal(0.00), taxa_financiamento: new Decimal(0.85), valor_eti: new Decimal(4432.00) },
     ]
   });
   const financiamentoMap = await prisma.financiamento.findMany({ select: { id: true, nome: true } });
@@ -204,6 +204,8 @@ async function main() {
       fim: new Date("2025-02-28"),
       estado: ProjetoEstado.APROVADO,
       financiamentoId: fctId,
+      valor_eti: new Decimal(4432.00),
+      taxa_financiamento: new Decimal(0.85),
       workpackages: {
         create: [
           { 
@@ -268,10 +270,12 @@ async function main() {
     data: {
       nome: "SMART-CITY - Plataforma para Cidades Inteligentes",
       descricao: "Desenvolvimento de plataforma open-source para gestão de serviços urbanos.",
-      inicio: new Date("2025-04-01"), // Data ajustada
-      fim: new Date("2027-03-31"),  // Data ajustada
-      estado: ProjetoEstado.EM_DESENVOLVIMENTO, // Estado correto
+      inicio: new Date("2025-04-01"),
+      fim: new Date("2027-03-31"),
+      estado: ProjetoEstado.EM_DESENVOLVIMENTO,
       financiamentoId: portugal2030Id,
+      valor_eti: new Decimal(4432.00),
+      taxa_financiamento: new Decimal(0.85),
       workpackages: {
         create: [
           { 
@@ -320,6 +324,8 @@ async function main() {
       fim: new Date("2023-07-31"),
       estado: ProjetoEstado.CONCLUIDO,
       financiamentoId: privadoId,
+      valor_eti: new Decimal(4432.00),
+      taxa_financiamento: new Decimal(0.85),
       workpackages: {
         create: [
           { 
@@ -375,6 +381,8 @@ async function main() {
       fim: new Date("2029-05-31"),
       estado: ProjetoEstado.PENDENTE,
       financiamentoId: horizonteEuropaId,
+      valor_eti: new Decimal(4432.00),
+      taxa_financiamento: new Decimal(0.85),
       workpackages: {
         create: [
           { 
