@@ -568,6 +568,7 @@ export function Cronograma({
               onUpdate={async (_data, _workpackageId) => {
                 if (onUpdateTarefa) await onUpdateTarefa();
               }}
+              projetoId={projetoId}
             />
           )}
 

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import * as ExcelJS from 'exceljs';
 import { toast } from "sonner";
+import * as ExcelJS from 'exceljs';
 import { api } from "@/trpc/react";
 
 export default function ExportarProjetoButton({ projetoId }: { projetoId: string }) {
@@ -280,7 +280,7 @@ export default function ExportarProjetoButton({ projetoId }: { projetoId: string
           }
           
           // Estilizar linha de WP
-          rhSheet.getRow(currentRow).eachCell((cell) => {
+          rhSheet.getRow(currentRow).eachCell((cell: ExcelJS.Cell) => {
             cell.fill = {
               type: 'pattern',
               pattern: 'solid',
@@ -293,7 +293,7 @@ export default function ExportarProjetoButton({ projetoId }: { projetoId: string
           
           // Recursos do WP
           const recursosAgrupados = agruparRecursosPorUtilizador(wp.recursos);
-          for (const [_userId, recursos] of recursosAgrupados.entries()) {
+          for (const [userId, recursos] of recursosAgrupados.entries()) {
             if (!recursos.length || !recursos[0].user) continue;
             const user = recursos[0].user;
             

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, ClipboardList, XIcon, AlertTriangle } from "lucide-react";
 import type { WorkpackageCompleto } from "@/components/projetos/types";
-import { useMutations } from "@/hooks/useMutations";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
 import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
 import { Card } from "@/components/ui/card";
@@ -15,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import type { Prisma } from "@prisma/client";
 
 interface WorkpackageTarefasProps {
@@ -24,6 +22,15 @@ interface WorkpackageTarefasProps {
   addingTarefa: boolean;
   setAddingTarefa: (adding: boolean) => void;
   projetoId?: string;
+  // Handlers para tarefas
+  onSubmitTarefa: (workpackageId: string, tarefa: Omit<Prisma.TarefaCreateInput, "workpackage">) => void;
+  onEditTarefa: (tarefaId: string, data: Prisma.TarefaUpdateInput) => Promise<void>;
+  onToggleEstadoTarefa: (tarefaId: string) => Promise<void>;
+  onDeleteTarefa: (tarefaId: string) => void;
+  // Handlers para entregáveis
+  onAddEntregavel: (tarefaId: string, entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">) => Promise<void>;
+  onEditEntregavel: (entregavelId: string, data: Prisma.EntregavelUpdateInput) => Promise<void>;
+  onDeleteEntregavel: (entregavelId: string) => void;
 }
 
 interface ConfirmDialogProps {
@@ -69,11 +76,14 @@ export function WorkpackageTarefas({
   _workpackageId,
   addingTarefa,
   setAddingTarefa,
-  projetoId
+  onSubmitTarefa,
+  onEditTarefa,
+  onToggleEstadoTarefa,
+  onDeleteTarefa,
+  onAddEntregavel,
+  onEditEntregavel,
+  onDeleteEntregavel
 }: WorkpackageTarefasProps) {
-  // Usar mutations com o projetoId
-  const mutations = useMutations(projetoId);
-  
   // Estados para os diálogos de confirmação
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
@@ -81,89 +91,6 @@ export function WorkpackageTarefas({
     id: string;
     tarefaId?: string;
   } | null>(null);
-  
-  // --- Handlers para tarefas ---
-  
-  // Criar nova tarefa
-  const handleSubmitTarefa = (workpackageId: string, tarefa: any) => {
-    mutations.tarefa.create.mutate({
-      nome: tarefa.nome,
-      workpackageId: workpackageId,
-      descricao: tarefa.descricao,
-      inicio: tarefa.inicio,
-      fim: tarefa.fim,
-      estado: false
-    });
-    
-    setAddingTarefa(false);
-  };
-  
-  // Atualizar tarefa
-  const handleEditTarefa = async (tarefaId: string, tarefaData: any) => {
-    try {
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: tarefaData
-      });
-      toast.success("Tarefa atualizada com sucesso");
-    } catch (error) {
-      console.error("Erro ao atualizar tarefa:", error);
-      toast.error("Erro ao atualizar tarefa");
-    }
-  };
-  
-  // Alteração de estado da tarefa
-  const handleEstadoChange = async (tarefaId: string) => {
-    try {
-      const tarefa = workpackage.tarefas?.find(t => t.id === tarefaId);
-      if (!tarefa) return;
-
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: {
-          estado: !tarefa.estado
-        }
-      });
-      
-    } catch (error) {
-      console.error("Erro ao atualizar estado:", error);
-      toast.error("Erro ao atualizar estado da tarefa");
-    }
-  };
-  
-  // --- Handlers para entregáveis ---
-  
-  // Adicionar entregável
-  const handleAddEntregavel = async (tarefaId: string, entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">) => {
-    try {
-      await mutations.entregavel.create.mutateAsync({
-        tarefaId,
-        nome: entregavel.nome,
-        descricao: entregavel.descricao || undefined,
-        data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data
-      });
-      
-      toast.success("Entregável adicionado com sucesso");
-    } catch (error) {
-      console.error("Erro ao adicionar entregável:", error);
-      toast.error("Erro ao adicionar entregável");
-    }
-  };
-  
-  // Atualizar entregável
-  const handleEditEntregavel = async (entregavelId: string, data: any) => {
-    try {
-      await mutations.entregavel.update.mutateAsync({
-        id: entregavelId,
-        data
-      });
-      
-      toast.success("Entregável atualizado com sucesso");
-    } catch (error) {
-      console.error("Erro ao atualizar entregável:", error);
-      toast.error("Erro ao atualizar entregável");
-    }
-  };
   
   // Diálogo de confirmação para eliminar
   const openDeleteDialog = (type: 'tarefa' | 'entregavel', id: string, tarefaId?: string) => {
@@ -176,11 +103,9 @@ export function WorkpackageTarefas({
     if (!itemToDelete) return;
     
     if (itemToDelete.type === 'entregavel') {
-      mutations.entregavel.delete.mutate(itemToDelete.id);
-      toast.success("Entregável removido com sucesso");
+      onDeleteEntregavel(itemToDelete.id);
     } else if (itemToDelete.type === 'tarefa') {
-      mutations.tarefa.delete.mutate(itemToDelete.id);
-      toast.success("Tarefa removida com sucesso");
+      onDeleteTarefa(itemToDelete.id);
     }
     
     setItemToDelete(null);
@@ -246,7 +171,7 @@ export function WorkpackageTarefas({
             workpackageId={workpackage.id}
             workpackageInicio={workpackage.inicio || new Date()}
             workpackageFim={workpackage.fim || new Date()}
-            onSubmit={handleSubmitTarefa}
+            onSubmit={onSubmitTarefa}
             onCancel={() => setAddingTarefa(false)}
           />
         </motion.div>
@@ -263,11 +188,11 @@ export function WorkpackageTarefas({
                   workpackageId={workpackage.id}
                   workpackageInicio={workpackage.inicio || new Date()}
                   workpackageFim={workpackage.fim || new Date()}
-                  onUpdate={async () => await handleEstadoChange(tarefa.id)}
+                  onUpdate={async () => await onToggleEstadoTarefa(tarefa.id)}
                   onRemove={() => openDeleteDialog('tarefa', tarefa.id)}
-                  onEdit={(data) => handleEditTarefa(tarefa.id, data)}
-                  onAddEntregavel={handleAddEntregavel}
-                  onEditEntregavel={(id, data) => handleEditEntregavel(id, data)}
+                  onEdit={(data) => onEditTarefa(tarefa.id, data)}
+                  onAddEntregavel={onAddEntregavel}
+                  onEditEntregavel={onEditEntregavel}
                   onRemoveEntregavel={(id) => openDeleteDialog('entregavel', id, tarefa.id)}
                 />
               </Card>

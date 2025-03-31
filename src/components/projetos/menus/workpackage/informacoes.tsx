@@ -7,7 +7,7 @@ import type { WorkpackageCompleto } from "@/components/projetos/types";
 interface WorkpackageInformacoesProps {
   workpackageId: string;
   _onClose: () => void;
-  projetoId?: string;
+  projetoId: string;
   workpackage?: WorkpackageCompleto;
 }
 

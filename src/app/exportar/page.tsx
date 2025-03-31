@@ -16,7 +16,6 @@ export default function ExportarPage() {
   const { data, isLoading, error } = api.projeto.findAll.useQuery(
     {
       limit: 100,
-      incluirDadosFinanceiros: false, // Não precisamos dos dados financeiros aqui
     },
     {
       refetchOnWindowFocus: false,

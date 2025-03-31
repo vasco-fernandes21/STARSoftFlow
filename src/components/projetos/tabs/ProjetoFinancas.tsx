@@ -17,7 +17,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/api/root";
-import { formatarMoeda, formatarNumero, formatarPercentagem } from "@/lib/formatters";
+import { formatarMoeda, formatarNumero } from "@/lib/formatters";
 
 // --- Type Definitions --- 
 
@@ -168,7 +168,12 @@ const formatCurrency = (value: number | undefined | null): string => {
 
 const formatPercentage = (value: number | undefined | null, fractionDigits = 1): string => {
   if (typeof value !== 'number' || isNaN(value)) return "-";
-  return formatarPercentagem(value);
+  const percentValue = Math.abs(value) > 1 ? value / 100 : value;
+  return percentValue.toLocaleString("pt-PT", {
+    style: "percent",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  });
 };
 // --- End Formatting Functions --- 
 
@@ -431,7 +436,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
               <StatCard 
                 title="Orçamento Real" 
                 value={formatCurrency(displayData.custosReais.total)} 
-                subtitle={`Concluído: ${formatPercentage(progressoOrcamento, 0)}`}
+                subtitle={`Concluído: ${formatPercentage(progressoOrcamento)}`}
                 icon={<DollarSign className="h-6 w-6 text-blue-500" />}
                 colorClass="bg-blue-50"
                 tooltipText="Custos reais totais projetados (Recursos + Materiais). A percentagem 'Concluído' mostra quanto do orçamento já foi gasto."

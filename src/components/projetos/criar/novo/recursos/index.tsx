@@ -132,8 +132,10 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
         type: "ADD_ALOCACAO",
         workpackageId,
         alocacao: {
-          ...alocacao,
-          workpackageId
+          userId: alocacao.userId,
+          mes: alocacao.mes,
+          ano: alocacao.ano,
+          ocupacao: alocacao.ocupacao
         }
       });
     });

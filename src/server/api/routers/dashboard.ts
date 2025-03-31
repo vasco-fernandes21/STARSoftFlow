@@ -71,18 +71,7 @@ export interface AtividadeRecente {
 }
 
 // Funções auxiliares
-function calcularProgressoTarefas(workpackages: any[]) {
-  const totalTarefas = workpackages.reduce((acc, wp) => acc + wp.tarefas.length, 0);
-  const tarefasConcluidas = workpackages.reduce(
-    (acc, wp) => acc + wp.tarefas.filter((t: any) => t.estado).length, 0
-  );
-  
-  return {
-    total: totalTarefas,
-    concluidas: tarefasConcluidas,
-    percentual: totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0
-  };
-}
+// function calcularProgressoTarefas(workpackages: any[]) { ... }
 
 async function obterDadosDashboard(
   ctx: Context,

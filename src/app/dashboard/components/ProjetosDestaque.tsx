@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatarPercentagem, formatarMoeda, formatarData } from "@/lib/formatters";
-import { ProjetoEstado } from "@prisma/client";
+import type { ProjetoEstado } from "@prisma/client";
 
 /**
  * Interface para o tipo de projeto retornado pela API

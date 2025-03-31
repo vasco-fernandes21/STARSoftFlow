@@ -14,6 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Euro,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,17 +37,31 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { icon: Home, label: "Início", href: "/", requiredPermission: null },
   { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
+  { icon: Euro, label: "Finanças", href: "/financas", requiredPermission: null },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
   { icon: Settings, label: "Validações", href: "/validations", requiredPermission: "ADMIN" },
 ];
 
 export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const pathname = usePathname();
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const toggleCollapse = () => setCollapsed(!collapsed);
+  const toggleCollapse = () => {
+    if (!isPinned) {
+      setCollapsed(!collapsed);
+    }
+  };
+
+  const togglePin = () => {
+    setIsPinned(!isPinned);
+    if (collapsed) {
+      setCollapsed(false);
+    }
+  };
+
   const { data: session } = useSession();
   const { hasPermission } = usePermissions();
 
@@ -63,24 +80,37 @@ export const AppSidebar = () => {
   };
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
-        if (!collapsed) setCollapsed(true);
-      }
+    const handleMouseEnter = () => {
+      if (!isPinned && collapsed) setCollapsed(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [collapsed]);
+
+    const handleMouseLeave = () => {
+      if (!isPinned && !collapsed) setCollapsed(true);
+    };
+
+    const sidebarElement = sidebarRef.current;
+    if (sidebarElement) {
+      sidebarElement.addEventListener("mouseenter", handleMouseEnter);
+      sidebarElement.addEventListener("mouseleave", handleMouseLeave);
+
+      return () => {
+        sidebarElement.removeEventListener("mouseenter", handleMouseEnter);
+        sidebarElement.removeEventListener("mouseleave", handleMouseLeave);
+      };
+    }
+  }, [collapsed, isPinned]);
 
   const MenuItem = ({ item, className = "" }: { item: MenuItem; className?: string }) => {
-    const isActive = pathname === item.href;
+    const isActive = item.href === "/" 
+      ? pathname === "/" 
+      : pathname.startsWith(`${item.href}/`) || pathname === item.href;
     const isHovered = hoveredItem === item.href;
 
     return (
       <Link
         href={item.href}
         className={cn(
-          "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200",
+          "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ease-in-out",
           isActive 
             ? "text-azul font-semibold" 
             : "text-slate-600 font-medium hover:text-azul hover:bg-azul/5",
@@ -91,7 +121,7 @@ export const AppSidebar = () => {
       >
         <div
           className={cn(
-            "relative p-2 rounded-xl transition-all duration-200 flex items-center justify-center",
+            "relative p-2 rounded-xl transition-all duration-200 ease-in-out flex items-center justify-center",
             "min-w-[40px] min-h-[40px]",
             isActive
               ? "bg-azul/10 text-azul shadow-sm ring-1 ring-azul/10"
@@ -102,26 +132,22 @@ export const AppSidebar = () => {
             size={20} 
             strokeWidth={isActive ? 2.5 : 2} 
             className={cn(
-              "transition-transform duration-200",
+              "transition-transform duration-200 ease-in-out",
               isHovered && !isActive && "scale-110 rotate-3"
             )} 
           />
         </div>
         <span
           className={cn(
-            "transition-all duration-200 whitespace-nowrap",
-            collapsed ? "opacity-0 w-0 pointer-events-none" : "opacity-100 w-auto",
+            "transition-all duration-200 ease-in-out transform",
+            collapsed 
+              ? "opacity-0 -translate-x-2 w-0 pointer-events-none" 
+              : "opacity-100 translate-x-0 w-auto",
             isActive ? "font-semibold" : "font-medium"
           )}
         >
           {item.label}
         </span>
-        {isActive && (
-          <div className={cn(
-            "absolute w-1 h-5 bg-azul rounded-full transition-all duration-300",
-             collapsed ? "right-0 top-1/2 -translate-y-1/2" : "left-0 top-1/2 -translate-y-1/2"
-          )} />
-        )}
       </Link>
     );
   };
@@ -131,18 +157,18 @@ export const AppSidebar = () => {
       <div
         ref={sidebarRef}
         className={cn(
-          "h-screen bg-[#F0F4FA] flex flex-col",
-          "transition-all duration-300 ease-in-out",
+          "h-screen bg-[#F0F4FA] flex flex-col -p-2",
+          "transition-all duration-200 ease-in-out",
           collapsed ? "w-20" : "w-64",
           "supports-[backdrop-filter]:bg-[#F0F4FA]/90 backdrop-blur-xl"
         )}
       >
         {/* Logo Section */}
-        <div className="flex items-center justify-center h-16 px-4 mt-8 relative">
+        <div className="flex items-center justify-center h-16 px-1 mt-8 relative">
           <div
             className={cn(
-              "absolute flex items-center transition-all duration-300",
-              collapsed ? "opacity-0 scale-75" : "opacity-100 scale-100"
+              "absolute flex items-center transition-all duration-200 ease-in-out transform",
+              collapsed ? "opacity-0 scale-75 -translate-x-4" : "opacity-100 scale-100 translate-x-0"
             )}
           >
             <Image
@@ -157,8 +183,8 @@ export const AppSidebar = () => {
           <div
             className={cn(
               "absolute h-9 w-9 rounded-xl bg-gradient-to-br from-azul/5 to-azul/10 flex items-center justify-center",
-              "transition-all duration-300 border border-azul/20 shadow-sm",
-              collapsed ? "opacity-100 scale-100" : "opacity-0 scale-75"
+              "transition-all duration-200 ease-in-out transform border border-azul/20 shadow-sm",
+              collapsed ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-75 translate-x-4"
             )}
           >
             <span className="text-azul font-bold text-lg bg-gradient-to-br from-azul to-azul-light bg-clip-text text-transparent">S</span>
@@ -166,7 +192,7 @@ export const AppSidebar = () => {
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 px-2 py-6">
+        <ScrollArea className="flex-1 px-2 py-6 pr-0">
           <nav className="space-y-1.5">
             {filteredMenuItems.map((item) => (
               <MenuItem key={item.href} item={item} />
@@ -175,40 +201,68 @@ export const AppSidebar = () => {
         </ScrollArea>
 
         {/* Footer */}
-        <div className="p-2 border-t border-black/5 space-y-2 bg-gradient-to-t from-[#F0F4FA] to-transparent">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleCollapse}
-            className={cn(
-              "w-full rounded-xl text-slate-600 hover:text-azul hover:bg-azul/5 transition-all duration-200",
-              "shadow-sm hover:shadow",
-              collapsed ? "justify-center px-2" : "justify-between px-3"
+        <div className="mt-auto bg-gradient-to-t from-[#F0F4FA] to-transparent">
+          <div className="flex items-center px-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleCollapse}
+              className={cn(
+                "flex-1 rounded-xl text-slate-600 hover:text-azul hover:bg-azul/5 transition-all duration-200 ease-in-out",
+                "shadow-sm hover:shadow",
+                collapsed ? "justify-center px-2" : "justify-between px-3"
+              )}
+              disabled={isPinned}
+            >
+              {collapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <>
+                  <span className="text-xs font-medium transition-opacity duration-200 ease-in-out">Recolher</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+            {!collapsed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={togglePin}
+                className={cn(
+                  "ml-2 w-9 h-9 rounded-xl transition-all duration-200 ease-in-out",
+                  "hover:bg-azul/5 shadow-sm hover:shadow",
+                  isPinned 
+                    ? "text-azul bg-azul/5" 
+                    : "text-slate-600 hover:text-azul"
+                )}
+                title={isPinned ? "Desafixar sidebar" : "Fixar sidebar"}
+              >
+                {isPinned ? (
+                  <Lock className="h-4 w-4" />
+                ) : (
+                  <Unlock className="h-4 w-4" />
+                )}
+              </Button>
             )}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <>
-                <span className="text-xs font-medium">Recolher</span>
-                <ChevronLeft className="h-4 w-4" />
-              </>
-            )}
-          </Button>
+          </div>
 
-          <div
-            className={cn(
-              "flex items-center gap-3 p-2 rounded-xl transition-all duration-200 hover:bg-azul/5"
-            )}
-          >
-            <Link href="/profile" className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="relative">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-azul/5 to-azul/10 flex items-center justify-center border border-azul/20 shadow-sm">
+          <div className="p-2">
+            <Link 
+              href="/profile" 
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+            >
+              <div className="relative flex items-center justify-center min-w-[40px]">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-azul/5 to-azul/10 flex items-center justify-center border border-azul/20 shadow-sm">
                   <User size={18} className="text-azul" />
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white shadow-sm" />
               </div>
-              {!collapsed && (
+              <div
+                className={cn(
+                  "flex items-center gap-3 transition-all duration-200 ease-in-out transform",
+                  collapsed ? "opacity-0 -translate-x-2 w-0" : "opacity-100 translate-x-0 w-auto"
+                )}
+              >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-800 truncate">
                     {session?.user?.name || "Utilizador"}
@@ -217,20 +271,17 @@ export const AppSidebar = () => {
                     {(session?.user as unknown as PrismaUser)?.atividade || ""}
                   </p>
                 </div>
-              )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="h-9 w-9 rounded-xl hover:bg-red-50 text-slate-500 hover:text-red-600 transition-all duration-200 ease-in-out shadow-sm hover:shadow hover:rotate-12"
+                  title="Sair"
+                >
+                  <LogOut size={16} />
+                </Button>
+              </div>
             </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              className={cn(
-                "h-9 w-9 rounded-xl hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors duration-200",
-                "shadow-sm hover:shadow hover:rotate-12"
-              )}
-              title="Sair"
-            >
-              <LogOut size={16} />
-            </Button>
           </div>
         </div>
       </div>

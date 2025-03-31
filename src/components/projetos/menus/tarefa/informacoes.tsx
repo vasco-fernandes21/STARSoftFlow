@@ -8,45 +8,27 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 import { Calendar, FileText, Check, Pencil, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMutations } from "@/hooks/useMutations";
 
 interface TarefaInformacoesProps {
   tarefa: any;
   tarefaId: string;
-  onUpdate?: (data: any, workpackageId?: string) => Promise<void>;
+  onUpdate: (data: any) => Promise<void>;
+  onToggleEstado: () => Promise<void>;
 }
 
 export function TarefaInformacoes({ 
   tarefa, 
   tarefaId,
-  onUpdate 
+  onUpdate,
+  onToggleEstado
 }: TarefaInformacoesProps) {
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [newName, setNewName] = useState(tarefa.nome || "");
   const [newDescription, setNewDescription] = useState(tarefa.descricao || "");
 
-  // Usar mutations diretamente
-  const mutations = useMutations();
-
-  const handleEstadoChange = async () => {
-    try {
-      // Usar a mutation de update ao invés de toggle
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: { estado: !tarefa.estado }
-      });
-      
-      // Chamar o callback onUpdate APÓS a mutation para atualização da UI
-      if (onUpdate) {
-        await onUpdate({ estado: !tarefa.estado }, tarefa.workpackageId);
-      }
-      
-  
-    } catch (error) {
-      console.error("Erro ao atualizar estado:", error);
-      toast.error("Erro ao atualizar estado");
-    }
+  const handleToggleEstado = async () => {
+    await onToggleEstado();
   };
 
   const handleNameSave = async () => {
@@ -56,15 +38,7 @@ export function TarefaInformacoes({
     }
     
     try {
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: { nome: newName }
-      });
-      
-      if (onUpdate) {
-        await onUpdate({ nome: newName }, tarefa.workpackageId);
-      }
-      
+      await onUpdate({ nome: newName });
       setEditingName(false);
       toast.success("Nome atualizado com sucesso");
     } catch (error) {
@@ -75,15 +49,7 @@ export function TarefaInformacoes({
 
   const handleDescriptionSave = async () => {
     try {
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: { descricao: newDescription }
-      });
-      
-      if (onUpdate) {
-        await onUpdate({ descricao: newDescription }, tarefa.workpackageId);
-      }
-      
+      await onUpdate({ descricao: newDescription });
       setEditingDescription(false);
       toast.success("Descrição atualizada com sucesso");
     } catch (error) {
@@ -94,15 +60,7 @@ export function TarefaInformacoes({
 
   const handleDateChange = async (field: 'inicio' | 'fim', date: Date | undefined) => {
     try {
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: { [field]: date }
-      });
-      
-      if (onUpdate) {
-        await onUpdate({ [field]: date }, tarefa.workpackageId);
-      }
-      
+      await onUpdate({ [field]: date });
       toast.success("Data atualizada com sucesso");
     } catch (error) {
       console.error("Erro ao atualizar data:", error);
@@ -120,7 +78,7 @@ export function TarefaInformacoes({
       {/* Estado */}
       <div className="flex justify-center">
         <Button
-          onClick={handleEstadoChange}
+          onClick={handleToggleEstado}
           variant="outline"
           size="lg"
           className={cn(

@@ -455,7 +455,6 @@ function ImportarExcelContent() {
           inicio: wp.dataInicio,
           fim: wp.dataFim,
           estado: false,
-          projetoId: crypto.randomUUID(),
           tarefas: [],
           materiais: [],
           recursos: []
@@ -506,8 +505,7 @@ function ImportarExcelContent() {
             preco: new Decimal(material.preco),
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
-            rubrica: material.rubrica,
-            workpackageId: wpId
+            rubrica: material.rubrica
           }
         });
       });

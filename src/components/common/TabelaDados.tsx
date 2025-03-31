@@ -566,36 +566,4 @@ const EmptyState = ({
       </Button>
     </div>
   </div>
-);
-
-// Substituir a função getBadgeColorByStatus por getBadgeClassByStatus
-function getBadgeClassByStatus(status: string): string {
-  switch(status) {
-    // Estados de projeto
-    case "APROVADO":
-    case "ACEITE":
-      return "bg-emerald-50/70 text-emerald-600 border-emerald-200";
-    case "PENDENTE":
-      return "bg-amber-50/70 text-amber-600 border-amber-200";
-    case "RASCUNHO":
-      return "bg-gray-50/70 text-gray-600 border-gray-200";
-    case "EM_DESENVOLVIMENTO":
-      return "bg-blue-50/70 text-blue-600 border-blue-200";
-    case "CONCLUIDO":
-      return "bg-azul/10 text-azul border-azul/20";
-    
-    // Estados de prazo
-    case "ESTE_MES":
-      return "bg-green-50/70 text-green-600 border-green-200";
-    case "PROXIMO_MES":
-      return "bg-blue-50/70 text-blue-600 border-blue-200";
-    case "ESTE_ANO":
-      return "bg-purple-50/70 text-purple-600 border-purple-200";
-    case "ATRASADO":
-      return "bg-red-50/70 text-red-600 border-red-200";
-    
-    // Estado padrão
-    default:
-      return "bg-azul/10 text-azul border-azul/20";
-  }
-} 
+); 

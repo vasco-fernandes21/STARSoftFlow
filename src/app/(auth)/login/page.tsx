@@ -6,9 +6,9 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { toast } from "sonner";
 import { loginSchema } from "@/server/api/auth/types";
 import { ZodError } from "zod";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,49 +16,61 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      // Validar as credenciais com o loginSchema
       loginSchema.parse({ email, password });
       
-      // Chamar o método de autenticação
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
-      if (result?.error) {
-        // Mostrar erro com Sonner
-        toast.error("Dados inválidos", {
+      if (!result) {
+        throw new Error("Não foi possível realizar o login");
+      }
+
+      if (result.error) {
+        toast({
+          variant: "destructive",
+          title: "Dados inválidos",
           description: "Por favor, verifique o email e a palavra-passe."
         });
-      } else {
-        // Redirecionar para a página inicial
-        
-        // Usar replace em vez de push para evitar problemas com histórico de navegação
-        router.replace("/");
+        return;
       }
+
+    
+      try {
+        router.push("/");
+        router.refresh();
+      } catch (redirectError) {
+        window.location.href = "/";
+      }
+
     } catch (error) {
       if (error instanceof ZodError) {
-        // Extrair a primeira mensagem de erro do Zod
         const fieldErrors = error.errors.map(err => err.message);
-        // Mostrar erro de validação com Sonner
-        toast.error("Erro de validação", {
+        toast({
+          variant: "destructive",
+          title: "Erro de validação",
           description: fieldErrors[0] || "Por favor verifique os campos de entrada"
         });
       } else {
-        // Mostrar erro genérico com Sonner
-        toast.error("Erro no login", {
+        toast({
+          variant: "destructive",
+          title: "Erro no login",
           description: "Ocorreu um erro durante o login. Por favor, tente novamente."
         });
       }
     } finally {
-      setIsLoading(false);
+      if (document.visibilityState !== 'hidden') {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -88,6 +100,10 @@ export default function LoginPage() {
               height={80}
               priority
               className="mb-12 drop-shadow-lg"
+              onError={(e) => {
+                console.error('Error loading logo:', e);
+                e.currentTarget.src = '/favicon.ico';
+              }}
             />
             <motion.h1 
               className="text-4xl font-bold text-azul mb-6"
@@ -122,10 +138,13 @@ export default function LoginPage() {
               height={48}
               priority
               className="h-10 w-auto"
+              onError={(e) => {
+                console.error('Error loading logo:', e);
+                e.currentTarget.src = '/favicon.ico';
+              }}
             />
           </div>
 
-          {/* Substituído motion.div por div normal para remover a animação */}
           <div>
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900">Bem-vindo</h2>

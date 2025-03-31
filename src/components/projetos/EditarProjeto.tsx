@@ -118,7 +118,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
       onSuccess: () => {
         toast({
           title: "Projeto atualizado",
-          description: "As alterações foram salvas com sucesso.",
+          description: "As alterações foram guardadas com sucesso.",
         });
         setOpen(false);
       },

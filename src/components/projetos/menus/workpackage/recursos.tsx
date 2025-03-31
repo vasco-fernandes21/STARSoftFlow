@@ -14,7 +14,7 @@ import type { Decimal } from "decimal.js";
 interface WorkpackageRecursosProps {
   workpackage: WorkpackageCompleto;
   _workpackageId: string;
-  projetoId?: string;
+  projetoId: string;
 }
 
 export function WorkpackageRecursos({ 

@@ -5,11 +5,11 @@ import { api } from "@/trpc/react";
 import { 
   ResponsiveContainer, Tooltip as RechartsTooltip,
   XAxis, YAxis, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend,
-  LineChart, Line, Area, AreaChart
+  Area, AreaChart
 } from "recharts";
 import { 
   Users, Calendar, User, FolderKanban, Briefcase, 
-  ChevronRight, ArrowUpRight, ArrowDownRight, X,
+  ChevronRight, X,
   Clock, Layers, BarChart2, PieChart as PieChartIcon
 } from "lucide-react";
 import { useState, useMemo } from "react";

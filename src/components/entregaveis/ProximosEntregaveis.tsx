@@ -1,16 +1,14 @@
 "use client";
 
-import { AlertTriangle, Circle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { differenceInDays, isBefore, addDays } from "date-fns";
 
 // Tipagem para o entregável retornado pela API
-interface EntregavelAlerta {
+type EntregavelAlerta = {
   id: string;
   nome: string;
   descricao: string | null;
@@ -33,12 +31,11 @@ interface EntregavelAlerta {
       }
     }
   };
-}
+};
 
 export function ProximosEntregaveis({ title = true }: { title?: boolean }) {
   const router = useRouter();
-  // Usar o hook de permissões para verificar o nível de acesso do utilizador
-  const { isAdmin, isGestor, userPermission } = usePermissions();
+  const { } = usePermissions(); // Keep the hook but don't destructure unused variables
 
   // Default do limite de entregáveis para mostrar
   const limit = 4;

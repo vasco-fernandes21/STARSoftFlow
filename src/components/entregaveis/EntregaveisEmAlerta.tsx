@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
 // Tipagem para o entregável retornado pela API
-interface EntregavelAlerta {
+type EntregavelAlerta = {
   id: string;
   nome: string;
   descricao: string | null;
@@ -32,12 +32,11 @@ interface EntregavelAlerta {
       }
     }
   };
-}
+};
 
 export function EntregaveisEmAlerta({ title = true }: { title?: boolean }) {
   const router = useRouter();
-  // Usar o hook de permissões para verificar o nível de acesso do utilizador
-  const { isAdmin, isGestor, userPermission } = usePermissions();
+  const { } = usePermissions();
 
   // Default do limite de entregáveis para mostrar
   const limit = 4;

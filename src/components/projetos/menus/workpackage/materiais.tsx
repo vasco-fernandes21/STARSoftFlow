@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 interface WorkpackageMateriaisProps {
   workpackage: WorkpackageCompleto;
   _workpackageId: string;
-  projetoId?: string;
+  projetoId: string;
 }
 
 // Interface base para material

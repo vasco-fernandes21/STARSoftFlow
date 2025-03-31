@@ -13,7 +13,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { EditarProjeto } from "@/components/projetos/EditarProjeto";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
-import { BarraProgresso } from "@/components/common/BarraProgresso";
 
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));

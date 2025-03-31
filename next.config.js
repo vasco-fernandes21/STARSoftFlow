@@ -9,8 +9,8 @@ import "./src/env.js";
 const nextConfig = {
   // Configuração do webpack para marcar bcrypt como externo
   webpack: (config) => {
-    // Adicionar bcrypt à lista de módulos externos
-    config.externals = [...(config.externals || []), 'bcrypt'];
+    // Adicionar bcrypt e handlebars à lista de módulos externos
+    config.externals = [...(config.externals || []), 'bcrypt', 'handlebars'];
     
     // Manter as outras configurações que já tens
     config.resolve.fallback = {
@@ -27,6 +27,12 @@ const nextConfig = {
       test: /\.html$/,
       include: /node_modules/,
       use: 'null-loader'
+    });
+    
+    // Configurar handlebars para usar o loader correto
+    config.module.rules.push({
+      test: /\.handlebars$/,
+      loader: 'handlebars-loader'
     });
     
     return config;

@@ -1,9 +1,8 @@
+import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
-import { handlePrismaError, calcularAlocacoesPassadas } from "../utils";
 
 /**
  * Calcula o orçamento submetido de um projeto.
@@ -134,7 +133,7 @@ async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string,
 
   // Agrupar materiais por rubrica
   const detalhesMateriais = materiais.reduce((acc, material) => {
-    if (!material.preco || !material.workpackage) return acc;
+    if (!material.preco || !material.workpackage || !material.rubrica) return acc;
     
     const custoTotal = material.preco.times(new Decimal(material.quantidade));
     
@@ -146,8 +145,11 @@ async function getOrcamentoReal(db: Prisma.TransactionClient, projetoId: string,
       };
     }
     
-    acc[material.rubrica].total = acc[material.rubrica].total.plus(custoTotal);
-    acc[material.rubrica].materiais.push({
+    const rubricaEntry = acc[material.rubrica];
+    if (!rubricaEntry) return acc;
+
+    rubricaEntry.total = rubricaEntry.total.plus(custoTotal);
+    rubricaEntry.materiais.push({
       id: material.id,
       nome: material.nome,
       preco: material.preco,
@@ -545,7 +547,7 @@ async function getTotais(db: Prisma.TransactionClient, projetoId: string, option
 }
 
 export const financasRouter = createTRPCRouter({
-  getFinancas: publicProcedure
+  getFinancas: protectedProcedure
     .input(z.object({
       projetoId: z.string().uuid("ID do projeto inválido"),
       ano: z.number().int().min(2000).optional(),
@@ -826,7 +828,7 @@ export const financasRouter = createTRPCRouter({
       }
     }),
 
-  getTotaisFinanceiros: publicProcedure
+  getTotaisFinanceiros: protectedProcedure
     .input(z.object({
       projetoId: z.string().uuid("ID do projeto inválido").optional(),
       ano: z.number().int().min(2000).optional(),

@@ -14,8 +14,12 @@ interface TarefaEntregaveisProps {
   tarefa: any;
   tarefaId: string;
   addingEntregavel: boolean;
-  setAddingEntregavel: (adding: boolean) => void;
-  _onUpdate?: () => Promise<void>;
+  setAddingEntregavel: (value: boolean) => void;
+  onUpdate: (data: any) => Promise<void>;
+  projetoId: string;
+  onCreateEntregavel: (data: any) => Promise<void>;
+  onUpdateEntregavel: (id: string, data: any) => Promise<void>;
+  onDeleteEntregavel: (id: string) => Promise<void>;
 }
 
 export function TarefaEntregaveis({ 
@@ -23,12 +27,16 @@ export function TarefaEntregaveis({
   tarefaId, 
   addingEntregavel, 
   setAddingEntregavel,
-  _onUpdate
+  onUpdate,
+  projetoId,
+  onCreateEntregavel,
+  onUpdateEntregavel,
+  onDeleteEntregavel
 }: TarefaEntregaveisProps) {
   const [submittingEntregavel, setSubmittingEntregavel] = useState<string | null>(null);
   
-  // Usar mutations diretamente
-  const mutations = useMutations();
+  // Usar mutations com o projetoId
+  const mutations = useMutations(projetoId);
 
   // Buscar entregáveis da tarefa
   const { 
@@ -39,15 +47,12 @@ export function TarefaEntregaveis({
   );
 
   const handleToggleEstado = async (entregavelId: string, novoEstado: boolean) => {
-    await mutations.entregavel.update.mutate({ 
-      id: entregavelId,
-      data: { estado: novoEstado }
-    });
+    await onUpdateEntregavel(entregavelId, { estado: novoEstado });
   };
   
   const handleRemoveEntregavel = async (entregavelId: string) => {
     if (confirm("Tem a certeza que deseja remover este entregável?")) {
-      await mutations.entregavel.delete.mutate(entregavelId);
+      await onDeleteEntregavel(entregavelId);
     }
   };
 
@@ -58,10 +63,7 @@ export function TarefaEntregaveis({
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Após o upload bem-sucedido, atualizar o entregável - força estado como true
-      await mutations.entregavel.update.mutate({ 
-        id: entregavelId,
-        data: { estado: true }  // Aqui mantemos o estado explícito porque queremos forçar para true
-      });
+      await onUpdateEntregavel(entregavelId, { estado: true });
       
       setSubmittingEntregavel(null);
       toast.success("Ficheiro enviado com sucesso");
@@ -89,6 +91,23 @@ export function TarefaEntregaveis({
 
   // Determinar se há entregáveis pendentes
   const pendingEntregaveis = entregaveis.filter(e => e.estado === false).length;
+
+  // Atualizar o handler do submit
+  const handleSubmit = async (data: any) => {
+    try {
+      await onCreateEntregavel({
+        ...data,
+        tarefaId
+      });
+
+      setAddingEntregavel(false);
+      await onUpdate({}); // Trigger refresh
+      toast.success("Entregável adicionado com sucesso");
+    } catch (error) {
+      console.error("Erro ao criar entregável:", error);
+      toast.error("Erro ao criar entregável");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -120,15 +139,7 @@ export function TarefaEntregaveis({
               fim: tarefa.fim
             }}
             onCancel={handleCancelAddEntregavel}
-            onSubmit={(tarefaId, entregavel) => {
-              mutations.entregavel.create.mutate({
-                tarefaId,
-                nome: entregavel.nome,
-                descricao: entregavel.descricao || undefined,
-                data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data
-              });
-              setAddingEntregavel(false);
-            }}
+            onSubmit={handleSubmit}
           />
         </Card>
       )}
