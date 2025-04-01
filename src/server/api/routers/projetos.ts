@@ -7,10 +7,12 @@ import { handlePrismaError } from "../utils";
 import { paginationSchema } from "../schemas/common";
 import { Decimal } from "decimal.js";
 
-
 // Schema base para projeto
 export const projetoBaseSchema = z.object({
-  nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
+  nome: z
+    .string()
+    .min(3, "Nome deve ter pelo menos 3 caracteres")
+    .max(255, "Nome deve ter no máximo 255 caracteres"),
   descricao: z.string().optional(),
   inicio: z.coerce.date().optional(),
   fim: z.coerce.date().optional(),
@@ -18,7 +20,10 @@ export const projetoBaseSchema = z.object({
   overhead: z.coerce.number().min(0).max(100).default(0),
   taxa_financiamento: z.coerce.number().min(0).max(100).default(0),
   valor_eti: z.coerce.number().min(0).default(0),
-  financiamentoId: z.coerce.number().int("ID do financiamento deve ser um número inteiro").optional(),
+  financiamentoId: z.coerce
+    .number()
+    .int("ID do financiamento deve ser um número inteiro")
+    .optional(),
 });
 
 // Schema para criação de projeto
@@ -35,37 +40,49 @@ export const updateProjetoSchema = z.object({
   taxa_financiamento: z.number().optional(),
   valor_eti: z.number().optional(),
   financiamentoId: z.number().optional(),
-  estado: z.enum(["RASCUNHO", "PENDENTE", "APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"]).optional(),
+  estado: z
+    .enum(["RASCUNHO", "PENDENTE", "APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"])
+    .optional(),
 });
 
 // Schema para filtros de projeto
-export const projetoFilterSchema = z.object({
-  search: z.string().optional(),
-  estado: z.nativeEnum(ProjetoEstado).optional(),
-  financiamentoId: z.coerce.number().int("ID do financiamento deve ser um número inteiro").optional(),
-}).merge(paginationSchema);
+export const projetoFilterSchema = z
+  .object({
+    search: z.string().optional(),
+    estado: z.nativeEnum(ProjetoEstado).optional(),
+    financiamentoId: z.coerce
+      .number()
+      .int("ID do financiamento deve ser um número inteiro")
+      .optional(),
+  })
+  .merge(paginationSchema);
 
 // Schema para validação de datas
-export const projetoDateValidationSchema = z.object({
-  inicio: z.coerce.date().optional(),
-  fim: z.coerce.date().optional(),
-}).refine(
-  (data) => {
-    if (data.inicio && data.fim) {
-      return data.inicio <= data.fim;
+export const projetoDateValidationSchema = z
+  .object({
+    inicio: z.coerce.date().optional(),
+    fim: z.coerce.date().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.inicio && data.fim) {
+        return data.inicio <= data.fim;
+      }
+      return true;
+    },
+    {
+      message: "A data de fim deve ser posterior à data de início",
+      path: ["fim"],
     }
-    return true;
-  },
-  {
-    message: "A data de fim deve ser posterior à data de início",
-    path: ["fim"],
-  }
-);
+  );
 
 // Schema para criação de projeto completo
 export const createProjetoCompletoSchema = z.object({
   // Dados básicos do projeto
-  nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
+  nome: z
+    .string()
+    .min(3, "Nome deve ter pelo menos 3 caracteres")
+    .max(255, "Nome deve ter no máximo 255 caracteres"),
   descricao: z.string().optional(),
   inicio: z.date().optional(),
   fim: z.date().optional(),
@@ -75,53 +92,84 @@ export const createProjetoCompletoSchema = z.object({
   overhead: z.number().min(0).max(100).default(0),
   taxa_financiamento: z.number().min(0).max(100).default(0),
   valor_eti: z.number().min(0).default(0),
-  
+
   // Workpackages e seus sub-dados
-  workpackages: z.array(z.object({
-    id: z.string().optional(), // ID temporário fornecido pelo frontend
-    nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-    descricao: z.string().optional(),
-    inicio: z.date().optional(),
-    fim: z.date().optional(),
-    estado: z.boolean().optional().default(false),
-    
-    // Tarefas do workpackage
-    tarefas: z.array(z.object({
-      nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-      descricao: z.string().optional(),
-      inicio: z.date().optional(),
-      fim: z.date().optional(),
-      estado: z.boolean().optional().default(false),
-      
-      // Entregáveis da tarefa
-      entregaveis: z.array(z.object({
+  workpackages: z
+    .array(
+      z.object({
+        id: z.string().optional(), // ID temporário fornecido pelo frontend
         nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
         descricao: z.string().optional(),
-        data: z.date().optional(),
-      })).optional().default([]),
-    })).optional().default([]),
-    
-    // Materiais do workpackage
-    materiais: z.array(z.object({
-      id: z.number().optional(), // ID temporário fornecido pelo frontend
-      nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-      preco: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val),
-      quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
-      rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
-      ano_utilizacao: z.number().int().min(2000, "Ano deve ser válido").max(2100, "Ano deve ser válido"),
-    })).optional().default([]),
-    
-    // Alocações de recursos do workpackage
-    recursos: z.array(z.object({
-      userId: z.string(),
-      mes: z.number().min(1).max(12),
-      ano: z.number().int().min(2000).max(2100),
-      ocupacao: z.union([z.string(), z.number()]).transform(val => 
-        typeof val === 'string' ? parseFloat(val) : val
-      ),
-      workpackageId: z.string().optional(), // Será preenchido após criar o workpackage
-    })).optional().default([]),
-  })).optional().default([]),
+        inicio: z.date().optional(),
+        fim: z.date().optional(),
+        estado: z.boolean().optional().default(false),
+
+        // Tarefas do workpackage
+        tarefas: z
+          .array(
+            z.object({
+              nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+              descricao: z.string().optional(),
+              inicio: z.date().optional(),
+              fim: z.date().optional(),
+              estado: z.boolean().optional().default(false),
+
+              // Entregáveis da tarefa
+              entregaveis: z
+                .array(
+                  z.object({
+                    nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+                    descricao: z.string().optional(),
+                    data: z.date().optional(),
+                  })
+                )
+                .optional()
+                .default([]),
+            })
+          )
+          .optional()
+          .default([]),
+
+        // Materiais do workpackage
+        materiais: z
+          .array(
+            z.object({
+              id: z.number().optional(), // ID temporário fornecido pelo frontend
+              nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+              preco: z
+                .union([z.number(), z.string()])
+                .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
+              quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
+              rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
+              ano_utilizacao: z
+                .number()
+                .int()
+                .min(2000, "Ano deve ser válido")
+                .max(2100, "Ano deve ser válido"),
+            })
+          )
+          .optional()
+          .default([]),
+
+        // Alocações de recursos do workpackage
+        recursos: z
+          .array(
+            z.object({
+              userId: z.string(),
+              mes: z.number().min(1).max(12),
+              ano: z.number().int().min(2000).max(2100),
+              ocupacao: z
+                .union([z.string(), z.number()])
+                .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
+              workpackageId: z.string().optional(), // Será preenchido após criar o workpackage
+            })
+          )
+          .optional()
+          .default([]),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 // Tipos inferidos dos schemas
@@ -135,32 +183,35 @@ export const projetoRouter = createTRPCRouter({
   // Obter todos os projetos
   findAll: publicProcedure
     .input(
-      projetoFilterSchema.extend({
-        userId: z.string().optional(),
-        apenasAlocados: z.boolean().optional(),
-      }).optional().default({})
+      projetoFilterSchema
+        .extend({
+          userId: z.string().optional(),
+          apenasAlocados: z.boolean().optional(),
+        })
+        .optional()
+        .default({})
     )
     .query(async ({ ctx, input }) => {
       try {
-        const { 
-          search, 
-          estado, 
-          financiamentoId, 
-          page = 1, 
-          limit = 10, 
-          userId, 
+        const {
+          search,
+          estado,
+          financiamentoId,
+          page = 1,
+          limit = 10,
+          userId,
           apenasAlocados,
         } = input;
-        
+
         const where: Prisma.ProjetoWhereInput = {
           ...(search && {
             OR: [
-              { nome: { contains: search, mode: 'insensitive' } },
-              { descricao: { contains: search, mode: 'insensitive' } }
-            ]
+              { nome: { contains: search, mode: "insensitive" } },
+              { descricao: { contains: search, mode: "insensitive" } },
+            ],
           }),
           ...(estado && { estado }),
-          ...(financiamentoId && { financiamentoId })
+          ...(financiamentoId && { financiamentoId }),
         };
 
         if (apenasAlocados && userId) {
@@ -168,10 +219,10 @@ export const projetoRouter = createTRPCRouter({
             some: {
               recursos: {
                 some: {
-                  userId: userId
-                }
-              }
-            }
+                  userId: userId,
+                },
+              },
+            },
           };
         }
 
@@ -179,7 +230,7 @@ export const projetoRouter = createTRPCRouter({
 
         const projetos = await ctx.db.projeto.findMany({
           where,
-          orderBy: { nome: 'asc' },
+          orderBy: { nome: "asc" },
           skip: (page - 1) * limit,
           take: limit,
           include: {
@@ -188,8 +239,8 @@ export const projetoRouter = createTRPCRouter({
               select: {
                 id: true,
                 name: true,
-                email: true
-              }
+                email: true,
+              },
             },
             workpackages: {
               include: {
@@ -200,15 +251,15 @@ export const projetoRouter = createTRPCRouter({
                       select: {
                         id: true,
                         name: true,
-                        salario: true // Keep salario for other potential calculations if needed elsewhere
-                      }
-                    }
-                  }
+                        salario: true, // Keep salario for other potential calculations if needed elsewhere
+                      },
+                    },
+                  },
                 },
-                materiais: true // Keep materiais for other potential calculations if needed elsewhere
-              }
-            }
-          }
+                materiais: true, // Keep materiais for other potential calculations if needed elsewhere
+              },
+            },
+          },
         });
 
         // Initialize rascunhos before conditional assignment
@@ -216,7 +267,7 @@ export const projetoRouter = createTRPCRouter({
         if (apenasAlocados && userId) {
           rascunhos = await ctx.db.rascunho.findMany({
             where: { userId },
-            orderBy: { updatedAt: 'desc' }
+            orderBy: { updatedAt: "desc" },
           });
         }
 
@@ -226,12 +277,13 @@ export const projetoRouter = createTRPCRouter({
           let totalTarefas = 0;
           let tarefasConcluidas = 0;
 
-          projeto.workpackages?.forEach(wp => {
+          projeto.workpackages?.forEach((wp) => {
             totalTarefas += wp.tarefas.length;
-            tarefasConcluidas += wp.tarefas.filter(tarefa => tarefa.estado === true).length;
+            tarefasConcluidas += wp.tarefas.filter((tarefa) => tarefa.estado === true).length;
           });
 
-          const progresso = totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
+          const progresso =
+            totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
 
           return {
             ...projeto,
@@ -247,19 +299,18 @@ export const projetoRouter = createTRPCRouter({
             total,
             pages: Math.ceil(total / limit),
             page,
-            limit
-          }
+            limit,
+          },
         };
       } catch (error) {
         console.error("Erro ao listar projetos:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao listar projetos",
-          cause: error
+          cause: error,
         });
       }
     }),
-  
 
   // Obter projeto por ID
   findById: publicProcedure
@@ -274,15 +325,15 @@ export const projetoRouter = createTRPCRouter({
               select: {
                 id: true,
                 name: true,
-                email: true
-              }
+                email: true,
+              },
             },
             workpackages: {
               include: {
                 tarefas: {
                   include: {
-                    entregaveis: true
-                  }
+                    entregaveis: true,
+                  },
                 },
                 materiais: true,
                 recursos: {
@@ -291,226 +342,225 @@ export const projetoRouter = createTRPCRouter({
                       select: {
                         id: true,
                         name: true,
-                        salario: true
-                      }
+                        salario: true,
+                      },
                     },
-                  }
-                }
-              }
-            }
-          }
+                  },
+                },
+              },
+            },
+          },
         });
-        
+
         if (!projeto) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Projeto não encontrado",
           });
         }
-        
+
         let totalTarefas = 0;
         let tarefasConcluidas = 0;
 
-        projeto.workpackages?.forEach(wp => {
+        projeto.workpackages?.forEach((wp) => {
           totalTarefas += wp.tarefas.length;
-          tarefasConcluidas += wp.tarefas.filter(tarefa => tarefa.estado === true).length;
+          tarefasConcluidas += wp.tarefas.filter((tarefa) => tarefa.estado === true).length;
         });
 
-       const progresso = totalTarefas > 0 ? tarefasConcluidas / totalTarefas : 0;
-       
-       return {
-        ...projeto,
-        progresso,
-       };
+        const progresso = totalTarefas > 0 ? tarefasConcluidas / totalTarefas : 0;
+
+        return {
+          ...projeto,
+          progresso,
+        };
       } catch (error) {
         return handlePrismaError(error);
       }
     }),
-
 
   // Criar projeto
-  create: protectedProcedure
-    .input(createProjetoSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        if (input.inicio && input.fim) {
-          const { success } = projetoDateValidationSchema.safeParse({
-            inicio: input.inicio,
-            fim: input.fim,
-          });
-          
-          if (!success) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "A data de fim deve ser posterior à data de início",
-            });
-          }
-        }
-        
-        // Extrair o ID do utilizador da sessão
-        const userId = ctx.session.user.id;
-        
-        const { 
-          nome, 
-          descricao, 
-          inicio, 
-          fim, 
-          estado = ProjetoEstado.RASCUNHO, 
-          financiamentoId,
-          overhead = 0, 
-          taxa_financiamento = 0, 
-          valor_eti = 0 
-        } = input;
-        
-        const createData = {
-          nome,
-          descricao,
-          inicio,
-          fim,
-          estado,
-          overhead,
-          taxa_financiamento,
-          valor_eti,
-          // Usar a sintaxe de relacionamento para o responsável
-          responsavel: {
-            connect: { id: userId }
-          },
-          ...(financiamentoId ? {
-            financiamento: {
-              connect: { id: financiamentoId }
-            }
-          } : {})
-        } as any;
-        
-        const projeto = await ctx.db.projeto.create({
-          data: createData,
-          include: {
-            financiamento: true,
-            responsavel: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          },
-        });
-        
-        return projeto;
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-  
-  // Atualizar projeto
-  update: protectedProcedure
-    .input(updateProjetoSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        // Get the project first to check permissions
-        const projeto = await ctx.db.projeto.findUnique({
-          where: { id: input.id },
-          select: { responsavelId: true }
-        });
-
-        if (!projeto) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Projeto não encontrado",
-          });
-        }
-
-        // Get user with permission
-        const user = await ctx.db.user.findUnique({
-          where: { id: ctx.session.user.id },
-          select: { permissao: true }
-        });
-
-        if (!user) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Utilizador não encontrado",
-          });
-        }
-
-        // Check if user has permission (admin, gestor or responsavel)
-        const isAdmin = user.permissao === "ADMIN";
-        const isGestor = user.permissao === "GESTOR";
-        const isResponsavel = projeto.responsavelId === ctx.session.user.id;
-
-        if (!isAdmin && !isGestor && !isResponsavel) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Sem permissão para editar este projeto",
-          });
-        }
-
-        // Prepare update data
-        const updateData: Prisma.ProjetoUpdateInput = {
-          nome: input.nome,
-          descricao: input.descricao,
+  create: protectedProcedure.input(createProjetoSchema).mutation(async ({ ctx, input }) => {
+    try {
+      if (input.inicio && input.fim) {
+        const { success } = projetoDateValidationSchema.safeParse({
           inicio: input.inicio,
           fim: input.fim,
-          overhead: input.overhead,
-          taxa_financiamento: input.taxa_financiamento,
-          valor_eti: input.valor_eti,
-          ...(input.financiamentoId !== undefined && {
-            financiamento: input.financiamentoId ? {
-              connect: { id: input.financiamentoId }
-            } : { disconnect: true }
-          }),
-        };
-
-        // Update the project
-        const updatedProjeto = await ctx.db.projeto.update({
-          where: { id: input.id },
-          data: updateData,
-          include: {
-            responsavel: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            financiamento: true,
-            workpackages: {
-              include: {
-                tarefas: {
-                  include: {
-                    entregaveis: true
-                  }
-                },
-                materiais: true,
-                recursos: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        name: true,
-                        salario: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
         });
 
-        return updatedProjeto;
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        
-        console.error("Erro ao atualizar projeto:", error);
+        if (!success) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A data de fim deve ser posterior à data de início",
+          });
+        }
+      }
+
+      // Extrair o ID do utilizador da sessão
+      const userId = ctx.session.user.id;
+
+      const {
+        nome,
+        descricao,
+        inicio,
+        fim,
+        estado = ProjetoEstado.RASCUNHO,
+        financiamentoId,
+        overhead = 0,
+        taxa_financiamento = 0,
+        valor_eti = 0,
+      } = input;
+
+      const createData = {
+        nome,
+        descricao,
+        inicio,
+        fim,
+        estado,
+        overhead,
+        taxa_financiamento,
+        valor_eti,
+        // Usar a sintaxe de relacionamento para o responsável
+        responsavel: {
+          connect: { id: userId },
+        },
+        ...(financiamentoId
+          ? {
+              financiamento: {
+                connect: { id: financiamentoId },
+              },
+            }
+          : {}),
+      } as any;
+
+      const projeto = await ctx.db.projeto.create({
+        data: createData,
+        include: {
+          financiamento: true,
+          responsavel: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return projeto;
+    } catch (error) {
+      return handlePrismaError(error);
+    }
+  }),
+
+  // Atualizar projeto
+  update: protectedProcedure.input(updateProjetoSchema).mutation(async ({ ctx, input }) => {
+    try {
+      // Get the project first to check permissions
+      const projeto = await ctx.db.projeto.findUnique({
+        where: { id: input.id },
+        select: { responsavelId: true },
+      });
+
+      if (!projeto) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao atualizar projeto",
-          cause: error
+          code: "NOT_FOUND",
+          message: "Projeto não encontrado",
         });
       }
-    }),
-  
+
+      // Get user with permission
+      const user = await ctx.db.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { permissao: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Utilizador não encontrado",
+        });
+      }
+
+      // Check if user has permission (admin, gestor or responsavel)
+      const isAdmin = user.permissao === "ADMIN";
+      const isGestor = user.permissao === "GESTOR";
+      const isResponsavel = projeto.responsavelId === ctx.session.user.id;
+
+      if (!isAdmin && !isGestor && !isResponsavel) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Sem permissão para editar este projeto",
+        });
+      }
+
+      // Prepare update data
+      const updateData: Prisma.ProjetoUpdateInput = {
+        nome: input.nome,
+        descricao: input.descricao,
+        inicio: input.inicio,
+        fim: input.fim,
+        overhead: input.overhead,
+        taxa_financiamento: input.taxa_financiamento,
+        valor_eti: input.valor_eti,
+        ...(input.financiamentoId !== undefined && {
+          financiamento: input.financiamentoId
+            ? {
+                connect: { id: input.financiamentoId },
+              }
+            : { disconnect: true },
+        }),
+      };
+
+      // Update the project
+      const updatedProjeto = await ctx.db.projeto.update({
+        where: { id: input.id },
+        data: updateData,
+        include: {
+          responsavel: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          financiamento: true,
+          workpackages: {
+            include: {
+              tarefas: {
+                include: {
+                  entregaveis: true,
+                },
+              },
+              materiais: true,
+              recursos: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      salario: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return updatedProjeto;
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+
+      console.error("Erro ao atualizar projeto:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Erro ao atualizar projeto",
+        cause: error,
+      });
+    }
+  }),
+
   // Apagar projeto
   delete: protectedProcedure
     .input(z.string().uuid("ID do projeto inválido"))
@@ -522,7 +572,7 @@ export const projetoRouter = createTRPCRouter({
             tarefas: true,
           },
         });
-        
+
         for (const wp of workpackages) {
           if (wp.tarefas.length > 0) {
             await ctx.db.tarefa.deleteMany({
@@ -530,93 +580,131 @@ export const projetoRouter = createTRPCRouter({
             });
           }
         }
-        
+
         await ctx.db.workpackage.deleteMany({
           where: { projetoId: id },
         });
-        
+
         await ctx.db.projeto.delete({
           where: { id },
         });
-        
+
         return { success: true };
       } catch (error) {
         return handlePrismaError(error);
       }
     }),
-  
+
   // Alterar estado do projeto
   updateEstado: protectedProcedure
-    .input(z.object({
-      id: z.string().uuid("ID do projeto inválido"),
-      estado: z.nativeEnum(ProjetoEstado),
-    }))
+    .input(
+      z.object({
+        id: z.string().uuid("ID do projeto inválido"),
+        estado: z.nativeEnum(ProjetoEstado),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       try {
         const { id, estado } = input;
-        
+
         const projeto = await ctx.db.projeto.update({
           where: { id },
           data: { estado },
         });
-        
+
         return projeto;
       } catch (error) {
         return handlePrismaError(error);
       }
     }),
-  
+
   // Criar projeto completo com workpackages, tarefas, entregáveis, materiais e alocações
   createCompleto: protectedProcedure
-    .input(z.object({
-      nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
-      descricao: z.string().optional(),
-      inicio: z.date().optional(),
-      fim: z.date().optional(),
-      estado: z.nativeEnum(ProjetoEstado).optional().default(ProjetoEstado.RASCUNHO),
-      financiamentoId: z.number().optional(),
-      responsavelId: z.string().optional(),
-      overhead: z.number().min(0).max(100).default(0),
-      taxa_financiamento: z.number().min(0).max(100).default(0),
-      valor_eti: z.number().min(0).default(0),
-      workpackages: z.array(z.object({
-        id: z.string().optional(),
-        nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+    .input(
+      z.object({
+        nome: z
+          .string()
+          .min(3, "Nome deve ter pelo menos 3 caracteres")
+          .max(255, "Nome deve ter no máximo 255 caracteres"),
         descricao: z.string().optional(),
         inicio: z.date().optional(),
         fim: z.date().optional(),
-        estado: z.boolean().optional().default(false),
-        tarefas: z.array(z.object({
-          nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-          descricao: z.string().optional(),
-          inicio: z.date().optional(),
-          fim: z.date().optional(),
-          estado: z.boolean().optional().default(false),
-          entregaveis: z.array(z.object({
-            nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-            descricao: z.string().optional(),
-            data: z.date().optional(),
-          })).optional().default([]),
-        })).optional().default([]),
-        materiais: z.array(z.object({
-          id: z.number().optional(),
-          nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-          preco: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val),
-          quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
-          rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
-          ano_utilizacao: z.number().int().min(2000, "Ano deve ser válido").max(2100, "Ano deve ser válido"),
-        })).optional().default([]),
-        recursos: z.array(z.object({
-          userId: z.string(),
-          mes: z.number().min(1).max(12),
-          ano: z.number().int().min(2000).max(2100),
-          ocupacao: z.union([z.string(), z.number()]).transform(val => 
-            typeof val === 'string' ? parseFloat(val) : val
-          ),
-          workpackageId: z.string().optional(),
-        })).optional().default([]),
-      })).optional().default([]),
-    }))
+        estado: z.nativeEnum(ProjetoEstado).optional().default(ProjetoEstado.RASCUNHO),
+        financiamentoId: z.number().optional(),
+        responsavelId: z.string().optional(),
+        overhead: z.number().min(0).max(100).default(0),
+        taxa_financiamento: z.number().min(0).max(100).default(0),
+        valor_eti: z.number().min(0).default(0),
+        workpackages: z
+          .array(
+            z.object({
+              id: z.string().optional(),
+              nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+              descricao: z.string().optional(),
+              inicio: z.date().optional(),
+              fim: z.date().optional(),
+              estado: z.boolean().optional().default(false),
+              tarefas: z
+                .array(
+                  z.object({
+                    nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+                    descricao: z.string().optional(),
+                    inicio: z.date().optional(),
+                    fim: z.date().optional(),
+                    estado: z.boolean().optional().default(false),
+                    entregaveis: z
+                      .array(
+                        z.object({
+                          nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+                          descricao: z.string().optional(),
+                          data: z.date().optional(),
+                        })
+                      )
+                      .optional()
+                      .default([]),
+                  })
+                )
+                .optional()
+                .default([]),
+              materiais: z
+                .array(
+                  z.object({
+                    id: z.number().optional(),
+                    nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+                    preco: z
+                      .union([z.number(), z.string()])
+                      .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
+                    quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
+                    rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
+                    ano_utilizacao: z
+                      .number()
+                      .int()
+                      .min(2000, "Ano deve ser válido")
+                      .max(2100, "Ano deve ser válido"),
+                  })
+                )
+                .optional()
+                .default([]),
+              recursos: z
+                .array(
+                  z.object({
+                    userId: z.string(),
+                    mes: z.number().min(1).max(12),
+                    ano: z.number().int().min(2000).max(2100),
+                    ocupacao: z
+                      .union([z.string(), z.number()])
+                      .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
+                    workpackageId: z.string().optional(),
+                  })
+                )
+                .optional()
+                .default([]),
+            })
+          )
+          .optional()
+          .default([]),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       try {
         if (input.inicio && input.fim) {
@@ -624,7 +712,7 @@ export const projetoRouter = createTRPCRouter({
             inicio: input.inicio,
             fim: input.fim,
           });
-          
+
           if (!success) {
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -632,7 +720,7 @@ export const projetoRouter = createTRPCRouter({
             });
           }
         }
-        
+
         for (const wp of input.workpackages) {
           if (wp.inicio && wp.fim) {
             if (wp.inicio > wp.fim) {
@@ -641,14 +729,14 @@ export const projetoRouter = createTRPCRouter({
                 message: `Workpackage "${wp.nome}": A data de fim deve ser posterior à data de início`,
               });
             }
-            
+
             if (input.inicio && wp.inicio < input.inicio) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message: `Workpackage "${wp.nome}": A data de início não pode ser anterior à data de início do projeto`,
               });
             }
-            
+
             if (input.fim && wp.fim > input.fim) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
@@ -656,7 +744,7 @@ export const projetoRouter = createTRPCRouter({
               });
             }
           }
-          
+
           for (const tarefa of wp.tarefas) {
             if (tarefa.inicio && tarefa.fim) {
               if (tarefa.inicio > tarefa.fim) {
@@ -665,14 +753,14 @@ export const projetoRouter = createTRPCRouter({
                   message: `Tarefa "${tarefa.nome}": A data de fim deve ser posterior à data de início`,
                 });
               }
-              
+
               if (wp.inicio && tarefa.inicio < wp.inicio) {
                 throw new TRPCError({
                   code: "BAD_REQUEST",
                   message: `Tarefa "${tarefa.nome}": A data de início não pode ser anterior à data de início do workpackage`,
                 });
               }
-              
+
               if (wp.fim && tarefa.fim > wp.fim) {
                 throw new TRPCError({
                   code: "BAD_REQUEST",
@@ -682,17 +770,17 @@ export const projetoRouter = createTRPCRouter({
             }
           }
         }
-        
+
         // Extrair o ID do utilizador da sessão
         const userId = ctx.session.user.id;
-        
+
         // Determinar qual ID de utilizador será usado como responsável
         const targetUserId = input.responsavelId || userId;
 
         // Verificar se o utilizador existe
         const userExists = await ctx.db.user.findUnique({
           where: { id: targetUserId },
-          select: { id: true }
+          select: { id: true },
         });
 
         if (!userExists) {
@@ -701,7 +789,7 @@ export const projetoRouter = createTRPCRouter({
             message: "O utilizador responsável especificado não existe",
           });
         }
-        
+
         const projeto = await ctx.db.projeto.create({
           data: {
             nome: input.nome,
@@ -715,79 +803,81 @@ export const projetoRouter = createTRPCRouter({
             // Usar a sintaxe de relacionamento do Prisma para o responsável
             responsavel: {
               connect: {
-                id: targetUserId
-              }
+                id: targetUserId,
+              },
             },
-            ...(input.financiamentoId ? {
-              financiamento: {
-                connect: {
-                  id: input.financiamentoId
+            ...(input.financiamentoId
+              ? {
+                  financiamento: {
+                    connect: {
+                      id: input.financiamentoId,
+                    },
+                  },
                 }
-              }
-            } : {}),
+              : {}),
             workpackages: {
-              create: input.workpackages.map(wp => ({
+              create: input.workpackages.map((wp) => ({
                 nome: wp.nome,
                 descricao: wp.descricao,
                 inicio: wp.inicio,
                 fim: wp.fim,
                 estado: wp.estado,
                 tarefas: {
-                  create: wp.tarefas.map(t => ({
+                  create: wp.tarefas.map((t) => ({
                     nome: t.nome,
                     descricao: t.descricao,
                     inicio: t.inicio,
                     fim: t.fim,
                     estado: t.estado,
                     entregaveis: {
-                      create: t.entregaveis.map(e => ({
+                      create: t.entregaveis.map((e) => ({
                         nome: e.nome,
                         descricao: e.descricao,
-                        data: e.data
-                      }))
-                    }
-                  }))
+                        data: e.data,
+                      })),
+                    },
+                  })),
                 },
                 materiais: {
-                  create: wp.materiais.map(m => ({
+                  create: wp.materiais.map((m) => ({
                     nome: m.nome,
                     preco: m.preco,
                     quantidade: m.quantidade,
                     rubrica: m.rubrica,
-                    ano_utilizacao: m.ano_utilizacao
-                  }))
-                }
-              }))
-            }
+                    ano_utilizacao: m.ano_utilizacao,
+                  })),
+                },
+              })),
+            },
           },
           include: {
             financiamento: true,
             responsavel: {
               select: {
-                id: true, 
+                id: true,
                 name: true,
-                email: true
-              }
+                email: true,
+              },
             },
             workpackages: {
               include: {
                 tarefas: {
                   include: {
-                    entregaveis: true
-                  }
+                    entregaveis: true,
+                  },
                 },
-                materiais: true
-              }
-            }
-          }
+                materiais: true,
+              },
+            },
+          },
         });
-        
+
         for (const wpInput of input.workpackages) {
           if (!wpInput.recursos || wpInput.recursos.length === 0) continue;
-          
-          const workpackage = projeto.workpackages.find(w => w.nome === wpInput.nome);
+
+          const workpackage = projeto.workpackages.find((w) => w.nome === wpInput.nome);
           if (!workpackage) continue;
-          
+
           for (const recurso of wpInput.recursos) {
             try {
               await ctx.db.alocacaoRecurso.create({
@@ -796,18 +886,18 @@ export const projetoRouter = createTRPCRouter({
                   userId: recurso.userId,
                   mes: recurso.mes,
                   ano: recurso.ano,
-                  ocupacao: new Decimal(recurso.ocupacao)
-                }
+                  ocupacao: new Decimal(recurso.ocupacao),
+                },
               });
             } catch (error) {
               console.error(`Erro ao criar alocação: ${error}`);
             }
           }
         }
-        
+
         return {
           success: true,
-          data: projeto
+          data: projeto,
         };
       } catch (error) {
         console.error("Erro ao criar projeto completo:", error);

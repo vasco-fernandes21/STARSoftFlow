@@ -16,23 +16,23 @@ export function ProgressCircle({
   showValue = false,
   strokeWidth = 4,
   className,
-  valueClassName
+  valueClassName,
 }: ProgressCircleProps) {
   // Assegurar que o valor está entre 0 e 100
   const safeValue = Math.max(0, Math.min(100, value));
-  
+
   // Calcular tamanho do círculo baseado no tamanho escolhido
   const sizes = {
     sm: 40,
     md: 64,
-    lg: 80
+    lg: 80,
   };
-  
+
   const circleSize = sizes[size];
   const radius = (circleSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (safeValue / 100) * circumference;
-  
+
   // Determinar a cor baseada no valor
   const getColorClass = () => {
     if (safeValue < 25) return "stroke-red-500";
@@ -40,16 +40,16 @@ export function ProgressCircle({
     if (safeValue < 75) return "stroke-azul";
     return "stroke-green-500";
   };
-  
+
   return (
-    <div 
+    <div
       className={cn("relative inline-flex items-center justify-center", className)}
       style={{ width: circleSize, height: circleSize }}
     >
       {/* Círculo de fundo */}
-      <svg 
+      <svg
         className="absolute"
-        width={circleSize} 
+        width={circleSize}
         height={circleSize}
         viewBox={`0 0 ${circleSize} ${circleSize}`}
       >
@@ -62,11 +62,11 @@ export function ProgressCircle({
           strokeWidth={strokeWidth}
         />
       </svg>
-      
+
       {/* Círculo de progresso */}
-      <svg 
-        className="absolute transform -rotate-90"
-        width={circleSize} 
+      <svg
+        className="absolute -rotate-90 transform"
+        width={circleSize}
         height={circleSize}
         viewBox={`0 0 ${circleSize} ${circleSize}`}
       >
@@ -83,13 +83,13 @@ export function ProgressCircle({
           style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
         />
       </svg>
-      
+
       {/* Texto de porcentagem */}
       {showValue && (
-        <div className={cn("text-xs font-medium flex items-center justify-center", valueClassName)}>
+        <div className={cn("flex items-center justify-center text-xs font-medium", valueClassName)}>
           {safeValue}%
         </div>
       )}
     </div>
   );
-} 
+}

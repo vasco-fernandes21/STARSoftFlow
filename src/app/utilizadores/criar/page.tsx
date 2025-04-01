@@ -5,7 +5,7 @@ import { NovoUtilizadorModal } from "@/components/utilizadores/NovoUtilizadorMod
 export default function CriarUtilizador() {
   return (
     <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Criar Novo Utilizador</h1>
         <NovoUtilizadorModal />
       </div>

@@ -74,8 +74,17 @@ interface MaterialMutations {
   create: ReturnType<typeof api.material.create.useMutation>;
   update: ReturnType<typeof api.material.update.useMutation>;
   delete: ReturnType<typeof api.material.delete.useMutation>;
-  handleSubmit: (workpackageId: string, material: Omit<MaterialFormData, 'workpackageId'>, mutations: MaterialMutations) => void;
-  handleToggleEstado: (id: number, estado: boolean, workpackageId: string, mutations: MaterialMutations) => Promise<void>;
+  handleSubmit: (
+    workpackageId: string,
+    material: Omit<MaterialFormData, "workpackageId">,
+    mutations: MaterialMutations
+  ) => void;
+  handleToggleEstado: (
+    id: number,
+    estado: boolean,
+    workpackageId: string,
+    mutations: MaterialMutations
+  ) => Promise<void>;
   handleRemove: (id: number, mutations: MaterialMutations) => void;
 }
 
@@ -105,7 +114,7 @@ interface UpdateProjetoData {
 // Helper function to ensure date is in ISO string format
 function ensureDateString(value: any): string | null {
   if (!value) return null;
-  if (typeof value === 'string') return value;
+  if (typeof value === "string") return value;
   if (value instanceof Date) return value.toISOString();
   return null;
 }
@@ -117,22 +126,22 @@ export function useMutations(projetoId: string) {
   // Helper function to invalidate project-related queries
   const invalidateProjetoRelatedQueries = async (specificProjetoId?: string) => {
     const targetProjetoId = specificProjetoId || projetoId;
-    
+
     if (targetProjetoId) {
       await queryClient.invalidateQueries({
-        queryKey: ['projeto.findById', targetProjetoId],
-        refetchType: 'all'
+        queryKey: ["projeto.findById", targetProjetoId],
+        refetchType: "all",
       });
 
       await queryClient.refetchQueries({
-        queryKey: ['projeto.findById', targetProjetoId],
-        type: 'active'
+        queryKey: ["projeto.findById", targetProjetoId],
+        type: "active",
       });
     }
 
     // Sempre garantir que todas as queries ativas são refetchadas
     await queryClient.refetchQueries({
-      type: 'active'
+      type: "active",
     });
   };
 
@@ -177,24 +186,27 @@ export function useMutations(projetoId: string) {
     update: api.workpackage.update.useMutation({
       onMutate: async (variables: WorkpackageUpdate) => {
         await queryClient.cancelQueries({
-          queryKey: ['workpackage.findById', { id: variables.id }]
+          queryKey: ["workpackage.findById", { id: variables.id }],
         });
 
-        const previousData = queryClient.getQueryData(['workpackage.findById', { id: variables.id }]);
+        const previousData = queryClient.getQueryData([
+          "workpackage.findById",
+          { id: variables.id },
+        ]);
 
-        queryClient.setQueryData(['workpackage.findById', { id: variables.id }], (old: any) => {
+        queryClient.setQueryData(["workpackage.findById", { id: variables.id }], (old: any) => {
           return { ...old, ...variables };
         });
 
         if (projetoId) {
-          queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
+          queryClient.setQueryData(["projeto.findById", projetoId], (old: any) => {
             if (!old || !old.workpackages) return old;
-            
+
             return {
               ...old,
-              workpackages: old.workpackages.map((wp: any) => 
+              workpackages: old.workpackages.map((wp: any) =>
                 wp.id === variables.id ? { ...wp, ...variables } : wp
-              )
+              ),
             };
           });
         }
@@ -210,15 +222,20 @@ export function useMutations(projetoId: string) {
       onError: (error, variables, context: any) => {
         if (context?.previousData) {
           queryClient.setQueryData(
-            ['workpackage.findById', typeof variables === 'object' && variables !== null && 'id' in variables ? { id: variables.id } : null], 
+            [
+              "workpackage.findById",
+              typeof variables === "object" && variables !== null && "id" in variables
+                ? { id: variables.id }
+                : null,
+            ],
             context.previousData
           );
         }
         console.error("Erro ao atualizar workpackage:", error);
         toast.error(`Erro ao atualizar: ${error.message}`);
-      }
+      },
     }),
-    
+
     addAlocacao: api.workpackage.addAlocacao.useMutation({
       onSuccess: async (_data, _variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -229,9 +246,9 @@ export function useMutations(projetoId: string) {
       onError: (error) => {
         console.error("Erro ao alocar recurso:", error);
         toast.error("Erro ao alocar recurso");
-      }
+      },
     }),
-    
+
     removeAlocacao: api.workpackage.removeAlocacao.useMutation({
       onSuccess: async (_data, _variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -242,8 +259,8 @@ export function useMutations(projetoId: string) {
       onError: (error) => {
         console.error("Erro ao remover alocação:", error);
         toast.error("Erro ao remover alocação");
-      }
-    })
+      },
+    }),
   };
 
   // Tarefa mutations
@@ -258,20 +275,27 @@ export function useMutations(projetoId: string) {
       onError: (error) => {
         console.error("Erro ao criar tarefa:", error);
         toast.error("Erro ao criar tarefa");
-      }
+      },
     }),
-    
+
     update: api.tarefa.update.useMutation({
       onMutate: async (variables: TarefaUpdate) => {
         // Stop any outgoing refetches
-        if (typeof variables === 'object' && variables !== null && 'id' in variables && variables.id) {
-          await queryClient.cancelQueries({ queryKey: ['projeto', projetoId] });
-          await queryClient.cancelQueries({ queryKey: ['workpackage', variables.id.split('-')[0]] });
+        if (
+          typeof variables === "object" &&
+          variables !== null &&
+          "id" in variables &&
+          variables.id
+        ) {
+          await queryClient.cancelQueries({ queryKey: ["projeto", projetoId] });
+          await queryClient.cancelQueries({
+            queryKey: ["workpackage", variables.id.split("-")[0]],
+          });
         }
-        
+
         // Snapshot the previous value
-        const previousProjeto = queryClient.getQueryData(['projeto', projetoId]);
-        
+        const previousProjeto = queryClient.getQueryData(["projeto", projetoId]);
+
         return { previousProjeto };
       },
       onSuccess: async () => {
@@ -282,13 +306,13 @@ export function useMutations(projetoId: string) {
       },
       onError: (error, variables, context: any) => {
         if (context?.previousProjeto) {
-          queryClient.setQueryData(['projeto', projetoId], context.previousProjeto);
+          queryClient.setQueryData(["projeto", projetoId], context.previousProjeto);
         }
-        
+
         toast.error(`Erro ao atualizar: ${error.message}`);
-      }
+      },
     }),
-    
+
     delete: api.tarefa.delete.useMutation({
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -296,8 +320,8 @@ export function useMutations(projetoId: string) {
       onError: (error) => {
         console.error("Erro ao remover tarefa:", error);
         toast.error("Erro ao remover tarefa");
-      }
-    })
+      },
+    }),
   } as TarefaMutations;
 
   // Entregável mutations
@@ -307,31 +331,34 @@ export function useMutations(projetoId: string) {
         // Guardar estado atual do projeto
         let previousProjetoData;
         if (projetoId) {
-          previousProjetoData = queryClient.getQueryData(['projeto.findById', projetoId]);
+          previousProjetoData = queryClient.getQueryData(["projeto.findById", projetoId]);
         }
 
         // Atualizar cache do projeto otimisticamente
         if (variables.tarefaId && projetoId) {
           const tempId = `temp-${Date.now()}`;
-          queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
+          queryClient.setQueryData(["projeto.findById", projetoId], (old: any) => {
             if (!old?.workpackages) return old;
             return {
               ...old,
               workpackages: old.workpackages.map((wp: any) => ({
                 ...wp,
-                tarefas: wp.tarefas?.map((t: any) => 
-                  t.id === variables.tarefaId 
-                    ? { 
-                        ...t, 
-                        entregaveis: [...(t.entregaveis || []), { 
-                          id: tempId,
-                          ...variables,
-                          data: ensureDateString(variables.data)
-                        }]
-                      } 
+                tarefas: wp.tarefas?.map((t: any) =>
+                  t.id === variables.tarefaId
+                    ? {
+                        ...t,
+                        entregaveis: [
+                          ...(t.entregaveis || []),
+                          {
+                            id: tempId,
+                            ...variables,
+                            data: ensureDateString(variables.data),
+                          },
+                        ],
+                      }
                     : t
-                )
-              }))
+                ),
+              })),
             };
           });
         }
@@ -344,55 +371,72 @@ export function useMutations(projetoId: string) {
       onError: (error, _variables, context: any) => {
         // Reverter em caso de erro
         if (projetoId && context?.previousProjetoData) {
-          queryClient.setQueryData(
-            ['projeto.findById', projetoId],
-            context.previousProjetoData
-          );
+          queryClient.setQueryData(["projeto.findById", projetoId], context.previousProjetoData);
         }
-        
+
         console.error("Erro ao criar entregável:", error);
         toast.error("Erro ao criar entregável");
       },
       onSettled: async () => {
         // Sempre refetch quando finalizar
         await invalidateProjetoRelatedQueries();
-      }
+      },
     }),
-    
+
     update: api.entregavel.update.useMutation({
       onMutate: async (variables: EntregavelUpdate) => {
         // Cancelar queries pendentes
-        if (typeof variables === 'object' && variables !== null && 'id' in variables && variables.id) {
+        if (
+          typeof variables === "object" &&
+          variables !== null &&
+          "id" in variables &&
+          variables.id
+        ) {
           await queryClient.cancelQueries({
-            queryKey: ['entregavel.findById', variables.id]
+            queryKey: ["entregavel.findById", variables.id],
           });
         }
 
         // Guardar snapshot do estado atual
-        const previousEntregavelData = typeof variables === 'object' && variables !== null && 'id' in variables && variables.id 
-          ? queryClient.getQueryData(['entregavel.findById', variables.id]) 
-          : null;
+        const previousEntregavelData =
+          typeof variables === "object" && variables !== null && "id" in variables && variables.id
+            ? queryClient.getQueryData(["entregavel.findById", variables.id])
+            : null;
         let previousProjetoData;
-        
+
         if (projetoId) {
-          previousProjetoData = queryClient.getQueryData(['projeto.findById', projetoId]);
+          previousProjetoData = queryClient.getQueryData(["projeto.findById", projetoId]);
         }
 
         // Atualizar cache do entregável
-        if (typeof variables === 'object' && variables !== null && 'id' in variables && variables.id && 'data' in variables && variables.data) {
-          queryClient.setQueryData(['entregavel.findById', variables.id], (old: any) => {
+        if (
+          typeof variables === "object" &&
+          variables !== null &&
+          "id" in variables &&
+          variables.id &&
+          "data" in variables &&
+          variables.data
+        ) {
+          queryClient.setQueryData(["entregavel.findById", variables.id], (old: any) => {
             if (!old) return old;
-            return { 
-              ...old, 
+            return {
+              ...old,
               ...variables.data,
-              data: ensureDateString(variables.data.data)
+              data: ensureDateString(variables.data.data),
             };
           });
         }
 
         // Atualizar cache do projeto
-        if (projetoId && typeof variables === 'object' && variables !== null && 'id' in variables && variables.id && 'data' in variables) {
-          queryClient.setQueryData(['projeto.findById', projetoId], (old: any) => {
+        if (
+          projetoId &&
+          typeof variables === "object" &&
+          variables !== null &&
+          "id" in variables &&
+          variables.id &&
+          "data" in variables
+        ) {
+          queryClient.setQueryData(["projeto.findById", projetoId], (old: any) => {
             if (!old?.workpackages) return old;
             return {
               ...old,
@@ -401,14 +445,16 @@ export function useMutations(projetoId: string) {
                 tarefas: wp.tarefas?.map((t: any) => ({
                   ...t,
                   entregaveis: t.entregaveis?.map((e: any) =>
-                    e.id === variables.id ? { 
-                      ...e, 
-                      ...variables.data,
-                      data: ensureDateString(variables.data.data)
-                    } : e
-                  )
-                }))
-              }))
+                    e.id === variables.id
+                      ? {
+                          ...e,
+                          ...variables.data,
+                          data: ensureDateString(variables.data.data),
+                        }
+                      : e
+                  ),
+                })),
+              })),
             };
           });
         }
@@ -420,29 +466,32 @@ export function useMutations(projetoId: string) {
       },
       onError: (error, variables, context: any) => {
         // Reverter cache em caso de erro
-        if (context?.previousEntregavelData && typeof variables === 'object' && variables !== null && 'id' in variables && variables.id) {
+        if (
+          context?.previousEntregavelData &&
+          typeof variables === "object" &&
+          variables !== null &&
+          "id" in variables &&
+          variables.id
+        ) {
           queryClient.setQueryData(
-            ['entregavel.findById', variables.id], 
+            ["entregavel.findById", variables.id],
             context.previousEntregavelData
           );
         }
-        
+
         if (projetoId && context?.previousProjetoData) {
-          queryClient.setQueryData(
-            ['projeto.findById', projetoId],
-            context.previousProjetoData
-          );
+          queryClient.setQueryData(["projeto.findById", projetoId], context.previousProjetoData);
         }
-        
+
         console.error("Erro ao atualizar entregável:", error);
         toast.error("Erro ao atualizar entregável");
       },
       onSettled: async () => {
         // Sempre refetch quando finalizar
         await invalidateProjetoRelatedQueries();
-      }
+      },
     }),
-    
+
     delete: api.entregavel.delete.useMutation({
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -453,12 +502,15 @@ export function useMutations(projetoId: string) {
       onError: (error) => {
         console.error("Erro ao apagar entregável:", error);
         toast.error("Erro ao apagar entregável");
-      }
-    })
+      },
+    }),
   } as EntregavelMutations;
 
   // Material mutations
-  const createMaterialMutations = (projetoId?: string, queryClient?: ReturnType<typeof useQueryClient>): MaterialMutations => ({
+  const createMaterialMutations = (
+    projetoId?: string,
+    queryClient?: ReturnType<typeof useQueryClient>
+  ): MaterialMutations => ({
     create: api.material.create.useMutation({
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -470,60 +522,65 @@ export function useMutations(projetoId: string) {
       onError: (error) => {
         console.error("Erro ao adicionar material:", error);
         toast.error("Erro ao adicionar material");
-      }
+      },
     }),
-    
+
     update: api.material.update.useMutation({
       onMutate: async (variables: MaterialUpdate) => {
         // if only id is provided, we toggle the state
-        const isValidVariables = typeof variables === 'object' && variables !== null && 'id' in variables;
-        const updateData = isValidVariables && 'data' in variables && variables.data ? variables.data : { estado: undefined };
-        
-        if (isValidVariables && !('data' in variables) && variables.id) {
-          const currentData = queryClient?.getQueryData(['material.findById', variables.id]) as any;
+        const isValidVariables =
+          typeof variables === "object" && variables !== null && "id" in variables;
+        const updateData =
+          isValidVariables && "data" in variables && variables.data
+            ? variables.data
+            : { estado: undefined };
+
+        if (isValidVariables && !("data" in variables) && variables.id) {
+          const currentData = queryClient?.getQueryData(["material.findById", variables.id]) as any;
           if (currentData) {
             updateData.estado = !currentData.estado;
           }
         }
 
         // Cancel pending queries
-        if (isValidVariables && 'id' in variables && variables.id) {
+        if (isValidVariables && "id" in variables && variables.id) {
           await queryClient?.cancelQueries({
-            queryKey: ['material.findById', variables.id]
+            queryKey: ["material.findById", variables.id],
           });
         }
 
         // Store current state
-        const previousMaterialData = isValidVariables && 'id' in variables && variables.id 
-          ? queryClient?.getQueryData(['material.findById', variables.id]) 
-          : null;
+        const previousMaterialData =
+          isValidVariables && "id" in variables && variables.id
+            ? queryClient?.getQueryData(["material.findById", variables.id])
+            : null;
         let previousProjetoData;
-        
+
         if (projetoId) {
-          previousProjetoData = queryClient?.getQueryData(['projeto.findById', projetoId]);
+          previousProjetoData = queryClient?.getQueryData(["projeto.findById", projetoId]);
         }
 
         // Update material cache optimistically
-        if (isValidVariables && 'id' in variables && variables.id) {
-          queryClient?.setQueryData(['material.findById', variables.id], (old: any) => {
+        if (isValidVariables && "id" in variables && variables.id) {
+          queryClient?.setQueryData(["material.findById", variables.id], (old: any) => {
             if (!old) return old;
             return { ...old, ...updateData };
           });
         }
 
         // Update project cache optimistically
-        if (projetoId && isValidVariables && 'id' in variables && variables.id) {
-          queryClient?.setQueryData(['projeto.findById', projetoId], (old: any) => {
+        if (projetoId && isValidVariables && "id" in variables && variables.id) {
+          queryClient?.setQueryData(["projeto.findById", projetoId], (old: any) => {
             if (!old?.workpackages) return old;
-            
+
             return {
               ...old,
               workpackages: old.workpackages.map((wp: any) => ({
                 ...wp,
-                materiais: wp.materiais?.map((m: any) => 
+                materiais: wp.materiais?.map((m: any) =>
                   m.id === variables.id ? { ...m, ...updateData } : m
-                )
-              }))
+                ),
+              })),
             };
           });
         }
@@ -532,17 +589,23 @@ export function useMutations(projetoId: string) {
       },
       onSuccess: async (_data, variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
-        
-        const isValidVariables = typeof variables === 'object' && variables !== null;
-        const hasDataWithEstado = isValidVariables && 'data' in variables && 
-                                variables.data && 'estado' in variables.data && 
-                                variables.data.estado !== undefined;
-        
+
+        const isValidVariables = typeof variables === "object" && variables !== null;
+        const hasDataWithEstado =
+          isValidVariables &&
+          "data" in variables &&
+          variables.data &&
+          "estado" in variables.data &&
+          variables.data.estado !== undefined;
+
         if (hasDataWithEstado) {
-          const estado = isValidVariables && 'data' in variables && 
-                        variables.data && 'estado' in variables.data ? 
-                        variables.data.estado : false;
-          toast.success(estado ? "Material marcado como concluído" : "Material marcado como pendente");
+          const estado =
+            isValidVariables && "data" in variables && variables.data && "estado" in variables.data
+              ? variables.data.estado
+              : false;
+          toast.success(
+            estado ? "Material marcado como concluído" : "Material marcado como pendente"
+          );
         } else {
           toast.success("Material atualizado com sucesso");
         }
@@ -552,27 +615,25 @@ export function useMutations(projetoId: string) {
       },
       onError: (error, variables, context: any) => {
         // Revert optimistic updates on error
-        const isValidVariables = typeof variables === 'object' && variables !== null && 'id' in variables && variables.id;
-        
+        const isValidVariables =
+          typeof variables === "object" && variables !== null && "id" in variables && variables.id;
+
         if (context?.previousMaterialData && isValidVariables) {
           queryClient?.setQueryData(
-            ['material.findById', variables.id], 
+            ["material.findById", variables.id],
             context.previousMaterialData
           );
         }
-        
+
         if (projetoId && context?.previousProjetoData) {
-          queryClient?.setQueryData(
-            ['projeto.findById', projetoId],
-            context.previousProjetoData
-          );
+          queryClient?.setQueryData(["projeto.findById", projetoId], context.previousProjetoData);
         }
-        
+
         console.error("Erro ao atualizar material:", error);
         toast.error("Erro ao atualizar material");
-      }
+      },
     }),
-    
+
     delete: api.material.delete.useMutation({
       onSuccess: async () => {
         await invalidateProjetoRelatedQueries(projetoId);
@@ -584,11 +645,15 @@ export function useMutations(projetoId: string) {
       onError: (error) => {
         console.error("Erro ao apagar material:", error);
         toast.error("Erro ao apagar material");
-      }
+      },
     }),
 
     // Helper functions
-    handleSubmit: (workpackageId: string, material: Omit<MaterialFormData, 'workpackageId'>, mutations: MaterialMutations) => {
+    handleSubmit: (
+      workpackageId: string,
+      material: Omit<MaterialFormData, "workpackageId">,
+      mutations: MaterialMutations
+    ) => {
       if (material.id) {
         mutations.update.mutate({
           id: material.id,
@@ -599,8 +664,8 @@ export function useMutations(projetoId: string) {
             preco: material.preco,
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
-            rubrica: material.rubrica
-          }
+            rubrica: material.rubrica,
+          },
         });
       } else {
         mutations.create.mutate({
@@ -610,16 +675,21 @@ export function useMutations(projetoId: string) {
           preco: material.preco,
           quantidade: material.quantidade,
           ano_utilizacao: material.ano_utilizacao,
-          rubrica: material.rubrica
+          rubrica: material.rubrica,
         });
       }
     },
 
-    handleToggleEstado: async (id: number, estado: boolean, workpackageId: string, mutations: MaterialMutations) => {
+    handleToggleEstado: async (
+      id: number,
+      estado: boolean,
+      workpackageId: string,
+      mutations: MaterialMutations
+    ) => {
       await mutations.update.mutate({
         id,
         workpackageId,
-        data: { estado }
+        data: { estado },
       });
     },
 
@@ -628,7 +698,7 @@ export function useMutations(projetoId: string) {
         return;
       }
       mutations.delete.mutate(id);
-    }
+    },
   });
 
   return {
@@ -636,6 +706,6 @@ export function useMutations(projetoId: string) {
     workpackage: workpackageMutations,
     tarefa: tarefaMutations,
     entregavel: entregavelMutations,
-    material: createMaterialMutations(projetoId, queryClient)
+    material: createMaterialMutations(projetoId, queryClient),
   };
 }

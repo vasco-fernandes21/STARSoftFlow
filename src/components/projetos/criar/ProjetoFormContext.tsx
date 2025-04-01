@@ -1,5 +1,14 @@
 import { createContext, useContext, useReducer, type ReactNode, useEffect } from "react";
-import { type Prisma, type Projeto, type Workpackage, type Tarefa, type Entregavel, type Material, type AlocacaoRecurso, type User } from "@prisma/client";
+import {
+  type Prisma,
+  type Projeto,
+  type Workpackage,
+  type Tarefa,
+  type Entregavel,
+  type Material,
+  type AlocacaoRecurso,
+  type User,
+} from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { useSession } from "next-auth/react";
 
@@ -17,9 +26,9 @@ type EntregavelState = Omit<Entregavel, "tarefaId">;
 type TarefaState = Omit<Tarefa, "workpackageId"> & { entregaveis: EntregavelState[] };
 type MaterialState = Omit<Material, "workpackageId">;
 // Remover AlocacaoRecursoState, pois não é utilizado diretamente
-type RecursoState = Omit<AlocacaoRecurso, "workpackageId" | "id">; 
-type WorkpackageState = Omit<Workpackage, "projetoId"> & { 
-  tarefas: TarefaState[]; 
+type RecursoState = Omit<AlocacaoRecurso, "workpackageId" | "id">;
+type WorkpackageState = Omit<Workpackage, "projetoId"> & {
+  tarefas: TarefaState[];
   materiais: MaterialState[];
   recursos: RecursoState[];
 };
@@ -45,12 +54,16 @@ const initialState: ProjetoState = {
   valor_eti: new Decimal(0),
   financiamentoId: null,
   responsavel: null,
-  workpackages: []
+  workpackages: [],
 };
 
 // Ações atualizadas usando os tipos do Prisma
-type Action = 
-  | { type: "SET_FIELD"; field: keyof Omit<ProjetoState, 'workpackages' | 'responsavel'>; value: any }
+type Action =
+  | {
+      type: "SET_FIELD";
+      field: keyof Omit<ProjetoState, "workpackages" | "responsavel">;
+      value: any;
+    }
   | { type: "SET_RESPONSAVEL"; responsavel: ResponsavelInfo | null }
   | { type: "ADD_WORKPACKAGE"; workpackage: WorkpackageState }
   | { type: "UPDATE_WORKPACKAGE"; id: string; data: Partial<WorkpackageState> }
@@ -59,14 +72,26 @@ type Action =
   | { type: "UPDATE_TAREFA"; workpackageId: string; tarefaId: string; data: Partial<TarefaState> }
   | { type: "REMOVE_TAREFA"; workpackageId: string; tarefaId: string }
   | { type: "ADD_MATERIAL"; workpackageId: string; material: MaterialState }
-  | { type: "UPDATE_MATERIAL"; workpackageId: string; materialId: number; data: Partial<MaterialState> }
+  | {
+      type: "UPDATE_MATERIAL";
+      workpackageId: string;
+      materialId: number;
+      data: Partial<MaterialState>;
+    }
   | { type: "REMOVE_MATERIAL"; workpackageId: string; materialId: number }
   | { type: "ADD_ALOCACAO"; workpackageId: string; alocacao: RecursoState }
-  | { type: "UPDATE_ALOCACAO"; workpackageId: string; userId: string; mes: number; ano: number; data: Partial<RecursoState> }
+  | {
+      type: "UPDATE_ALOCACAO";
+      workpackageId: string;
+      userId: string;
+      mes: number;
+      ano: number;
+      data: Partial<RecursoState>;
+    }
   | { type: "REMOVE_RECURSO_COMPLETO"; workpackageId: string; userId: string }
   | { type: "SET_STATE"; state: ProjetoState }
   | { type: "RESET" }
-  | { type: "UPDATE_PROJETO"; data: Partial<Omit<ProjetoState, 'workpackages' | 'responsavel'>> };
+  | { type: "UPDATE_PROJETO"; data: Partial<Omit<ProjetoState, "workpackages" | "responsavel">> };
 
 function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
   switch (action.type) {
@@ -79,154 +104,154 @@ function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
     case "ADD_WORKPACKAGE":
       return {
         ...state,
-        workpackages: [...state.workpackages, action.workpackage]
+        workpackages: [...state.workpackages, action.workpackage],
       };
 
     case "UPDATE_WORKPACKAGE":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.id ? { ...wp, ...action.data } : wp
-        )
+        ),
       };
 
     case "REMOVE_WORKPACKAGE":
       return {
         ...state,
-        workpackages: state.workpackages.filter(wp => wp.id !== action.id)
+        workpackages: state.workpackages.filter((wp) => wp.id !== action.id),
       };
 
     case "ADD_TAREFA":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                tarefas: [...wp.tarefas, action.tarefa]
+                tarefas: [...wp.tarefas, action.tarefa],
               }
             : wp
-        )
+        ),
       };
 
     case "UPDATE_TAREFA":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                tarefas: wp.tarefas.map(t =>
+                tarefas: wp.tarefas.map((t) =>
                   t.id === action.tarefaId ? { ...t, ...action.data } : t
-                )
+                ),
               }
             : wp
-        )
+        ),
       };
 
     case "REMOVE_TAREFA":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
-            ? { ...wp, tarefas: wp.tarefas.filter(t => t.id !== action.tarefaId) }
+            ? { ...wp, tarefas: wp.tarefas.filter((t) => t.id !== action.tarefaId) }
             : wp
-        )
+        ),
       };
 
     case "ADD_MATERIAL":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                materiais: [...wp.materiais, action.material]
+                materiais: [...wp.materiais, action.material],
               }
             : wp
-        )
+        ),
       };
 
     case "UPDATE_MATERIAL":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                materiais: wp.materiais.map(material =>
+                materiais: wp.materiais.map((material) =>
                   material.id === action.materialId ? { ...material, ...action.data } : material
-                )
+                ),
               }
             : wp
-        )
+        ),
       };
 
     case "REMOVE_MATERIAL":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
-            ? { ...wp, materiais: wp.materiais.filter(m => m.id !== action.materialId) }
+            ? { ...wp, materiais: wp.materiais.filter((m) => m.id !== action.materialId) }
             : wp
-        )
+        ),
       };
 
     case "ADD_ALOCACAO":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                recursos: [...wp.recursos, action.alocacao]
+                recursos: [...wp.recursos, action.alocacao],
               }
             : wp
-        )
+        ),
       };
 
     case "UPDATE_ALOCACAO":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                recursos: wp.recursos.map(recurso =>
+                recursos: wp.recursos.map((recurso) =>
                   recurso.userId === action.userId &&
                   recurso.mes === action.mes &&
                   recurso.ano === action.ano
                     ? { ...recurso, ...action.data }
                     : recurso
-                )
+                ),
               }
             : wp
-        )
+        ),
       };
 
     case "REMOVE_RECURSO_COMPLETO":
       return {
         ...state,
-        workpackages: state.workpackages.map(wp =>
+        workpackages: state.workpackages.map((wp) =>
           wp.id === action.workpackageId
             ? {
                 ...wp,
-                recursos: wp.recursos.filter(r => r.userId !== action.userId)
+                recursos: wp.recursos.filter((r) => r.userId !== action.userId),
               }
             : wp
-        )
+        ),
       };
 
     case "SET_STATE":
       return action.state;
-      
+
     case "RESET":
       return initialState;
-      
+
     case "UPDATE_PROJETO":
       return {
         ...state,
-        ...action.data
+        ...action.data,
       };
 
     default:
@@ -248,48 +273,48 @@ function convertStateToCreateInput(state: ProjetoState): Prisma.ProjetoCreateInp
     financiamento: state.financiamentoId ? { connect: { id: state.financiamentoId } } : undefined,
     responsavel: state.responsavel ? { connect: { id: state.responsavel.id } } : undefined,
     workpackages: {
-      create: state.workpackages.map(wp => ({
+      create: state.workpackages.map((wp) => ({
         nome: wp.nome,
         descricao: wp.descricao,
         inicio: wp.inicio,
         fim: wp.fim,
         estado: wp.estado,
         tarefas: {
-          create: wp.tarefas.map(tarefa => ({
+          create: wp.tarefas.map((tarefa) => ({
             nome: tarefa.nome,
             descricao: tarefa.descricao,
             inicio: tarefa.inicio,
             fim: tarefa.fim,
             estado: tarefa.estado,
             entregaveis: {
-              create: tarefa.entregaveis.map(entregavel => ({
+              create: tarefa.entregaveis.map((entregavel) => ({
                 nome: entregavel.nome,
                 descricao: entregavel.descricao,
                 data: entregavel.data,
-                anexo: entregavel.anexo
-              }))
-            }
-          }))
+                anexo: entregavel.anexo,
+              })),
+            },
+          })),
         },
         materiais: {
-          create: wp.materiais.map(material => ({
+          create: wp.materiais.map((material) => ({
             nome: material.nome,
             preco: material.preco,
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
-            rubrica: material.rubrica
-          }))
+            rubrica: material.rubrica,
+          })),
         },
         recursos: {
-          create: wp.recursos.map(recurso => ({
+          create: wp.recursos.map((recurso) => ({
             user: { connect: { id: recurso.userId } },
             mes: recurso.mes,
             ano: recurso.ano,
-            ocupacao: recurso.ocupacao
-          }))
-        }
-      }))
-    }
+            ocupacao: recurso.ocupacao,
+          })),
+        },
+      })),
+    },
   };
 }
 
@@ -301,19 +326,19 @@ const ProjetoFormContext = createContext<{
 export function ProjetoFormProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(projetoReducer, initialState);
   const { data: session } = useSession();
-  
+
   useEffect(() => {
     const user = session?.user;
     if (user?.id && !state.responsavel) {
-      dispatch({ 
-        type: "SET_RESPONSAVEL", 
+      dispatch({
+        type: "SET_RESPONSAVEL",
         responsavel: {
           id: user.id,
-          name: typeof user.name === 'string' ? user.name : null,
-          email: typeof user.email === 'string' ? user.email : null,
-          foto: typeof user.image === 'string' ? user.image : null,
-          permissao: "COMUM" // Valor padrão, idealmente viria da sessão
-        }
+          name: typeof user.name === "string" ? user.name : null,
+          email: typeof user.email === "string" ? user.email : null,
+          foto: typeof user.image === "string" ? user.image : null,
+          permissao: "COMUM", // Valor padrão, idealmente viria da sessão
+        },
       });
     }
   }, [session, state.responsavel]);
@@ -334,4 +359,3 @@ export function useProjetoForm() {
 }
 
 export { convertStateToCreateInput };
-

@@ -29,21 +29,21 @@ type EntregavelAlerta = {
           id: string;
           name: string | null;
         } | null;
-      }
-    }
+      };
+    };
   };
 };
 
 export function EntregaveisEmAlerta({ title = true }: { title?: boolean }) {
   const router = useRouter();
-  const { } = usePermissions();
+  const {} = usePermissions();
 
   // Default do limite de entregáveis para mostrar
   const limit = 4;
 
   // Buscar entregáveis próximos/atrasados considerando permissões do utilizador
   const { data: entregaveisProximos, isLoading } = api.entregavel.findProximos.useQuery({
-    limit
+    limit,
   });
 
   // Navegar para o projeto do entregável
@@ -63,27 +63,37 @@ export function EntregaveisEmAlerta({ title = true }: { title?: boolean }) {
           <p className="text-xs text-slate-500">Entregáveis próximos ou atrasados</p>
         </div>
       )}
-      
+
       {entregaveisProximos && entregaveisProximos.length > 0 ? (
         <>
           {entregaveisProximos.slice(0, 5).map((alerta) => (
-            <div 
-              key={alerta.id} 
-              className="p-3 hover:bg-slate-50/50 transition-colors rounded-lg cursor-pointer"
+            <div
+              key={alerta.id}
+              className="cursor-pointer rounded-lg p-3 transition-colors hover:bg-slate-50/50"
               onClick={() => handleEntregavelClick(alerta.tarefa.workpackage.projeto.id)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "h-8 w-8 rounded-full flex items-center justify-center",
-                    alerta.diasRestantes && alerta.diasRestantes < 0 ? "bg-red-100" :
-                    alerta.diasRestantes && alerta.diasRestantes < 3 ? "bg-amber-100" : "bg-emerald-100"
-                  )}>
-                    <AlertTriangle className={cn(
-                      "h-4 w-4",
-                      alerta.diasRestantes && alerta.diasRestantes < 0 ? "text-red-600" :
-                      alerta.diasRestantes && alerta.diasRestantes < 3 ? "text-amber-600" : "text-emerald-600"
-                    )} />
+                  <div
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full",
+                      alerta.diasRestantes && alerta.diasRestantes < 0
+                        ? "bg-red-100"
+                        : alerta.diasRestantes && alerta.diasRestantes < 3
+                          ? "bg-amber-100"
+                          : "bg-emerald-100"
+                    )}
+                  >
+                    <AlertTriangle
+                      className={cn(
+                        "h-4 w-4",
+                        alerta.diasRestantes && alerta.diasRestantes < 0
+                          ? "text-red-600"
+                          : alerta.diasRestantes && alerta.diasRestantes < 3
+                            ? "text-amber-600"
+                            : "text-emerald-600"
+                      )}
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-800">{alerta.nome}</p>
@@ -92,13 +102,17 @@ export function EntregaveisEmAlerta({ title = true }: { title?: boolean }) {
                     </p>
                   </div>
                 </div>
-                <Badge 
-                  variant={alerta.diasRestantes && alerta.diasRestantes < 0 ? "destructive" : "outline"} 
+                <Badge
+                  variant={
+                    alerta.diasRestantes && alerta.diasRestantes < 0 ? "destructive" : "outline"
+                  }
                   className="text-xs"
                 >
-                  {alerta.diasRestantes && alerta.diasRestantes < 0 
-                    ? `${Math.abs(alerta.diasRestantes)} dias atrasado` 
-                    : alerta.diasRestantes ? `${alerta.diasRestantes} dias restantes` : "Data indefinida"}
+                  {alerta.diasRestantes && alerta.diasRestantes < 0
+                    ? `${Math.abs(alerta.diasRestantes)} dias atrasado`
+                    : alerta.diasRestantes
+                      ? `${alerta.diasRestantes} dias restantes`
+                      : "Data indefinida"}
                 </Badge>
               </div>
             </div>
@@ -114,8 +128,8 @@ export function EntregaveisEmAlerta({ title = true }: { title?: boolean }) {
 // Componente auxiliar para quando não há entregáveis
 function EntregaveisVazios() {
   return (
-    <div className="flex items-center justify-center h-60">
-      <p className="text-slate-500 text-sm">Não existem entregáveis em alerta</p>
+    <div className="flex h-60 items-center justify-center">
+      <p className="text-sm text-slate-500">Não existem entregáveis em alerta</p>
     </div>
   );
 }
@@ -137,4 +151,4 @@ function EntregaveisCarregando() {
       ))}
     </div>
   );
-} 
+}

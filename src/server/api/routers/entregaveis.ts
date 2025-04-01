@@ -34,50 +34,46 @@ export type EntregavelAnexo = z.infer<typeof entregavelAnexoSchema>;
 // Router
 export const entregavelRouter = createTRPCRouter({
   // Criar novo entregável
-  create: protectedProcedure
-    .input(entregavelCreateSchema)
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.entregavel.create({
-        data: {
-          nome: input.nome,
-          descricao: input.descricao,
-          data: input.data ? new Date(input.data) : null,
-          anexo: input.anexo,
-          tarefaId: input.tarefaId,
-        },
-      });
-    }),
+  create: protectedProcedure.input(entregavelCreateSchema).mutation(async ({ ctx, input }) => {
+    return ctx.db.entregavel.create({
+      data: {
+        nome: input.nome,
+        descricao: input.descricao,
+        data: input.data ? new Date(input.data) : null,
+        anexo: input.anexo,
+        tarefaId: input.tarefaId,
+      },
+    });
+  }),
 
   // Atualizar entregável existente
-  update: protectedProcedure
-    .input(entregavelUpdateSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        // Verificar se o entregável existe
-        const entregavel = await ctx.db.entregavel.findUnique({
-          where: { id: input.id }
-        });
+  update: protectedProcedure.input(entregavelUpdateSchema).mutation(async ({ ctx, input }) => {
+    try {
+      // Verificar se o entregável existe
+      const entregavel = await ctx.db.entregavel.findUnique({
+        where: { id: input.id },
+      });
 
-        if (!entregavel) {
-          throw new Error("Entregável não encontrado");
-        }
-
-        // Se estado está sendo atualizado e não foi fornecido valor, inverter o atual
-        const data = {
-          ...input.data,
-          estado: input.data.estado !== undefined ? input.data.estado : undefined,
-          data: input.data.data ? new Date(input.data.data) : undefined
-        };
-
-        // Atualizar entregável
-        return ctx.db.entregavel.update({
-          where: { id: input.id },
-          data
-        });
-      } catch (error) {
-        throw new Error(`Erro ao atualizar entregável: ${error}`);
+      if (!entregavel) {
+        throw new Error("Entregável não encontrado");
       }
-    }),
+
+      // Se estado está sendo atualizado e não foi fornecido valor, inverter o atual
+      const data = {
+        ...input.data,
+        estado: input.data.estado !== undefined ? input.data.estado : undefined,
+        data: input.data.data ? new Date(input.data.data) : undefined,
+      };
+
+      // Atualizar entregável
+      return ctx.db.entregavel.update({
+        where: { id: input.id },
+        data,
+      });
+    } catch (error) {
+      throw new Error(`Erro ao atualizar entregável: ${error}`);
+    }
+  }),
 
   // Obter entregável por ID
   findById: protectedProcedure
@@ -118,28 +114,27 @@ export const entregavelRouter = createTRPCRouter({
       });
     }),
 
-
   // Atualizar anexo do entregável
-  updateAnexo: protectedProcedure
-    .input(entregavelAnexoSchema)
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.entregavel.update({
-        where: { id: input.id },
-        data: { anexo: input.anexo },
-      });
-    }),
+  updateAnexo: protectedProcedure.input(entregavelAnexoSchema).mutation(async ({ ctx, input }) => {
+    return ctx.db.entregavel.update({
+      where: { id: input.id },
+      data: { anexo: input.anexo },
+    });
+  }),
 
   // Obter próximos entregáveis e atrasados
   findProximos: protectedProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(50).optional().default(10)
-    }))
+    .input(
+      z.object({
+        limit: z.number().min(1).max(50).optional().default(10),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const dataAtual = new Date();
       const userId = ctx.session.user.id;
       // Workaround para o tipo da sessão
-      const userPermissao = (ctx.session.user as any).permissao || 'COMUM';
-      
+      const userPermissao = (ctx.session.user as any).permissao || "COMUM";
+
       // Base where condition
       let whereCondition: Prisma.EntregavelWhereInput = {
         data: { not: null }, // apenas entregáveis com data definida
@@ -148,15 +143,15 @@ export const entregavelRouter = createTRPCRouter({
           workpackage: {
             projeto: {
               estado: {
-                in: [ProjetoEstado.EM_DESENVOLVIMENTO, ProjetoEstado.APROVADO]
-              }
-            }
-          }
-        }
+                in: [ProjetoEstado.EM_DESENVOLVIMENTO, ProjetoEstado.APROVADO],
+              },
+            },
+          },
+        },
       };
 
       // Se o usuário tem permissão COMUM, filtrar apenas projetos onde ele está alocado
-      if (userPermissao === 'COMUM') {
+      if (userPermissao === "COMUM") {
         whereCondition = {
           ...whereCondition,
           tarefa: {
@@ -165,20 +160,20 @@ export const entregavelRouter = createTRPCRouter({
                 {
                   projeto: {
                     estado: {
-                      in: [ProjetoEstado.EM_DESENVOLVIMENTO, ProjetoEstado.APROVADO]
-                    }
-                  }
+                      in: [ProjetoEstado.EM_DESENVOLVIMENTO, ProjetoEstado.APROVADO],
+                    },
+                  },
                 },
                 {
                   recursos: {
                     some: {
-                      userId
-                    }
-                  }
-                }
-              ]
-            }
-          }
+                      userId,
+                    },
+                  },
+                },
+              ],
+            },
+          },
         };
       }
 
@@ -186,7 +181,7 @@ export const entregavelRouter = createTRPCRouter({
         where: whereCondition,
         take: input.limit,
         orderBy: {
-          data: "asc"
+          data: "asc",
         },
         include: {
           tarefa: {
@@ -198,21 +193,21 @@ export const entregavelRouter = createTRPCRouter({
                       responsavel: {
                         select: {
                           id: true,
-                          name: true
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+                          name: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       });
 
       // Calcular dias restantes para cada entregável
       return entregaveis.map((entregavel) => {
-        const diasRestantes = entregavel.data 
+        const diasRestantes = entregavel.data
           ? Math.ceil((entregavel.data.getTime() - dataAtual.getTime()) / (1000 * 60 * 60 * 24))
           : null;
 
@@ -232,10 +227,10 @@ export const entregavelRouter = createTRPCRouter({
               projeto: {
                 id: entregavel.tarefa.workpackage.projeto.id,
                 nome: entregavel.tarefa.workpackage.projeto.nome,
-                responsavel: entregavel.tarefa.workpackage.projeto.responsavel
-              }
-            }
-          }
+                responsavel: entregavel.tarefa.workpackage.projeto.responsavel,
+              },
+            },
+          },
         };
       });
     }),

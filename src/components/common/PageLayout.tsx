@@ -5,15 +5,10 @@ type PageLayoutProps = {
   className?: string;
 };
 
-export const PageLayout = ({ 
-  children,
-  className 
-}: PageLayoutProps) => {
+export const PageLayout = ({ children, className }: PageLayoutProps) => {
   return (
-    <div className={`min-h-screen bg-bgApp p-8 ${className || ''}`}>
-      <div className="max-w-8xl mx-auto space-y-4">
-        {children}
-      </div>
+    <div className={`min-h-screen bg-bgApp p-8 ${className || ""}`}>
+      <div className="max-w-8xl mx-auto space-y-4">{children}</div>
     </div>
   );
-}; 
+};

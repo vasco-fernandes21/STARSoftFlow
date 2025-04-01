@@ -1,21 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import {
-  Calendar,
-  Clock,
-  AlertTriangle,
-  Briefcase,
-  TrendingUp,
-  Circle,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Calendar, Clock, AlertTriangle, Briefcase, TrendingUp, Circle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
@@ -63,12 +50,10 @@ export default function Page() {
   }, [status, router]);
 
   // Obter dados do dashboard do utilizador (apenas para utilizadores não-admin)
-  const {
-    data: dashboardData,
-    isLoading: isLoadingDashboard,
-  } = api.dashboard.getDashboard.useQuery(undefined, {
-    enabled: !isAdmin && !!session,
-  });
+  const { data: dashboardData, isLoading: isLoadingDashboard } =
+    api.dashboard.getDashboard.useQuery(undefined, {
+      enabled: !isAdmin && !!session,
+    });
 
   // Valores padrão e fallbacks seguros para dados que podem não existir na API
   const tarefasPendentes = dashboardData?.tarefasPendentes || 5;
@@ -77,12 +62,10 @@ export default function Page() {
   const projetosAtivos = dashboardData?.projetosAtivos || 0;
   const ocupacaoAtual = dashboardData?.ocupacaoMensal || 0;
   const entregaveisSemana =
-    dashboardData?.entregaveisProximos?.filter(
-      (e) => e.diasRestantes >= 0 && e.diasRestantes <= 7
-    ).length || 0;
-  const tarefasUrgentes =
-    dashboardData?.entregaveisProximos?.filter((e) => e.diasRestantes < 0)
+    dashboardData?.entregaveisProximos?.filter((e) => e.diasRestantes >= 0 && e.diasRestantes <= 7)
       .length || 0;
+  const tarefasUrgentes =
+    dashboardData?.entregaveisProximos?.filter((e) => e.diasRestantes < 0).length || 0;
   const atividadesRecentes = dashboardData?.atividadesRecentes || [];
   const isLoadingAtividades = isLoadingDashboard;
 
@@ -97,8 +80,7 @@ export default function Page() {
         iconContainerClassName: "bg-blue-50/80",
         badgeText: `${projetosNovosMes} novos`,
         badgeIcon: TrendingUp,
-        badgeClassName:
-          "text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100",
+        badgeClassName: "text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100",
         secondaryText: `de ${projetosTotal}`,
       },
       {
@@ -119,8 +101,7 @@ export default function Page() {
         iconClassName: "text-amber-600",
         iconContainerClassName: "bg-amber-50/80",
         badgeText: `Esta semana: ${entregaveisSemana}`,
-        badgeClassName:
-          "text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100",
+        badgeClassName: "text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100",
       },
       {
         icon: AlertTriangle,
@@ -129,8 +110,7 @@ export default function Page() {
         iconClassName: "text-red-600",
         iconContainerClassName: "bg-red-50/80",
         badgeText: `Urgentes: ${tarefasUrgentes}`,
-        badgeClassName:
-          "text-red-600 bg-red-50/80 hover:bg-red-100/80 border-red-100",
+        badgeClassName: "text-red-600 bg-red-50/80 hover:bg-red-100/80 border-red-100",
       },
     ],
     [
@@ -150,10 +130,7 @@ export default function Page() {
     <div className="space-y-8">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card
-            key={i}
-            className="overflow-hidden border-none shadow-sm bg-white"
-          >
+          <Card key={i} className="overflow-hidden border-none bg-white shadow-sm">
             <CardContent className="p-0">
               <Skeleton className="h-32 w-full" />
             </CardContent>
@@ -163,18 +140,14 @@ export default function Page() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
-          <Card
-            className="overflow-hidden border-none shadow-sm bg-white"
-          >
+          <Card className="overflow-hidden border-none bg-white shadow-sm">
             <CardContent className="p-0">
               <Skeleton className="h-80 w-full" />
             </CardContent>
           </Card>
         </div>
         <div>
-          <Card
-            className="overflow-hidden border-none shadow-sm bg-white"
-          >
+          <Card className="overflow-hidden border-none bg-white shadow-sm">
             <CardContent className="p-0">
               <Skeleton className="h-80 w-full" />
             </CardContent>
@@ -197,13 +170,9 @@ export default function Page() {
   if (!session) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8">
-        <div className="max-w-8xl mx-auto text-center py-20">
-          <h1 className="text-3xl font-extrabold">
-            Bem-vindo ao Sistema de Gestão de Projetos
-          </h1>
-          <p className="mt-4">
-            Por favor, faça login para aceder ao seu painel de controlo.
-          </p>
+        <div className="max-w-8xl mx-auto py-20 text-center">
+          <h1 className="text-3xl font-extrabold">Bem-vindo ao Sistema de Gestão de Projetos</h1>
+          <p className="mt-4">Por favor, faça login para aceder ao seu painel de controlo.</p>
         </div>
       </div>
     );
@@ -244,14 +213,14 @@ export default function Page() {
       ))}
     </div>
   ) : !atividadesRecentes?.length ? (
-    <div className="text-center py-8">
+    <div className="py-8 text-center">
       <p className="text-sm text-gray-500">Nenhuma atividade recente</p>
     </div>
   ) : (
     atividadesRecentes.map((atividade: AtividadeRecente) => (
       <div
         key={atividade.id}
-        className="flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors"
+        className="flex items-start gap-4 rounded-lg p-4 transition-colors hover:bg-gray-50"
       >
         <Avatar className="h-10 w-10">
           <AvatarImage src={atividade.usuario.foto || undefined} />
@@ -266,9 +235,7 @@ export default function Page() {
               })}
             </span>
             <Circle className="h-1 w-1 fill-current text-gray-300" />
-            <span className="text-xs text-gray-500">
-              {atividade.projetoNome}
-            </span>
+            <span className="text-xs text-gray-500">{atividade.projetoNome}</span>
           </div>
         </div>
       </div>
@@ -280,14 +247,12 @@ export default function Page() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-8xl mx-auto space-y-6">
         {/* Header com Boas-vindas e Botões de Ação */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">
               Olá, {session?.user?.name?.split(" ")[0]}
             </h1>
-            <p className="text-slate-500 text-sm">
-              Bem-vindo ao seu painel de controlo.
-            </p>
+            <p className="text-sm text-slate-500">Bem-vindo ao seu painel de controlo.</p>
           </div>
           <div className="flex items-center gap-3 self-end sm:self-auto">
             <NovoProjeto />
@@ -306,30 +271,28 @@ export default function Page() {
               {/* Card dividido: Próximas Tarefas e Entregáveis */}
               <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
                 <CardContent className="p-0">
-                  <div className="flex flex-col lg:flex-row h-full">
+                  <div className="flex h-full flex-col lg:flex-row">
                     {/* Próximas Tarefas */}
-                    <div className="flex-1 p-4 lg:border-r border-slate-100/50">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-medium text-slate-700">
-                          Próximas Tarefas
-                        </h3>
+                    <div className="flex-1 border-slate-100/50 p-4 lg:border-r">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-slate-700">Próximas Tarefas</h3>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => router.push("/tarefas")}
-                          className="text-xs font-normal hover:bg-slate-50 transition-colors h-7 px-2"
+                          className="h-7 px-2 text-xs font-normal transition-colors hover:bg-slate-50"
                         >
                           Ver todas
                         </Button>
                       </div>
 
-                      <div className="space-y-3 mt-2">
+                      <div className="mt-2 space-y-3">
                         {isLoadingDashboard ? (
                           <>
                             {[...Array(3)].map((_, i) => (
                               <div key={i} className="flex items-start gap-3">
                                 <Skeleton className="h-8 w-8 rounded-full" />
-                                <div className="space-y-1 flex-1">
+                                <div className="flex-1 space-y-1">
                                   <Skeleton className="h-4 w-full" />
                                   <Skeleton className="h-3 w-24" />
                                 </div>
@@ -342,7 +305,7 @@ export default function Page() {
                               <>
                                 {/* Aqui iriam as tarefas próximas - dados de exemplo */}
                                 <div className="flex items-start gap-3">
-                                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
                                     <Circle className="h-5 w-5 text-blue-600" />
                                   </div>
                                   <div>
@@ -355,7 +318,7 @@ export default function Page() {
                                   </div>
                                 </div>
                                 <div className="flex items-start gap-3">
-                                  <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
                                     <Circle className="h-5 w-5 text-amber-600" />
                                   </div>
                                   <div>
@@ -368,7 +331,7 @@ export default function Page() {
                                   </div>
                                 </div>
                                 <div className="flex items-start gap-3">
-                                  <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
                                     <Circle className="h-5 w-5 text-emerald-600" />
                                   </div>
                                   <div>
@@ -382,7 +345,7 @@ export default function Page() {
                                 </div>
                               </>
                             ) : (
-                              <p className="text-center py-2 text-slate-500 text-sm">
+                              <p className="py-2 text-center text-sm text-slate-500">
                                 Não há tarefas pendentes.
                               </p>
                             )}
@@ -393,27 +356,25 @@ export default function Page() {
 
                     {/* Próximos Entregáveis */}
                     <div className="flex-1 p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-medium text-slate-700">
-                          Próximos Entregáveis
-                        </h3>
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-slate-700">Próximos Entregáveis</h3>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => router.push("/entregaveis")}
-                          className="text-xs font-normal hover:bg-slate-50 transition-colors h-7 px-2"
+                          className="h-7 px-2 text-xs font-normal transition-colors hover:bg-slate-50"
                         >
                           Ver todos
                         </Button>
                       </div>
 
-                      <div className="space-y-3 mt-2">
+                      <div className="mt-2 space-y-3">
                         {isLoadingDashboard ? (
                           <>
                             {[...Array(3)].map((_, i) => (
                               <div key={i} className="flex items-start gap-3">
                                 <Skeleton className="h-8 w-8 rounded-full" />
-                                <div className="space-y-1 flex-1">
+                                <div className="flex-1 space-y-1">
                                   <Skeleton className="h-4 w-full" />
                                   <Skeleton className="h-3 w-24" />
                                 </div>
@@ -425,76 +386,58 @@ export default function Page() {
                             {dashboardData?.entregaveisProximos &&
                             dashboardData.entregaveisProximos.length > 0 ? (
                               <>
-                                {dashboardData.entregaveisProximos
-                                  .slice(0, 3)
-                                  .map((entregavel) => {
-                                    const isPastDue = entregavel.data
-                                      ? isBefore(
-                                          new Date(entregavel.data),
-                                          new Date()
-                                        )
-                                      : false;
-                                    const isCloseToDeadline = entregavel.data
-                                      ? isBefore(
-                                          new Date(entregavel.data),
-                                          addDays(new Date(), 3)
-                                        )
-                                      : false;
-                                    const diasRestantes = entregavel.data
-                                      ? differenceInDays(
-                                          new Date(entregavel.data),
-                                          new Date()
-                                        )
-                                      : null;
+                                {dashboardData.entregaveisProximos.slice(0, 3).map((entregavel) => {
+                                  const isPastDue = entregavel.data
+                                    ? isBefore(new Date(entregavel.data), new Date())
+                                    : false;
+                                  const isCloseToDeadline = entregavel.data
+                                    ? isBefore(new Date(entregavel.data), addDays(new Date(), 3))
+                                    : false;
+                                  const diasRestantes = entregavel.data
+                                    ? differenceInDays(new Date(entregavel.data), new Date())
+                                    : null;
 
-                                    return (
+                                  return (
+                                    <div key={entregavel.id} className="flex items-start gap-3">
                                       <div
-                                        key={entregavel.id}
-                                        className="flex items-start gap-3"
+                                        className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                                          isPastDue
+                                            ? "bg-red-100"
+                                            : isCloseToDeadline
+                                              ? "bg-amber-100"
+                                              : "bg-emerald-100"
+                                        }`}
                                       >
-                                        <div
-                                          className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                                        <Circle
+                                          className={`h-5 w-5 ${
                                             isPastDue
-                                              ? "bg-red-100"
+                                              ? "text-red-600"
                                               : isCloseToDeadline
-                                                ? "bg-amber-100"
-                                                : "bg-emerald-100"
+                                                ? "text-amber-600"
+                                                : "text-emerald-600"
                                           }`}
-                                        >
-                                          <Circle
-                                            className={`h-5 w-5 ${
-                                              isPastDue
-                                                ? "text-red-600"
-                                                : isCloseToDeadline
-                                                  ? "text-amber-600"
-                                                  : "text-emerald-600"
-                                            }`}
-                                          />
-                                        </div>
-                                        <div>
-                                          <p className="text-sm font-medium text-slate-800">
-                                            {entregavel.nome}
-                                          </p>
-                                          <p className="text-xs text-slate-500">
-                                            Projeto:{" "}
-                                            {
-                                              entregavel.tarefa?.workpackage
-                                                ?.projeto?.nome || "N/A"
-                                            }{" "}
-                                            •
-                                            {isPastDue
-                                              ? " Atrasado"
-                                              : diasRestantes === 0
-                                                ? " Hoje"
-                                                : ` ${diasRestantes} dias`}
-                                          </p>
-                                        </div>
+                                        />
                                       </div>
-                                    );
-                                  })}
+                                      <div>
+                                        <p className="text-sm font-medium text-slate-800">
+                                          {entregavel.nome}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                          Projeto:{" "}
+                                          {entregavel.tarefa?.workpackage?.projeto?.nome || "N/A"} •
+                                          {isPastDue
+                                            ? " Atrasado"
+                                            : diasRestantes === 0
+                                              ? " Hoje"
+                                              : ` ${diasRestantes} dias`}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </>
                             ) : (
-                              <p className="text-center py-2 text-slate-500 text-sm">
+                              <p className="py-2 text-center text-sm text-slate-500">
                                 Não há entregáveis próximos.
                               </p>
                             )}
@@ -509,9 +452,7 @@ export default function Page() {
               {/* Gráfico de Ocupação */}
               <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
                 <CardHeader className="border-b border-slate-100/50 px-6 py-4">
-                  <CardTitle className="font-medium text-slate-800">
-                    Ocupação Mensal
-                  </CardTitle>
+                  <CardTitle className="font-medium text-slate-800">Ocupação Mensal</CardTitle>
                   <CardDescription className="text-slate-500">
                     Percentual de ocupação ao longo do ano
                   </CardDescription>
@@ -534,11 +475,7 @@ export default function Page() {
                             <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="#f1f5f9"
-                          vertical={false}
-                        />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis
                           dataKey="mes"
                           tick={{ fill: "#64748b", fontSize: 12 }}
@@ -578,16 +515,12 @@ export default function Page() {
               {/* Card de Atividades Recentes */}
               <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
                 <CardHeader className="border-b border-slate-100/50 px-6 py-4">
-                  <CardTitle className="font-medium text-slate-800">
-                    Atividades Recentes
-                  </CardTitle>
+                  <CardTitle className="font-medium text-slate-800">Atividades Recentes</CardTitle>
                   <CardDescription className="text-slate-500">
                     Últimas ações na plataforma
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="px-6 py-4">
-                  {atividadesContent}
-                </CardContent>
+                <CardContent className="px-6 py-4">{atividadesContent}</CardContent>
               </Card>
             </div>
           </div>

@@ -15,7 +15,11 @@ export default function FinancasPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/dashboard">
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-700">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-slate-500 hover:text-slate-700"
+              >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             </Link>
@@ -23,13 +27,15 @@ export default function FinancasPage() {
               <Euro className="h-6 w-6 text-azul" />
               <div>
                 <h1 className="text-xl font-semibold text-slate-900">Gestão Financeira</h1>
-                <p className="text-sm text-slate-500">Visão geral de despesas, receitas e performance financeira dos projetos</p>
+                <p className="text-sm text-slate-500">
+                  Visão geral de despesas, receitas e performance financeira dos projetos
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-50 border border-slate-100 rounded-lg">
+        <div className="rounded-lg border border-slate-100 bg-slate-50">
           <ProjetosFinancasOverview />
         </div>
       </div>

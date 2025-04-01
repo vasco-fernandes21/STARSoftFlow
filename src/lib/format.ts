@@ -35,4 +35,4 @@ export function formatNumber(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
-} 
+}

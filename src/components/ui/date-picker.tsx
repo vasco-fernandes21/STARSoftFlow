@@ -1,34 +1,30 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { format, getYear, getMonth, setMonth, setYear } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
-import { pt } from "date-fns/locale"
+import * as React from "react";
+import { format, getYear, getMonth, setMonth, setYear } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { pt } from "date-fns/locale";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 
 interface DatePickerProps {
-  value?: Date
-  onChange?: (date?: Date) => void
-  placeholder?: string
-  error?: boolean
-  className?: string
-  minDate?: Date
-  maxDate?: Date
+  value?: Date;
+  onChange?: (date?: Date) => void;
+  placeholder?: string;
+  error?: boolean;
+  className?: string;
+  minDate?: Date;
+  maxDate?: Date;
 }
 
 export function DatePicker({
@@ -38,12 +34,12 @@ export function DatePicker({
   error = false,
   className,
   minDate,
-  maxDate
+  maxDate,
 }: DatePickerProps) {
   // Estado para controlar o mês e ano atual do calendário
   const [calendarDate, setCalendarDate] = React.useState<Date>(value || new Date());
-  const [position, setPosition] = React.useState<"top" | "bottom">("bottom")
-  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const [position, setPosition] = React.useState<"top" | "bottom">("bottom");
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   // Definimos o minDate dentro do componente
   const defaultMinDate = React.useMemo(() => new Date(), []);
@@ -51,34 +47,34 @@ export function DatePicker({
 
   // Função para calcular a posição ideal do calendário
   const updatePosition = React.useCallback(() => {
-    if (!triggerRef.current) return
+    if (!triggerRef.current) return;
 
-    const rect = triggerRef.current.getBoundingClientRect()
-    const spaceBelow = window.innerHeight - rect.bottom
-    const spaceAbove = rect.top
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
 
     if (spaceBelow < 400 && spaceAbove > spaceBelow) {
-      setPosition("top")
+      setPosition("top");
     } else {
-      setPosition("bottom")
+      setPosition("bottom");
     }
-  }, [])
+  }, []);
 
   // Atualiza a posição quando o popover abre
   const handleOpenChange = (open: boolean) => {
     if (open) {
-      updatePosition()
+      updatePosition();
       // Quando o popover abre, atualiza o calendário para a data selecionada ou a data atual
-      setCalendarDate(value || new Date())
+      setCalendarDate(value || new Date());
     }
-  }
+  };
 
   // Atualiza a posição quando a janela é redimensionada
   React.useEffect(() => {
-    const handleResize = () => updatePosition()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [updatePosition])
+    const handleResize = () => updatePosition();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [updatePosition]);
 
   // Função para lidar com a seleção de data de forma segura
   const handleDateSelect = (date?: Date) => {
@@ -88,17 +84,17 @@ export function DatePicker({
       if (effectiveMinDate && date < effectiveMinDate) {
         return;
       }
-      
+
       // Não permitir datas posteriores ao maxDate
       if (maxDate && date > maxDate) {
         return;
       }
     }
-    
+
     if (onChange) {
       onChange(date);
     }
-    
+
     // Atualizar o estado do calendário para a data selecionada
     if (date) {
       setCalendarDate(date);
@@ -113,8 +109,8 @@ export function DatePicker({
             ref={triggerRef}
             variant="outline"
             className={cn(
-              "w-full justify-start text-left font-normal rounded-xl border-gray-200 bg-white/70 shadow-sm backdrop-blur-sm hover:bg-white/80 transition-all duration-300 ease-in-out",
-              "focus:ring-2 focus:ring-azul/20 hover:shadow-md",
+              "w-full justify-start rounded-xl border-gray-200 bg-white/70 text-left font-normal shadow-sm backdrop-blur-sm transition-all duration-300 ease-in-out hover:bg-white/80",
+              "hover:shadow-md focus:ring-2 focus:ring-azul/20",
               !value && "text-gray-500",
               error && "border-red-300 focus:ring-red-500/20",
               className
@@ -122,14 +118,16 @@ export function DatePicker({
           >
             <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
             {value ? (
-              <span className="text-gray-700">{format(value, "dd 'de' MMMM 'de' yyyy", { locale: pt })}</span>
+              <span className="text-gray-700">
+                {format(value, "dd 'de' MMMM 'de' yyyy", { locale: pt })}
+              </span>
             ) : (
               <span className="text-gray-500">{placeholder}</span>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent 
-          className="w-[280px] p-0 bg-white/95 backdrop-blur-md shadow-xl rounded-xl border-white/20" 
+        <PopoverContent
+          className="w-[280px] rounded-xl border-white/20 bg-white/95 p-0 shadow-xl backdrop-blur-md"
           align="center"
           side={position}
           sideOffset={5}
@@ -137,28 +135,26 @@ export function DatePicker({
           avoidCollisions={false}
           sticky="always"
           hideWhenDetached={false}
-          style={{ 
+          style={{
             zIndex: 50,
             maxHeight: "calc(100vh - 100px)",
-            overflowY: "auto"
+            overflowY: "auto",
           }}
         >
-          <div className="p-2 flex flex-col items-center">
-            <div className="mb-2 px-1 w-full">
-              <div className="text-azul font-medium text-sm text-center">
-                Selecione uma data
-              </div>
-              
+          <div className="flex flex-col items-center p-2">
+            <div className="mb-2 w-full px-1">
+              <div className="text-center text-sm font-medium text-azul">Selecione uma data</div>
+
               {/* Seletores de Ano e Mês */}
-              <div className="flex gap-2 mt-2 w-full">
+              <div className="mt-2 flex w-full gap-2">
                 <div className="flex-1">
-                  <Select 
-                    value={getYear(calendarDate).toString()} 
+                  <Select
+                    value={getYear(calendarDate).toString()}
                     onValueChange={(year) => {
                       setCalendarDate(setYear(calendarDate, parseInt(year)));
                     }}
                   >
-                    <SelectTrigger className="h-8 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors">
+                    <SelectTrigger className="h-8 rounded-lg border-azul/20 bg-white/80 text-xs text-azul transition-colors hover:bg-azul/10">
                       <SelectValue placeholder="Ano" />
                     </SelectTrigger>
                     <SelectContent>
@@ -173,20 +169,20 @@ export function DatePicker({
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="flex-1">
-                  <Select 
-                    value={getMonth(calendarDate).toString()} 
+                  <Select
+                    value={getMonth(calendarDate).toString()}
                     onValueChange={(month) => {
                       setCalendarDate(setMonth(calendarDate, parseInt(month)));
                     }}
                   >
-                    <SelectTrigger className="h-8 text-xs bg-white/80 border-azul/20 hover:bg-azul/10 text-azul rounded-lg transition-colors">
+                    <SelectTrigger className="h-8 rounded-lg border-azul/20 bg-white/80 text-xs text-azul transition-colors hover:bg-azul/10">
                       <SelectValue placeholder="Mês" />
                     </SelectTrigger>
                     <SelectContent>
                       {Array.from({ length: 12 }, (_, i) => {
-                        const monthName = format(new Date(2000, i, 1), 'MMMM', { locale: pt });
+                        const monthName = format(new Date(2000, i, 1), "MMMM", { locale: pt });
                         return (
                           <SelectItem key={i} value={i.toString()}>
                             {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
@@ -211,7 +207,7 @@ export function DatePicker({
                 if (maxDate && date > maxDate) return true;
                 return false;
               }}
-              className="p-0 w-full"
+              className="w-full p-0"
               formatters={{
                 formatCaption: (date, _options) => {
                   return format(date, "MMMM yyyy", { locale: pt });
@@ -221,20 +217,25 @@ export function DatePicker({
                 months: "flex flex-col space-y-2 w-full",
                 month: "space-y-2 w-full",
                 caption: "flex justify-center relative items-center h-10 w-full",
-                caption_label: "text-sm font-medium capitalize text-customBlue absolute left-1/2 -translate-x-1/2",
+                caption_label:
+                  "text-sm font-medium capitalize text-customBlue absolute left-1/2 -translate-x-1/2",
                 nav: "flex items-center justify-between space-x-1 w-full px-2",
-                nav_button: "h-7 w-7 bg-white/80 hover:bg-azul/10 rounded-full flex items-center justify-center text-azul hover:text-azul transition-colors",
+                nav_button:
+                  "h-7 w-7 bg-white/80 hover:bg-azul/10 rounded-full flex items-center justify-center text-azul hover:text-azul transition-colors",
                 nav_button_previous: "",
                 nav_button_next: "",
                 table: "w-full border-collapse space-y-1",
                 head_row: "flex justify-between w-full px-2",
-                head_cell: "text-azul/80 font-medium text-[0.8rem] w-9 flex items-center justify-center",
+                head_cell:
+                  "text-azul/80 font-medium text-[0.8rem] w-9 flex items-center justify-center",
                 row: "flex justify-between w-full mt-1 px-2",
                 cell: "relative w-9 h-9 p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-azul/5",
                 day: "w-9 h-9 p-0 flex items-center justify-center rounded-md aria-selected:opacity-100 hover:bg-azul/10 hover:text-azul transition-colors",
-                day_selected: "bg-azul text-white hover:bg-azul hover:text-white focus:bg-azul focus:text-white shadow-md",
+                day_selected:
+                  "bg-azul text-white hover:bg-azul hover:text-white focus:bg-azul focus:text-white shadow-md",
                 day_today: "border-2 border-azul/20 text-gray-900",
-                day_outside: "text-gray-400 opacity-50 aria-selected:bg-gray-100/50 aria-selected:text-gray-500 aria-selected:opacity-30",
+                day_outside:
+                  "text-gray-400 opacity-50 aria-selected:bg-gray-100/50 aria-selected:text-gray-500 aria-selected:opacity-30",
                 day_disabled: "text-gray-400 opacity-50",
                 day_range_middle: "aria-selected:bg-azul/20 aria-selected:text-gray-900",
                 day_hidden: "invisible",
@@ -248,7 +249,7 @@ export function DatePicker({
         </PopoverContent>
       </Popover>
     </div>
-  )
+  );
 }
 
 function ChevronLeft(props: React.SVGProps<SVGSVGElement>) {
@@ -267,7 +268,7 @@ function ChevronLeft(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="m15 18-6-6 6-6" />
     </svg>
-  )
+  );
 }
 
 function ChevronRight(props: React.SVGProps<SVGSVGElement>) {
@@ -286,5 +287,5 @@ function ChevronRight(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="m9 18 6-6-6-6" />
     </svg>
-  )
+  );
 }

@@ -2,15 +2,33 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
-import { 
-  ResponsiveContainer, Tooltip as RechartsTooltip,
-  XAxis, YAxis, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend,
-  Area, AreaChart
+import {
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  Area,
+  AreaChart,
 } from "recharts";
-import { 
-  Users, Calendar, User, FolderKanban, Briefcase, 
-  ChevronRight, X,
-  Clock, Layers, BarChart2, PieChart as PieChartIcon
+import {
+  Users,
+  Calendar,
+  User,
+  FolderKanban,
+  Briefcase,
+  ChevronRight,
+  X,
+  Clock,
+  Layers,
+  BarChart2,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -18,15 +36,35 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/api/root";
 
-// --- Type Definitions --- 
+// --- Type Definitions ---
 type RouterOutput = inferRouterOutputs<AppRouter>;
 type ProjetoOutput = RouterOutput["projeto"]["findById"];
 
@@ -42,19 +80,19 @@ interface ProjetoRecursosProps {
 
 // --- Formatter Functions ---
 const formatNumber = (value: number | undefined | null, fractionDigits = 2): string => {
-  if (typeof value !== 'number' || isNaN(value)) return "-";
+  if (typeof value !== "number" || isNaN(value)) return "-";
   return value.toLocaleString("pt-PT", {
     minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits
+    maximumFractionDigits: fractionDigits,
   });
 };
 
 const formatPercentage = (value: number | undefined | null, fractionDigits = 1): string => {
-  if (typeof value !== 'number' || isNaN(value)) return "-";
+  if (typeof value !== "number" || isNaN(value)) return "-";
   return (value / 100).toLocaleString("pt-PT", {
     style: "percent",
     minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits
+    maximumFractionDigits: fractionDigits,
   });
 };
 
@@ -69,17 +107,15 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, colorClass = "bg-blue-50", subtitle }: StatCardProps) {
   return (
-    <Card className="overflow-hidden border-none shadow-sm h-full">
-      <CardContent className="p-6 flex flex-col h-full">
-        <div className="flex items-center justify-between flex-grow">
+    <Card className="h-full overflow-hidden border-none shadow-sm">
+      <CardContent className="flex h-full flex-col p-6">
+        <div className="flex flex-grow items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-gray-500">{title}</h3>
             <div className="mt-1 text-2xl font-semibold">{value}</div>
             {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
           </div>
-          <div className={`rounded-full p-3 ${colorClass} flex-shrink-0`}>
-            {icon}
-          </div>
+          <div className={`rounded-full p-3 ${colorClass} flex-shrink-0`}>{icon}</div>
         </div>
       </CardContent>
     </Card>
@@ -88,8 +124,16 @@ function StatCard({ title, value, icon, colorClass = "bg-blue-50", subtitle }: S
 
 // --- Color Utils ---
 const COLORS = [
-  '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe',
-  '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a', '#172554',
+  "#3b82f6",
+  "#60a5fa",
+  "#93c5fd",
+  "#bfdbfe",
+  "#dbeafe",
+  "#2563eb",
+  "#1d4ed8",
+  "#1e40af",
+  "#1e3a8a",
+  "#172554",
 ];
 
 // --- UI Helper Functions ---
@@ -97,27 +141,27 @@ function getOcupacaoStyles(ocupacao: number) {
   if (ocupacao > 100) {
     return {
       badgeClass: "bg-red-50 text-red-600 border-red-200",
-      progressClass: "bg-red-400"
+      progressClass: "bg-red-400",
     };
   } else if (ocupacao >= 80) {
     return {
       badgeClass: "bg-emerald-50 text-emerald-600 border-emerald-200",
-      progressClass: "bg-emerald-400"
+      progressClass: "bg-emerald-400",
     };
   } else if (ocupacao >= 50) {
     return {
       badgeClass: "bg-blue-50 text-blue-600 border-blue-100",
-      progressClass: "bg-blue-400"
+      progressClass: "bg-blue-400",
     };
   } else if (ocupacao >= 1) {
     return {
       badgeClass: "bg-amber-50 text-amber-600 border-amber-100",
-      progressClass: "bg-amber-400"
+      progressClass: "bg-amber-400",
     };
   }
   return {
     badgeClass: "bg-gray-50 text-gray-600 border-gray-200",
-    progressClass: "bg-gray-200"
+    progressClass: "bg-gray-200",
   };
 }
 
@@ -128,47 +172,55 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
   const [selectedView, setSelectedView] = useState<"table" | "cards" | "chart">("table");
 
   // Buscar dados do projeto
-  const { data: projeto, isLoading, error } = api.projeto.findById.useQuery(projetoId, {
+  const {
+    data: projeto,
+    isLoading,
+    error,
+  } = api.projeto.findById.useQuery(projetoId, {
     enabled: !!projetoId,
   });
 
   // Inicializar valores padrão para dados processados
   const workpackagesFiltrados = useMemo(() => {
     if (!projeto || !projeto.workpackages) return [];
-    
+
     // Filtrar workpackages baseado no ano selecionado
-    const filtrarPorAno = (wp: typeof projeto.workpackages[0]) => {
+    const filtrarPorAno = (wp: (typeof projeto.workpackages)[0]) => {
       if (selectedYear === "todos") return true;
-      
+
       const anoSelecionado = parseInt(selectedYear, 10);
-      
+
       // Verificar se há alocações neste ano
-      return wp.recursos.some(recurso => recurso.ano === anoSelecionado);
+      return wp.recursos.some((recurso) => recurso.ano === anoSelecionado);
     };
-    
+
     return projeto.workpackages.filter(filtrarPorAno);
   }, [projeto, selectedYear]);
-  
+
   // 1. Obter alocações agregadas por recurso, independente do workpackage
   const alocacoesPorRecurso = useMemo(() => {
     if (!workpackagesFiltrados.length) return [];
-    
-    const recursosMap = new Map<string, {
-      userId: string;
-      userName: string | null;
-      totalAlocacao: number;
-      workpackages: Set<string>;
-      periodos: number;
-      ocupacaoTotal: number;
-    }>();
-    
-    workpackagesFiltrados.forEach(wp => {
+
+    const recursosMap = new Map<
+      string,
+      {
+        userId: string;
+        userName: string | null;
+        totalAlocacao: number;
+        workpackages: Set<string>;
+        periodos: number;
+        ocupacaoTotal: number;
+      }
+    >();
+
+    workpackagesFiltrados.forEach((wp) => {
       // Filtrar os recursos pelo ano selecionado
-      const recursos = selectedYear === "todos" 
-        ? wp.recursos
-        : wp.recursos.filter(r => r.ano === parseInt(selectedYear, 10));
-        
-      recursos.forEach(recurso => {
+      const recursos =
+        selectedYear === "todos"
+          ? wp.recursos
+          : wp.recursos.filter((r) => r.ano === parseInt(selectedYear, 10));
+
+      recursos.forEach((recurso) => {
         if (!recursosMap.has(recurso.userId)) {
           recursosMap.set(recurso.userId, {
             userId: recurso.userId,
@@ -176,10 +228,10 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             totalAlocacao: 0,
             workpackages: new Set(),
             periodos: 0,
-            ocupacaoTotal: 0
+            ocupacaoTotal: 0,
           });
         }
-        
+
         const recursoDados = recursosMap.get(recurso.userId)!;
         recursoDados.totalAlocacao += Number(recurso.ocupacao);
         recursoDados.workpackages.add(wp.id);
@@ -187,108 +239,116 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
         recursoDados.ocupacaoTotal += Number(recurso.ocupacao);
       });
     });
-    
+
     // Converter o mapa para array e ordenar por alocação total
     return Array.from(recursosMap.values())
-      .map(r => ({
+      .map((r) => ({
         ...r,
         // A alocação média é a ocupação total dividida pelo número de períodos
         mediaAlocacao: r.periodos > 0 ? r.ocupacaoTotal / r.periodos / 100 : 0,
-        totalWorkpackages: r.workpackages.size
+        totalWorkpackages: r.workpackages.size,
       }))
       .sort((a, b) => b.totalAlocacao - a.totalAlocacao);
   }, [workpackagesFiltrados, selectedYear]);
-  
+
   // 2. Obter alocações por workpackage
   const alocacoesPorWorkpackage = useMemo(() => {
     if (!workpackagesFiltrados.length) return [];
-    
-    return workpackagesFiltrados.map(wp => {
-      // Filtrar alocações pelo ano selecionado, se necessário
-      const recursos = selectedYear === "todos"
-        ? wp.recursos
-        : wp.recursos.filter(r => r.ano === parseInt(selectedYear, 10));
-        
-      // Calcular a alocação total para este workpackage
-      const totalAlocacao = recursos.reduce((total, r) => total + Number(r.ocupacao), 0);
-      
-      // Contar recursos únicos
-      const recursosUnicos = new Set(recursos.map(r => r.userId)).size;
-      
-      return {
-        id: wp.id,
-        nome: wp.nome,
-        totalAlocacao,
-        recursosUnicos,
-        mediaAlocacaoPorRecurso: recursosUnicos > 0 ? totalAlocacao / recursosUnicos : 0,
-        estado: wp.estado
-      };
-    }).sort((a, b) => b.totalAlocacao - a.totalAlocacao);
+
+    return workpackagesFiltrados
+      .map((wp) => {
+        // Filtrar alocações pelo ano selecionado, se necessário
+        const recursos =
+          selectedYear === "todos"
+            ? wp.recursos
+            : wp.recursos.filter((r) => r.ano === parseInt(selectedYear, 10));
+
+        // Calcular a alocação total para este workpackage
+        const totalAlocacao = recursos.reduce((total, r) => total + Number(r.ocupacao), 0);
+
+        // Contar recursos únicos
+        const recursosUnicos = new Set(recursos.map((r) => r.userId)).size;
+
+        return {
+          id: wp.id,
+          nome: wp.nome,
+          totalAlocacao,
+          recursosUnicos,
+          mediaAlocacaoPorRecurso: recursosUnicos > 0 ? totalAlocacao / recursosUnicos : 0,
+          estado: wp.estado,
+        };
+      })
+      .sort((a, b) => b.totalAlocacao - a.totalAlocacao);
   }, [workpackagesFiltrados, selectedYear]);
-  
+
   // Determinar anos disponíveis
   const anosDisponiveis = useMemo(() => {
     if (!projeto || !projeto.workpackages) return [];
-    
+
     const anosSet = new Set<number>();
-    
-    projeto.workpackages.forEach(wp => {
-      wp.recursos.forEach(recurso => {
+
+    projeto.workpackages.forEach((wp) => {
+      wp.recursos.forEach((recurso) => {
         anosSet.add(recurso.ano);
       });
     });
-    
+
     return Array.from(anosSet).sort((a, b) => b - a); // Ordenar decrescente
   }, [projeto]);
-  
+
   // Totais e estatísticas
   const totalRecursos = alocacoesPorRecurso.length;
   const totalAlocacao = alocacoesPorRecurso.reduce((sum, r) => sum + r.totalAlocacao, 0);
   const mediaAlocacaoPorRecurso = totalRecursos > 0 ? totalAlocacao / totalRecursos : 0;
-  
+
   // Dados para gráfico de alocação por recurso
   const dadosGraficoAlocacoesPorRecurso = alocacoesPorRecurso
     .slice(0, 10) // Limitar a 10 recursos para melhor visualização
-    .map(recurso => ({
+    .map((recurso) => ({
       name: recurso.userName || `Utilizador ${recurso.userId.substring(0, 6)}`,
       alocacao: recurso.mediaAlocacao * 100, // Converter para percentual
-      workpackages: recurso.totalWorkpackages
+      workpackages: recurso.totalWorkpackages,
     }));
-  
+
   // Dados para gráfico de alocação por workpackage
   const dadosGraficoAlocacoesPorWorkpackage = alocacoesPorWorkpackage
     .slice(0, 10) // Limitar a 10 workpackages para melhor visualização
-    .map(wp => ({
-      name: wp.nome.length > 20 ? wp.nome.substring(0, 20) + '...' : wp.nome,
+    .map((wp) => ({
+      name: wp.nome.length > 20 ? wp.nome.substring(0, 20) + "..." : wp.nome,
       alocacao: wp.totalAlocacao,
-      recursos: wp.recursosUnicos
+      recursos: wp.recursosUnicos,
     }));
 
   // Dados do recurso selecionado
   const selectedResourceDetails = useMemo(() => {
     if (!selectedResourceId || !workpackagesFiltrados.length) return null;
 
-    const recursoBase = alocacoesPorRecurso.find(r => r.userId === selectedResourceId);
+    const recursoBase = alocacoesPorRecurso.find((r) => r.userId === selectedResourceId);
     if (!recursoBase) return null;
 
     // Buscar todas as alocações deste recurso em cada workpackage
-    const alocacoesPorWP = workpackagesFiltrados.map(wp => {
-      const recursos = selectedYear === "todos"
-        ? wp.recursos.filter(r => r.userId === selectedResourceId)
-        : wp.recursos.filter(r => r.userId === selectedResourceId && r.ano === parseInt(selectedYear, 10));
+    const alocacoesPorWP = workpackagesFiltrados
+      .map((wp) => {
+        const recursos =
+          selectedYear === "todos"
+            ? wp.recursos.filter((r) => r.userId === selectedResourceId)
+            : wp.recursos.filter(
+                (r) => r.userId === selectedResourceId && r.ano === parseInt(selectedYear, 10)
+              );
 
-      const totalAlocacao = recursos.reduce((total, r) => total + Number(r.ocupacao), 0);
-      const mediaAlocacao = recursos.length > 0 ? totalAlocacao / recursos.length : 0;
+        const totalAlocacao = recursos.reduce((total, r) => total + Number(r.ocupacao), 0);
+        const mediaAlocacao = recursos.length > 0 ? totalAlocacao / recursos.length : 0;
 
-      return {
-        workpackageId: wp.id,
-        workpackageName: wp.nome,
-        estado: wp.estado,
-        alocacao: mediaAlocacao,
-        totalAlocacao,
-        periodos: recursos.length
-      };
-    }).filter(wp => wp.totalAlocacao > 0)
+        return {
+          workpackageId: wp.id,
+          workpackageName: wp.nome,
+          estado: wp.estado,
+          alocacao: mediaAlocacao,
+          totalAlocacao,
+          periodos: recursos.length,
+        };
+      })
+      .filter((wp) => wp.totalAlocacao > 0)
       .sort((a, b) => b.totalAlocacao - a.totalAlocacao);
 
     // Calcular tendência de alocação (crescente ou decrescente)
@@ -297,7 +357,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
       // Fazemos uma verificação segura dos elementos do array
       const primeiro = alocacoesPorWP[0];
       const ultimo = alocacoesPorWP[alocacoesPorWP.length - 1];
-      
+
       if (primeiro && ultimo) {
         tendencia = primeiro.totalAlocacao > ultimo.totalAlocacao ? "crescente" : "decrescente";
       }
@@ -307,7 +367,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
       ...recursoBase,
       alocacoesPorWP,
       tendencia,
-      totalWorkpackagesAtivos: alocacoesPorWP.length
+      totalWorkpackagesAtivos: alocacoesPorWP.length,
     };
   }, [selectedResourceId, workpackagesFiltrados, selectedYear, alocacoesPorRecurso]);
 
@@ -322,22 +382,20 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-blue-100 text-blue-800 text-lg">
+                  <AvatarFallback className="bg-blue-100 text-lg text-blue-800">
                     {(selectedResourceDetails.userName?.charAt(0) || "U").toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <SheetTitle>{selectedResourceDetails.userName || "Utilizador Desconhecido"}</SheetTitle>
+                  <SheetTitle>
+                    {selectedResourceDetails.userName || "Utilizador Desconhecido"}
+                  </SheetTitle>
                   <SheetDescription>
                     {formatPercentage(selectedResourceDetails.mediaAlocacao * 100, 0)} ETI Médio
                   </SheetDescription>
                 </div>
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setSelectedResourceId(null)}
-              >
+              <Button variant="ghost" size="icon" onClick={() => setSelectedResourceId(null)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -388,17 +446,15 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                       margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="workpackageName" 
+                      <XAxis
+                        dataKey="workpackageName"
                         tick={{ fontSize: 12 }}
                         interval={0}
                         angle={-45}
                         textAnchor="end"
                         height={80}
                       />
-                      <YAxis 
-                        tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                      />
+                      <YAxis tickFormatter={(value) => `${(value * 100).toFixed(0)}%`} />
                       <RechartsTooltip
                         formatter={(value: number) => [`${(value * 100).toFixed(1)}%`, "Alocação"]}
                       />
@@ -426,12 +482,12 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                     {selectedResourceDetails.alocacoesPorWP.map((wp) => (
                       <div
                         key={wp.workpackageId}
-                        className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                        className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
                       >
                         <div className="space-y-1">
                           <p className="text-sm font-medium leading-none">{wp.workpackageName}</p>
                           <p className="text-sm text-muted-foreground">
-                            {wp.periodos} período{wp.periodos !== 1 ? 's' : ''}
+                            {wp.periodos} período{wp.periodos !== 1 ? "s" : ""}
                           </p>
                         </div>
                         <div className="flex items-center space-x-4">
@@ -471,7 +527,9 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="rounded-lg bg-red-50 p-8 text-center shadow-sm">
-          <h3 className="mb-2 text-lg font-medium text-red-800">Erro ao carregar dados dos recursos</h3>
+          <h3 className="mb-2 text-lg font-medium text-red-800">
+            Erro ao carregar dados dos recursos
+          </h3>
           <p className="text-sm text-red-600">{error.message}</p>
         </div>
       </div>
@@ -487,17 +545,23 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">Recursos Humanos</h1>
           <p className="text-gray-500">Gestão e visualização de alocações de recursos no projeto</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Badge variant="outline" className="px-3 py-1.5 text-sm font-medium border-purple-200 bg-purple-50 text-purple-800">
-            {totalRecursos} Recurso{totalRecursos !== 1 ? 's' : ''}
+          <Badge
+            variant="outline"
+            className="border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-800"
+          >
+            {totalRecursos} Recurso{totalRecursos !== 1 ? "s" : ""}
           </Badge>
-          <Badge variant="outline" className="px-3 py-1.5 text-sm font-medium border-blue-200 bg-blue-50 text-blue-800">
+          <Badge
+            variant="outline"
+            className="border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-800"
+          >
             {formatNumber(totalAlocacao, 1)} ETIs Alocados
           </Badge>
         </div>
@@ -511,7 +575,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             size="sm"
             onClick={() => setSelectedView("table")}
           >
-            <BarChart2 className="h-4 w-4 mr-2" />
+            <BarChart2 className="mr-2 h-4 w-4" />
             Tabela
           </Button>
           <Button
@@ -519,7 +583,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             size="sm"
             onClick={() => setSelectedView("cards")}
           >
-            <Layers className="h-4 w-4 mr-2" />
+            <Layers className="mr-2 h-4 w-4" />
             Cards
           </Button>
           <Button
@@ -527,7 +591,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             size="sm"
             onClick={() => setSelectedView("chart")}
           >
-            <PieChartIcon className="h-4 w-4 mr-2" />
+            <PieChartIcon className="mr-2 h-4 w-4" />
             Gráfico
           </Button>
         </div>
@@ -549,30 +613,30 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
 
       {/* Cards de Estatísticas Gerais */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <StatCard 
-          title="Total de Recursos" 
-          value={totalRecursos} 
+        <StatCard
+          title="Total de Recursos"
+          value={totalRecursos}
           subtitle="Colaboradores alocados"
           icon={<Users className="h-6 w-6 text-purple-600" />}
           colorClass="bg-purple-50"
         />
-        <StatCard 
-          title="ETIs Alocados" 
-          value={formatNumber(totalAlocacao, 1)} 
+        <StatCard
+          title="ETIs Alocados"
+          value={formatNumber(totalAlocacao, 1)}
           subtitle="Equivalentes a tempo integral"
           icon={<Briefcase className="h-6 w-6 text-blue-600" />}
           colorClass="bg-blue-50"
         />
-        <StatCard 
-          title="Alocação Média" 
+        <StatCard
+          title="Alocação Média"
           value={formatPercentage(mediaAlocacaoPorRecurso * 100, 0)}
           subtitle="Por colaborador"
           icon={<User className="h-6 w-6 text-green-600" />}
           colorClass="bg-green-50"
         />
-        <StatCard 
-          title="Workpackages Ativos" 
-          value={workpackagesFiltrados.length} 
+        <StatCard
+          title="Workpackages Ativos"
+          value={workpackagesFiltrados.length}
           subtitle="Com recursos alocados"
           icon={<FolderKanban className="h-6 w-6 text-orange-600" />}
           colorClass="bg-orange-50"
@@ -580,7 +644,12 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
       </div>
 
       {/* Tabs para diferentes visualizações */}
-      <Tabs defaultValue="visao-geral" value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+      <Tabs
+        defaultValue="visao-geral"
+        value={selectedTab}
+        onValueChange={setSelectedTab}
+        className="w-full"
+      >
         <TabsList className="mb-4 grid w-full grid-cols-4">
           <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="por-recurso">Por Recurso</TabsTrigger>
@@ -590,7 +659,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
 
         {/* Tab: Visão Geral */}
         <TabsContent value="visao-geral" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Gráfico de Barras - Alocações por Recurso */}
             <Card className="overflow-hidden border-none shadow-sm">
               <CardHeader>
@@ -606,20 +675,29 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                        <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <XAxis
+                          type="number"
+                          domain={[0, 100]}
+                          tickFormatter={(value) => `${value}%`}
+                        />
                         <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
-                        <RechartsTooltip 
+                        <RechartsTooltip
                           formatter={(value: number, name: string) => {
-                            if (name === "alocacao") return [`${value.toFixed(0)}%`, "Alocação"]; 
+                            if (name === "alocacao") return [`${value.toFixed(0)}%`, "Alocação"];
                             return [value, "Workpackages"];
                           }}
                         />
-                        <Bar dataKey="alocacao" name="Alocação (%)" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                        <Bar
+                          dataKey="alocacao"
+                          name="Alocação (%)"
+                          fill="#3b82f6"
+                          radius={[0, 4, 4, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="h-[350px] flex items-center justify-center">
+                  <div className="flex h-[350px] items-center justify-center">
                     <p className="text-gray-500">Sem dados de alocação disponíveis</p>
                   </div>
                 )}
@@ -629,7 +707,9 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             {/* Gráfico de Barras - Alocações por Workpackage */}
             <Card className="overflow-hidden border-none shadow-sm">
               <CardHeader>
-                <CardTitle className="text-lg font-medium">Distribuição por Workpackage (ETIs)</CardTitle>
+                <CardTitle className="text-lg font-medium">
+                  Distribuição por Workpackage (ETIs)
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {dadosGraficoAlocacoesPorWorkpackage.length > 0 ? (
@@ -643,18 +723,23 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                         <XAxis type="number" />
                         <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
-                        <RechartsTooltip 
+                        <RechartsTooltip
                           formatter={(value: number, name: string) => {
-                            if (name === "alocacao") return [formatNumber(value, 1), "ETIs"]; 
+                            if (name === "alocacao") return [formatNumber(value, 1), "ETIs"];
                             return [value, "Recursos"];
                           }}
                         />
-                        <Bar dataKey="alocacao" name="ETIs Alocados" fill="#60a5fa" radius={[0, 4, 4, 0]} />
+                        <Bar
+                          dataKey="alocacao"
+                          name="ETIs Alocados"
+                          fill="#60a5fa"
+                          radius={[0, 4, 4, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="h-[350px] flex items-center justify-center">
+                  <div className="flex h-[350px] items-center justify-center">
                     <p className="text-gray-500">Sem dados de workpackages disponíveis</p>
                   </div>
                 )}
@@ -669,7 +754,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             <Card className="overflow-hidden border-none shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg font-medium">
-                  Detalhes por Recurso {selectedYear !== 'todos' ? `(${selectedYear})` : ''}
+                  Detalhes por Recurso {selectedYear !== "todos" ? `(${selectedYear})` : ""}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -688,10 +773,10 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                       </TableHeader>
                       <TableBody>
                         {alocacoesPorRecurso.map((recurso) => (
-                          <TableRow 
-                            key={recurso.userId} 
-                            className={`hover:bg-gray-50 cursor-pointer ${
-                              selectedResourceId === recurso.userId ? 'bg-blue-50/50' : ''
+                          <TableRow
+                            key={recurso.userId}
+                            className={`cursor-pointer hover:bg-gray-50 ${
+                              selectedResourceId === recurso.userId ? "bg-blue-50/50" : ""
                             }`}
                             onClick={() => setSelectedResourceId(recurso.userId)}
                           >
@@ -705,19 +790,21 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                                 <span>{recurso.userName || "Utilizador Desconhecido"}</span>
                               </div>
                             </TableCell>
-                            <TableCell>{formatPercentage(recurso.mediaAlocacao * 100, 0)}</TableCell>
+                            <TableCell>
+                              {formatPercentage(recurso.mediaAlocacao * 100, 0)}
+                            </TableCell>
                             <TableCell>{formatNumber(recurso.totalAlocacao, 1)}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
                                 <div className="w-full max-w-xs">
-                                  <Progress 
-                                    value={recurso.mediaAlocacao * 100} 
+                                  <Progress
+                                    value={recurso.mediaAlocacao * 100}
                                     className={`h-2 ${
-                                      recurso.mediaAlocacao > 1 
-                                        ? 'bg-red-100' 
-                                        : recurso.mediaAlocacao > 0.8 
-                                          ? 'bg-orange-100' 
-                                          : 'bg-gray-100'
+                                      recurso.mediaAlocacao > 1
+                                        ? "bg-red-100"
+                                        : recurso.mediaAlocacao > 0.8
+                                          ? "bg-orange-100"
+                                          : "bg-gray-100"
                                     }`}
                                   />
                                 </div>
@@ -747,7 +834,9 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                   </div>
                 ) : (
                   <div className="rounded-lg bg-gray-50 p-8 text-center">
-                    <p className="text-sm text-gray-500">Não há recursos alocados para o período selecionado.</p>
+                    <p className="text-sm text-gray-500">
+                      Não há recursos alocados para o período selecionado.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -755,29 +844,33 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
           )}
 
           {selectedView === "cards" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {alocacoesPorRecurso.map((recurso) => {
                 const isOverallocated = recurso.mediaAlocacao > 1;
-                const { badgeClass, progressClass } = getOcupacaoStyles(recurso.mediaAlocacao * 100);
-                
+                const { badgeClass, progressClass } = getOcupacaoStyles(
+                  recurso.mediaAlocacao * 100
+                );
+
                 return (
-                  <Card 
+                  <Card
                     key={recurso.userId}
-                    className={`border-azul/10 hover:border-azul/20 transition-all overflow-hidden cursor-pointer ${
-                      selectedResourceId === recurso.userId ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                    className={`cursor-pointer overflow-hidden border-azul/10 transition-all hover:border-azul/20 ${
+                      selectedResourceId === recurso.userId
+                        ? "ring-2 ring-blue-500 ring-offset-2"
+                        : ""
                     }`}
                     onClick={() => setSelectedResourceId(recurso.userId)}
                   >
-                    <div className="p-3 flex justify-between items-center">
+                    <div className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-azul/10 flex items-center justify-center">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-azul/10">
                           <User className="h-4 w-4 text-azul" />
                         </div>
                         <div>
                           <h5 className="text-sm font-medium text-azul">
                             {recurso.userName || "Utilizador Desconhecido"}
                           </h5>
-                          <Badge variant="outline" className="px-1 py-0 text-[10px] h-4">
+                          <Badge variant="outline" className="h-4 px-1 py-0 text-[10px]">
                             {formatPercentage(recurso.mediaAlocacao * 100, 0)} ETI
                           </Badge>
                         </div>
@@ -785,7 +878,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10"
+                        className="h-7 w-7 rounded-lg p-0 hover:bg-azul/10"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedResourceId(recurso.userId);
@@ -794,26 +887,30 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         <ChevronRight className="h-3.5 w-3.5 text-azul/70" />
                       </Button>
                     </div>
-                    
-                    <div className="border-t border-azul/10 p-3 bg-azul/5">
+
+                    <div className="border-t border-azul/10 bg-azul/5 p-3">
                       <div className="space-y-3">
                         <div className="flex justify-between text-xs">
                           <span className="text-azul/80">ETI Total</span>
-                          <span className="font-medium text-azul">{formatNumber(recurso.totalAlocacao, 1)}</span>
+                          <span className="font-medium text-azul">
+                            {formatNumber(recurso.totalAlocacao, 1)}
+                          </span>
                         </div>
-                        
+
                         <div className="flex justify-between text-xs">
                           <span className="text-azul/80">Workpackages</span>
                           <span className="font-medium text-azul">{recurso.totalWorkpackages}</span>
                         </div>
-                        
-                        <div className={`${badgeClass} border rounded-md p-2`}>
-                          <div className="flex justify-between text-xs mb-1.5">
+
+                        <div className={`${badgeClass} rounded-md border p-2`}>
+                          <div className="mb-1.5 flex justify-between text-xs">
                             <span>Alocação Média</span>
-                            <span className="font-medium">{formatPercentage(recurso.mediaAlocacao * 100, 0)}</span>
+                            <span className="font-medium">
+                              {formatPercentage(recurso.mediaAlocacao * 100, 0)}
+                            </span>
                           </div>
-                          <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
-                            <div 
+                          <div className="h-1.5 overflow-hidden rounded-full bg-white/50">
+                            <div
                               className={`h-full ${progressClass} rounded-full transition-all duration-300`}
                               style={{ width: `${Math.min(recurso.mediaAlocacao * 100, 100)}%` }}
                             />
@@ -839,9 +936,9 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={alocacoesPorRecurso.map(r => ({
+                        data={alocacoesPorRecurso.map((r) => ({
                           name: r.userName || "Utilizador Desconhecido",
-                          value: r.totalAlocacao
+                          value: r.totalAlocacao,
                         }))}
                         dataKey="value"
                         nameKey="name"
@@ -849,10 +946,13 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         cy="50%"
                         outerRadius={200}
                         innerRadius={100}
-                        label={({name, value}) => `${name}: ${formatNumber(value, 1)} ETI`}
+                        label={({ name, value }) => `${name}: ${formatNumber(value, 1)} ETI`}
                       >
                         {alocacoesPorRecurso.map((recurso, index) => (
-                          <Cell key={`cell-${recurso.userId}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell
+                            key={`cell-${recurso.userId}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
                         ))}
                       </Pie>
                       <RechartsTooltip
@@ -867,11 +967,14 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
           )}
 
           {/* Notas sobre ETIs */}
-          <Card className="overflow-hidden border-none shadow-sm bg-blue-50">
+          <Card className="overflow-hidden border-none bg-blue-50 shadow-sm">
             <CardContent className="p-4">
-              <h3 className="text-sm font-medium text-blue-900">ETI: Equivalente a Tempo Integral</h3>
+              <h3 className="text-sm font-medium text-blue-900">
+                ETI: Equivalente a Tempo Integral
+              </h3>
               <p className="mt-1 text-xs text-blue-700">
-                • <strong>ETI Médio</strong>: Média de alocação mensal do recurso (onde 1.0 = 100% do tempo)
+                • <strong>ETI Médio</strong>: Média de alocação mensal do recurso (onde 1.0 = 100%
+                do tempo)
               </p>
               <p className="mt-1 text-xs text-blue-700">
                 • <strong>ETI Total</strong>: Soma das alocações em todos os workpackages
@@ -889,7 +992,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
             <Card className="overflow-hidden border-none shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg font-medium">
-                  Detalhes por Workpackage {selectedYear !== 'todos' ? `(${selectedYear})` : ''}
+                  Detalhes por Workpackage {selectedYear !== "todos" ? `(${selectedYear})` : ""}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -910,7 +1013,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         {alocacoesPorWorkpackage.map((wp) => {
                           const isOverallocated = wp.mediaAlocacaoPorRecurso > 1;
                           const isHighAllocation = wp.mediaAlocacaoPorRecurso > 0.8;
-                          
+
                           return (
                             <TableRow key={wp.id} className="hover:bg-gray-50">
                               <TableCell className="font-medium">
@@ -920,18 +1023,26 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Badge variant={wp.estado ? "default" : "secondary"} className={wp.estado ? "bg-green-50 text-green-700 border-green-200" : ""}>
+                                <Badge
+                                  variant={wp.estado ? "default" : "secondary"}
+                                  className={
+                                    wp.estado ? "border-green-200 bg-green-50 text-green-700" : ""
+                                  }
+                                >
                                   {wp.estado ? "Concluído" : "Em progresso"}
                                 </Badge>
                               </TableCell>
                               <TableCell>
                                 <div className="flex -space-x-2">
                                   {workpackagesFiltrados
-                                    .find(w => w.id === wp.id)
+                                    .find((w) => w.id === wp.id)
                                     ?.recursos.slice(0, 3)
                                     .map((recurso) => (
-                                      <Avatar key={`${wp.id}-${recurso.userId}-${recurso.ano}`} className="h-6 w-6 border-2 border-white">
-                                        <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                                      <Avatar
+                                        key={`${wp.id}-${recurso.userId}-${recurso.ano}`}
+                                        className="h-6 w-6 border-2 border-white"
+                                      >
+                                        <AvatarFallback className="bg-blue-100 text-xs text-blue-800">
                                           {(recurso.user.name?.charAt(0) || "U").toUpperCase()}
                                         </AvatarFallback>
                                       </Avatar>
@@ -945,23 +1056,27 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center space-x-2">
-                                  <span className="font-medium">{formatNumber(wp.totalAlocacao, 1)}</span>
+                                  <span className="font-medium">
+                                    {formatNumber(wp.totalAlocacao, 1)}
+                                  </span>
                                   {isOverallocated && (
-                                    <Badge variant="destructive" className="text-xs">Sobrealocado</Badge>
+                                    <Badge variant="destructive" className="text-xs">
+                                      Sobrealocado
+                                    </Badge>
                                   )}
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center space-x-2">
                                   <div className="w-full max-w-xs">
-                                    <Progress 
-                                      value={wp.mediaAlocacaoPorRecurso * 100} 
+                                    <Progress
+                                      value={wp.mediaAlocacaoPorRecurso * 100}
                                       className={`h-2 ${
-                                        isOverallocated 
-                                          ? 'bg-red-100' 
-                                          : isHighAllocation 
-                                            ? 'bg-orange-100' 
-                                            : 'bg-gray-100'
+                                        isOverallocated
+                                          ? "bg-red-100"
+                                          : isHighAllocation
+                                            ? "bg-orange-100"
+                                            : "bg-gray-100"
                                       }`}
                                     />
                                   </div>
@@ -975,7 +1090,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => {
-                                    const wpObj = workpackagesFiltrados.find(w => w.id === wp.id);
+                                    const wpObj = workpackagesFiltrados.find((w) => w.id === wp.id);
                                     if (wpObj?.recursos[0]?.userId) {
                                       setSelectedResourceId(wpObj.recursos[0].userId);
                                     }
@@ -992,7 +1107,9 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                   </div>
                 ) : (
                   <div className="rounded-lg bg-gray-50 p-8 text-center">
-                    <p className="text-sm text-gray-500">Não há workpackages com recursos alocados no período selecionado.</p>
+                    <p className="text-sm text-gray-500">
+                      Não há workpackages com recursos alocados no período selecionado.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -1000,11 +1117,11 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
           )}
 
           {selectedView === "cards" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {alocacoesPorWorkpackage.map((wp) => {
                 const isOverallocated = wp.mediaAlocacaoPorRecurso > 1;
                 const isHighAllocation = wp.mediaAlocacaoPorRecurso > 0.8;
-                
+
                 return (
                   <Card key={wp.id} className="overflow-hidden">
                     <CardHeader className="space-y-0 pb-2">
@@ -1023,7 +1140,9 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         <div className="flex items-center justify-between">
                           <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">ETIs Alocados</p>
-                            <p className="text-lg font-medium">{formatNumber(wp.totalAlocacao, 1)}</p>
+                            <p className="text-lg font-medium">
+                              {formatNumber(wp.totalAlocacao, 1)}
+                            </p>
                           </div>
                           <div className="space-y-1 text-right">
                             <p className="text-sm text-muted-foreground">Média/Recurso</p>
@@ -1038,18 +1157,18 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                             <span className="text-muted-foreground">Recursos Alocados</span>
                             <span className="font-medium">{wp.recursosUnicos}</span>
                           </div>
-                          <Progress 
-                            value={wp.mediaAlocacaoPorRecurso * 100} 
+                          <Progress
+                            value={wp.mediaAlocacaoPorRecurso * 100}
                             className={`h-2 ${
-                              isOverallocated 
-                                ? 'bg-red-100' 
-                                : isHighAllocation 
-                                  ? 'bg-orange-100' 
-                                  : 'bg-gray-100'
+                              isOverallocated
+                                ? "bg-red-100"
+                                : isHighAllocation
+                                  ? "bg-orange-100"
+                                  : "bg-gray-100"
                             }`}
                           />
                           {isOverallocated && (
-                            <p className="text-xs text-red-600 mt-1">
+                            <p className="mt-1 text-xs text-red-600">
                               Workpackage com sobrealocação de recursos
                             </p>
                           )}
@@ -1058,11 +1177,14 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         <div className="flex items-center space-x-2">
                           <div className="flex -space-x-2">
                             {workpackagesFiltrados
-                              .find(w => w.id === wp.id)
+                              .find((w) => w.id === wp.id)
                               ?.recursos.slice(0, 4)
                               .map((recurso) => (
-                                <Avatar key={`${wp.id}-${recurso.userId}-${recurso.ano}`} className="h-6 w-6 border-2 border-white">
-                                  <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                                <Avatar
+                                  key={`${wp.id}-${recurso.userId}-${recurso.ano}`}
+                                  className="h-6 w-6 border-2 border-white"
+                                >
+                                  <AvatarFallback className="bg-blue-100 text-xs text-blue-800">
                                     {(recurso.user.name?.charAt(0) || "U").toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
@@ -1083,7 +1205,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
           )}
 
           {selectedView === "chart" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card className="overflow-hidden border-none shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg font-medium">
@@ -1111,7 +1233,7 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         <RechartsTooltip
                           formatter={(value: number, name: string) => [
                             `${formatNumber(value, 1)} ETIs`,
-                            name
+                            name,
                           ]}
                         />
                         <Legend />
@@ -1136,17 +1258,12 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                         margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                        <XAxis 
-                          type="number" 
-                          domain={[0, 100]} 
+                        <XAxis
+                          type="number"
+                          domain={[0, 100]}
                           tickFormatter={(value) => `${value}%`}
                         />
-                        <YAxis 
-                          dataKey="nome" 
-                          type="category" 
-                          width={120} 
-                          tick={{ fontSize: 12 }} 
-                        />
+                        <YAxis dataKey="nome" type="category" width={120} tick={{ fontSize: 12 }} />
                         <RechartsTooltip
                           formatter={(value: number) => [`${value}%`, "Média de Alocação"]}
                         />
@@ -1168,40 +1285,38 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
           <Card className="overflow-hidden border-none shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-medium">Matriz de Alocação</CardTitle>
-              <CardDescription>
-                Visualização cruzada de recursos e workpackages
-              </CardDescription>
+              <CardDescription>Visualização cruzada de recursos e workpackages</CardDescription>
             </CardHeader>
             <CardContent>
               {workpackagesFiltrados.length > 0 && alocacoesPorRecurso.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <div className="p-6 bg-blue-50 rounded-lg mb-4">
+                  <div className="mb-4 rounded-lg bg-blue-50 p-6">
                     <p className="text-sm text-blue-800">
-                      A matriz mostra as alocações dos principais recursos nos workpackages mais relevantes.
-                      Clique em um recurso para ver mais detalhes.
+                      A matriz mostra as alocações dos principais recursos nos workpackages mais
+                      relevantes. Clique em um recurso para ver mais detalhes.
                     </p>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 gap-4">
-                    {alocacoesPorRecurso.slice(0, 5).map(recurso => {
+                    {alocacoesPorRecurso.slice(0, 5).map((recurso) => {
                       const { badgeClass } = getOcupacaoStyles(recurso.mediaAlocacao * 100);
-                      
+
                       return (
-                        <Card 
+                        <Card
                           key={recurso.userId}
-                          className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden cursor-pointer"
+                          className="cursor-pointer overflow-hidden border-azul/10 transition-all hover:border-azul/20"
                           onClick={() => setSelectedResourceId(recurso.userId)}
                         >
-                          <div className="p-3 flex justify-between items-center">
+                          <div className="flex items-center justify-between p-3">
                             <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-azul/10 flex items-center justify-center">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-azul/10">
                                 <User className="h-4 w-4 text-azul" />
                               </div>
                               <div>
                                 <h5 className="text-sm font-medium text-azul">
                                   {recurso.userName || "Utilizador Desconhecido"}
                                 </h5>
-                                <Badge variant="outline" className="px-1 py-0 text-[10px] h-4">
+                                <Badge variant="outline" className="h-4 px-1 py-0 text-[10px]">
                                   {formatPercentage(recurso.mediaAlocacao * 100, 0)} ETI
                                 </Badge>
                               </div>
@@ -1213,36 +1328,52 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                               <ChevronRight className="h-4 w-4 text-azul/70" />
                             </div>
                           </div>
-                          
+
                           <div className="border-t border-azul/10 p-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                              {alocacoesPorWorkpackage.slice(0, 4).map(wp => {
-                                const wpObj = workpackagesFiltrados.find(w => w.id === wp.id);
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                              {alocacoesPorWorkpackage.slice(0, 4).map((wp) => {
+                                const wpObj = workpackagesFiltrados.find((w) => w.id === wp.id);
                                 if (!wpObj) return null;
-                                
-                                const recursos = selectedYear === "todos"
-                                  ? wpObj.recursos.filter(r => r.userId === recurso.userId)
-                                  : wpObj.recursos.filter(r => r.userId === recurso.userId && r.ano === parseInt(selectedYear, 10));
-                                
-                                const alocacao = recursos.reduce((total, r) => total + Number(r.ocupacao), 0);
-                                const mediaAlocacao = recursos.length > 0 ? alocacao / recursos.length : 0;
+
+                                const recursos =
+                                  selectedYear === "todos"
+                                    ? wpObj.recursos.filter((r) => r.userId === recurso.userId)
+                                    : wpObj.recursos.filter(
+                                        (r) =>
+                                          r.userId === recurso.userId &&
+                                          r.ano === parseInt(selectedYear, 10)
+                                      );
+
+                                const alocacao = recursos.reduce(
+                                  (total, r) => total + Number(r.ocupacao),
+                                  0
+                                );
+                                const mediaAlocacao =
+                                  recursos.length > 0 ? alocacao / recursos.length : 0;
                                 const ocupacaoValor = mediaAlocacao * 100;
-                                
+
                                 if (ocupacaoValor <= 0) return null;
-                                
-                                const { badgeClass: wpBadgeClass, progressClass } = getOcupacaoStyles(ocupacaoValor);
-                                
+
+                                const { badgeClass: wpBadgeClass, progressClass } =
+                                  getOcupacaoStyles(ocupacaoValor);
+
                                 return (
-                                  <div 
-                                    key={`${recurso.userId}-${wp.id}`} 
-                                    className={`${wpBadgeClass} border rounded-md p-2`}
+                                  <div
+                                    key={`${recurso.userId}-${wp.id}`}
+                                    className={`${wpBadgeClass} rounded-md border p-2`}
                                   >
-                                    <div className="flex justify-between text-xs mb-1.5">
-                                      <span title={wp.nome}>{wp.nome.length > 15 ? wp.nome.substring(0, 15) + "..." : wp.nome}</span>
-                                      <span className="font-medium">{ocupacaoValor.toFixed(0)}%</span>
+                                    <div className="mb-1.5 flex justify-between text-xs">
+                                      <span title={wp.nome}>
+                                        {wp.nome.length > 15
+                                          ? wp.nome.substring(0, 15) + "..."
+                                          : wp.nome}
+                                      </span>
+                                      <span className="font-medium">
+                                        {ocupacaoValor.toFixed(0)}%
+                                      </span>
                                     </div>
-                                    <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
-                                      <div 
+                                    <div className="h-1.5 overflow-hidden rounded-full bg-white/50">
+                                      <div
                                         className={`h-full ${progressClass} rounded-full transition-all duration-300`}
                                         style={{ width: `${Math.min(ocupacaoValor, 100)}%` }}
                                       />
@@ -1259,7 +1390,9 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
                 </div>
               ) : (
                 <div className="rounded-lg bg-gray-50 p-8 text-center">
-                  <p className="text-sm text-gray-500">Não há dados suficientes para gerar a matriz de alocação.</p>
+                  <p className="text-sm text-gray-500">
+                    Não há dados suficientes para gerar a matriz de alocação.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -1277,4 +1410,4 @@ export function ProjetoRecursos({ projetoId }: ProjetoRecursosProps) {
   );
 }
 
-export default ProjetoRecursos; 
+export default ProjetoRecursos;

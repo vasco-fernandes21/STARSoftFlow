@@ -12,12 +12,14 @@ interface DetailsProps {
       ocupacao: number;
     }>;
   };
-  membroEquipa: {
-    id: string;
-    name: string | null;
-    email: string | null;
-    regime: string;
-  } | undefined;
+  membroEquipa:
+    | {
+        id: string;
+        name: string | null;
+        email: string | null;
+        regime: string;
+      }
+    | undefined;
   isExpanded: boolean;
   workpackageId: string;
   onToggleExpand: () => void;
@@ -27,12 +29,15 @@ interface DetailsProps {
   alocacoesPorAnoMes: Record<string, Record<number, number>>;
   isEditing: boolean;
   onCancelEdit: () => void;
-  onSaveEdit: (workpackageId: string, alocacoes: Array<{
-    userId: string;
-    mes: number;
-    ano: number;
-    ocupacao: Decimal;
-  }>) => void;
+  onSaveEdit: (
+    workpackageId: string,
+    alocacoes: Array<{
+      userId: string;
+      mes: number;
+      ano: number;
+      ocupacao: Decimal;
+    }>
+  ) => void;
   utilizadores: Array<{ id: string; name: string; email: string; regime: string }>;
   inicio: Date;
   fim: Date;
@@ -56,7 +61,7 @@ export function Details({
   utilizadores,
   inicio,
   fim,
-  projetoEstado
+  projetoEstado,
 }: DetailsProps) {
   // Se estiver editando, mostrar o formulário
   if (isEditing) {
@@ -79,17 +84,21 @@ export function Details({
   return (
     <Item
       key={userId}
-      user={membroEquipa ? {
-        id: membroEquipa.id,
-        name: membroEquipa.name || "",
-        email: membroEquipa.email || "",
-        regime: membroEquipa.regime
-      } : {
-        id: userId,
-        name: "Utilizador não encontrado",
-        email: "",
-        regime: "N/A"
-      }}
+      user={
+        membroEquipa
+          ? {
+              id: membroEquipa.id,
+              name: membroEquipa.name || "",
+              email: membroEquipa.email || "",
+              regime: membroEquipa.regime,
+            }
+          : {
+              id: userId,
+              name: "Utilizador não encontrado",
+              email: "",
+              regime: "N/A",
+            }
+      }
       alocacoesPorAnoMes={alocacoesPorAnoMes}
       isExpanded={isExpanded}
       onToggleExpand={onToggleExpand}
@@ -99,4 +108,4 @@ export function Details({
       fim={fim}
     />
   );
-} 
+}

@@ -9,7 +9,7 @@
  */
 export function formatarMoeda(valor: number | null | undefined): string {
   if (valor === null || valor === undefined) return "€0,00";
-  
+
   return new Intl.NumberFormat("pt-PT", {
     style: "currency",
     currency: "EUR",
@@ -25,7 +25,7 @@ export function formatarMoeda(valor: number | null | undefined): string {
  */
 export function formatarPercentagem(valor: number | null | undefined): string {
   if (valor === null || valor === undefined) return "0%";
-  
+
   return new Intl.NumberFormat("pt-PT", {
     style: "percent",
     minimumFractionDigits: 1,
@@ -40,10 +40,10 @@ export function formatarPercentagem(valor: number | null | undefined): string {
  */
 export function formatarData(data: Date | string | null | undefined): string {
   if (data === null || data === undefined) return "N/D";
-  
+
   // Converter string para Date se necessário
   const dataObj = typeof data === "string" ? new Date(data) : data;
-  
+
   return dataObj.toLocaleDateString("pt-PT", {
     day: "2-digit",
     month: "2-digit",
@@ -58,9 +58,9 @@ export function formatarData(data: Date | string | null | undefined): string {
  */
 export function formatarNumero(valor: number | null | undefined): string {
   if (valor === null || valor === undefined) return "0";
-  
+
   return new Intl.NumberFormat("pt-PT", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(valor);
-} 
+}

@@ -1,59 +1,67 @@
-import type { 
-  Prisma,
-  Rubrica
-} from "@prisma/client";
+import type { Prisma, Rubrica } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
 import { FileText, Euro, Briefcase, Users, CheckCircle } from "lucide-react";
 import type { Decimal } from "@prisma/client/runtime/library";
 
 // Usamos o tipo base do Prisma e estendemos apenas o que precisamos
-export type ProjetoCreateInput = Omit<Prisma.ProjetoCreateInput, 'workpackages' | 'financiamento'> & {
+export type ProjetoCreateInput = Omit<
+  Prisma.ProjetoCreateInput,
+  "workpackages" | "financiamento"
+> & {
   id?: string;
   workpackages?: WorkpackageWithRelations[];
-  financiamento?: Prisma.ProjetoCreateInput['financiamento'];
+  financiamento?: Prisma.ProjetoCreateInput["financiamento"];
   overhead?: Decimal | number;
   taxa_financiamento?: Decimal | number;
   valor_eti?: Decimal | number;
   financiamentoId?: number;
 };
 
-export type WorkpackageWithRelations = Omit<Prisma.WorkpackageGetPayload<{
-  include: {
-    tarefas: {
-      include: {
-        entregaveis: true
-      }
-    }
-    materiais: true
-    recursos: {
-      include: {
-        user: true
-      }
-    }
-  }
-}>, "projeto"> & {
+export type WorkpackageWithRelations = Omit<
+  Prisma.WorkpackageGetPayload<{
+    include: {
+      tarefas: {
+        include: {
+          entregaveis: true;
+        };
+      };
+      materiais: true;
+      recursos: {
+        include: {
+          user: true;
+        };
+      };
+    };
+  }>,
+  "projeto"
+> & {
   projetoId: string;
   tarefas: Array<Omit<Prisma.TarefaGetPayload<{ include: { entregaveis: true } }>, "workpackage">>;
   materiais: Array<Omit<Prisma.MaterialGetPayload<{}>, "workpackage">>;
-  recursos: Array<Omit<Prisma.AlocacaoRecursoGetPayload<{
-    include: { user: true }
-  }>, "workpackage">>;
+  recursos: Array<
+    Omit<
+      Prisma.AlocacaoRecursoGetPayload<{
+        include: { user: true };
+      }>,
+      "workpackage"
+    >
+  >;
 };
 
 export type TarefaWithRelations = Prisma.TarefaGetPayload<{
   include: {
-    entregaveis: true
-  }
+    entregaveis: true;
+  };
 }>;
 
-export type EntregavelWithRelations = Omit<Prisma.EntregavelCreateInput, 'tarefa'> & {
+export type EntregavelWithRelations = Omit<Prisma.EntregavelCreateInput, "tarefa"> & {
   id: string;
   estado?: boolean;
   data?: Date | null;
   anexo?: string | null;
 };
 
-export type MaterialWithRelations = Omit<Prisma.MaterialCreateInput, 'workpackage'> & {
+export type MaterialWithRelations = Omit<Prisma.MaterialCreateInput, "workpackage"> & {
   id: number;
   nome: string;
   preco: Decimal | number;
@@ -63,7 +71,10 @@ export type MaterialWithRelations = Omit<Prisma.MaterialCreateInput, 'workpackag
 };
 
 // Atualizado para corresponder à estrutura real da tabela com chave composta
-export type AlocacaoRecursoWithRelations = Omit<Prisma.AlocacaoRecursoCreateInput, 'workpackage' | 'user'> & {
+export type AlocacaoRecursoWithRelations = Omit<
+  Prisma.AlocacaoRecursoCreateInput,
+  "workpackage" | "user"
+> & {
   userId: string;
   workpackageId: string;
   mes: number;
@@ -115,12 +126,7 @@ export type ProjetoCompleto = Prisma.ProjetoGetPayload<{
 };
 
 // Tipos
-export type FaseType = 
-  | "informacoes"
-  | "financas"
-  | "workpackages"
-  | "recursos"
-  | "resumo";
+export type FaseType = "informacoes" | "financas" | "workpackages" | "recursos" | "resumo";
 
 // Ordem das fases
 export const fasesOrdem: readonly FaseType[] = [
@@ -128,43 +134,46 @@ export const fasesOrdem: readonly FaseType[] = [
   "financas",
   "workpackages",
   "recursos",
-  "resumo"
+  "resumo",
 ] as const;
 
 // Informações sobre cada fase
-export const fases: Record<FaseType, { 
-  titulo: string;
-  descricao: string;
-  icon: LucideIcon;
-}> = {
+export const fases: Record<
+  FaseType,
+  {
+    titulo: string;
+    descricao: string;
+    icon: LucideIcon;
+  }
+> = {
   informacoes: {
     titulo: "Informações",
     descricao: "Detalhes básicos do projeto",
-    icon: FileText
+    icon: FileText,
   },
   financas: {
     titulo: "Finanças",
     descricao: "Dados financeiros",
-    icon: Euro
+    icon: Euro,
   },
   workpackages: {
     titulo: "Work Packages",
     descricao: "Estrutura do projeto",
-    icon: Briefcase
+    icon: Briefcase,
   },
   recursos: {
     titulo: "Recursos",
     descricao: "Alocação de recursos",
-    icon: Users
+    icon: Users,
   },
   resumo: {
     titulo: "Resumo",
     descricao: "Revisão final",
-    icon: CheckCircle
-  }
+    icon: CheckCircle,
+  },
 };
 
 export interface TabNavigationProps {
   onNavigateForward: () => void;
   onNavigateBack: () => void;
-} 
+}

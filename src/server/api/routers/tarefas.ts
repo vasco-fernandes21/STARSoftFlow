@@ -7,7 +7,10 @@ import { paginationSchema, getPaginationParams } from "../schemas/common";
 
 // Schemas
 const tarefaBaseSchema = z.object({
-  nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
+  nome: z
+    .string()
+    .min(3, "Nome deve ter pelo menos 3 caracteres")
+    .max(255, "Nome deve ter no máximo 255 caracteres"),
   workpackageId: z.string().uuid("ID de workpackage inválido"),
   descricao: z.string().optional(),
   inicio: z.date().optional(),
@@ -19,37 +22,43 @@ const createTarefaSchema = tarefaBaseSchema;
 
 const updateTarefaSchema = z.object({
   id: z.string(),
-  data: z.object({
-    nome: z.string().optional(),
-    descricao: z.string().nullable().optional(),
-    inicio: z.date().nullable().optional(),
-    fim: z.date().nullable().optional(),
-    estado: z.boolean().optional(),
-    workpackageId: z.string().optional(),
-  }).strict() // só vai aceitar estes
+  data: z
+    .object({
+      nome: z.string().optional(),
+      descricao: z.string().nullable().optional(),
+      inicio: z.date().nullable().optional(),
+      fim: z.date().nullable().optional(),
+      estado: z.boolean().optional(),
+      workpackageId: z.string().optional(),
+    })
+    .strict(), // só vai aceitar estes
 });
 
-const tarefaFilterSchema = z.object({
-  workpackageId: z.string().uuid("ID de workpackage inválido").optional(),
-  search: z.string().optional(),
-  estado: z.boolean().optional(),
-}).merge(paginationSchema);
+const tarefaFilterSchema = z
+  .object({
+    workpackageId: z.string().uuid("ID de workpackage inválido").optional(),
+    search: z.string().optional(),
+    estado: z.boolean().optional(),
+  })
+  .merge(paginationSchema);
 
-const tarefaDateValidationSchema = z.object({
-  inicio: z.date().optional(),
-  fim: z.date().optional(),
-}).refine(
-  (data) => {
-    if (data.inicio && data.fim) {
-      return data.inicio <= data.fim;
+const tarefaDateValidationSchema = z
+  .object({
+    inicio: z.date().optional(),
+    fim: z.date().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.inicio && data.fim) {
+        return data.inicio <= data.fim;
+      }
+      return true;
+    },
+    {
+      message: "A data de fim deve ser posterior à data de início",
+      path: ["fim"],
     }
-    return true;
-  },
-  {
-    message: "A data de fim deve ser posterior à data de início",
-    path: ["fim"],
-  }
-);
+  );
 
 // Schema para criação de entregável
 const createEntregavelSchema = z.object({
@@ -73,51 +82,51 @@ const updateEntregavelSchema = z.object({
 // Router
 export const tarefaRouter = createTRPCRouter({
   // Operações CRUD básicas
-  findAll: publicProcedure
-    .input(tarefaFilterSchema.optional())
-    .query(async ({ ctx, input }) => {
-      try {
-        const { search, workpackageId, estado, page = 1, limit = 10 } = input || {};
-        
-        // Construir condições de filtro
-        const where: Prisma.TarefaWhereInput = {
-          ...(search ? {
-            OR: [
-              { nome: { contains: search, mode: "insensitive" as Prisma.QueryMode } }
-            ] as Prisma.TarefaWhereInput[],
-          } : {}),
-          ...(workpackageId ? { workpackageId } : {}),
-          ...(estado !== undefined ? { estado } : {}),
-        };
-        
-        // Parâmetros de paginação
-        const { skip, take } = getPaginationParams(page, limit);
-        
-        // Executar query com contagem
-        const [tarefas, total] = await Promise.all([
-          ctx.db.tarefa.findMany({
-            where,
-            include: {
-              workpackage: {
-                include: {
-                  projeto: true,
-                },
+  findAll: publicProcedure.input(tarefaFilterSchema.optional()).query(async ({ ctx, input }) => {
+    try {
+      const { search, workpackageId, estado, page = 1, limit = 10 } = input || {};
+
+      // Construir condições de filtro
+      const where: Prisma.TarefaWhereInput = {
+        ...(search
+          ? {
+              OR: [
+                { nome: { contains: search, mode: "insensitive" as Prisma.QueryMode } },
+              ] as Prisma.TarefaWhereInput[],
+            }
+          : {}),
+        ...(workpackageId ? { workpackageId } : {}),
+        ...(estado !== undefined ? { estado } : {}),
+      };
+
+      // Parâmetros de paginação
+      const { skip, take } = getPaginationParams(page, limit);
+
+      // Executar query com contagem
+      const [tarefas, total] = await Promise.all([
+        ctx.db.tarefa.findMany({
+          where,
+          include: {
+            workpackage: {
+              include: {
+                projeto: true,
               },
-              entregaveis: true,
             },
-            skip,
-            take,
-            orderBy: { nome: "asc" },
-          }),
-          ctx.db.tarefa.count({ where }),
-        ]);
-        
-        return createPaginatedResponse(tarefas, total, page, limit);
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-  
+            entregaveis: true,
+          },
+          skip,
+          take,
+          orderBy: { nome: "asc" },
+        }),
+        ctx.db.tarefa.count({ where }),
+      ]);
+
+      return createPaginatedResponse(tarefas, total, page, limit);
+    } catch (error) {
+      return handlePrismaError(error);
+    }
+  }),
+
   findById: protectedProcedure
     .input(z.string().uuid("ID da tarefa inválido"))
     .query(async ({ ctx, input }) => {
@@ -133,7 +142,7 @@ export const tarefaRouter = createTRPCRouter({
         },
       });
     }),
-  
+
   findByWorkpackage: publicProcedure
     .input(z.string())
     .query(async ({ ctx, input: workpackageId }) => {
@@ -145,152 +154,146 @@ export const tarefaRouter = createTRPCRouter({
           },
           orderBy: { nome: "asc" },
         });
-        
+
         return tarefas;
       } catch (error) {
         return handlePrismaError(error);
       }
     }),
-  
-  create: protectedProcedure
-    .input(createTarefaSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        // Validar datas
-        if (input.inicio && input.fim) {
-          const { success } = tarefaDateValidationSchema.safeParse({
-            inicio: input.inicio,
-            fim: input.fim,
-          });
-          
-          if (!success) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "A data de fim deve ser posterior à data de início",
-            });
-          }
-        }
-        
-        // Verificar se o workpackage existe
-        const workpackage = await ctx.db.workpackage.findUnique({
-          where: { id: input.workpackageId },
+
+  create: protectedProcedure.input(createTarefaSchema).mutation(async ({ ctx, input }) => {
+    try {
+      // Validar datas
+      if (input.inicio && input.fim) {
+        const { success } = tarefaDateValidationSchema.safeParse({
+          inicio: input.inicio,
+          fim: input.fim,
         });
-        
-        if (!workpackage) {
+
+        if (!success) {
           throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Work Package não encontrado",
+            code: "BAD_REQUEST",
+            message: "A data de fim deve ser posterior à data de início",
           });
         }
-        
-        // Criar tarefa
-        const tarefa = await ctx.db.tarefa.create({
-          data: {
-            nome: input.nome,
-            descricao: input.descricao,
-            workpackageId: input.workpackageId,
-            inicio: input.inicio,
-            fim: input.fim,
-            estado: input.estado ?? false
-          },
-          include: {
-            workpackage: {
-              include: {
-                projeto: true,
-              },
+      }
+
+      // Verificar se o workpackage existe
+      const workpackage = await ctx.db.workpackage.findUnique({
+        where: { id: input.workpackageId },
+      });
+
+      if (!workpackage) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Work Package não encontrado",
+        });
+      }
+
+      // Criar tarefa
+      const tarefa = await ctx.db.tarefa.create({
+        data: {
+          nome: input.nome,
+          descricao: input.descricao,
+          workpackageId: input.workpackageId,
+          inicio: input.inicio,
+          fim: input.fim,
+          estado: input.estado ?? false,
+        },
+        include: {
+          workpackage: {
+            include: {
+              projeto: true,
             },
-            entregaveis: true,
           },
+          entregaveis: true,
+        },
+      });
+
+      // Atualizar estado do workpackage
+      await atualizarEstadoWorkpackage(ctx, input.workpackageId);
+
+      return tarefa;
+    } catch (error) {
+      return handlePrismaError(error);
+    }
+  }),
+
+  update: protectedProcedure.input(updateTarefaSchema).mutation(async ({ ctx, input }) => {
+    const { id, data } = input;
+
+    try {
+      // Verificar se a tarefa existe
+      const tarefaExistente = await ctx.db.tarefa.findUnique({
+        where: { id },
+        include: {
+          workpackage: true,
+          entregaveis: true,
+        },
+      });
+
+      if (!tarefaExistente) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Tarefa não encontrada",
         });
-        
-        // Atualizar estado do workpackage
-        await atualizarEstadoWorkpackage(ctx, input.workpackageId);
-        
-        return tarefa;
-      } catch (error) {
-        return handlePrismaError(error);
       }
-    }),
-  
-  update: protectedProcedure
-    .input(updateTarefaSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { id, data } = input;
 
-      try {
-        // Verificar se a tarefa existe
-        const tarefaExistente = await ctx.db.tarefa.findUnique({
-          where: { id },
-          include: {
-            workpackage: true,
-            entregaveis: true
-          }
-        });
+      // Atualizar apenas os campos fornecidos
+      const tarefaAtualizada = await ctx.db.tarefa.update({
+        where: { id },
+        data: {
+          ...(Object.keys(data).length > 0 ? data : {}),
+        },
+        include: {
+          entregaveis: true,
+        },
+      });
 
-        if (!tarefaExistente) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Tarefa não encontrada"
-          });
-        }
-
-        // Atualizar apenas os campos fornecidos
-        const tarefaAtualizada = await ctx.db.tarefa.update({
-          where: { id },
-          data: {
-            ...Object.keys(data).length > 0 ? data : {},
-          },
-          include: {
-            entregaveis: true
-          }
-        });
-
-        // Se o estado da tarefa foi alterado, atualizar o estado do workpackage
-        if (data.estado !== undefined) {
-          await atualizarEstadoWorkpackage(ctx, tarefaExistente.workpackage.id);
-        }
-
-        return tarefaAtualizada;
-      } catch (error) {
-        return handlePrismaError(error);
+      // Se o estado da tarefa foi alterado, atualizar o estado do workpackage
+      if (data.estado !== undefined) {
+        await atualizarEstadoWorkpackage(ctx, tarefaExistente.workpackage.id);
       }
-    }),
-  
-  delete: protectedProcedure
-    .input(z.string())
-    .mutation(async ({ ctx, input: id }) => {
-      try {
-        // Obter a tarefa para saber o workpackageId
-        const tarefa = await ctx.db.tarefa.findUnique({
-          where: { id },
-          select: { workpackageId: true }
+
+      return tarefaAtualizada;
+    } catch (error) {
+      return handlePrismaError(error);
+    }
+  }),
+
+  delete: protectedProcedure.input(z.string()).mutation(async ({ ctx, input: id }) => {
+    try {
+      // Obter a tarefa para saber o workpackageId
+      const tarefa = await ctx.db.tarefa.findUnique({
+        where: { id },
+        select: { workpackageId: true },
+      });
+
+      if (!tarefa) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Tarefa não encontrada",
         });
-        
-        if (!tarefa) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Tarefa não encontrada",
-          });
-        }
-        
-        const workpackageId = tarefa.workpackageId;
-        
-        // Apagar a tarefa (entregáveis serão excluídos por cascade)
-        await ctx.db.tarefa.delete({
-          where: { id },
-        });
-        
-        // Atualizar estado do workpackage
-        await atualizarEstadoWorkpackage(ctx, workpackageId);
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
       }
-    }),
-    
+
+      const workpackageId = tarefa.workpackageId;
+
+      // Apagar a tarefa (entregáveis serão excluídos por cascade)
+      await ctx.db.tarefa.delete({
+        where: { id },
+      });
+
+      // Atualizar estado do workpackage
+      await atualizarEstadoWorkpackage(ctx, workpackageId);
+
+      return { success: true };
+    } catch (error) {
+      return handlePrismaError(error);
+    }
+  }),
+
   // --- Procedimentos para Entregáveis ---
-  
+
   // Criar entregável
   createEntregavel: protectedProcedure
     .input(createEntregavelSchema)
@@ -300,14 +303,14 @@ export const tarefaRouter = createTRPCRouter({
         const tarefa = await ctx.db.tarefa.findUnique({
           where: { id: input.tarefaId },
         });
-        
+
         if (!tarefa) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Tarefa não encontrada",
           });
         }
-        
+
         // Criar entregável
         const entregavel = await ctx.db.entregavel.create({
           data: {
@@ -315,35 +318,35 @@ export const tarefaRouter = createTRPCRouter({
             descricao: input.descricao,
             tarefaId: input.tarefaId,
             data: input.data,
-            anexo: input.anexo
+            anexo: input.anexo,
           },
         });
-        
+
         return entregavel;
       } catch (error) {
         return handlePrismaError(error);
       }
     }),
-    
+
   // Atualizar entregável
   updateEntregavel: publicProcedure
     .input(updateEntregavelSchema)
     .mutation(async ({ ctx, input }) => {
       try {
         const { nome, descricao, data, anexo } = input;
-        
+
         // Verificar se o entregável existe
         const entregavelExistente = await ctx.db.entregavel.findUnique({
           where: { id: input.id },
         });
-        
+
         if (!entregavelExistente) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Entregável não encontrado",
           });
         }
-        
+
         // Atualizar entregável
         const entregavel = await ctx.db.entregavel.update({
           where: { id: input.id },
@@ -351,53 +354,49 @@ export const tarefaRouter = createTRPCRouter({
             nome: nome,
             descricao: descricao,
             data: data,
-            anexo: anexo
+            anexo: anexo,
           },
         });
-        
+
         return entregavel;
       } catch (error) {
         return handlePrismaError(error);
       }
     }),
-    
+
   // Obter entregável por ID
-  getEntregavelById: publicProcedure
-    .input(z.string())
-    .query(async ({ ctx, input: id }) => {
-      try {
-        const entregavel = await ctx.db.entregavel.findUnique({
-          where: { id },
+  getEntregavelById: publicProcedure.input(z.string()).query(async ({ ctx, input: id }) => {
+    try {
+      const entregavel = await ctx.db.entregavel.findUnique({
+        where: { id },
+      });
+
+      if (!entregavel) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Entregável não encontrado",
         });
-        
-        if (!entregavel) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Entregável não encontrado",
-          });
-        }
-        
-        return entregavel;
-      } catch (error) {
-        return handlePrismaError(error);
       }
-    }),
-    
+
+      return entregavel;
+    } catch (error) {
+      return handlePrismaError(error);
+    }
+  }),
+
   // Apagar entregável
-  deleteEntregavel: protectedProcedure
-    .input(z.string())
-    .mutation(async ({ ctx, input: id }) => {
-      try {
-        await ctx.db.entregavel.delete({
-          where: { id },
-        });
-        
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-    
+  deleteEntregavel: protectedProcedure.input(z.string()).mutation(async ({ ctx, input: id }) => {
+    try {
+      await ctx.db.entregavel.delete({
+        where: { id },
+      });
+
+      return { success: true };
+    } catch (error) {
+      return handlePrismaError(error);
+    }
+  }),
+
   // Listar entregáveis por tarefa
   getEntregaveisByTarefa: publicProcedure
     .input(z.string())
@@ -407,7 +406,7 @@ export const tarefaRouter = createTRPCRouter({
           where: { tarefaId },
           orderBy: { nome: "asc" },
         });
-        
+
         return entregaveis;
       } catch (error) {
         return handlePrismaError(error);
@@ -419,18 +418,19 @@ export const tarefaRouter = createTRPCRouter({
 async function atualizarEstadoWorkpackage(ctx: any, workpackageId: string) {
   // Buscar todas as tarefas do workpackage
   const tarefas = await ctx.db.tarefa.findMany({
-    where: { workpackageId }
+    where: { workpackageId },
   });
-  
+
   // Se não houver tarefas, considerar como concluído
   // Se houver tarefas, verificar se todas estão concluídas
-  const todasConcluidas = tarefas.length === 0 ? true : tarefas.every((t: {estado: boolean}) => t.estado === true);
-  
+  const todasConcluidas =
+    tarefas.length === 0 ? true : tarefas.every((t: { estado: boolean }) => t.estado === true);
+
   // Atualizar o estado do workpackage
   await ctx.db.workpackage.update({
     where: { id: workpackageId },
-    data: { estado: todasConcluidas }
+    data: { estado: todasConcluidas },
   });
-  
+
   console.log(`Workpackage ${workpackageId} atualizado para estado: ${todasConcluidas}`);
-} 
+}

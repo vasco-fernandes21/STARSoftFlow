@@ -35,23 +35,27 @@ export const dateSchema = z.union([
 /**
  * Schema base para utilizadores
  */
-export const utilizadorBaseSchema = z.object({
-  name: z.string().min(1, "Nome é obrigatório"),
-  email: emailSchema,
-  foto: z.string().nullable().optional(),
-  atividade: z.string().min(1, "Atividade é obrigatória"),
-  contratacao: dateSchema,
-  username: z.string().min(3, "Username deve ter pelo menos 3 caracteres"),
-  permissao: z.nativeEnum(Permissao),
-  regime: z.nativeEnum(Regime)
-}).passthrough();
+export const utilizadorBaseSchema = z
+  .object({
+    name: z.string().min(1, "Nome é obrigatório"),
+    email: emailSchema,
+    foto: z.string().nullable().optional(),
+    atividade: z.string().min(1, "Atividade é obrigatória"),
+    contratacao: dateSchema,
+    username: z.string().min(3, "Username deve ter pelo menos 3 caracteres"),
+    permissao: z.nativeEnum(Permissao),
+    regime: z.nativeEnum(Regime),
+  })
+  .passthrough();
 
 /**
  * Schema para criação de utilizador
  */
-export const createUtilizadorSchema = utilizadorBaseSchema.extend({
-  password: passwordSchema.optional(),
-}).passthrough();
+export const createUtilizadorSchema = utilizadorBaseSchema
+  .extend({
+    password: passwordSchema.optional(),
+  })
+  .passthrough();
 
 /**
  * Schema para atualização de utilizador
@@ -61,20 +65,24 @@ export const updateUtilizadorSchema = utilizadorBaseSchema.partial();
 /**
  * Schema para alteração de password
  */
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Password atual é obrigatória"),
-  newPassword: passwordSchema,
-  confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "As passwords não coincidem",
-  path: ["confirmPassword"],
-});
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Password atual é obrigatória"),
+    newPassword: passwordSchema,
+    confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "As passwords não coincidem",
+    path: ["confirmPassword"],
+  });
 
 /**
  * Schema para filtros de utilizadores
  */
-export const utilizadorFilterSchema = z.object({
-  search: z.string().optional(),
-  permissao: z.nativeEnum(Permissao).optional(),
-  regime: z.nativeEnum(Regime).optional(),
-}).merge(paginationSchema); 
+export const utilizadorFilterSchema = z
+  .object({
+    search: z.string().optional(),
+    permissao: z.nativeEnum(Permissao).optional(),
+    regime: z.nativeEnum(Regime).optional(),
+  })
+  .merge(paginationSchema);

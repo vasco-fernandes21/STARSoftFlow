@@ -3,7 +3,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Package, Plus, Pencil, X, Percent, Briefcase } from "lucide-react";
 import type { Rubrica } from "@prisma/client";
-import { TextField, TextareaField, MoneyField, SelectField, NumberField } from "@/components/projetos/criar/components/FormFields";
+import {
+  TextField,
+  TextareaField,
+  MoneyField,
+  SelectField,
+  NumberField,
+} from "@/components/projetos/criar/components/FormFields";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Save } from "lucide-react";
@@ -39,67 +45,69 @@ const rubricaOptions = [
   { value: "CUSTOS_ESTRUTURA", label: "Custos de Estrutura" },
 ];
 
-export function Form({ 
+export function Form({
   workpackageId,
   workpackageDates,
-  initialValues, 
-  onSubmit, 
-  onCancel, 
-  onUpdate 
+  initialValues,
+  onSubmit,
+  onCancel,
+  onUpdate,
 }: MaterialFormProps) {
   // Calcular os anos válidos com base nas datas do workpackage
   const { anoMinimo, anoMaximo, anosDisponiveis } = useMemo(() => {
     const dataAtual = new Date();
     const anoAtual = dataAtual.getFullYear();
-    
+
     let anoMinimo = anoAtual;
     let anoMaximo = anoAtual + 10; // valor padrão se não houver datas
-    
+
     // Se tiver datas do workpackage, usa essas datas para limitar os anos
     if (workpackageDates) {
       if (workpackageDates.inicio) {
         const dataInicio = new Date(workpackageDates.inicio);
         anoMinimo = dataInicio.getFullYear();
       }
-      
+
       if (workpackageDates.fim) {
         const dataFim = new Date(workpackageDates.fim);
         anoMaximo = dataFim.getFullYear();
       }
     }
-    
+
     // Garantir que pelo menos o ano atual esteja disponível
     anoMinimo = Math.min(anoMinimo, anoAtual);
     anoMaximo = Math.max(anoMaximo, anoAtual);
-    
+
     // Criar lista de anos para possível dropdown - convertendo para string para compatibilidade
     const anosDisponiveis = Array.from(
       { length: anoMaximo - anoMinimo + 1 },
       (_, i) => anoMinimo + i
-    ).map(ano => ({
+    ).map((ano) => ({
       value: String(ano), // Converter para string para compatibilidade com SelectField
-      label: ano.toString()
+      label: ano.toString(),
     }));
-    
+
     return { anoMinimo, anoMaximo, anosDisponiveis };
   }, [workpackageDates]);
-  
+
   // Estado do formulário
   const [nome, setNome] = useState(initialValues?.nome || "");
   const [descricao, setDescricao] = useState<string | null>(initialValues?.descricao || null);
   const [preco, setPreco] = useState<number>(initialValues?.preco || 0);
   const [quantidade, setQuantidade] = useState(initialValues?.quantidade || 1);
-  const [anoUtilizacao, setAnoUtilizacao] = useState(initialValues?.ano_utilizacao || new Date().getFullYear());
+  const [anoUtilizacao, setAnoUtilizacao] = useState(
+    initialValues?.ano_utilizacao || new Date().getFullYear()
+  );
   const [rubrica, setRubrica] = useState<Rubrica>(initialValues?.rubrica || "MATERIAIS");
-  
+
   // Estado para o valor do ano como string (para o SelectField)
   const [anoUtilizacaoStr, setAnoUtilizacaoStr] = useState(String(anoUtilizacao));
-  
+
   // Sincronizar o anoUtilizacao com anoUtilizacaoStr
   useEffect(() => {
     setAnoUtilizacaoStr(String(anoUtilizacao));
   }, [anoUtilizacao]);
-  
+
   // Estado de validação
   const [erros, setErros] = useState<{
     nome?: string;
@@ -107,7 +115,7 @@ export function Form({
     quantidade?: string;
     anoUtilizacao?: string;
   }>({});
-  
+
   // Atualizar estados quando initialValues mudar
   useEffect(() => {
     if (initialValues) {
@@ -120,7 +128,7 @@ export function Form({
       setRubrica(initialValues.rubrica);
     }
   }, [initialValues]);
-  
+
   // Garantir que o anoUtilizacao esteja dentro dos limites
   useEffect(() => {
     if (anoUtilizacao < anoMinimo) {
@@ -131,37 +139,37 @@ export function Form({
       setAnoUtilizacaoStr(String(anoMaximo));
     }
   }, [anoMinimo, anoMaximo, anoUtilizacao]);
-  
+
   // Função para validar o formulário
   const validarFormulario = () => {
     const novosErros: typeof erros = {};
-    
+
     if (!nome.trim()) {
       novosErros.nome = "O nome é obrigatório";
     } else if (nome.length < 3) {
       novosErros.nome = "Nome deve ter pelo menos 3 caracteres";
     }
-    
+
     if (preco <= 0) {
       novosErros.preco = "O preço deve ser maior que zero";
     }
-    
+
     if (quantidade <= 0) {
       novosErros.quantidade = "A quantidade deve ser maior que zero";
     }
-    
+
     if (anoUtilizacao < anoMinimo || anoUtilizacao > anoMaximo) {
       novosErros.anoUtilizacao = `O ano deve estar entre ${anoMinimo} e ${anoMaximo}`;
     }
-    
+
     setErros(novosErros);
     return Object.keys(novosErros).length === 0;
   };
-  
+
   // Função para lidar com o envio do formulário
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validarFormulario()) {
       // Preparar o objeto de dados garantindo que descricao seja sempre string ou null
       const materialData = {
@@ -172,18 +180,18 @@ export function Form({
         preco,
         quantidade,
         ano_utilizacao: anoUtilizacao,
-        rubrica
+        rubrica,
       };
-      
+
       // Enviar dados para atualização
       onSubmit(workpackageId, materialData);
-      
+
       if (onUpdate) {
         onUpdate();
       }
     }
   };
-  
+
   // Handler para alteração do ano via dropdown
   const handleAnoChange = (value: string) => {
     const anoNumerico = parseInt(value, 10);
@@ -195,50 +203,52 @@ export function Form({
   const _isEditMode = !!initialValues?.id;
 
   return (
-    <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden w-full">
+    <Card className="w-full overflow-hidden border-azul/10 transition-all hover:border-azul/20">
       {/* Cabeçalho do Form */}
-      <div className="p-4 flex justify-between items-center border-b border-azul/10 bg-white">
+      <div className="flex items-center justify-between border-b border-azul/10 bg-white p-4">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
-            {_isEditMode ? 
-              <Pencil className="h-4 w-4 text-azul" /> : 
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-azul/10">
+            {_isEditMode ? (
+              <Pencil className="h-4 w-4 text-azul" />
+            ) : (
               <Package className="h-4 w-4 text-azul" />
-            }
+            )}
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">
               {_isEditMode ? "Editar Material" : "Adicionar Material"}
             </h5>
-            <Badge variant="outline" className="px-2 py-0 text-[10px] h-5 bg-azul/5 text-azul/80 border-azul/20">
+            <Badge
+              variant="outline"
+              className="h-5 border-azul/20 bg-azul/5 px-2 py-0 text-[10px] text-azul/80"
+            >
               {_isEditMode ? "Edição" : "Novo"}
             </Badge>
           </div>
         </div>
-        
+
         <Button
           variant="ghost"
           size="sm"
           onClick={onCancel}
-          className="h-8 w-8 p-0 rounded-lg hover:bg-red-50 hover:text-red-500"
+          className="h-8 w-8 rounded-lg p-0 hover:bg-red-50 hover:text-red-500"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Conteúdo do Form */}
-      <form onSubmit={handleSubmit} className="p-4 bg-azul/5 space-y-6 w-full">
+      <form onSubmit={handleSubmit} className="w-full space-y-6 bg-azul/5 p-4">
         {/* Informações Básicas */}
-        <div className="space-y-3 w-full">
+        <div className="w-full space-y-3">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-azul/10">
               <Package className="h-3.5 w-3.5 text-azul" />
             </div>
-            <Label className="text-sm font-medium text-azul/80">
-              Informações Básicas
-            </Label>
+            <Label className="text-sm font-medium text-azul/80">Informações Básicas</Label>
           </div>
-          
-          <div className="bg-white rounded-lg p-4 border border-azul/10 space-y-4 w-full">
+
+          <div className="w-full space-y-4 rounded-lg border border-azul/10 bg-white p-4">
             <TextField
               label="Nome do Material"
               value={nome}
@@ -247,7 +257,7 @@ export function Form({
               required
               helpText={erros.nome}
             />
-            
+
             <TextareaField
               label="Descrição"
               value={descricao || ""}
@@ -259,18 +269,16 @@ export function Form({
         </div>
 
         {/* Informações Financeiras */}
-        <div className="space-y-3 w-full">
+        <div className="w-full space-y-3">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-azul/10">
               <Percent className="h-3.5 w-3.5 text-azul" />
             </div>
-            <Label className="text-sm font-medium text-azul/80">
-              Informações Financeiras
-            </Label>
+            <Label className="text-sm font-medium text-azul/80">Informações Financeiras</Label>
           </div>
-          
-          <div className="bg-white rounded-lg p-4 border border-azul/10 w-full">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+
+          <div className="w-full rounded-lg border border-azul/10 bg-white p-4">
+            <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
               <MoneyField
                 label="Preço Unitário"
                 value={preco}
@@ -278,7 +286,7 @@ export function Form({
                 required
                 helpText={erros.preco}
               />
-              
+
               <NumberField
                 label="Quantidade"
                 value={quantidade}
@@ -292,18 +300,16 @@ export function Form({
         </div>
 
         {/* Classificação */}
-        <div className="space-y-3 w-full">
+        <div className="w-full space-y-3">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-azul/10">
               <Briefcase className="h-3.5 w-3.5 text-azul" />
             </div>
-            <Label className="text-sm font-medium text-azul/80">
-              Classificação
-            </Label>
+            <Label className="text-sm font-medium text-azul/80">Classificação</Label>
           </div>
-          
-          <div className="bg-white rounded-lg p-4 border border-azul/10 w-full">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+
+          <div className="w-full rounded-lg border border-azul/10 bg-white p-4">
+            <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
               {anosDisponiveis.length > 0 ? (
                 <SelectField
                   label="Ano de Utilização"
@@ -324,7 +330,7 @@ export function Form({
                   helpText={erros.anoUtilizacao}
                 />
               )}
-              
+
               <SelectField
                 label="Rubrica"
                 value={rubrica}
@@ -335,29 +341,26 @@ export function Form({
             </div>
           </div>
         </div>
-        
+
         {/* Botões de ação */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-azul/10">
+        <div className="flex justify-end gap-3 border-t border-azul/10 pt-4">
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
-            className="h-9 px-6 rounded-lg"
+            className="h-9 rounded-lg px-6"
           >
             Cancelar
           </Button>
-          <Button 
-            type="submit" 
-            className="h-9 px-6 rounded-lg bg-azul hover:bg-azul/90"
-          >
+          <Button type="submit" className="h-9 rounded-lg bg-azul px-6 hover:bg-azul/90">
             {_isEditMode ? (
               <>
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="mr-2 h-4 w-4" />
                 Guardar Alterações
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="mr-2 h-4 w-4" />
                 Adicionar Material
               </>
             )}

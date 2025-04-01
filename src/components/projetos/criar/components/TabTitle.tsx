@@ -10,7 +10,7 @@ interface TabTitleProps {
 
 export function TabTitle({ title, subtitle, icon, badgeContent }: TabTitleProps) {
   return (
-    <div className="p-4 md:p-6 flex items-center justify-between bg-azul text-white">
+    <div className="flex items-center justify-between bg-azul p-4 text-white md:p-6">
       <div className="flex items-center">
         {icon}
         <div className="ml-3">
@@ -18,12 +18,12 @@ export function TabTitle({ title, subtitle, icon, badgeContent }: TabTitleProps)
           <p className="text-sm text-white/80">{subtitle}</p>
         </div>
       </div>
-      
+
       {badgeContent && (
-        <Badge className="bg-white/20 text-white hover:bg-white/30 border-none">
+        <Badge className="border-none bg-white/20 text-white hover:bg-white/30">
           {badgeContent}
         </Badge>
       )}
     </div>
   );
-} 
+}

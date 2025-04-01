@@ -65,8 +65,8 @@ export const AppSidebar = () => {
   const { data: session } = useSession();
   const { hasPermission } = usePermissions();
 
-  const filteredMenuItems = menuItems.filter((item) =>
-    !item.requiredPermission || hasPermission(item.requiredPermission as Permissao)
+  const filteredMenuItems = menuItems.filter(
+    (item) => !item.requiredPermission || hasPermission(item.requiredPermission as Permissao)
   );
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -101,19 +101,20 @@ export const AppSidebar = () => {
   }, [collapsed, isPinned]);
 
   const MenuItem = ({ item, className = "" }: { item: MenuItem; className?: string }) => {
-    const isActive = item.href === "/" 
-      ? pathname === "/" 
-      : pathname.startsWith(`${item.href}/`) || pathname === item.href;
+    const isActive =
+      item.href === "/"
+        ? pathname === "/"
+        : pathname.startsWith(`${item.href}/`) || pathname === item.href;
     const isHovered = hoveredItem === item.href;
 
     return (
       <Link
         href={item.href}
         className={cn(
-          "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ease-in-out",
-          isActive 
-            ? "text-azul font-semibold" 
-            : "text-slate-600 font-medium hover:text-azul hover:bg-azul/5",
+          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ease-in-out",
+          isActive
+            ? "font-semibold text-azul"
+            : "font-medium text-slate-600 hover:bg-azul/5 hover:text-azul",
           className
         )}
         onMouseEnter={() => setHoveredItem(item.href)}
@@ -121,28 +122,28 @@ export const AppSidebar = () => {
       >
         <div
           className={cn(
-            "relative p-2 rounded-xl transition-all duration-200 ease-in-out flex items-center justify-center",
-            "min-w-[40px] min-h-[40px]",
+            "relative flex items-center justify-center rounded-xl p-2 transition-all duration-200 ease-in-out",
+            "min-h-[40px] min-w-[40px]",
             isActive
               ? "bg-azul/10 text-azul shadow-sm ring-1 ring-azul/10"
-              : "text-slate-500 group-hover:text-azul group-hover:bg-azul/5"
+              : "text-slate-500 group-hover:bg-azul/5 group-hover:text-azul"
           )}
         >
-          <item.icon 
-            size={20} 
-            strokeWidth={isActive ? 2.5 : 2} 
+          <item.icon
+            size={20}
+            strokeWidth={isActive ? 2.5 : 2}
             className={cn(
               "transition-transform duration-200 ease-in-out",
-              isHovered && !isActive && "scale-110 rotate-3"
-            )} 
+              isHovered && !isActive && "rotate-3 scale-110"
+            )}
           />
         </div>
         <span
           className={cn(
-            "transition-all duration-200 ease-in-out transform",
-            collapsed 
-              ? "opacity-0 -translate-x-2 w-0 pointer-events-none" 
-              : "opacity-100 translate-x-0 w-auto",
+            "transform transition-all duration-200 ease-in-out",
+            collapsed
+              ? "pointer-events-none w-0 -translate-x-2 opacity-0"
+              : "w-auto translate-x-0 opacity-100",
             isActive ? "font-semibold" : "font-medium"
           )}
         >
@@ -157,18 +158,20 @@ export const AppSidebar = () => {
       <div
         ref={sidebarRef}
         className={cn(
-          "h-screen bg-[#F0F4FA] flex flex-col -p-2",
+          "-p-2 flex h-screen flex-col bg-[#F0F4FA]",
           "transition-all duration-200 ease-in-out",
           collapsed ? "w-20" : "w-64",
-          "supports-[backdrop-filter]:bg-[#F0F4FA]/90 backdrop-blur-xl"
+          "backdrop-blur-xl supports-[backdrop-filter]:bg-[#F0F4FA]/90"
         )}
       >
         {/* Logo Section */}
-        <div className="flex items-center justify-center h-16 px-1 mt-8 relative">
+        <div className="relative mt-8 flex h-16 items-center justify-center px-1">
           <div
             className={cn(
-              "absolute flex items-center transition-all duration-200 ease-in-out transform",
-              collapsed ? "opacity-0 scale-75 -translate-x-4" : "opacity-100 scale-100 translate-x-0"
+              "absolute flex transform items-center transition-all duration-200 ease-in-out",
+              collapsed
+                ? "-translate-x-4 scale-75 opacity-0"
+                : "translate-x-0 scale-100 opacity-100"
             )}
           >
             <Image
@@ -182,12 +185,14 @@ export const AppSidebar = () => {
           </div>
           <div
             className={cn(
-              "absolute h-9 w-9 rounded-xl bg-gradient-to-br from-azul/5 to-azul/10 flex items-center justify-center",
-              "transition-all duration-200 ease-in-out transform border border-azul/20 shadow-sm",
-              collapsed ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-75 translate-x-4"
+              "absolute flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-azul/5 to-azul/10",
+              "transform border border-azul/20 shadow-sm transition-all duration-200 ease-in-out",
+              collapsed ? "translate-x-0 scale-100 opacity-100" : "translate-x-4 scale-75 opacity-0"
             )}
           >
-            <span className="text-azul font-bold text-lg bg-gradient-to-br from-azul to-azul-light bg-clip-text text-transparent">S</span>
+            <span className="bg-gradient-to-br from-azul to-azul-light bg-clip-text text-lg font-bold text-azul text-transparent">
+              S
+            </span>
           </div>
         </div>
 
@@ -208,7 +213,7 @@ export const AppSidebar = () => {
               size="sm"
               onClick={toggleCollapse}
               className={cn(
-                "flex-1 rounded-xl text-slate-600 hover:text-azul hover:bg-azul/5 transition-all duration-200 ease-in-out",
+                "flex-1 rounded-xl text-slate-600 transition-all duration-200 ease-in-out hover:bg-azul/5 hover:text-azul",
                 "shadow-sm hover:shadow",
                 collapsed ? "justify-center px-2" : "justify-between px-3"
               )}
@@ -218,7 +223,9 @@ export const AppSidebar = () => {
                 <ChevronRight className="h-4 w-4" />
               ) : (
                 <>
-                  <span className="text-xs font-medium transition-opacity duration-200 ease-in-out">Recolher</span>
+                  <span className="text-xs font-medium transition-opacity duration-200 ease-in-out">
+                    Recolher
+                  </span>
                   <ChevronLeft className="h-4 w-4" />
                 </>
               )}
@@ -229,45 +236,36 @@ export const AppSidebar = () => {
                 size="sm"
                 onClick={togglePin}
                 className={cn(
-                  "ml-2 w-9 h-9 rounded-xl transition-all duration-200 ease-in-out",
-                  "hover:bg-azul/5 shadow-sm hover:shadow",
-                  isPinned 
-                    ? "text-azul bg-azul/5" 
-                    : "text-slate-600 hover:text-azul"
+                  "ml-2 h-9 w-9 rounded-xl transition-all duration-200 ease-in-out",
+                  "shadow-sm hover:bg-azul/5 hover:shadow",
+                  isPinned ? "bg-azul/5 text-azul" : "text-slate-600 hover:text-azul"
                 )}
                 title={isPinned ? "Desafixar sidebar" : "Fixar sidebar"}
               >
-                {isPinned ? (
-                  <Lock className="h-4 w-4" />
-                ) : (
-                  <Unlock className="h-4 w-4" />
-                )}
+                {isPinned ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
               </Button>
             )}
           </div>
 
           <div className="p-2">
-            <Link 
-              href="/profile" 
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-            >
-              <div className="relative flex items-center justify-center min-w-[40px]">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-azul/5 to-azul/10 flex items-center justify-center border border-azul/20 shadow-sm">
+            <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+              <div className="relative flex min-w-[40px] items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-azul/20 bg-gradient-to-br from-azul/5 to-azul/10 shadow-sm">
                   <User size={18} className="text-azul" />
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white shadow-sm" />
+                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm ring-2 ring-white" />
               </div>
               <div
                 className={cn(
-                  "flex items-center gap-3 transition-all duration-200 ease-in-out transform",
-                  collapsed ? "opacity-0 -translate-x-2 w-0" : "opacity-100 translate-x-0 w-auto"
+                  "flex transform items-center gap-3 transition-all duration-200 ease-in-out",
+                  collapsed ? "w-0 -translate-x-2 opacity-0" : "w-auto translate-x-0 opacity-100"
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-800 truncate">
+                  <p className="truncate text-sm font-semibold text-slate-800">
                     {session?.user?.name || "Utilizador"}
                   </p>
-                  <p className="text-xs text-slate-500 truncate">
+                  <p className="truncate text-xs text-slate-500">
                     {(session?.user as unknown as PrismaUser)?.atividade || ""}
                   </p>
                 </div>
@@ -275,7 +273,7 @@ export const AppSidebar = () => {
                   variant="ghost"
                   size="icon"
                   onClick={handleLogout}
-                  className="h-9 w-9 rounded-xl hover:bg-red-50 text-slate-500 hover:text-red-600 transition-all duration-200 ease-in-out shadow-sm hover:shadow hover:rotate-12"
+                  className="h-9 w-9 rounded-xl text-slate-500 shadow-sm transition-all duration-200 ease-in-out hover:rotate-12 hover:bg-red-50 hover:text-red-600 hover:shadow"
                   title="Sair"
                 >
                   <LogOut size={16} />

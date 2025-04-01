@@ -1,9 +1,5 @@
 import { useState } from "react";
-import { 
-  ListTodo, 
-  Package,
-  Plus
-} from "lucide-react";
+import { ListTodo, Package, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,13 +21,30 @@ interface WorkpackageItemProps {
   onEdit: (workpackage: WorkpackageWithRelations) => void;
   _onDelete: () => void;
   handlers: {
-    addTarefa: (workpackageId: string, tarefa: Omit<TarefaCreateInput, "workpackage">) => Promise<void>;
-    updateTarefa: (workpackageId: string, tarefaId: string, data: Partial<TarefaCreateInput>) => Promise<void>;
+    addTarefa: (
+      workpackageId: string,
+      tarefa: Omit<TarefaCreateInput, "workpackage">
+    ) => Promise<void>;
+    updateTarefa: (
+      workpackageId: string,
+      tarefaId: string,
+      data: Partial<TarefaCreateInput>
+    ) => Promise<void>;
     removeTarefa: (workpackageId: string, tarefaId: string) => Promise<void>;
-    addMaterial: (workpackageId: string, material: Omit<MaterialCreateInput, "workpackage">) => Promise<void>;
-    updateMaterial: (workpackageId: string, materialId: number, data: Partial<MaterialCreateInput>) => Promise<void>;
+    addMaterial: (
+      workpackageId: string,
+      material: Omit<MaterialCreateInput, "workpackage">
+    ) => Promise<void>;
+    updateMaterial: (
+      workpackageId: string,
+      materialId: number,
+      data: Partial<MaterialCreateInput>
+    ) => Promise<void>;
     removeMaterial: (workpackageId: string, materialId: number) => Promise<void>;
-    addEntregavel: (tarefaId: string, entregavel: Omit<EntregavelCreateInput, "tarefa">) => Promise<void>;
+    addEntregavel: (
+      tarefaId: string,
+      entregavel: Omit<EntregavelCreateInput, "tarefa">
+    ) => Promise<void>;
     updateEntregavel: (id: string, data: Partial<EntregavelCreateInput>) => Promise<void>;
     removeEntregavel: (id: string) => Promise<void>;
   };
@@ -45,7 +58,7 @@ export function WorkpackageItem({
   _onDelete,
   handlers,
   projetoInicio,
-  projetoFim
+  projetoFim,
 }: WorkpackageItemProps) {
   // Estados locais
   const [addingTarefa, setAddingTarefa] = useState(false);
@@ -63,7 +76,7 @@ export function WorkpackageItem({
           <div className="flex items-center gap-2">
             <ListTodo className="h-4 w-4 text-azul" />
             <h3 className="text-sm font-medium text-azul">Tarefas</h3>
-            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-600">
               {tarefasCount}
             </Badge>
           </div>
@@ -77,7 +90,7 @@ export function WorkpackageItem({
               <>Cancelar</>
             ) : (
               <>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Adicionar Tarefa
               </>
             )}
@@ -86,7 +99,7 @@ export function WorkpackageItem({
 
         {/* Formulário de Adição de Tarefa */}
         {addingTarefa && (
-          <Card className="p-4 border-azul/10">
+          <Card className="border-azul/10 p-4">
             <TarefaForm
               workpackageId={workpackage.id}
               workpackageInicio={new Date(workpackage.inicio || projetoInicio)}
@@ -132,8 +145,8 @@ export function WorkpackageItem({
               />
             ))}
             {!workpackage.tarefas?.length && !addingTarefa && (
-              <div className="text-center py-8 bg-slate-50/50 border border-azul/10 rounded-lg">
-                <ListTodo className="h-8 w-8 text-azul/30 mx-auto mb-2" />
+              <div className="rounded-lg border border-azul/10 bg-slate-50/50 py-8 text-center">
+                <ListTodo className="mx-auto mb-2 h-8 w-8 text-azul/30" />
                 <p className="text-sm text-azul/60">Nenhuma tarefa adicionada</p>
               </div>
             )}
@@ -149,7 +162,7 @@ export function WorkpackageItem({
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-azul" />
             <h3 className="text-sm font-medium text-azul">Materiais</h3>
-            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">
+            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-600">
               {materiaisCount}
             </Badge>
           </div>
@@ -163,7 +176,7 @@ export function WorkpackageItem({
               <>Cancelar</>
             ) : (
               <>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Adicionar Material
               </>
             )}
@@ -172,7 +185,7 @@ export function WorkpackageItem({
 
         {/* Formulário de Adição de Material */}
         {addingMaterial && (
-          <Card className="p-4 border-azul/10">
+          <Card className="border-azul/10 p-4">
             <MaterialForm
               workpackageId={workpackage.id}
               onSubmit={async (workpackageId, material) => {
@@ -193,7 +206,7 @@ export function WorkpackageItem({
                 material={{
                   ...material,
                   preco: Number(material.preco),
-                  workpackageId: material.workpackageId || workpackage.id
+                  workpackageId: material.workpackageId || workpackage.id,
                 }}
                 onEdit={async (workpackageId, data) => {
                   await handlers.updateMaterial(workpackageId, material.id, data);
@@ -204,8 +217,8 @@ export function WorkpackageItem({
               />
             ))}
             {!workpackage.materiais?.length && !addingMaterial && (
-              <div className="text-center py-8 bg-slate-50/50 border border-azul/10 rounded-lg">
-                <Package className="h-8 w-8 text-azul/30 mx-auto mb-2" />
+              <div className="rounded-lg border border-azul/10 bg-slate-50/50 py-8 text-center">
+                <Package className="mx-auto mb-2 h-8 w-8 text-azul/30" />
                 <p className="text-sm text-azul/60">Nenhum material adicionado</p>
               </div>
             )}

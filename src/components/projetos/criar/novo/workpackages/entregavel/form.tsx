@@ -24,16 +24,16 @@ interface EntregavelFormProps {
   };
 }
 
-export function EntregavelForm({ 
-  tarefaId, 
-  onSubmit, 
+export function EntregavelForm({
+  tarefaId,
+  onSubmit,
   onCancel,
   tarefaDates,
-  initialData
+  initialData,
 }: EntregavelFormProps) {
   const [formData, setFormData] = useState({
-    nome: initialData?.nome || '',
-    data: initialData?.data || tarefaDates.fim
+    nome: initialData?.nome || "",
+    data: initialData?.data || tarefaDates.fim,
   });
 
   // Título dinâmico com base em criação/edição
@@ -60,14 +60,14 @@ export function EntregavelForm({
       nome: formData.nome,
       data: formData.data ? formData.data.toISOString() : null,
       estado: false,
-      descricao: null
+      descricao: null,
     });
   };
 
   return (
-    <Card className="p-4 border border-azul/10 shadow-sm bg-white/70 backdrop-blur-sm mt-2">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-8 w-8 rounded-lg bg-azul/10 flex items-center justify-center">
+    <Card className="mt-2 border border-azul/10 bg-white/70 p-4 shadow-sm backdrop-blur-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-azul/10">
           <FileText className="h-4 w-4 text-azul" />
         </div>
         <h4 className="text-base font-medium text-azul">
@@ -77,7 +77,9 @@ export function EntregavelForm({
 
       <div className="grid gap-3">
         <div>
-          <Label htmlFor="nome-entregavel" className="text-azul/80 text-sm">Nome do Entregável</Label>
+          <Label htmlFor="nome-entregavel" className="text-sm text-azul/80">
+            Nome do Entregável
+          </Label>
           <Input
             id="nome-entregavel"
             placeholder="Ex: Relatório Final"
@@ -86,9 +88,11 @@ export function EntregavelForm({
             className="mt-1"
           />
         </div>
-        
+
         <div>
-          <Label htmlFor="data-entrega" className="text-azul/80 text-sm">Data de Entrega</Label>
+          <Label htmlFor="data-entrega" className="text-sm text-azul/80">
+            Data de Entrega
+          </Label>
           <DatePicker
             value={formData.data}
             onChange={(date: Date | undefined) => date && setFormData({ ...formData, data: date })}
@@ -97,20 +101,13 @@ export function EntregavelForm({
           />
         </div>
 
-        <div className="flex justify-end gap-2 mt-2">
-          <Button
-            variant="ghost"
-            onClick={onCancel}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <X className="h-4 w-4 mr-2" />
+        <div className="mt-2 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel} className="text-gray-500 hover:text-gray-700">
+            <X className="mr-2 h-4 w-4" />
             Cancelar
           </Button>
-          <Button
-            onClick={handleSubmit}
-            className="bg-azul hover:bg-azul/90 text-white"
-          >
-            <Save className="h-4 w-4 mr-2" />
+          <Button onClick={handleSubmit} className="bg-azul text-white hover:bg-azul/90">
+            <Save className="mr-2 h-4 w-4" />
             {isEditing ? "Atualizar" : "Guardar"}
           </Button>
         </div>

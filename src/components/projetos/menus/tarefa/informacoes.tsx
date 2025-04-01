@@ -16,11 +16,11 @@ interface TarefaInformacoesProps {
   onToggleEstado: () => Promise<void>;
 }
 
-export function TarefaInformacoes({ 
-  tarefa, 
+export function TarefaInformacoes({
+  tarefa,
   tarefaId,
   onUpdate,
-  onToggleEstado
+  onToggleEstado,
 }: TarefaInformacoesProps) {
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -36,7 +36,7 @@ export function TarefaInformacoes({
       toast.error("O nome não pode ficar vazio");
       return;
     }
-    
+
     try {
       await onUpdate({ nome: newName });
       setEditingName(false);
@@ -58,7 +58,7 @@ export function TarefaInformacoes({
     }
   };
 
-  const handleDateChange = async (field: 'inicio' | 'fim', date: Date | undefined) => {
+  const handleDateChange = async (field: "inicio" | "fim", date: Date | undefined) => {
     try {
       await onUpdate({ [field]: date });
       toast.success("Data atualizada com sucesso");
@@ -82,17 +82,13 @@ export function TarefaInformacoes({
           variant="outline"
           size="lg"
           className={cn(
-            "w-full max-w-md rounded-xl justify-center transition-all font-medium gap-2",
-            tarefa.estado 
-              ? "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
-              : "bg-blue-50 text-azul border-blue-200 hover:bg-blue-100"
+            "w-full max-w-md justify-center gap-2 rounded-xl font-medium transition-all",
+            tarefa.estado
+              ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+              : "border-blue-200 bg-blue-50 text-azul hover:bg-blue-100"
           )}
         >
-          {tarefa.estado ? (
-            <Check className="h-4 w-4" />
-          ) : (
-            <Circle className="h-4 w-4" />
-          )}
+          {tarefa.estado ? <Check className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
           {tarefa.estado ? "Concluída" : "Em Progresso"}
         </Button>
       </div>
@@ -113,7 +109,7 @@ export function TarefaInformacoes({
             <Pencil className="h-3 w-3 text-gray-500" />
           </Button>
         </div>
-        <Card className="border border-azul/10 shadow-sm p-4 bg-white">
+        <Card className="border border-azul/10 bg-white p-4 shadow-sm">
           {editingName ? (
             <div className="space-y-3">
               <Input
@@ -123,17 +119,13 @@ export function TarefaInformacoes({
                 className="border-gray-200"
               />
               <div className="flex justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingName(false)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setEditingName(false)}>
                   Cancelar
                 </Button>
                 <Button
                   size="sm"
                   onClick={handleNameSave}
-                  className="bg-azul hover:bg-azul/90 text-white"
+                  className="bg-azul text-white hover:bg-azul/90"
                 >
                   Guardar
                 </Button>
@@ -148,18 +140,18 @@ export function TarefaInformacoes({
       {/* Período */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-azul/10 flex items-center justify-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-azul/10">
             <Calendar className="h-4 w-4 text-azul" />
           </div>
           <h3 className="text-sm font-medium text-gray-900">Período</h3>
         </div>
-        <Card className="border border-azul/10 shadow-sm p-4 bg-white">
+        <Card className="border border-azul/10 bg-white p-4 shadow-sm">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-xs text-gray-600">Início</Label>
               <DatePicker
                 value={tarefa.inicio ? new Date(tarefa.inicio) : undefined}
-                onChange={(date) => handleDateChange('inicio', date)}
+                onChange={(date) => handleDateChange("inicio", date)}
                 className="w-full"
               />
             </div>
@@ -167,7 +159,7 @@ export function TarefaInformacoes({
               <Label className="text-xs text-gray-600">Fim</Label>
               <DatePicker
                 value={tarefa.fim ? new Date(tarefa.fim) : undefined}
-                onChange={(date) => handleDateChange('fim', date)}
+                onChange={(date) => handleDateChange("fim", date)}
                 className="w-full"
               />
             </div>
@@ -179,7 +171,7 @@ export function TarefaInformacoes({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-azul/10 flex items-center justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-azul/10">
               <FileText className="h-4 w-4 text-azul" />
             </div>
             <h3 className="text-sm font-medium text-gray-900">Descrição</h3>
@@ -196,7 +188,7 @@ export function TarefaInformacoes({
             <Pencil className="h-3 w-3 text-gray-500" />
           </Button>
         </div>
-        <Card className="border border-azul/10 shadow-sm p-4 bg-white">
+        <Card className="border border-azul/10 bg-white p-4 shadow-sm">
           {editingDescription ? (
             <div className="space-y-3">
               <Textarea
@@ -206,24 +198,20 @@ export function TarefaInformacoes({
                 placeholder="Descrição da tarefa"
               />
               <div className="flex justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingDescription(false)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setEditingDescription(false)}>
                   Cancelar
                 </Button>
                 <Button
                   size="sm"
                   onClick={handleDescriptionSave}
-                  className="bg-azul hover:bg-azul/90 text-white"
+                  className="bg-azul text-white hover:bg-azul/90"
                 >
                   Guardar
                 </Button>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-700 leading-relaxed">
+            <p className="text-sm leading-relaxed text-gray-700">
               {tarefa.descricao || "Sem descrição"}
             </p>
           )}

@@ -9,27 +9,27 @@ export const rascunhoRouter = createTRPCRouter({
         userId: ctx.session.user.id,
       },
       orderBy: {
-        updatedAt: 'desc',
+        updatedAt: "desc",
       },
     });
   }),
 
-  get: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return ctx.db.rascunho.findFirst({
-        where: {
-          id: input.id,
-          userId: ctx.session.user.id,
-        },
-      });
-    }),
+  get: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
+    return ctx.db.rascunho.findFirst({
+      where: {
+        id: input.id,
+        userId: ctx.session.user.id,
+      },
+    });
+  }),
 
   create: protectedProcedure
-    .input(z.object({
-      titulo: z.string(),
-      conteudo: z.any(), // Validação específica do conteúdo pode ser adicionada
-    }))
+    .input(
+      z.object({
+        titulo: z.string(),
+        conteudo: z.any(), // Validação específica do conteúdo pode ser adicionada
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.session.user.id) {
         throw new Error("Utilizador não autenticado");
@@ -38,7 +38,7 @@ export const rascunhoRouter = createTRPCRouter({
       const data: Prisma.RascunhoUncheckedCreateInput = {
         titulo: input.titulo,
         conteudo: input.conteudo,
-        userId: ctx.session.user.id
+        userId: ctx.session.user.id,
       };
 
       return ctx.db.rascunho.create({
@@ -47,11 +47,13 @@ export const rascunhoRouter = createTRPCRouter({
     }),
 
   update: protectedProcedure
-    .input(z.object({
-      id: z.string(),
-      titulo: z.string(),
-      conteudo: z.any(),
-    }))
+    .input(
+      z.object({
+        id: z.string(),
+        titulo: z.string(),
+        conteudo: z.any(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.session.user.id) {
         throw new Error("Utilizador não autenticado");

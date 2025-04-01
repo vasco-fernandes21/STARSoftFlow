@@ -10,7 +10,7 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const pagesWithoutSidebar = ["/login", "/primeiro-login"];
-  
+
   // Garantir que só renderizamos quando estamos no cliente
   useEffect(() => {
     setMounted(true);
@@ -21,15 +21,13 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen w-full overflow-hidden bg-bgApp text-foreground">
         <div className="w-64 bg-slate-900" />
-        <main className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto">
-            {children}
-          </div>
+        <main className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">{children}</div>
         </main>
       </div>
     );
   }
-  
+
   const shouldHideSidebar = pagesWithoutSidebar.includes(pathname);
 
   if (shouldHideSidebar) {
@@ -39,13 +37,11 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#F0F4FA] text-foreground">
       <AppSidebar />
-      <main className="flex-1 overflow-hidden flex flex-col p-3.5 pl-1">
-        <div className="flex-1 h-full overflow-hidden rounded-xl bg-bgApp shadow-sm">
+      <main className="flex flex-1 flex-col overflow-hidden p-3.5 pl-1">
+        <div className="h-full flex-1 overflow-hidden rounded-xl bg-bgApp shadow-sm">
           <div className="h-full overflow-y-auto">
             <AlertDialogProvider>
-              <ProjetoFormProvider>
-                {children}
-              </ProjetoFormProvider>
+              <ProjetoFormProvider>{children}</ProjetoFormProvider>
             </AlertDialogProvider>
           </div>
         </div>

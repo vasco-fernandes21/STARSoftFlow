@@ -41,26 +41,26 @@ export interface ProjetosDestaqueProps {
   title?: boolean;
 }
 
-export default function ProjetosDestaque({ 
-  className, 
-  projetos = [], 
+export default function ProjetosDestaque({
+  className,
+  projetos = [],
   isLoading = false,
-  title = true 
+  title = true,
 }: ProjetosDestaqueProps) {
   // Paginação para os projetos
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 3;
-  
+
   // Cálculos para paginação
   const totalPages = Math.ceil(projetos.length / itemsPerPage);
   const currentProjetos = projetos.slice(
-    currentPage * itemsPerPage, 
+    currentPage * itemsPerPage,
     (currentPage + 1) * itemsPerPage
   );
 
   // Handlers para paginação
-  const prevPage = () => setCurrentPage(prev => Math.max(0, prev - 1));
-  const nextPage = () => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+  const prevPage = () => setCurrentPage((prev) => Math.max(0, prev - 1));
+  const nextPage = () => setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1));
 
   // Determina a cor do progresso baseado no valor
   const getProgressColor = (value: number) => {
@@ -71,7 +71,7 @@ export default function ProjetosDestaque({
   };
 
   return (
-    <div className={`${className || ''} h-full flex flex-col`}>
+    <div className={`${className || ""} flex h-full flex-col`}>
       {title && (
         <div className="mb-4">
           <h2 className="text-sm font-semibold text-slate-800">Projetos em Destaque</h2>
@@ -92,30 +92,26 @@ export default function ProjetosDestaque({
           // Lista de projetos
           <div className="space-y-4">
             {currentProjetos.map((projeto) => (
-              <Link 
-                key={projeto.id} 
-                href={`/projetos/${projeto.id}`}
-                className="block"
-              >
-                <div className="rounded-lg border border-slate-100 p-3 transition-colors hover:bg-slate-50/70 cursor-pointer">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-sm text-slate-800 truncate mr-2">
+              <Link key={projeto.id} href={`/projetos/${projeto.id}`} className="block">
+                <div className="cursor-pointer rounded-lg border border-slate-100 p-3 transition-colors hover:bg-slate-50/70">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="mr-2 truncate text-sm font-medium text-slate-800">
                       {projeto.nome}
                     </h3>
-                    <div className="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                    <div className="flex items-center gap-1 whitespace-nowrap text-xs text-slate-500">
                       <Calendar className="h-3 w-3" />
                       <span>{projeto.inicio ? formatarData(projeto.inicio) : "N/D"}</span>
                       <span>-</span>
                       <span>{projeto.fim ? formatarData(projeto.fim) : "N/D"}</span>
                     </div>
                   </div>
-                  
+
                   {/* Barras de progresso */}
-                  <div className="space-y-2 mb-1">
+                  <div className="mb-1 space-y-2">
                     {/* Progresso físico */}
                     <div>
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="text-xs text-slate-600 flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-xs text-slate-600">
                           <TrendingUp className="h-3 w-3 text-blue-500" />
                           Progresso
                         </span>
@@ -123,17 +119,17 @@ export default function ProjetosDestaque({
                           {formatarPercentagem(projeto.progresso)}
                         </span>
                       </div>
-                      <Progress 
-                        value={projeto.progresso} 
-                        className="h-1.5" 
+                      <Progress
+                        value={projeto.progresso}
+                        className="h-1.5"
                         indicatorClassName={getProgressColor(projeto.progresso)}
                       />
                     </div>
-                    
+
                     {/* Progresso financeiro */}
                     <div>
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="text-xs text-slate-600 flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-xs text-slate-600">
                           <DollarSign className="h-3 w-3 text-emerald-500" />
                           Financeiro
                         </span>
@@ -146,12 +142,12 @@ export default function ProjetosDestaque({
                           </span>
                         </div>
                       </div>
-                      <Progress 
-                        value={projeto.progressoFinanceiro} 
+                      <Progress
+                        value={projeto.progressoFinanceiro}
                         className="h-1.5"
                         indicatorClassName={getProgressColor(projeto.progressoFinanceiro)}
                       />
-                      <div className="flex justify-end mt-0.5">
+                      <div className="mt-0.5 flex justify-end">
                         <span className="text-xs text-slate-500">
                           {formatarMoeda(projeto.orcamentoUtilizado)}
                         </span>
@@ -164,22 +160,20 @@ export default function ProjetosDestaque({
           </div>
         ) : (
           // Mensagem para quando não há projetos
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center h-full flex items-center justify-center">
-            <p className="text-sm text-gray-500">
-              Não há projetos em desenvolvimento
-            </p>
+          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+            <p className="text-sm text-gray-500">Não há projetos em desenvolvimento</p>
           </div>
         )}
       </div>
 
       {/* Controles de paginação */}
       {projetos.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-6 w-6 rounded-full border-slate-200" 
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-6 w-6 rounded-full border-slate-200"
               onClick={prevPage}
               disabled={currentPage === 0}
             >
@@ -188,10 +182,10 @@ export default function ProjetosDestaque({
             <span className="text-xs text-slate-500">
               {currentPage + 1}/{totalPages}
             </span>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-6 w-6 rounded-full border-slate-200" 
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-6 w-6 rounded-full border-slate-200"
               onClick={nextPage}
               disabled={currentPage === totalPages - 1}
             >
@@ -211,31 +205,31 @@ export default function ProjetosDestaque({
 function CardSkeleton() {
   return (
     <div className="rounded-lg border border-slate-100 p-3">
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-3 w-24" />
       </div>
-      
+
       <div className="space-y-3">
         <div>
-          <div className="flex justify-between mb-1">
+          <div className="mb-1 flex justify-between">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-3 w-8" />
           </div>
           <Skeleton className="h-1.5 w-full" />
         </div>
-        
+
         <div>
-          <div className="flex justify-between mb-1">
+          <div className="mb-1 flex justify-between">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-3 w-16" />
           </div>
           <Skeleton className="h-1.5 w-full" />
-          <div className="flex justify-end mt-0.5">
+          <div className="mt-0.5 flex justify-end">
             <Skeleton className="h-3 w-16" />
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

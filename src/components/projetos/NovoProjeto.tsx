@@ -10,13 +10,12 @@ export function NovoProjeto() {
   };
 
   return (
-    <Button 
+    <Button
       onClick={handleNovoProjeto}
-      className="rounded-full bg-azul hover:bg-azul/90 text-white gap-2 shadow-md hover:shadow-lg transition-all duration-300 ease-in-out hover:scale-105"
+      className="gap-2 rounded-full bg-azul text-white shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-azul/90 hover:shadow-lg"
     >
       <Plus className="h-4 w-4" />
       Novo Projeto
     </Button>
   );
 }
-  

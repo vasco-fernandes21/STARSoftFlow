@@ -6,11 +6,7 @@ type PaginaHeaderProps = {
   action?: React.ReactNode;
 };
 
-export const PaginaHeader = ({ 
-  title,
-  subtitle,
-  action 
-}: PaginaHeaderProps) => {
+export const PaginaHeader = ({ title, subtitle, action }: PaginaHeaderProps) => {
   return (
     <div className="flex items-center justify-between">
       <div className="space-y-1">
@@ -20,4 +16,4 @@ export const PaginaHeader = ({
       {action}
     </div>
   );
-}; 
+};

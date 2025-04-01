@@ -13,7 +13,10 @@ interface DatasTabProps {
 export function DatasTab({ onNavigateBack, onNavigateForward }: DatasTabProps) {
   const { state, dispatch } = useProjetoForm();
 
-  const updateField = <K extends keyof ProjetoCreateInput>(field: K, value: ProjetoCreateInput[K]) => {
+  const updateField = <K extends keyof ProjetoCreateInput>(
+    field: K,
+    value: ProjetoCreateInput[K]
+  ) => {
     dispatch({ type: "UPDATE_PROJETO", data: { [field]: value } });
   };
 
@@ -28,18 +31,18 @@ export function DatasTab({ onNavigateBack, onNavigateForward }: DatasTabProps) {
   return (
     <div className="flex flex-col">
       <div className="flex-1">
-        <Card className="border-azul/10 shadow-sm bg-white/80 backdrop-blur-sm transition-all duration-300 hover:shadow-md rounded-xl overflow-hidden">
-          <CardContent className="p-6 space-y-8">
-            <div className="space-y-6 max-w-3xl">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-azul/10 rounded-xl p-5 shadow-sm bg-white/50 transition-all duration-300 hover:shadow hover:bg-white/70">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-azul/10 text-azul">
+        <Card className="overflow-hidden rounded-xl border-azul/10 bg-white/80 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md">
+          <CardContent className="space-y-8 p-6">
+            <div className="max-w-3xl space-y-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="rounded-xl border border-azul/10 bg-white/50 p-5 shadow-sm transition-all duration-300 hover:bg-white/70 hover:shadow">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-azul/10 text-azul">
                       <CalendarDays className="h-5 w-5" />
                     </div>
                     <h3 className="text-sm font-medium text-azul">Data de Início</h3>
                   </div>
-                  
+
                   <DateField
                     label=""
                     value={getDateValue(state.inicio)}
@@ -49,15 +52,15 @@ export function DatasTab({ onNavigateBack, onNavigateForward }: DatasTabProps) {
                     className="mt-2"
                   />
                 </div>
-                
-                <div className="border border-azul/10 rounded-xl p-5 shadow-sm bg-white/50 transition-all duration-300 hover:shadow hover:bg-white/70">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-azul/10 text-azul">
+
+                <div className="rounded-xl border border-azul/10 bg-white/50 p-5 shadow-sm transition-all duration-300 hover:bg-white/70 hover:shadow">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-azul/10 text-azul">
                       <CalendarClock className="h-5 w-5" />
                     </div>
                     <h3 className="text-sm font-medium text-azul">Data de Conclusão</h3>
                   </div>
-                  
+
                   <DateField
                     label=""
                     value={getDateValue(state.fim)}
@@ -71,7 +74,7 @@ export function DatasTab({ onNavigateBack, onNavigateForward }: DatasTabProps) {
             </div>
 
             <div className="pt-4">
-              <p className="text-xs text-azul/60 italic">
+              <p className="text-xs italic text-azul/60">
                 * Selecione as datas nos calendários acima
               </p>
             </div>
@@ -88,4 +91,4 @@ export function DatasTab({ onNavigateBack, onNavigateForward }: DatasTabProps) {
       />
     </div>
   );
-} 
+}

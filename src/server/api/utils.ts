@@ -22,14 +22,14 @@ export const calcularAlocacoesPassadas = (
 ) => {
   let custosAlocacoesPassadas = new Decimal(0);
   let etisAlocacoesPassadas = new Decimal(0);
-  
+
   // Iterar sobre alocações e somar as que já passaram
   for (const alocacao of alocacoes) {
     // Verificar se a alocação é um mês passado
     if (alocacao.ano < anoAtual || (alocacao.ano === anoAtual && alocacao.mes < mesAtual)) {
       // Somar ETIs
       etisAlocacoesPassadas = etisAlocacoesPassadas.plus(alocacao.ocupacao);
-      
+
       // Somar custos se o usuário tiver salário
       if (alocacao.user?.salario) {
         custosAlocacoesPassadas = custosAlocacoesPassadas.plus(
@@ -38,10 +38,10 @@ export const calcularAlocacoesPassadas = (
       }
     }
   }
-  
+
   return {
     custos: custosAlocacoesPassadas,
-    etis: etisAlocacoesPassadas
+    etis: etisAlocacoesPassadas,
   };
 };
 
@@ -59,14 +59,14 @@ export class AppError extends TRPCError {
  */
 export const handlePrismaError = (error: unknown): never => {
   // Log do erro para depuração
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     console.error("Erro detalhado:", error);
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     // Erros específicos do Prisma
     if (error.code === "P2002") {
-      const target = error.meta?.target as string[] || [];
+      const target = (error.meta?.target as string[]) || [];
       const field = target.length > 0 ? target[0] : "campo";
       throw new AppError("CONFLICT", `Já existe um registo com este valor único no campo ${field}`);
     }
@@ -77,7 +77,7 @@ export const handlePrismaError = (error: unknown): never => {
       throw new AppError("BAD_REQUEST", "Referência inválida para outro registo");
     }
   }
-  
+
   if (error instanceof TRPCError) {
     throw error;
   }
@@ -132,7 +132,7 @@ export const buildSearchCondition = <T extends Record<string, any>>(
   if (!search) return undefined;
 
   return {
-    OR: fields.map(field => ({
+    OR: fields.map((field) => ({
       [field as string]: {
         contains: search,
         mode: "insensitive",
@@ -145,23 +145,23 @@ export const buildSearchCondition = <T extends Record<string, any>>(
  * Função para converter datas em objetos para ISO strings
  */
 export const serializeObject = <T>(obj: T): T => {
-  if (!obj || typeof obj !== 'object') {
+  if (!obj || typeof obj !== "object") {
     return obj;
   }
-  
+
   const result = { ...obj } as any;
-  
+
   for (const key in result) {
     if (Object.prototype.hasOwnProperty.call(result, key)) {
       const value = result[key];
-      
+
       if (value instanceof Date) {
         result[key] = value.toISOString();
-      } else if (value !== null && typeof value === 'object') {
+      } else if (value !== null && typeof value === "object") {
         result[key] = serializeObject(value);
       }
     }
   }
-  
+
   return result as T;
 };

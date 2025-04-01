@@ -38,55 +38,62 @@ export function TabNavigation({
   isSubmitting = false,
   isSubmitDisabled = false,
   isNextDisabled = false,
-  className
+  className,
 }: TabNavigationProps) {
   return (
-    <div className={cn("flex justify-between items-center mt-8 pt-6 border-t border-azul/10", className)}>
+    <div
+      className={cn(
+        "mt-8 flex items-center justify-between border-t border-azul/10 pt-6",
+        className
+      )}
+    >
       {showBackButton && (
         <Button
           variant="outline"
           onClick={onBack}
-          className="shadow-sm border-azul/20 text-azul/80 hover:bg-azul/5 hover:text-azul transition-all duration-200 rounded-xl px-5 py-2 font-medium"
+          className="rounded-xl border-azul/20 px-5 py-2 font-medium text-azul/80 shadow-sm transition-all duration-200 hover:bg-azul/5 hover:text-azul"
         >
           {backIcon}
           {backLabel}
         </Button>
       )}
-      
       {!showBackButton && <div />} {/* Espaçador quando não há botão de voltar */}
-      
       {isLastStep ? (
         <Button
           onClick={onSubmit}
           disabled={isSubmitting || isSubmitDisabled}
-          className={`${!isSubmitDisabled 
-            ? 'bg-azul hover:bg-azul/90 shadow-md hover:shadow-lg'
-            : 'bg-gray-300 text-gray-500'} 
-            text-white rounded-xl px-6 py-2 font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:hover:scale-100`}
+          className={`${
+            !isSubmitDisabled
+              ? "bg-azul shadow-md hover:bg-azul/90 hover:shadow-lg"
+              : "bg-gray-300 text-gray-500"
+          } transform rounded-xl px-6 py-2 font-medium text-white transition-all duration-200 hover:scale-105 disabled:transform-none disabled:hover:scale-100`}
         >
           {submitIcon}
           {isSubmitting ? (
             <div className="flex items-center">
               <span className="mr-2">A processar</span>
-              <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
             </div>
           ) : (
             submitLabel
           )}
         </Button>
-      ) : showNextButton && (
-        <Button
-          onClick={onNext}
-          disabled={isNextDisabled}
-          className={`${!isNextDisabled 
-            ? 'bg-azul hover:bg-azul/90 shadow-md hover:shadow-lg' 
-            : 'bg-gray-300 text-gray-500'} 
-            text-white rounded-xl px-6 py-2 font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:hover:scale-100`}
-        >
-          {nextLabel}
-          {nextIcon}
-        </Button>
+      ) : (
+        showNextButton && (
+          <Button
+            onClick={onNext}
+            disabled={isNextDisabled}
+            className={`${
+              !isNextDisabled
+                ? "bg-azul shadow-md hover:bg-azul/90 hover:shadow-lg"
+                : "bg-gray-300 text-gray-500"
+            } transform rounded-xl px-6 py-2 font-medium text-white transition-all duration-200 hover:scale-105 disabled:transform-none disabled:hover:scale-100`}
+          >
+            {nextLabel}
+            {nextIcon}
+          </Button>
+        )
       )}
     </div>
   );
-} 
+}

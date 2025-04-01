@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageLayout } from "@/components/common/PageLayout";
-import { 
-  useProjetoForm, 
-  ProjetoFormProvider, 
+import {
+  useProjetoForm,
+  ProjetoFormProvider,
   // Import state types needed for handlers
   // type WorkpackageState,
   // type TarefaState,
@@ -27,12 +27,12 @@ import { generateUUID } from "@/server/api/utils/token";
 import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
 import StateMonitor from "@/components/projetos/StateMonitor";
 
-import { 
+import {
   InformacoesTab,
   FinancasTab,
   WorkpackagesTab,
   RecursosTab,
-  ResumoTab 
+  ResumoTab,
 } from "@/components/projetos/criar/novo";
 
 // Revert Interface para handlers de workpackage back to using 'any'
@@ -47,7 +47,12 @@ export interface WorkpackageHandlers {
   updateMaterial: (workpackageId: string, materialId: number, data: any) => void;
   removeMaterial: (workpackageId: string, materialId: number) => void;
   addEntregavel: (workpackageId: string, tarefaId: string, entregavel: any) => void;
-  updateEntregavel: (workpackageId: string, tarefaId: string, entregavelId: string, data: any) => void;
+  updateEntregavel: (
+    workpackageId: string,
+    tarefaId: string,
+    entregavelId: string,
+    data: any
+  ) => void;
   removeEntregavel: (workpackageId: string, tarefaId: string, entregavelId: string) => void;
   addRecurso: (workpackageId: string, recurso: any) => void;
   updateRecurso: (workpackageId: string, userId: string, data: any) => void;
@@ -58,10 +63,12 @@ function ProjetoFormContent() {
   const router = useRouter();
   const { state, dispatch } = useProjetoForm();
   const [faseAtual, setFaseAtual] = useState<FaseType>("informacoes");
-  const [fasesConcluidas, setFasesConcluidas] = useState<Record<FaseType, boolean>>({} as Record<FaseType, boolean>);
+  const [fasesConcluidas, setFasesConcluidas] = useState<Record<FaseType, boolean>>(
+    {} as Record<FaseType, boolean>
+  );
   const [mostrarCronograma, setMostrarCronograma] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  
+
   // Mutation para criar projeto
   const criarProjetoMutation = api.projeto.createCompleto.useMutation({
     onSuccess: (data) => {
@@ -78,35 +85,35 @@ function ProjetoFormContent() {
     },
     onSettled: () => {
       setSubmitLoading(false);
-    }
+    },
   });
 
   // Verificar se fase está concluída
   useEffect(() => {
-    setFasesConcluidas(prev => ({
+    setFasesConcluidas((prev) => ({
       ...prev,
       informacoes: Boolean(
-        state.nome?.trim() && 
-        state.inicio && 
-        state.fim && 
-        new Date(state.fim) > new Date(state.inicio)
+        state.nome?.trim() &&
+          state.inicio &&
+          state.fim &&
+          new Date(state.fim) > new Date(state.inicio)
       ),
       financas: Boolean(
-        state.overhead !== undefined && 
-        state.taxa_financiamento !== undefined && 
-        state.valor_eti !== undefined
+        state.overhead !== undefined &&
+          state.taxa_financiamento !== undefined &&
+          state.valor_eti !== undefined
       ),
       workpackages: Boolean(state.workpackages?.length),
-      recursos: Boolean(state.workpackages?.some(wp => wp.recursos?.length > 0)),
+      recursos: Boolean(state.workpackages?.some((wp) => wp.recursos?.length > 0)),
       resumo: Boolean(
-        state.nome?.trim() && 
-        state.inicio && 
-        state.fim && 
-        state.overhead !== undefined && 
-        state.taxa_financiamento !== undefined && 
-        state.valor_eti !== undefined &&
-        state.workpackages?.length
-      )
+        state.nome?.trim() &&
+          state.inicio &&
+          state.fim &&
+          state.overhead !== undefined &&
+          state.taxa_financiamento !== undefined &&
+          state.valor_eti !== undefined &&
+          state.workpackages?.length
+      ),
     }));
   }, [state]);
 
@@ -143,7 +150,8 @@ function ProjetoFormContent() {
   const workpackageHandlers: WorkpackageHandlers = {
     addWorkpackage: (workpackage) => {
       // Internal logic uses specific types
-      const newWorkpackage = { // Implicitly matches WorkpackageState structure
+      const newWorkpackage = {
+        // Implicitly matches WorkpackageState structure
         id: generateUUID(),
         nome: workpackage.nome,
         descricao: workpackage.descricao === undefined ? null : workpackage.descricao, // handle undefined from forms
@@ -152,28 +160,30 @@ function ProjetoFormContent() {
         estado: workpackage.estado || false,
         tarefas: [],
         materiais: [],
-        recursos: []
+        recursos: [],
       };
 
       dispatch({
         type: "ADD_WORKPACKAGE",
-        workpackage: newWorkpackage // Dispatching correctly typed data
+        workpackage: newWorkpackage, // Dispatching correctly typed data
       });
       toast.success("Workpackage adicionado com sucesso!");
     },
 
     updateWorkpackage: (id, data) => {
-       // Adjust data before dispatching
+      // Adjust data before dispatching
       const dataToUpdate = {
         ...data,
-        ...(data.descricao !== undefined && { descricao: data.descricao === undefined ? null : data.descricao }),
+        ...(data.descricao !== undefined && {
+          descricao: data.descricao === undefined ? null : data.descricao,
+        }),
         ...(data.inicio !== undefined && { inicio: data.inicio ? new Date(data.inicio) : null }),
         ...(data.fim !== undefined && { fim: data.fim ? new Date(data.fim) : null }),
       };
       dispatch({
         type: "UPDATE_WORKPACKAGE",
         id,
-        data: dataToUpdate // Dispatching correctly typed data
+        data: dataToUpdate, // Dispatching correctly typed data
       });
     },
 
@@ -183,14 +193,15 @@ function ProjetoFormContent() {
     },
 
     addTarefa: (workpackageId, tarefa) => {
-      const newTarefa = { // Implicitly matches TarefaState
+      const newTarefa = {
+        // Implicitly matches TarefaState
         id: generateUUID(),
         nome: tarefa.nome,
         descricao: tarefa.descricao === undefined ? null : tarefa.descricao,
         inicio: tarefa.inicio ? new Date(tarefa.inicio) : null,
         fim: tarefa.fim ? new Date(tarefa.fim) : null,
         estado: tarefa.estado || false,
-        entregaveis: []
+        entregaveis: [],
       };
       dispatch({ type: "ADD_TAREFA", workpackageId, tarefa: newTarefa });
     },
@@ -198,7 +209,9 @@ function ProjetoFormContent() {
     updateTarefa: (workpackageId, tarefaId, data) => {
       const dataToUpdate = {
         ...data,
-        ...(data.descricao !== undefined && { descricao: data.descricao === undefined ? null : data.descricao }),
+        ...(data.descricao !== undefined && {
+          descricao: data.descricao === undefined ? null : data.descricao,
+        }),
         ...(data.inicio !== undefined && { inicio: data.inicio ? new Date(data.inicio) : null }),
         ...(data.fim !== undefined && { fim: data.fim ? new Date(data.fim) : null }),
       };
@@ -211,15 +224,16 @@ function ProjetoFormContent() {
     },
 
     addMaterial: (workpackageId, material) => {
-      const newMaterial = { // Implicitly matches MaterialState
+      const newMaterial = {
+        // Implicitly matches MaterialState
         id: Date.now(),
         nome: material.nome,
-        preco: new Decimal(material.preco?.toString() || '0'), // handle potential undefined
+        preco: new Decimal(material.preco?.toString() || "0"), // handle potential undefined
         quantidade: Number(material.quantidade || 0), // handle potential undefined
         rubrica: material.rubrica || "MATERIAIS",
         ano_utilizacao: Number(material.ano_utilizacao || new Date().getFullYear()), // handle potential undefined
         descricao: material.descricao === undefined ? null : material.descricao,
-        estado: material.estado || false
+        estado: material.estado || false,
       };
       dispatch({ type: "ADD_MATERIAL", workpackageId, material: newMaterial });
     },
@@ -230,7 +244,9 @@ function ProjetoFormContent() {
         ...(data.preco !== undefined && { preco: new Decimal(data.preco.toString()) }),
         ...(data.quantidade !== undefined && { quantidade: Number(data.quantidade) }),
         ...(data.ano_utilizacao !== undefined && { ano_utilizacao: Number(data.ano_utilizacao) }),
-        ...(data.descricao !== undefined && { descricao: data.descricao === undefined ? null : data.descricao }),
+        ...(data.descricao !== undefined && {
+          descricao: data.descricao === undefined ? null : data.descricao,
+        }),
       };
       delete dataToUpdate.id; // Ensure id is not passed
       dispatch({ type: "UPDATE_MATERIAL", workpackageId, materialId, data: dataToUpdate });
@@ -242,59 +258,62 @@ function ProjetoFormContent() {
     },
 
     addEntregavel: (workpackageId, tarefaId, entregavel) => {
-      const newEntregavel = { // Implicitly matches EntregavelState
+      const newEntregavel = {
+        // Implicitly matches EntregavelState
         id: generateUUID(),
         nome: entregavel.nome,
         descricao: entregavel.descricao === undefined ? null : entregavel.descricao,
         data: entregavel.data ? new Date(entregavel.data) : null,
         estado: false,
-        anexo: null
+        anexo: null,
       };
-      const workpackage = state.workpackages.find(wp => wp.id === workpackageId);
-      const tarefa = workpackage?.tarefas.find(t => t.id === tarefaId);
+      const workpackage = state.workpackages.find((wp) => wp.id === workpackageId);
+      const tarefa = workpackage?.tarefas.find((t) => t.id === tarefaId);
       if (tarefa) {
         dispatch({
           type: "UPDATE_TAREFA",
           workpackageId,
           tarefaId,
-          data: { entregaveis: [...tarefa.entregaveis, newEntregavel] }
+          data: { entregaveis: [...tarefa.entregaveis, newEntregavel] },
         });
       }
     },
 
     updateEntregavel: (workpackageId, tarefaId, entregavelId, data) => {
-      const workpackage = state.workpackages.find(wp => wp.id === workpackageId);
-      const tarefa = workpackage?.tarefas.find(t => t.id === tarefaId);
+      const workpackage = state.workpackages.find((wp) => wp.id === workpackageId);
+      const tarefa = workpackage?.tarefas.find((t) => t.id === tarefaId);
       if (workpackage && tarefa) {
-         const dataToUpdate = {
-           ...data,
-           ...(data.descricao !== undefined && { descricao: data.descricao === undefined ? null : data.descricao }),
-           ...(data.data !== undefined && { data: data.data ? new Date(data.data) : null }),
-         };
-         delete dataToUpdate.id; // Ensure id is not passed
+        const dataToUpdate = {
+          ...data,
+          ...(data.descricao !== undefined && {
+            descricao: data.descricao === undefined ? null : data.descricao,
+          }),
+          ...(data.data !== undefined && { data: data.data ? new Date(data.data) : null }),
+        };
+        delete dataToUpdate.id; // Ensure id is not passed
 
         dispatch({
           type: "UPDATE_TAREFA",
           workpackageId,
           tarefaId,
           data: {
-            entregaveis: tarefa.entregaveis.map(e =>
+            entregaveis: tarefa.entregaveis.map((e) =>
               e.id === entregavelId ? { ...e, ...dataToUpdate } : e
-            )
-          }
+            ),
+          },
         });
       }
     },
 
     removeEntregavel: (workpackageId, tarefaId, entregavelId) => {
-      const workpackage = state.workpackages.find(wp => wp.id === workpackageId);
-      const tarefa = workpackage?.tarefas.find(t => t.id === tarefaId);
+      const workpackage = state.workpackages.find((wp) => wp.id === workpackageId);
+      const tarefa = workpackage?.tarefas.find((t) => t.id === tarefaId);
       if (workpackage && tarefa) {
         dispatch({
           type: "UPDATE_TAREFA",
           workpackageId,
           tarefaId,
-          data: { entregaveis: tarefa.entregaveis.filter(e => e.id !== entregavelId) }
+          data: { entregaveis: tarefa.entregaveis.filter((e) => e.id !== entregavelId) },
         });
         toast.success("Entregável removido com sucesso!");
       }
@@ -302,23 +321,25 @@ function ProjetoFormContent() {
 
     addRecurso: (workpackageId, recurso) => {
       // Assuming recurso object has userId, mes, ano, ocupacao
-      const newAlocacao = { // Implicitly matches RecursoState
+      const newAlocacao = {
+        // Implicitly matches RecursoState
         userId: recurso.userId,
         mes: Number(recurso.mes),
         ano: Number(recurso.ano),
-        ocupacao: new Decimal(recurso.ocupacao?.toString() || '0')
+        ocupacao: new Decimal(recurso.ocupacao?.toString() || "0"),
       };
       dispatch({ type: "ADD_ALOCACAO", workpackageId, alocacao: newAlocacao });
     },
 
     updateRecurso: (workpackageId, userId, data) => {
       // Data should only contain { ocupacao: number | string, mes?: number, ano?: number }
-      const workpackage = state.workpackages.find(wp => wp.id === workpackageId);
+      const workpackage = state.workpackages.find((wp) => wp.id === workpackageId);
       // Find the specific allocation instance using mes/ano if provided in data, otherwise find any for the user
-      const recursoInstance = workpackage?.recursos.find(r => 
-        r.userId === userId &&
-        (data.mes !== undefined ? r.mes === data.mes : true) &&
-        (data.ano !== undefined ? r.ano === data.ano : true)
+      const recursoInstance = workpackage?.recursos.find(
+        (r) =>
+          r.userId === userId &&
+          (data.mes !== undefined ? r.mes === data.mes : true) &&
+          (data.ano !== undefined ? r.ano === data.ano : true)
       );
 
       const ocupacaoDecimal = data.ocupacao ? new Decimal(data.ocupacao.toString()) : undefined;
@@ -330,11 +351,14 @@ function ProjetoFormContent() {
           userId,
           mes: recursoInstance.mes, // Use mes from the found instance
           ano: recursoInstance.ano, // Use ano from the found instance
-          data: { ocupacao: ocupacaoDecimal }
+          data: { ocupacao: ocupacaoDecimal },
         });
       } else {
         // Handle case where specific mes/ano allocation wasn't found or ocupacao is missing
-        console.warn("Could not update resource allocation - instance not found or ocupacao missing", { workpackageId, userId, data });
+        console.warn(
+          "Could not update resource allocation - instance not found or ocupacao missing",
+          { workpackageId, userId, data }
+        );
         // Optionally show a toast error
         // toast.error("Não foi possível atualizar a alocação do recurso.");
       }
@@ -344,14 +368,14 @@ function ProjetoFormContent() {
       // This removes *all* allocations for the user in this WP
       dispatch({ type: "REMOVE_RECURSO_COMPLETO", workpackageId, userId });
       toast.success("Recurso removido com sucesso!");
-    }
+    },
   };
 
   // Renderizar o conteúdo da fase atual
   const renderizarConteudoFase = () => {
     const commonProps = {
       onNavigateForward: irParaProximaFase,
-      onNavigateBack: irParaFaseAnterior
+      onNavigateBack: irParaFaseAnterior,
     };
 
     switch (faseAtual) {
@@ -361,7 +385,7 @@ function ProjetoFormContent() {
         return <FinancasTab {...commonProps} />;
       case "workpackages":
         return (
-          <WorkpackagesTab 
+          <WorkpackagesTab
             {...commonProps}
             workpackages={state.workpackages}
             handlers={workpackageHandlers}
@@ -371,8 +395,8 @@ function ProjetoFormContent() {
         return <RecursosTab {...commonProps} />;
       case "resumo":
         return (
-          <ResumoTab 
-            onNavigateBack={irParaFaseAnterior} 
+          <ResumoTab
+            onNavigateBack={irParaFaseAnterior}
             onSubmit={handleSubmit}
             isSubmitting={submitLoading}
           />
@@ -393,10 +417,10 @@ function ProjetoFormContent() {
       toast.error("Complete todas as fases antes de finalizar.");
       return;
     }
-    
+
     try {
       setSubmitLoading(true);
-      
+
       const projetoData = {
         nome: state.nome,
         descricao: state.descricao || undefined,
@@ -407,46 +431,46 @@ function ProjetoFormContent() {
         taxa_financiamento: Number(state.taxa_financiamento),
         valor_eti: Number(state.valor_eti),
         financiamentoId: state.financiamentoId ? Number(state.financiamentoId) : undefined,
-        
-        workpackages: state.workpackages.map(wp => ({
+
+        workpackages: state.workpackages.map((wp) => ({
           nome: wp.nome,
           descricao: wp.descricao || undefined,
-          inicio: wp.inicio instanceof Date ? wp.inicio : wp.inicio ? new Date(wp.inicio) : undefined,
+          inicio:
+            wp.inicio instanceof Date ? wp.inicio : wp.inicio ? new Date(wp.inicio) : undefined,
           fim: wp.fim instanceof Date ? wp.fim : wp.fim ? new Date(wp.fim) : undefined,
           estado: Boolean(wp.estado),
-          
-          tarefas: wp.tarefas.map(t => ({
+
+          tarefas: wp.tarefas.map((t) => ({
             nome: t.nome,
             descricao: t.descricao || undefined,
             inicio: t.inicio instanceof Date ? t.inicio : t.inicio ? new Date(t.inicio) : undefined,
             fim: t.fim instanceof Date ? t.fim : t.fim ? new Date(t.fim) : undefined,
             estado: Boolean(t.estado),
-            entregaveis: t.entregaveis.map(e => ({
+            entregaveis: t.entregaveis.map((e) => ({
               nome: e.nome,
               descricao: e.descricao || undefined,
-              data: e.data instanceof Date ? e.data : e.data ? new Date(e.data) : undefined
-            }))
+              data: e.data instanceof Date ? e.data : e.data ? new Date(e.data) : undefined,
+            })),
           })),
-          
-          materiais: wp.materiais.map(m => ({
+
+          materiais: wp.materiais.map((m) => ({
             nome: m.nome,
             preco: Number(m.preco),
             quantidade: Number(m.quantidade),
             rubrica: m.rubrica || Rubrica.MATERIAIS,
-            ano_utilizacao: Number(m.ano_utilizacao)
+            ano_utilizacao: Number(m.ano_utilizacao),
           })),
 
-          recursos: wp.recursos.map(r => ({
+          recursos: wp.recursos.map((r) => ({
             userId: r.userId,
             mes: r.mes,
             ano: r.ano,
-            ocupacao: Number(r.ocupacao instanceof Decimal ? r.ocupacao.toNumber() : r.ocupacao)
-          }))
-        }))
+            ocupacao: Number(r.ocupacao instanceof Decimal ? r.ocupacao.toNumber() : r.ocupacao),
+          })),
+        })),
       };
-      
+
       criarProjetoMutation.mutate(projetoData);
-      
     } catch (error) {
       console.error("Erro ao criar projeto:", error);
       toast.error("Ocorreu um erro ao criar o projeto. Tente novamente.");
@@ -459,17 +483,13 @@ function ProjetoFormContent() {
   const percentualProgresso = (progressoAtual / progressoTotal) * 100;
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 justify-between">
-      <div className="space-y-4 flex-1">
-        <div className="flex relative">
-          <div 
-            className={`
-              flex-1 space-y-6 
-              transition-all duration-100 ease-in-out
-              ${mostrarCronograma ? "w-3/5" : "w-full"}
-            `}
+    <div className="flex flex-col justify-between gap-6 md:flex-row">
+      <div className="flex-1 space-y-4">
+        <div className="relative flex">
+          <div
+            className={`flex-1 space-y-6 transition-all duration-100 ease-in-out ${mostrarCronograma ? "w-3/5" : "w-full"} `}
           >
-            <div className="glass-card border-white/20 shadow-md transition-all duration-500 ease-in-out hover:shadow-lg rounded-2xl">
+            <div className="glass-card rounded-2xl border-white/20 shadow-md transition-all duration-500 ease-in-out hover:shadow-lg">
               <ProjetoProgressContainer
                 fasesOrdem={fasesOrdem}
                 faseAtual={faseAtual}
@@ -483,23 +503,17 @@ function ProjetoFormContent() {
               />
             </div>
 
-            <div className="glass-card border-white/20 shadow-md transition-all duration-500 ease-in-out hover:shadow-lg rounded-2xl">
-              <ProjetoFormPanel
-                _faseAtual={faseAtual}
-              >
-                {renderizarConteudoFase()}
-              </ProjetoFormPanel>
+            <div className="glass-card rounded-2xl border-white/20 shadow-md transition-all duration-500 ease-in-out hover:shadow-lg">
+              <ProjetoFormPanel _faseAtual={faseAtual}>{renderizarConteudoFase()}</ProjetoFormPanel>
             </div>
           </div>
 
-          <div 
-            className={`
-              transition-all duration-500 ease-in-out
-              transform
-              ${mostrarCronograma 
-                ? "opacity-100 translate-x-0 w-2/5 pl-8" 
-                : "opacity-0 translate-x-full w-0 overflow-hidden max-w-[50vw] p-0"}
-            `}
+          <div
+            className={`transform transition-all duration-500 ease-in-out ${
+              mostrarCronograma
+                ? "w-2/5 translate-x-0 pl-8 opacity-100"
+                : "w-0 max-w-[50vw] translate-x-full overflow-hidden p-0 opacity-0"
+            } `}
           >
             <ProjetoCronograma
               state={state}
@@ -509,8 +523,8 @@ function ProjetoFormContent() {
                 }
               }}
               _handleUpdateTarefa={(tarefa: any) => {
-                const workpackage = state.workpackages.find(wp => 
-                  wp.tarefas.some(t => t.id === tarefa.id)
+                const workpackage = state.workpackages.find((wp) =>
+                  wp.tarefas.some((t) => t.id === tarefa.id)
                 );
                 if (workpackage && tarefa.id) {
                   workpackageHandlers.updateTarefa(workpackage.id, tarefa.id, tarefa);
@@ -528,19 +542,19 @@ export default function CriarProjetoPage() {
   return (
     <PageLayout>
       <ProjetoFormProvider>
-        <div className="h-full flex flex-col">
-          <div className="flex flex-col md:flex-row gap-6 justify-between items-center mb-8">
+        <div className="flex h-full flex-col">
+          <div className="mb-8 flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <ProjetoHeader />
               </div>
             </div>
-             
-            <div className="flex-shrink-0 mt-4 md:mt-0 space-x-2">
+
+            <div className="mt-4 flex-shrink-0 space-x-2 md:mt-0">
               <ImportarProjetoButton />
             </div>
           </div>
-          
+
           <ProjetoFormContent />
           <StateMonitor />
         </div>

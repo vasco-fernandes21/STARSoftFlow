@@ -39,15 +39,18 @@ export function EntregavelItem({
   onToggleEstado,
   showTarefaInfo = false,
   hideState = false,
-  tarefaDates
+  tarefaDates,
 }: EntregavelItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  
+
   const handleToggleEstado = () => {
     onToggleEstado(!entregavel.estado);
   };
 
-  const handleEdit = async (_tarefaId: string, data: Omit<Prisma.EntregavelCreateInput, "tarefa">) => {
+  const handleEdit = async (
+    _tarefaId: string,
+    data: Omit<Prisma.EntregavelCreateInput, "tarefa">
+  ) => {
     try {
       await onEdit(data);
       setIsEditing(false);
@@ -60,10 +63,10 @@ export function EntregavelItem({
 
   const formatarData = (data: Date | null | string) => {
     if (!data) return "Sem data";
-    
+
     try {
       const dataObj = data instanceof Date ? data : new Date(data);
-      return format(dataObj, 'dd/MM/yyyy');
+      return format(dataObj, "dd/MM/yyyy");
     } catch (error) {
       console.error("Erro ao formatar data:", error);
       return "Data inválida";
@@ -85,56 +88,57 @@ export function EntregavelItem({
   }
 
   return (
-    <div className="bg-white border rounded-md shadow-sm">
-      <div className="p-2 flex justify-between items-center">
+    <div className="rounded-md border bg-white shadow-sm">
+      <div className="flex items-center justify-between p-2">
         <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-md bg-azul/10 flex items-center justify-center">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-azul/10">
             <FileText className="h-3 w-3 text-azul" />
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">{entregavel.nome}</h5>
             <div className="flex items-center gap-1">
               {!hideState && (
-                <Badge variant={entregavel.estado ? "default" : "outline"} className={`px-1 py-0 text-[10px] h-4 ${entregavel.estado ? "bg-green-500 text-white" : ""}`}>
+                <Badge
+                  variant={entregavel.estado ? "default" : "outline"}
+                  className={`h-4 px-1 py-0 text-[10px] ${entregavel.estado ? "bg-green-500 text-white" : ""}`}
+                >
                   {entregavel.estado ? "Entregue" : "Pendente"}
                 </Badge>
               )}
-              <span className="text-xs text-gray-500">
-                {formatarData(entregavel.data)}
-              </span>
-              
+              <span className="text-xs text-gray-500">{formatarData(entregavel.data)}</span>
+
               {showTarefaInfo && entregavel.tarefaNome && (
-                <Badge variant="secondary" className="px-1 py-0 text-[10px] h-4">
+                <Badge variant="secondary" className="h-4 px-1 py-0 text-[10px]">
                   Tarefa: {entregavel.tarefaNome}
                 </Badge>
               )}
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {!hideState && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleToggleEstado}
-              className={`h-6 px-2 rounded-md ${entregavel.estado ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+              className={`h-6 rounded-md px-2 ${entregavel.estado ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-gray-50 text-gray-500 hover:bg-gray-100"}`}
             >
               {entregavel.estado ? (
-                <Check className="h-3 w-3 mr-1" />
+                <Check className="mr-1 h-3 w-3" />
               ) : (
-                <Circle className="h-3 w-3 mr-1" />
+                <Circle className="mr-1 h-3 w-3" />
               )}
               {entregavel.estado ? "Concluído" : "Pendente"}
             </Button>
           )}
-          
+
           <div className="flex gap-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsEditing(true)}
-              className="h-6 w-6 p-0 rounded-md hover:bg-azul/10 text-azul"
+              className="h-6 w-6 rounded-md p-0 text-azul hover:bg-azul/10"
             >
               <Edit className="h-3 w-3" />
             </Button>
@@ -143,7 +147,7 @@ export function EntregavelItem({
               variant="ghost"
               size="sm"
               onClick={onRemove}
-              className="h-6 w-6 p-0 rounded-md hover:bg-red-50 text-red-500"
+              className="h-6 w-6 rounded-md p-0 text-red-500 hover:bg-red-50"
             >
               <Trash2 className="h-3 w-3" />
             </Button>

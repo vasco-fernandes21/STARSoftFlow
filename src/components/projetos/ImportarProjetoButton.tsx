@@ -2,25 +2,18 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { 
-  ExternalLink, 
-  FileSpreadsheet, 
-  Upload,
-} from "lucide-react";
+import { ExternalLink, FileSpreadsheet, Upload } from "lucide-react";
 import { useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
 import * as XLSX from "xlsx";
 import { Decimal } from "decimal.js";
-import type {
-  Rubrica,
-  Material as PrismaMaterial,
-} from "@prisma/client";
+import type { Rubrica, Material as PrismaMaterial } from "@prisma/client";
 import { toast } from "sonner";
 import { generateUUID } from "@/server/api/utils/token";
 import { api } from "@/trpc/react";
@@ -70,7 +63,7 @@ type FinanciamentoAPI = {
 function mapearRubrica(rubricaExcel: string): Rubrica {
   const mapeamento: Record<string, Rubrica> = {
     Materiais: "MATERIAIS",
-    "Serviços Terceiros": "SERVICOS_TERCEIROS", 
+    "Serviços Terceiros": "SERVICOS_TERCEIROS",
     "Outros Serviços": "OUTROS_SERVICOS",
     "Deslocações e Estadas": "DESLOCACAO_ESTADIAS",
     "Outros Custos": "OUTROS_CUSTOS",
@@ -112,9 +105,7 @@ function extrairDadosProjeto(dados: any[][]) {
   return { nomeProjeto };
 }
 
-function extrairDadosFinanciamento(
-  dadosBudget: any[][]
-): {
+function extrairDadosFinanciamento(dadosBudget: any[][]): {
   tipoFinanciamento: string;
   taxaFinanciamento: number | null;
   overhead: number | null;
@@ -129,15 +120,9 @@ function extrairDadosFinanciamento(
     if (linha && linha.length >= 8) {
       if (linha[6] === "Tipo de projeto " && linha[7]) {
         tipoFinanciamento = linha[7];
-      } else if (
-        linha[6] === "Taxa de financiamento" &&
-        typeof linha[7] === "number"
-      ) {
+      } else if (linha[6] === "Taxa de financiamento" && typeof linha[7] === "number") {
         taxaFinanciamento = linha[7] * 100; // Converter para percentagem
-      } else if (
-        linha[6] === "Custos indiretos" &&
-        typeof linha[7] === "number"
-      ) {
+      } else if (linha[6] === "Custos indiretos" && typeof linha[7] === "number") {
         overhead = linha[7] * 100; // Converter para percentagem
       }
     }
@@ -151,12 +136,7 @@ function extrairValorEti(dadosRH: any[][]): number | null {
     const row = dadosRH[i];
     if (!row || row.length < 6) continue;
 
-    if (
-      row[4] &&
-      typeof row[4] === "string" &&
-      row[5] &&
-      typeof row[5] === "number"
-    ) {
+    if (row[4] && typeof row[4] === "string" && row[5] && typeof row[5] === "number") {
       return row[5]; // O valor ETI está na coluna 6 (índice 5)
     }
   }
@@ -165,20 +145,20 @@ function extrairValorEti(dadosRH: any[][]): number | null {
 
 function extrairMateriais(data: any[][]): MaterialImportacao[] {
   const materiais: MaterialImportacao[] = [];
-  
+
   for (let i = 6; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length === 0 || !row[0]) continue;
-    
+
     const despesa = row[0];
     const atividade = row[1];
     const ano = row[3];
     const rubrica = row[4];
     const custoUnitario = row[5];
     const unidades = row[6];
-    
+
     if (!despesa || !atividade || !custoUnitario || !unidades) continue;
-    
+
     if (typeof custoUnitario === "number" && typeof unidades === "number") {
       materiais.push({
         nome: despesa,
@@ -188,44 +168,43 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
         rubrica: mapearRubrica(rubrica),
         workpackageNome: atividade,
         descricao: null,
-        estado: false
+        estado: false,
       });
-      
-      console.log(`📝 Material encontrado: ${despesa} (${atividade}) - ${custoUnitario}€ x ${unidades} = ${custoUnitario * unidades}€`);
+
+      console.log(
+        `📝 Material encontrado: ${despesa} (${atividade}) - ${custoUnitario}€ x ${unidades} = ${custoUnitario * unidades}€`
+      );
     }
   }
-  
+
   console.log(`📝 Total de materiais encontrados: ${materiais.length}`);
-  
+
   return materiais;
 }
 
 function extrairUtilizadores(apiResponse: any): any[] {
   if (!apiResponse) return [];
-  
-  if (
-    apiResponse.result?.data?.json?.items &&
-    Array.isArray(apiResponse.result.data.json.items)
-  ) {
+
+  if (apiResponse.result?.data?.json?.items && Array.isArray(apiResponse.result.data.json.items)) {
     return apiResponse.result.data.json.items;
   }
-  
+
   if (apiResponse.items && Array.isArray(apiResponse.items)) {
     return apiResponse.items;
   }
-  
+
   if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
     return apiResponse.json.items;
   }
-  
+
   if (apiResponse.json && Array.isArray(apiResponse.json)) {
     return apiResponse.json;
   }
-  
+
   if (Array.isArray(apiResponse)) {
     return apiResponse;
   }
-  
+
   return [];
 }
 
@@ -247,7 +226,7 @@ function extrairDadosRH(
   let dataFimProjeto: Date | null = null;
 
   const colunasDatas: { coluna: number; mes: number; ano: number }[] = [];
-  
+
   // Extrair datas das colunas
   for (let i = 6; i < linhaMeses.length; i++) {
     if (
@@ -257,39 +236,28 @@ function extrairDadosRH(
       typeof linhaMeses[i] === "number"
     ) {
       const { mes, ano } = excelDateToJS(linhaMeses[i]);
-      
+
       if (ano === linhaAnos[i]) {
         colunasDatas.push({ coluna: i, mes, ano });
 
-        if (
-          !dataInicioProjeto ||
-          new Date(ano, mes - 1, 1) < dataInicioProjeto
-        ) {
+        if (!dataInicioProjeto || new Date(ano, mes - 1, 1) < dataInicioProjeto) {
           dataInicioProjeto = new Date(ano, mes - 1, 1);
         }
-        
-        if (
-          !dataFimProjeto ||
-          new Date(ano, mes, 0) > dataFimProjeto
-        ) {
+
+        if (!dataFimProjeto || new Date(ano, mes, 0) > dataFimProjeto) {
           dataFimProjeto = new Date(ano, mes, 0);
         }
       }
     }
   }
-  
+
   // Processar linhas para encontrar workpackages e recursos
   for (let i = 6; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length === 0) continue;
 
     // Verificar se é um workpackage
-    if (
-      row[1] &&
-      typeof row[1] === "string" &&
-      row[1].match(/^A\d+$/) &&
-      row[2]
-    ) {
+    if (row[1] && typeof row[1] === "string" && row[1].match(/^A\d+$/) && row[2]) {
       wpAtual = {
         codigo: row[1],
         nome: row[2],
@@ -299,16 +267,16 @@ function extrairDadosRH(
         dataFim: null,
       };
       wps.push(wpAtual);
-      
+
       // Log de workpackage encontrado
       console.log(`📦 WP: ${wpAtual.codigo} - ${wpAtual.nome}`);
     }
     // Também verifica workpackages implícitos (A1 sem código na coluna)
     else if (
-      !row[1] && 
-      row[2] && 
-      typeof row[2] === "string" && 
-      row[2].startsWith("A1 -") && 
+      !row[1] &&
+      row[2] &&
+      typeof row[2] === "string" &&
+      row[2].startsWith("A1 -") &&
       !wpAtual
     ) {
       wpAtual = {
@@ -321,19 +289,19 @@ function extrairDadosRH(
       };
       wps.push(wpAtual);
       console.log(`📦 WP (implícito): A1 - ${row[2]}`);
-    } 
+    }
     // Verificar se é um recurso/utilizador
     else if (wpAtual && row[3] && typeof row[3] === "string" && !row[1]) {
       const nomeRecurso = row[3];
-      
+
       // Encontrar utilizador correspondente
       const utilizador = utilizadores.find(
         (u) =>
-        u.name?.toLowerCase() === nomeRecurso.toLowerCase() ||
-        u.name?.toLowerCase().includes(nomeRecurso.toLowerCase()) ||
-        nomeRecurso.toLowerCase().includes(u.name?.toLowerCase())
+          u.name?.toLowerCase() === nomeRecurso.toLowerCase() ||
+          u.name?.toLowerCase().includes(nomeRecurso.toLowerCase()) ||
+          nomeRecurso.toLowerCase().includes(u.name?.toLowerCase())
       );
-      
+
       const recurso: Recurso = {
         nome: nomeRecurso,
         userId: utilizador?.id || null,
@@ -343,26 +311,20 @@ function extrairDadosRH(
       // Datas específicas para este recurso
       let dataInicioRecurso: Date | null = null;
       let dataFimRecurso: Date | null = null;
-      
+
       // Extrair alocações do recurso
       for (const colData of colunasDatas) {
         const valor = row[colData.coluna];
-        
-        if (
-          valor &&
-          typeof valor === "number" &&
-          !isNaN(valor) &&
-          valor > 0 &&
-          valor <= 1
-        ) {
+
+        if (valor && typeof valor === "number" && !isNaN(valor) && valor > 0 && valor <= 1) {
           // Armazenar a primeira data do recurso
           if (!dataInicioRecurso) {
             dataInicioRecurso = new Date(colData.ano, colData.mes - 1, 1);
           }
-          
+
           // Atualizar a última data
           dataFimRecurso = new Date(colData.ano, colData.mes, 0);
-          
+
           recurso.alocacoes.push({
             mes: colData.mes,
             ano: colData.ano,
@@ -373,46 +335,48 @@ function extrairDadosRH(
 
       if (recurso.alocacoes.length > 0) {
         wpAtual.recursos.push(recurso);
-        
+
         // Atualizar as datas do workpackage com as datas do recurso
         if (!wpAtual.dataInicio || (dataInicioRecurso && dataInicioRecurso < wpAtual.dataInicio)) {
           wpAtual.dataInicio = dataInicioRecurso;
         }
-        
+
         if (!wpAtual.dataFim || (dataFimRecurso && dataFimRecurso > wpAtual.dataFim)) {
           wpAtual.dataFim = dataFimRecurso;
         }
-        
+
         // Atualizar também as datas PLAN_START e PLAN_DURATION se disponíveis
         if (typeof row[4] === "number" && typeof row[5] === "number" && dataInicioProjeto) {
           const planStart = row[4];
           const planDuration = row[5];
-          
+
           if (planStart > 0 && planDuration > 0) {
             const dataInicio = new Date(dataInicioProjeto);
             dataInicio.setMonth(dataInicioProjeto.getMonth() + (planStart - 1));
-            
+
             const dataFim = new Date(dataInicio);
             dataFim.setMonth(dataInicio.getMonth() + (planDuration - 1));
-            dataFim.setDate(
-              new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate()
-            );
-            
+            dataFim.setDate(new Date(dataFim.getFullYear(), dataFim.getMonth() + 1, 0).getDate());
+
             // Atualizar workpackage com estas datas se forem mais precisas
             wpAtual.dataInicio = dataInicio;
             wpAtual.dataFim = dataFim;
-            
-            console.log(`   📅 Período calculado: ${dataInicio.toLocaleDateString()} até ${dataFim.toLocaleDateString()}`);
+
+            console.log(
+              `   📅 Período calculado: ${dataInicio.toLocaleDateString()} até ${dataFim.toLocaleDateString()}`
+            );
           }
         }
-        
+
         // Log do utilizador
-        console.log(`   👤 ${nomeRecurso}${utilizador ? ` (ID: ${utilizador.id})` : ' (não encontrado)'} - ${recurso.alocacoes.length} alocações:`);
-        
+        console.log(
+          `   👤 ${nomeRecurso}${utilizador ? ` (ID: ${utilizador.id})` : " (não encontrado)"} - ${recurso.alocacoes.length} alocações:`
+        );
+
         // Log de todas as alocações em ordem cronológica
         recurso.alocacoes
-          .sort((a, b) => a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes)
-          .forEach(a => {
+          .sort((a, b) => (a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes))
+          .forEach((a) => {
             console.log(`      📊 ${a.mes}/${a.ano}: ${a.percentagem.toFixed(1)}%`);
           });
       }
@@ -429,26 +393,26 @@ function atribuirMateriaisAosWorkpackages(
   const wpMap = new Map<string, WorkpackageSimples>();
   workpackages.forEach((wp) => {
     wpMap.set(wp.nome, wp);
-    
+
     const wpCodigo = wp.nome.split(" - ")[0]?.trim();
     if (wpCodigo) {
       wpMap.set(wpCodigo, wp);
     }
   });
-  
+
   let materiaisAtribuidos = 0;
   let materiaisPadrão = 0;
-  
+
   materiais.forEach((material) => {
     let wpMatch = wpMap.get(material.workpackageNome);
-    
+
     if (!wpMatch) {
       const codigoMatch = material.workpackageNome.match(/^A\d+/);
       if (codigoMatch) {
         wpMatch = workpackages.find((wp) => wp.codigo === codigoMatch[0]);
       }
     }
-    
+
     if (wpMatch) {
       wpMatch.materiais.push(material);
       materiaisAtribuidos++;
@@ -456,12 +420,16 @@ function atribuirMateriaisAosWorkpackages(
     } else if (workpackages.length > 0 && workpackages[0]) {
       workpackages[0].materiais.push(material);
       materiaisPadrão++;
-      console.log(`⚠️ Material sem correspondência: "${material.nome}" atribuído ao primeiro workpackage`);
+      console.log(
+        `⚠️ Material sem correspondência: "${material.nome}" atribuído ao primeiro workpackage`
+      );
     }
   });
-  
-  console.log(`📊 Materiais atribuídos: ${materiaisAtribuidos} diretamente, ${materiaisPadrão} ao workpackage padrão`);
-  
+
+  console.log(
+    `📊 Materiais atribuídos: ${materiaisAtribuidos} diretamente, ${materiaisPadrão} ao workpackage padrão`
+  );
+
   return workpackages;
 }
 
@@ -482,30 +450,28 @@ export default function ImportarProjetoButton() {
   // Adicionar o hook aqui dentro do componente
   const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
 
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
-    
+
     try {
       // Carregar utilizadores
       const response = await fetch("/api/trpc/utilizador.findAll");
       const responseData = await response.json();
       const utilizadores = extrairUtilizadores(responseData);
-      
+
       console.log(`👥 Utilizadores carregados: ${utilizadores.length}`);
-      
+
       const reader = new FileReader();
-      
+
       reader.onload = async (e) => {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
           const sheetsData = converterExcelParaJson(workbook);
-          
+
           let wps: WorkpackageSimples[] = [];
           let materiais: MaterialImportacao[] = [];
           let dataInicioProjeto: Date | null = null;
@@ -523,8 +489,7 @@ export default function ImportarProjetoButton() {
           }
 
           if (sheetsData["BUDGET"]) {
-            const dadosFinanciamento =
-              extrairDadosFinanciamento(sheetsData["BUDGET"]);
+            const dadosFinanciamento = extrairDadosFinanciamento(sheetsData["BUDGET"]);
             tipoFinanciamento = dadosFinanciamento.tipoFinanciamento;
             taxaFinanciamento = dadosFinanciamento.taxaFinanciamento;
             overhead = dadosFinanciamento.overhead;
@@ -536,26 +501,23 @@ export default function ImportarProjetoButton() {
               valorEti = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
             }
 
-            const resultado = extrairDadosRH(
-              sheetsData["RH_Budget_SUBM"],
-              utilizadores
-            );
+            const resultado = extrairDadosRH(sheetsData["RH_Budget_SUBM"], utilizadores);
             wps = resultado.workpackages;
             dataInicioProjeto = resultado.dataInicioProjeto;
             dataFimProjeto = resultado.dataFimProjeto;
           }
-          
+
           if (sheetsData["Outros_Budget"]) {
             materiais = extrairMateriais(sheetsData["Outros_Budget"]);
           }
-          
+
           if (wps.length > 0 && materiais.length > 0) {
             wps = atribuirMateriaisAosWorkpackages(wps, materiais);
           }
 
           // Resetar o estado para iniciar com dados limpos
           dispatch({ type: "RESET" });
-          
+
           // Atualizar os dados do projeto de uma só vez
           dispatch({
             type: "UPDATE_PROJETO",
@@ -574,7 +536,7 @@ export default function ImportarProjetoButton() {
           // Adicionar workpackages, recursos e materiais
           wps.forEach((wp) => {
             const wpId = generateUUID();
-            
+
             dispatch({
               type: "ADD_WORKPACKAGE",
               workpackage: {
@@ -587,18 +549,19 @@ export default function ImportarProjetoButton() {
                 tarefas: [],
                 materiais: [],
                 recursos: [],
-            
               },
             });
-            
+
             // Adicionar recursos e alocações
-            console.log(`📊 Processando recursos para: ${wp.nome} (${wp.recursos.length} recursos)`);
-            
+            console.log(
+              `📊 Processando recursos para: ${wp.nome} (${wp.recursos.length} recursos)`
+            );
+
             wp.recursos.forEach((recurso) => {
               if (!recurso.userId) return;
-              
+
               // Adicionar todas as alocações do recurso
-              recurso.alocacoes.forEach(alocacao => {
+              recurso.alocacoes.forEach((alocacao) => {
                 dispatch({
                   type: "ADD_ALOCACAO",
                   workpackageId: wpId,
@@ -611,10 +574,12 @@ export default function ImportarProjetoButton() {
                 });
               });
             });
-            
+
             // Adicionar materiais
-            console.log(`📝 Processando materiais para: ${wp.nome} (${wp.materiais.length} materiais)`);
-            
+            console.log(
+              `📝 Processando materiais para: ${wp.nome} (${wp.materiais.length} materiais)`
+            );
+
             wp.materiais.forEach((material) => {
               dispatch({
                 type: "ADD_MATERIAL",
@@ -627,12 +592,12 @@ export default function ImportarProjetoButton() {
                   ano_utilizacao: material.ano_utilizacao,
                   rubrica: material.rubrica,
                   descricao: null,
-                  estado: false
+                  estado: false,
                 },
               });
             });
           });
-          
+
           // Verificar o financiamento
           if (tipoFinanciamento) {
             try {
@@ -644,50 +609,53 @@ export default function ImportarProjetoButton() {
                 taxa_financiamento: Decimal | string;
                 valor_eti: Decimal | string;
               }>;
-              
-              const financiamentos: FinanciamentoAPI[] = rawFinanciamentos.map(f => ({
+
+              const financiamentos: FinanciamentoAPI[] = rawFinanciamentos.map((f) => ({
                 id: f.id,
                 nome: f.nome,
                 overhead: String(f.overhead),
                 taxa_financiamento: String(f.taxa_financiamento),
-                valor_eti: String(f.valor_eti)
+                valor_eti: String(f.valor_eti),
               }));
-              
+
               const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
-              
+
               const financiamentoExistente = financiamentos.find(
                 (f) => f.nome.trim().toLowerCase() === tipoNormalizado
               );
-              
+
               if (financiamentoExistente) {
                 console.log(`💰 Financiamento encontrado: ${financiamentoExistente.nome}`);
-                
+
                 dispatch({
                   type: "UPDATE_PROJETO",
                   data: {
                     financiamentoId: financiamentoExistente.id,
                   },
                 });
-                
+
                 toast.success(`Financiamento "${financiamentoExistente.nome}" aplicado`);
               } else if (tipoFinanciamento) {
                 console.log(`💰 Novo financiamento necessário: ${tipoFinanciamento}`);
-                
+
                 setDadosFinanciamento({
                   nome: tipoFinanciamento,
                   overhead,
                   taxa_financiamento: taxaFinanciamento,
-                  valor_eti: valorEti
+                  valor_eti: valorEti,
                 });
-                
+
                 setModalFinanciamentosAberto(true);
-                
-                toast.info(`Não existe financiamento do tipo "${tipoFinanciamento}". Por favor, crie um novo.`, {
-                  action: {
-                    label: "Fechar",
-                    onClick: () => toast.dismiss()
+
+                toast.info(
+                  `Não existe financiamento do tipo "${tipoFinanciamento}". Por favor, crie um novo.`,
+                  {
+                    action: {
+                      label: "Fechar",
+                      onClick: () => toast.dismiss(),
+                    },
                   }
-                });
+                );
               }
             } catch (error) {
               console.error("Erro ao verificar financiamentos existentes:", error);
@@ -696,8 +664,12 @@ export default function ImportarProjetoButton() {
           }
 
           // Registar informações gerais
-          console.log(`📋 Projeto: "${nomeProjeto}" - Período: ${dataInicioProjeto?.toLocaleDateString()} até ${dataFimProjeto?.toLocaleDateString()}`);
-          console.log(`📋 Financiamento: ${tipoFinanciamento || "Não definido"} (ETI: ${valorEti || 0}€, Overhead: ${overhead || 0}%, Taxa: ${taxaFinanciamento || 0}%)`);
+          console.log(
+            `📋 Projeto: "${nomeProjeto}" - Período: ${dataInicioProjeto?.toLocaleDateString()} até ${dataFimProjeto?.toLocaleDateString()}`
+          );
+          console.log(
+            `📋 Financiamento: ${tipoFinanciamento || "Não definido"} (ETI: ${valorEti || 0}€, Overhead: ${overhead || 0}%, Taxa: ${taxaFinanciamento || 0}%)`
+          );
           console.log(`📋 Total: ${wps.length} workpackages, ${materiais.length} materiais`);
 
           setOpen(false);
@@ -732,10 +704,10 @@ export default function ImportarProjetoButton() {
         valor_eti: new Decimal(financiamento.valor_eti),
       },
     });
-    
+
     setDadosFinanciamento(null);
     setModalFinanciamentosAberto(false);
-    
+
     toast.success("Financiamento criado e aplicado ao projeto");
   };
 
@@ -743,24 +715,20 @@ export default function ImportarProjetoButton() {
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button 
-            className="bg-azul hover:bg-azul/90 text-white font-medium"
-          >
-            <Upload className="h-4 w-4 mr-2" />
+          <Button className="bg-azul font-medium text-white hover:bg-azul/90">
+            <Upload className="mr-2 h-4 w-4" />
             Importar Excel
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center">
-              Importar Projeto a partir de Excel
-            </DialogTitle>
+            <DialogTitle className="text-center">Importar Projeto a partir de Excel</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
-            <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-azul/30 rounded-lg">
-              <FileSpreadsheet className="h-12 w-12 text-azul/70 mb-3" />
-              
+            <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-azul/30 p-6">
+              <FileSpreadsheet className="mb-3 h-12 w-12 text-azul/70" />
+
               <input
                 type="file"
                 accept=".xlsx, .xls"
@@ -768,16 +736,16 @@ export default function ImportarProjetoButton() {
                 className="hidden"
                 ref={fileInputRef}
               />
-              
-              <Button 
-                className="bg-azul hover:bg-azul/90 mt-2"
+
+              <Button
+                className="mt-2 bg-azul hover:bg-azul/90"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <span className="flex items-center">
                     <svg
-                      className="animate-spin -ml-1 mr-3 h-4 w-4 text-white"
+                      className="-ml-1 mr-3 h-4 w-4 animate-spin text-white"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -800,19 +768,19 @@ export default function ImportarProjetoButton() {
                   </span>
                 ) : (
                   <span className="flex items-center">
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="mr-2 h-4 w-4" />
                     Selecionar Ficheiro Excel
                   </span>
                 )}
               </Button>
-              <p className="mt-2 text-sm text-azul/60 text-center">
-                Selecione um ficheiro Excel com o formato correto para importar
-                automaticamente os dados do projeto
+              <p className="mt-2 text-center text-sm text-azul/60">
+                Selecione um ficheiro Excel com o formato correto para importar automaticamente os
+                dados do projeto
               </p>
             </div>
 
-            <div className="text-sm text-azul/70 flex items-center justify-center">
-              <ExternalLink className="h-4 w-4 mr-1" />
+            <div className="flex items-center justify-center text-sm text-azul/70">
+              <ExternalLink className="mr-1 h-4 w-4" />
               <a
                 href="/templates/modelo_projeto.xlsx"
                 className="underline hover:text-azul"
@@ -824,20 +792,20 @@ export default function ImportarProjetoButton() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Garante que dadosPreenchidos não é undefined */}
       {modalFinanciamentosAberto && (
-      <GerirFinanciamentosModal 
-        open={modalFinanciamentosAberto} 
-        onOpenChange={setModalFinanciamentosAberto}
+        <GerirFinanciamentosModal
+          open={modalFinanciamentosAberto}
+          onOpenChange={setModalFinanciamentosAberto}
           dadosPreenchidos={{
             nome: dadosFinanciamento?.nome || "",
             overhead: dadosFinanciamento?.overhead || null,
             taxa_financiamento: dadosFinanciamento?.taxa_financiamento || null,
-            valor_eti: dadosFinanciamento?.valor_eti || null
+            valor_eti: dadosFinanciamento?.valor_eti || null,
           }}
-        onFinanciamentoCriado={handleFinanciamentoCriado}
-      />
+          onFinanciamentoCriado={handleFinanciamentoCriado}
+        />
       )}
     </>
   );

@@ -20,7 +20,10 @@ interface TarefaItemProps {
   onUpdate: () => Promise<void>;
   onRemove: () => void;
   onEdit: (data: any) => Promise<void>;
-  onAddEntregavel: (tarefaId: string, entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">) => Promise<void>;
+  onAddEntregavel: (
+    tarefaId: string,
+    entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">
+  ) => Promise<void>;
   onEditEntregavel: (id: string, data: any) => Promise<void>;
   onRemoveEntregavel: (id: string) => void;
   hideState?: boolean;
@@ -37,7 +40,7 @@ export function TarefaItem({
   onAddEntregavel,
   onEditEntregavel,
   onRemoveEntregavel,
-  hideState = false
+  hideState = false,
 }: TarefaItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
@@ -55,7 +58,6 @@ export function TarefaItem({
   const handleToggleEstado = async () => {
     try {
       await onUpdate();
-      
     } catch (error) {
       console.error("Erro ao atualizar estado:", error);
       toast.error("Erro ao atualizar estado");
@@ -73,49 +75,54 @@ export function TarefaItem({
   };
 
   return (
-    <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
+    <Card className="overflow-hidden border-azul/10 transition-all hover:border-azul/20">
       {/* Cabeçalho da Tarefa */}
-      <div className="p-2 flex justify-between items-center">
+      <div className="flex items-center justify-between p-2">
         <div className="flex items-center gap-2">
           {!hideState && (
             <button
               onClick={handleToggleEstado}
               className={cn(
-                "h-5 w-5 rounded border flex items-center justify-center transition-colors",
-                tarefa.estado 
-                  ? "bg-emerald-500 border-emerald-500/10 text-white" 
+                "flex h-5 w-5 items-center justify-center rounded border transition-colors",
+                tarefa.estado
+                  ? "border-emerald-500/10 bg-emerald-500 text-white"
                   : "border-zinc-300 bg-white hover:bg-zinc-100"
               )}
             >
               {tarefa.estado && <Check className="h-3 w-3" />}
             </button>
           )}
-          
+
           <div>
             <h5 className="text-sm font-medium text-azul">{tarefa.nome}</h5>
             <div className="flex items-center gap-1">
               {!hideState && (
-                <Badge variant={tarefa.estado ? "default" : "outline"} className={cn(
-                  "px-1 py-0 text-[10px] h-4",
-                  tarefa.estado 
-                    ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
-                    : "bg-blue-50 text-azul border-blue-200"
-                )}>
+                <Badge
+                  variant={tarefa.estado ? "default" : "outline"}
+                  className={cn(
+                    "h-4 px-1 py-0 text-[10px]",
+                    tarefa.estado
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                      : "border-blue-200 bg-blue-50 text-azul"
+                  )}
+                >
                   {tarefa.estado ? "Concluída" : "Em Progresso"}
                 </Badge>
               )}
               <span className="text-xs text-gray-500">
-                {tarefa.inicio ? format(new Date(tarefa.inicio), "dd/MM/yyyy") : "-"} - {tarefa.fim ? format(new Date(tarefa.fim), "dd/MM/yyyy") : "-"}
+                {tarefa.inicio ? format(new Date(tarefa.inicio), "dd/MM/yyyy") : "-"} -{" "}
+                {tarefa.fim ? format(new Date(tarefa.fim), "dd/MM/yyyy") : "-"}
               </span>
               {!hideState && tarefa.entregaveis?.length > 0 && (
-                <Badge variant="secondary" className="px-1 py-0 text-[10px] h-4">
-                  {tarefa.entregaveis.filter(e => e.estado).length}/{tarefa.entregaveis.length} entregáveis
+                <Badge variant="secondary" className="h-4 px-1 py-0 text-[10px]">
+                  {tarefa.entregaveis.filter((e) => e.estado).length}/{tarefa.entregaveis.length}{" "}
+                  entregáveis
                 </Badge>
               )}
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -125,7 +132,7 @@ export function TarefaItem({
               setIsEditing(true);
               setAddingEntregavel(false);
             }}
-            className="h-6 w-6 p-0 rounded-md hover:bg-azul/10 text-azul"
+            className="h-6 w-6 rounded-md p-0 text-azul hover:bg-azul/10"
           >
             <Edit className="h-3 w-3" />
           </Button>
@@ -134,7 +141,7 @@ export function TarefaItem({
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            className="h-6 w-6 p-0 rounded-md hover:bg-red-50 text-red-500"
+            className="h-6 w-6 rounded-md p-0 text-red-500 hover:bg-red-50"
           >
             <Trash className="h-3 w-3" />
           </Button>
@@ -143,20 +150,16 @@ export function TarefaItem({
             variant="ghost"
             size="sm"
             onClick={handleToggleExpand}
-            className="h-6 w-6 p-0 rounded-md hover:bg-gray-100"
+            className="h-6 w-6 rounded-md p-0 hover:bg-gray-100"
           >
-            {isExpanded ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
-            )}
+            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </Button>
         </div>
       </div>
 
       {/* Área Expansível */}
       {isExpanded && (
-        <div className="border-t border-gray-100 divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 border-t border-gray-100">
           {/* Formulário de Edição */}
           {isEditing ? (
             <div className="p-3">
@@ -180,7 +183,7 @@ export function TarefaItem({
 
               {/* Entregáveis */}
               <div className="p-3">
-                <div className="flex items-center justify-between mb-2">
+                <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Plus className="h-4 w-4 text-azul" />
                     <h6 className="text-sm font-medium text-azul">Entregáveis</h6>
@@ -190,7 +193,7 @@ export function TarefaItem({
                       variant="ghost"
                       size="sm"
                       onClick={() => setAddingEntregavel(true)}
-                      className="h-6 px-2 rounded-md hover:bg-azul/10 text-azul text-xs"
+                      className="h-6 rounded-md px-2 text-xs text-azul hover:bg-azul/10"
                     >
                       Adicionar
                     </Button>
@@ -202,7 +205,7 @@ export function TarefaItem({
                     tarefaId={tarefa.id}
                     tarefaDates={{
                       inicio: tarefa.inicio ? new Date(tarefa.inicio) : new Date(),
-                      fim: tarefa.fim ? new Date(tarefa.fim) : new Date()
+                      fim: tarefa.fim ? new Date(tarefa.fim) : new Date(),
                     }}
                     onCancel={() => setAddingEntregavel(false)}
                     onSubmit={async (tarefaId, entregavel) => {
@@ -218,13 +221,13 @@ export function TarefaItem({
                         entregavel={{
                           ...entregavel,
                           tarefaId: tarefa.id,
-                          data: entregavel.data ? new Date(entregavel.data) : null
+                          data: entregavel.data ? new Date(entregavel.data) : null,
                         }}
                         onEdit={async (data) => {
                           try {
                             await onEditEntregavel(entregavel.id, {
                               ...data,
-                              id: entregavel.id
+                              id: entregavel.id,
                             });
                             toast.success("Entregável atualizado com sucesso");
                           } catch (error) {
@@ -237,11 +240,11 @@ export function TarefaItem({
                           try {
                             await onEditEntregavel(entregavel.id, {
                               ...entregavel,
-                              estado: novoEstado
+                              estado: novoEstado,
                             });
                             toast.success(
-                              novoEstado 
-                                ? "Entregável marcado como concluído" 
+                              novoEstado
+                                ? "Entregável marcado como concluído"
                                 : "Entregável marcado como pendente"
                             );
                           } catch (error) {
@@ -253,7 +256,7 @@ export function TarefaItem({
                         hideState={true}
                         tarefaDates={{
                           inicio: tarefa.inicio ? new Date(tarefa.inicio) : new Date(),
-                          fim: tarefa.fim ? new Date(tarefa.fim) : new Date()
+                          fim: tarefa.fim ? new Date(tarefa.fim) : new Date(),
                         }}
                       />
                     ))}

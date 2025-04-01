@@ -5,4 +5,4 @@
 
 import AdminDashboardPage from "@/app/admin/page";
 
-export default AdminDashboardPage; 
+export default AdminDashboardPage;

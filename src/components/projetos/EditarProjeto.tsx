@@ -25,7 +25,7 @@ import {
   DateField,
   SelectField,
   PercentageField,
-  MoneyField
+  MoneyField,
 } from "./criar/components/FormFields";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
@@ -39,7 +39,7 @@ const formSchema = z.object({
   overhead: z.number().min(0, "Overhead deve ser pelo menos 0"),
   taxa_financiamento: z.number().min(0, "Taxa de financiamento deve ser pelo menos 0"),
   valor_eti: z.number().min(0, "Valor ETI deve ser pelo menos 0"),
-  financiamentoId: z.number().optional()
+  financiamentoId: z.number().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -73,16 +73,19 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
   const { data: session } = useSession();
 
   // Garantir valores seguros para o formulário
-  const formDefaultValues = useMemo(() => ({
-    nome: projeto.nome,
-    descricao: projeto.descricao ?? "",
-    inicio: projeto.inicio ? new Date(projeto.inicio) : null,
-    fim: projeto.fim ? new Date(projeto.fim) : null,
-    overhead: projeto.overhead ?? 0,
-    taxa_financiamento: projeto.taxa_financiamento ?? 0,
-    valor_eti: projeto.valor_eti ?? 0,
-    financiamentoId: projeto.financiamentoId ?? undefined,
-  }), [projeto]);
+  const formDefaultValues = useMemo(
+    () => ({
+      nome: projeto.nome,
+      descricao: projeto.descricao ?? "",
+      inicio: projeto.inicio ? new Date(projeto.inicio) : null,
+      fim: projeto.fim ? new Date(projeto.fim) : null,
+      overhead: projeto.overhead ?? 0,
+      taxa_financiamento: projeto.taxa_financiamento ?? 0,
+      valor_eti: projeto.valor_eti ?? 0,
+      financiamentoId: projeto.financiamentoId ?? undefined,
+    }),
+    [projeto]
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -111,7 +114,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
       overhead: data.overhead,
       taxa_financiamento: data.taxa_financiamento,
       valor_eti: data.valor_eti,
-      financiamentoId: data.financiamentoId
+      financiamentoId: data.financiamentoId,
     };
 
     projetoMutations.update.mutate(submitData, {
@@ -135,7 +138,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
 
   const financiamentoOptions = [
     { value: "none", label: "Nenhum" },
-    ...financiamentos.map(f => ({ value: f.id.toString(), label: f.nome }))
+    ...financiamentos.map((f) => ({ value: f.id.toString(), label: f.nome })),
   ];
 
   const getNomeResponsavel = () => {
@@ -150,10 +153,10 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
   };
 
   const defaultTrigger = (
-    <Button 
+    <Button
       variant="outline"
       size="sm"
-      className="flex items-center gap-2 text-slate-600 hover:text-azul hover:border-azul transition-colors"
+      className="flex items-center gap-2 text-slate-600 transition-colors hover:border-azul hover:text-azul"
     >
       <Pencil className="h-4 w-4" />
       Editar
@@ -162,20 +165,18 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {renderTrigger ?? defaultTrigger}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl rounded-lg shadow-lg">
-        <DialogHeader className="pb-4 border-b">
+      <DialogTrigger asChild>{renderTrigger ?? defaultTrigger}</DialogTrigger>
+      <DialogContent className="rounded-lg shadow-lg sm:max-w-2xl">
+        <DialogHeader className="border-b pb-4">
           <DialogTitle>Editar Projeto</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground pt-1">
+          <DialogDescription className="pt-1 text-sm text-muted-foreground">
             Atualize as informações principais do projeto.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
             {/* Grid for Name and Responsavel */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="nome"
@@ -195,8 +196,8 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
                 <Label htmlFor="responsavel-display" className="text-sm font-medium">
                   Responsável
                 </Label>
-                <div 
-                  id="responsavel-display" 
+                <div
+                  id="responsavel-display"
                   className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
                 >
                   {getNomeResponsavel()}
@@ -220,7 +221,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
             />
 
             {/* Grid for Dates */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="inicio"
@@ -250,7 +251,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
             </div>
 
             {/* Grid for Financiamento and Overhead */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="financiamentoId"
@@ -282,7 +283,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
             </div>
 
             {/* Grid for Taxa Financiamento and Valor ETI */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="taxa_financiamento"
@@ -309,7 +310,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-6">
+            <DialogFooter className="gap-2 pt-6 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"
@@ -320,11 +321,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
                 <X className="h-4 w-4" />
                 Cancelar
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isPending}
-                className="flex items-center gap-2"
-              >
+              <Button type="submit" disabled={isPending} className="flex items-center gap-2">
                 <Save className="h-4 w-4" />
                 {isPending ? "A guardar..." : "Guardar alterações"}
               </Button>
@@ -334,4 +331,4 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
       </DialogContent>
     </Dialog>
   );
-} 
+}

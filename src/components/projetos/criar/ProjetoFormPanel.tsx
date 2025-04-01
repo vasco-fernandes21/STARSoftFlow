@@ -5,15 +5,10 @@ interface ProjetoFormPanelProps {
   children: React.ReactNode;
 }
 
-export function ProjetoFormPanel({
-  _faseAtual,
-  children
-}: ProjetoFormPanelProps) {
+export function ProjetoFormPanel({ _faseAtual, children }: ProjetoFormPanelProps) {
   return (
-    <div className="bg-white rounded-2xl overflow-hidden">
-      <div className="p-2">
-        {children}
-      </div>
+    <div className="overflow-hidden rounded-2xl bg-white">
+      <div className="p-2">{children}</div>
     </div>
   );
 }

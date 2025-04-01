@@ -5,7 +5,10 @@ import { paginationSchema } from "./common";
  * Schema base para workpackages
  */
 export const workpackageBaseSchema = z.object({
-  nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(255, "Nome deve ter no máximo 255 caracteres"),
+  nome: z
+    .string()
+    .min(3, "Nome deve ter pelo menos 3 caracteres")
+    .max(255, "Nome deve ter no máximo 255 caracteres"),
   projetoId: z.string().uuid("ID de projeto inválido"),
   inicio: z.date().optional(),
   fim: z.date().optional(),
@@ -27,11 +30,13 @@ export const updateWorkpackageSchema = workpackageBaseSchema.partial().extend({
 /**
  * Schema para filtros de workpackages
  */
-export const workpackageFilterSchema = z.object({
-  projetoId: z.string().uuid("ID de projeto inválido").optional(),
-  search: z.string().optional(),
-  estado: z.boolean().optional(),
-}).merge(paginationSchema);
+export const workpackageFilterSchema = z
+  .object({
+    projetoId: z.string().uuid("ID de projeto inválido").optional(),
+    search: z.string().optional(),
+    estado: z.boolean().optional(),
+  })
+  .merge(paginationSchema);
 
 /**
  * Schema para recursos (utilizadores) em workpackages
@@ -46,18 +51,20 @@ export const workpackageUserSchema = z.object({
 /**
  * Schema para validação de datas de workpackage
  */
-export const workpackageDateValidationSchema = z.object({
-  inicio: z.date().optional(),
-  fim: z.date().optional(),
-}).refine(
-  (data) => {
-    if (data.inicio && data.fim) {
-      return data.inicio <= data.fim;
+export const workpackageDateValidationSchema = z
+  .object({
+    inicio: z.date().optional(),
+    fim: z.date().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.inicio && data.fim) {
+        return data.inicio <= data.fim;
+      }
+      return true;
+    },
+    {
+      message: "A data de fim deve ser posterior à data de início",
+      path: ["fim"],
     }
-    return true;
-  },
-  {
-    message: "A data de fim deve ser posterior à data de início",
-    path: ["fim"],
-  }
-); 
+  );

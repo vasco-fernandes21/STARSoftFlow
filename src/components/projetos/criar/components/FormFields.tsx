@@ -3,7 +3,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { HelpCircle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -35,14 +41,14 @@ interface FormLabelProps extends React.ComponentProps<typeof Label> {
 function FormLabel({ children, required, tooltip, ...props }: FormLabelProps) {
   return (
     <div className="flex items-center gap-1.5">
-      <Label {...props} className="text-azul/80 font-medium">
+      <Label {...props} className="font-medium text-azul/80">
         {children} {required && <span className="text-red-500">*</span>}
       </Label>
       {tooltip && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger tabIndex={-1}>
-              <HelpCircle className="h-3.5 w-3.5 text-azul/40 hover:text-azul/60 cursor-help" />
+              <HelpCircle className="h-3.5 w-3.5 cursor-help text-azul/40 hover:text-azul/60" />
             </TooltipTrigger>
             <TooltipContent>
               <p className="max-w-xs text-xs">{tooltip}</p>
@@ -76,7 +82,7 @@ export function TextField({
   icon,
   tooltip,
   disabled,
-  onBlur
+  onBlur,
 }: TextFieldProps) {
   const _disabled = disabled;
   return (
@@ -92,22 +98,24 @@ export function TextField({
         type={type}
         value={value || ""}
         onChange={(e) => {
-          console.log("TextField onChange:", e.target.value);  // Depuração
+          console.log("TextField onChange:", e.target.value); // Depuração
           if (onChange) onChange(e.target.value);
         }}
         placeholder={placeholder}
-        className="border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30"
+        className="rounded-lg border-azul/20 bg-white/90 shadow-sm transition-all duration-200 hover:border-azul/30 focus:border-azul focus:ring-1 focus:ring-azul/30"
         required={required}
         disabled={_disabled}
         onBlur={onBlur}
       />
       {helpText && (
-        <p className={cn(
-          "text-xs mt-1",
-          helpText.includes("deve ter") || helpText.includes("obrigatório") 
-            ? "text-red-500" 
-            : "text-azul/60"
-        )}>
+        <p
+          className={cn(
+            "mt-1 text-xs",
+            helpText.includes("deve ter") || helpText.includes("obrigatório")
+              ? "text-red-500"
+              : "text-azul/60"
+          )}
+        >
           {helpText}
         </p>
       )}
@@ -117,8 +125,8 @@ export function TextField({
 
 // DecimalField atualizado
 interface DecimalFieldProps extends BaseFieldProps {
-  value: number | null;  // Alterado para permitir null
-  onChange: (value: number | null) => void;  // Alterado para permitir null
+  value: number | null; // Alterado para permitir null
+  onChange: (value: number | null) => void; // Alterado para permitir null
   prefix?: ReactNode;
   suffix?: ReactNode;
   step?: number;
@@ -140,7 +148,7 @@ export function DecimalField({
   helpText,
   className = "",
   id,
-  disabled
+  disabled,
 }: DecimalFieldProps) {
   const _disabled = disabled;
   return (
@@ -150,14 +158,14 @@ export function DecimalField({
       </FormLabel>
       <div className="relative">
         {prefix && (
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             {typeof prefix === "string" ? <span className="text-azul/50">{prefix}</span> : prefix}
           </div>
         )}
         <Input
           id={id}
           type="number"
-          value={value ?? ""}  // Usa string vazia quando for null
+          value={value ?? ""} // Usa string vazia quando for null
           onChange={(e) => {
             console.log("DecimalField onChange:", e.target.value);
             const val = e.target.value;
@@ -169,7 +177,7 @@ export function DecimalField({
             }
           }}
           className={cn(
-            "border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30",
+            "rounded-lg border-azul/20 bg-white/90 shadow-sm transition-all duration-200 hover:border-azul/30 focus:border-azul focus:ring-1 focus:ring-azul/30",
             prefix && "pl-8",
             suffix && "pr-8"
           )}
@@ -180,27 +188,19 @@ export function DecimalField({
           disabled={_disabled}
         />
         {suffix && (
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
             {typeof suffix === "string" ? <span className="text-azul/50">{suffix}</span> : suffix}
           </div>
         )}
       </div>
-      {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
+      {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
     </div>
   );
 }
 
 // MoneyField atualizado
 export function MoneyField(props: Omit<DecimalFieldProps, "prefix" | "step" | "min" | "max">) {
-  return (
-    <DecimalField
-      {...props}
-      prefix="€"
-      step={0.01}
-      min={0}
-      max={1000000}
-    />
-  );
+  return <DecimalField {...props} prefix="€" step={0.01} min={0} max={1000000} />;
 }
 
 // PercentageField atualizado
@@ -208,10 +208,10 @@ export function PercentageField(props: Omit<DecimalFieldProps, "suffix" | "step"
   // Componente modificado para exibir percentual como número inteiro (0-100)
   // mas armazenar internamente como decimal (0-1)
   const { value, onChange, ...restProps } = props;
-  
+
   // Converter o valor decimal para exibição (0.85 -> 85)
   const displayValue = value !== null ? value * 100 : null;
-  
+
   // Função para converter o valor de entrada (85) para decimal (0.85)
   const handleChange = (newValue: number | null) => {
     if (newValue === null) {
@@ -255,7 +255,7 @@ export function TextareaField({
   id,
   icon,
   tooltip,
-  disabled
+  disabled,
 }: TextareaFieldProps) {
   const _disabled = disabled;
   return (
@@ -274,12 +274,12 @@ export function TextareaField({
           if (onChange) onChange(e.target.value);
         }}
         placeholder={placeholder}
-        className="border-azul/20 bg-white/90 focus:border-azul focus:ring-1 focus:ring-azul/30 min-h-[100px] rounded-lg shadow-sm transition-all duration-200 hover:border-azul/30"
+        className="min-h-[100px] rounded-lg border-azul/20 bg-white/90 shadow-sm transition-all duration-200 hover:border-azul/30 focus:border-azul focus:ring-1 focus:ring-azul/30"
         required={required}
         rows={rows}
         disabled={_disabled}
       />
-      {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
+      {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
     </div>
   );
 }
@@ -303,7 +303,7 @@ export function DateField({
   helpText,
   className = "",
   id,
-  disabled
+  disabled,
 }: DateFieldProps) {
   const _disabled = disabled;
   return (
@@ -320,7 +320,7 @@ export function DateField({
         minDate={minDate}
         maxDate={maxDate}
       />
-      {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
+      {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
     </div>
   );
 }
@@ -349,7 +349,7 @@ export function SelectField({
   className = "",
   id,
   tooltip,
-  disabled
+  disabled,
 }: SelectFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -375,7 +375,7 @@ export function SelectField({
           ))}
         </SelectContent>
       </Select>
-      {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
+      {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
     </div>
   );
 }
@@ -405,7 +405,7 @@ export function NumberField({
   helpText,
   className = "",
   id,
-  disabled
+  disabled,
 }: NumberFieldProps) {
   const _disabled = disabled;
   return (
@@ -415,7 +415,7 @@ export function NumberField({
       </FormLabel>
       <div className="relative">
         {prefix && (
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             {typeof prefix === "string" ? <span className="text-azul/50">{prefix}</span> : prefix}
           </div>
         )}
@@ -440,12 +440,12 @@ export function NumberField({
           disabled={_disabled}
         />
         {suffix && (
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
             {typeof suffix === "string" ? <span className="text-azul/50">{suffix}</span> : suffix}
           </div>
         )}
       </div>
-      {helpText && <p className="text-xs text-azul/60 mt-1">{helpText}</p>}
+      {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
     </div>
   );
 }
@@ -478,40 +478,40 @@ export function DropdownField({
   id,
   tooltip,
   disabled,
-  triggerClassName
+  triggerClassName,
 }: DropdownFieldProps) {
   const _disabled = disabled;
-  const selectedOption = options.find(opt => opt.value === value);
+  const selectedOption = options.find((opt) => opt.value === value);
 
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
         {label}
       </FormLabel>
-      
+
       <DropdownMenu>
         <DropdownMenuTrigger
           id={id}
           disabled={_disabled}
           className={cn(
-            "w-full flex items-center justify-between",
+            "flex w-full items-center justify-between",
             "h-10 px-3 py-2 text-sm",
-            "bg-white border border-azul/20 rounded-md",
-            "focus:outline-none focus:ring-1 focus:ring-azul/20 focus:border-azul/40",
-            "hover:border-azul/30 transition-colors",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "rounded-md border border-azul/20 bg-white",
+            "focus:border-azul/40 focus:outline-none focus:ring-1 focus:ring-azul/20",
+            "transition-colors hover:border-azul/30",
+            "disabled:cursor-not-allowed disabled:opacity-50",
             !selectedOption && "text-slate-500",
             triggerClassName
           )}
         >
           {selectedOption?.label ?? placeholder}
         </DropdownMenuTrigger>
-        
-        <DropdownMenuContent 
+
+        <DropdownMenuContent
           align="start"
           className={cn(
             "w-[var(--radix-dropdown-menu-trigger-width)]",
-            "bg-white rounded-md border border-azul/10",
+            "rounded-md border border-azul/10 bg-white",
             "shadow-lg shadow-azul/5",
             "animate-in fade-in-0 zoom-in-95",
             "p-1"
@@ -524,25 +524,23 @@ export function DropdownField({
               className={cn(
                 "flex items-center justify-between px-3 py-2",
                 "text-sm text-slate-600",
-                "rounded-sm cursor-pointer select-none",
-                "hover:bg-azul/5 focus:bg-azul/5 outline-none",
+                "cursor-pointer select-none rounded-sm",
+                "outline-none hover:bg-azul/5 focus:bg-azul/5",
                 "transition-colors",
-                value === option.value && "bg-azul/5 text-azul font-medium"
+                value === option.value && "bg-azul/5 font-medium text-azul"
               )}
             >
               <span className="flex items-center gap-2">
                 {option.icon}
                 {option.label}
               </span>
-              {value === option.value && (
-                <Check className="h-3.5 w-3.5 text-azul" />
-              )}
+              {value === option.value && <Check className="h-3.5 w-3.5 text-azul" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {helpText && <p className="text-xs text-slate-500 mt-1">{helpText}</p>}
+      {helpText && <p className="mt-1 text-xs text-slate-500">{helpText}</p>}
     </div>
   );
 }

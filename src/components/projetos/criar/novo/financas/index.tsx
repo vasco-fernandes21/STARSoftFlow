@@ -43,21 +43,21 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
   const [modalAberto, setModalAberto] = useState(false);
 
   const { data: financiamentosResponse } = api.financiamento.findAll.useQuery({
-    limit: 100
+    limit: 100,
   }) as { data: FinanciamentoResponse | undefined };
 
-  const financiamentos = (financiamentosResponse?.items || []).map(f => ({
+  const financiamentos = (financiamentosResponse?.items || []).map((f) => ({
     ...f,
     overhead: new Decimal(f.overhead),
     taxa_financiamento: new Decimal(f.taxa_financiamento),
-    valor_eti: new Decimal(f.valor_eti)
+    valor_eti: new Decimal(f.valor_eti),
   })) as FinanciamentoInterno[];
 
   const handleOverheadChange = (value: number | null) => {
     dispatch({
       type: "SET_FIELD",
       field: "overhead",
-      value: value ?? 0
+      value: value ?? 0,
     });
   };
 
@@ -65,7 +65,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
     dispatch({
       type: "SET_FIELD",
       field: "taxa_financiamento",
-      value: value ?? 0
+      value: value ?? 0,
     });
   };
 
@@ -73,38 +73,36 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
     dispatch({
       type: "SET_FIELD",
       field: "valor_eti",
-      value: value ?? 0
+      value: value ?? 0,
     });
   };
 
   const handleFinanciamentoSelect = (value: string) => {
-    const selectedFinanciamento = financiamentos.find(
-      (f) => f.id === parseInt(value)
-    );
-    
+    const selectedFinanciamento = financiamentos.find((f) => f.id === parseInt(value));
+
     if (selectedFinanciamento) {
       dispatch({
         type: "SET_FIELD",
         field: "financiamentoId",
-        value: selectedFinanciamento.id
+        value: selectedFinanciamento.id,
       });
 
       dispatch({
         type: "SET_FIELD",
         field: "overhead",
-        value: selectedFinanciamento.overhead
+        value: selectedFinanciamento.overhead,
       });
-      
+
       dispatch({
         type: "SET_FIELD",
         field: "taxa_financiamento",
-        value: selectedFinanciamento.taxa_financiamento
+        value: selectedFinanciamento.taxa_financiamento,
       });
-      
+
       dispatch({
         type: "SET_FIELD",
         field: "valor_eti",
-        value: selectedFinanciamento.valor_eti
+        value: selectedFinanciamento.valor_eti,
       });
     }
   };
@@ -115,31 +113,31 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
       nome: financiamento.nome,
       overhead: new Decimal(financiamento.overhead),
       taxa_financiamento: new Decimal(financiamento.taxa_financiamento),
-      valor_eti: new Decimal(financiamento.valor_eti)
+      valor_eti: new Decimal(financiamento.valor_eti),
     };
 
     dispatch({
       type: "SET_FIELD",
       field: "financiamentoId",
-      value: financiamentoInterno.id
+      value: financiamentoInterno.id,
     });
 
     dispatch({
       type: "SET_FIELD",
       field: "overhead",
-      value: financiamentoInterno.overhead
+      value: financiamentoInterno.overhead,
     });
-    
+
     dispatch({
       type: "SET_FIELD",
       field: "taxa_financiamento",
-      value: financiamentoInterno.taxa_financiamento
+      value: financiamentoInterno.taxa_financiamento,
     });
-    
+
     dispatch({
       type: "SET_FIELD",
       field: "valor_eti",
-      value: financiamentoInterno.valor_eti
+      value: financiamentoInterno.valor_eti,
     });
   };
 
@@ -147,7 +145,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
 
   return (
     <div className="space-y-8 p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Coluna da Esquerda - Seleção de Financiamento */}
         <div className="flex flex-col gap-6">
           <div className="flex flex-col">
@@ -168,9 +166,9 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
               variant="ghost"
               size="sm"
               onClick={() => setModalAberto(true)}
-              className="self-end mt-2 text-azul/80 hover:text-azul hover:bg-azul/5"
+              className="mt-2 self-end text-azul/80 hover:bg-azul/5 hover:text-azul"
             >
-              <Settings2 className="h-4 w-4 mr-2" />
+              <Settings2 className="mr-2 h-4 w-4" />
               Gerir Tipos de Financiamento
             </Button>
           </div>
@@ -213,14 +211,14 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
         nextLabel="Próximo: Workpackages"
         backLabel="Anterior: Informações"
         isNextDisabled={!isValid}
-        className="pt-4 border-t border-azul/10"
+        className="border-t border-azul/10 pt-4"
       />
 
-      <GerirFinanciamentosModal 
-        open={modalAberto} 
-        onOpenChange={setModalAberto} 
+      <GerirFinanciamentosModal
+        open={modalAberto}
+        onOpenChange={setModalAberto}
         onFinanciamentoCriado={handleFinanciamentoCriado}
       />
     </div>
   );
-} 
+}

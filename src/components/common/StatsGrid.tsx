@@ -2,6 +2,13 @@ import React from "react";
 import type { LucideIcon } from "lucide-react";
 import { StatCard } from "./StatCard";
 
+interface StatusCount {
+  completed: number;
+  pending: number;
+  completedLabel?: string;
+  pendingLabel?: string;
+}
+
 export type StatItem = {
   icon: LucideIcon;
   label: string;
@@ -13,6 +20,8 @@ export type StatItem = {
   badgeIcon?: LucideIcon;
   badgeClassName?: string;
   secondaryText?: string;
+  trend?: number;
+  statusCount?: StatusCount;
 };
 
 type StatsGridProps = {
@@ -20,12 +29,11 @@ type StatsGridProps = {
   className?: string;
 };
 
-export const StatsGrid = ({ 
-  stats,
-  className 
-}: StatsGridProps) => {
+export const StatsGrid = ({ stats, className }: StatsGridProps) => {
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 ${className || ''}`}>
+    <div
+      className={`grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 ${className || ""}`}
+    >
       {stats.map((stat, index) => (
         <StatCard
           key={index}
@@ -39,8 +47,10 @@ export const StatsGrid = ({
           badgeIcon={stat.badgeIcon}
           badgeClassName={stat.badgeClassName}
           secondaryText={stat.secondaryText}
+          trend={stat.trend}
+          statusCount={stat.statusCount}
         />
       ))}
     </div>
   );
-}; 
+};

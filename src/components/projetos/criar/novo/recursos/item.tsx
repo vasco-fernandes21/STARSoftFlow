@@ -31,26 +31,26 @@ export function Item({
   onEdit,
   onRemove,
   inicio,
-  fim
+  fim,
 }: ItemProps) {
   return (
-    <Card className="border-azul/10 hover:border-azul/20 transition-all overflow-hidden">
-      <div 
-        className="p-3 flex justify-between items-center cursor-pointer"
+    <Card className="overflow-hidden border-azul/10 transition-all hover:border-azul/20">
+      <div
+        className="flex cursor-pointer items-center justify-between p-3"
         onClick={onToggleExpand}
       >
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-lg bg-azul/10 flex items-center justify-center">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-azul/10">
             <UserIcon className="h-3.5 w-3.5 text-azul" />
           </div>
           <div>
             <h5 className="text-sm font-medium text-azul">{user.name}</h5>
-            <Badge variant="outline" className="px-1 py-0 text-[10px] h-4">
+            <Badge variant="outline" className="h-4 px-1 py-0 text-[10px]">
               {user.regime}
             </Badge>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -59,7 +59,7 @@ export function Item({
               e.stopPropagation();
               onEdit();
             }}
-            className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10 text-azul"
+            className="h-7 w-7 rounded-lg p-0 text-azul hover:bg-azul/10"
           >
             <Edit className="h-3.5 w-3.5" />
           </Button>
@@ -71,7 +71,7 @@ export function Item({
               e.stopPropagation();
               onRemove();
             }}
-            className="h-7 w-7 p-0 rounded-lg hover:bg-red-50 text-red-500"
+            className="h-7 w-7 rounded-lg p-0 text-red-500 hover:bg-red-50"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -83,7 +83,7 @@ export function Item({
               e.stopPropagation();
               onToggleExpand();
             }}
-            className="h-7 w-7 p-0 rounded-lg hover:bg-azul/10"
+            className="h-7 w-7 rounded-lg p-0 hover:bg-azul/10"
           >
             {isExpanded ? (
               <ChevronUp className="h-3.5 w-3.5 text-azul/70" />
@@ -93,23 +93,19 @@ export function Item({
           </Button>
         </div>
       </div>
-      
+
       {isExpanded && (
-        <AlocacoesGrid 
-          alocacoesPorAnoMes={alocacoesPorAnoMes} 
-          inicio={inicio}
-          fim={fim}
-        />
+        <AlocacoesGrid alocacoesPorAnoMes={alocacoesPorAnoMes} inicio={inicio} fim={fim} />
       )}
     </Card>
   );
 }
 
-function AlocacoesGrid({ 
+function AlocacoesGrid({
   alocacoesPorAnoMes,
   inicio,
-  fim
-}: { 
+  fim,
+}: {
   alocacoesPorAnoMes: Record<string, Record<number, number>>;
   inicio: Date;
   fim: Date;
@@ -124,37 +120,35 @@ function AlocacoesGrid({
     <div className="border-t border-azul/10 bg-azul/5">
       <div className="p-3">
         <div className="space-y-4">
-          {anos.map(ano => {
+          {anos.map((ano) => {
             const meses = alocacoesPorAnoMes[ano] || {};
-            
+
             return (
               <div key={ano} className="space-y-2">
-                <h6 className="text-xs font-medium text-azul/80 mb-2">{ano}</h6>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
+                <h6 className="mb-2 text-xs font-medium text-azul/80">{ano}</h6>
+
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => {
                     // Verificar se o mês está dentro do período do workpackage
                     const dataAtual = new Date(ano, mes - 1);
                     const isMesValido = dataAtual >= inicio && dataAtual <= fim;
-                    
+
                     if (!isMesValido) return null;
-                    
+
                     const ocupacao = meses[mes] || 0;
                     const { badgeClass, progressClass } = getOcupacaoStyles(ocupacao);
-                    
+
                     return (
-                      <div 
-                        key={`${ano}-${mes}`} 
-                        className={`${badgeClass} border rounded-md p-2 ${ocupacao === 0 ? 'opacity-50' : ''}`}
+                      <div
+                        key={`${ano}-${mes}`}
+                        className={`${badgeClass} rounded-md border p-2 ${ocupacao === 0 ? "opacity-50" : ""}`}
                       >
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span>
-                            {format(new Date(ano, mes - 1), 'MMMM', { locale: pt })}
-                          </span>
+                        <div className="mb-1.5 flex justify-between text-xs">
+                          <span>{format(new Date(ano, mes - 1), "MMMM", { locale: pt })}</span>
                           <span className="font-medium">{ocupacao}%</span>
                         </div>
-                        <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
-                          <div 
+                        <div className="h-1.5 overflow-hidden rounded-full bg-white/50">
+                          <div
                             className={`h-full ${progressClass} rounded-full transition-all duration-300`}
                             style={{ width: `${ocupacao}%` }}
                           />
@@ -176,26 +170,26 @@ function getOcupacaoStyles(ocupacao: number) {
   if (ocupacao > 100) {
     return {
       badgeClass: "bg-red-50 text-red-600 border-red-200",
-      progressClass: "bg-red-400"
+      progressClass: "bg-red-400",
     };
   } else if (ocupacao >= 80) {
     return {
       badgeClass: "bg-emerald-50 text-emerald-600 border-emerald-200",
-      progressClass: "bg-emerald-400"
+      progressClass: "bg-emerald-400",
     };
   } else if (ocupacao >= 50) {
     return {
       badgeClass: "bg-blue-50 text-blue-600 border-blue-100",
-      progressClass: "bg-blue-400"
+      progressClass: "bg-blue-400",
     };
   } else if (ocupacao >= 1) {
     return {
       badgeClass: "bg-amber-50 text-amber-600 border-amber-100",
-      progressClass: "bg-amber-400"
+      progressClass: "bg-amber-400",
     };
   }
   return {
     badgeClass: "bg-gray-50 text-gray-600 border-gray-200",
-    progressClass: "bg-gray-200"
+    progressClass: "bg-gray-200",
   };
-} 
+}

@@ -18,17 +18,17 @@ interface TarefaFormProps {
   initialData?: Partial<TarefaWithRelations>;
 }
 
-export function TarefaForm({ 
-  workpackageId, 
-  workpackageInicio, 
-  workpackageFim, 
-  onSubmit, 
-  onCancel, 
-  initialData
+export function TarefaForm({
+  workpackageId,
+  workpackageInicio,
+  workpackageFim,
+  onSubmit,
+  onCancel,
+  initialData,
 }: TarefaFormProps) {
   const [formData, setFormData] = useState({
-    nome: initialData?.nome || '',
-    descricao: initialData?.descricao || '',
+    nome: initialData?.nome || "",
+    descricao: initialData?.descricao || "",
     inicio: initialData?.inicio ? new Date(initialData.inicio) : workpackageInicio || new Date(),
     fim: initialData?.fim ? new Date(initialData.fim) : workpackageFim || new Date(),
   });
@@ -59,15 +59,17 @@ export function TarefaForm({
       descricao: formData.descricao,
       inicio: formData.inicio,
       fim: formData.fim,
-      estado: false
+      estado: false,
     });
   };
 
   return (
-    <div className="p-4 border border-azul/10 rounded-lg bg-white/70 backdrop-blur-sm">
+    <div className="rounded-lg border border-azul/10 bg-white/70 p-4 backdrop-blur-sm">
       <div className="grid gap-2.5">
         <div>
-          <Label htmlFor="nome-tarefa" className="text-azul/80 text-xs">Nome da Tarefa</Label>
+          <Label htmlFor="nome-tarefa" className="text-xs text-azul/80">
+            Nome da Tarefa
+          </Label>
           <Input
             id="nome-tarefa"
             placeholder="Ex: Desenvolvimento do Frontend"
@@ -76,9 +78,11 @@ export function TarefaForm({
             className="mt-1 h-8 text-sm"
           />
         </div>
-        
+
         <div>
-          <Label htmlFor="descricao-tarefa" className="text-azul/80 text-xs">Descrição</Label>
+          <Label htmlFor="descricao-tarefa" className="text-xs text-azul/80">
+            Descrição
+          </Label>
           <Textarea
             id="descricao-tarefa"
             placeholder="Descreva a tarefa..."
@@ -90,9 +94,11 @@ export function TarefaForm({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="flex items-center gap-1.5 mb-1">
+            <div className="mb-1 flex items-center gap-1.5">
               <Calendar className="h-3 w-3 text-azul/60" />
-              <Label htmlFor="data-inicio" className="text-azul/80 text-xs">Data de Início</Label>
+              <Label htmlFor="data-inicio" className="text-xs text-azul/80">
+                Data de Início
+              </Label>
             </div>
             <DatePicker
               value={formData.inicio}
@@ -102,9 +108,11 @@ export function TarefaForm({
             />
           </div>
           <div>
-            <div className="flex items-center gap-1.5 mb-1">
+            <div className="mb-1 flex items-center gap-1.5">
               <Calendar className="h-3 w-3 text-azul/60" />
-              <Label htmlFor="data-fim" className="text-azul/80 text-xs">Data de Fim</Label>
+              <Label htmlFor="data-fim" className="text-xs text-azul/80">
+                Data de Fim
+              </Label>
             </div>
             <DatePicker
               value={formData.fim}
@@ -115,20 +123,20 @@ export function TarefaForm({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-1.5">
+        <div className="mt-1.5 flex justify-end gap-2">
           <Button
             variant="outline"
             onClick={onCancel}
-            className="h-7 text-xs border-azul/20 text-azul/70 hover:bg-azul/5"
+            className="h-7 border-azul/20 text-xs text-azul/70 hover:bg-azul/5"
           >
-            <X className="h-3 w-3 mr-1.5" />
+            <X className="mr-1.5 h-3 w-3" />
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
-            className="h-7 text-xs bg-azul hover:bg-azul/90 text-white"
+            className="h-7 bg-azul text-xs text-white hover:bg-azul/90"
           >
-            <Save className="h-3 w-3 mr-1.5" />
+            <Save className="mr-1.5 h-3 w-3" />
             Guardar
           </Button>
         </div>

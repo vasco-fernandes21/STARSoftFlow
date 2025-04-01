@@ -23,12 +23,18 @@ interface WorkpackageTarefasProps {
   setAddingTarefa: (adding: boolean) => void;
   projetoId?: string;
   // Handlers para tarefas
-  onSubmitTarefa: (workpackageId: string, tarefa: Omit<Prisma.TarefaCreateInput, "workpackage">) => void;
+  onSubmitTarefa: (
+    workpackageId: string,
+    tarefa: Omit<Prisma.TarefaCreateInput, "workpackage">
+  ) => void;
   onEditTarefa: (tarefaId: string, data: Prisma.TarefaUpdateInput) => Promise<void>;
   onToggleEstadoTarefa: (tarefaId: string) => Promise<void>;
   onDeleteTarefa: (tarefaId: string) => void;
   // Handlers para entregáveis
-  onAddEntregavel: (tarefaId: string, entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">) => Promise<void>;
+  onAddEntregavel: (
+    tarefaId: string,
+    entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">
+  ) => Promise<void>;
   onEditEntregavel: (entregavelId: string, data: Prisma.EntregavelUpdateInput) => Promise<void>;
   onDeleteEntregavel: (entregavelId: string) => void;
 }
@@ -47,7 +53,7 @@ function ConfirmDialog({ title, description, open, onOpenChange, onConfirm }: Co
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
             {title}
           </DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -56,8 +62,8 @@ function ConfirmDialog({ title, description, open, onOpenChange, onConfirm }: Co
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             onClick={() => {
               onConfirm();
               onOpenChange(false);
@@ -71,7 +77,7 @@ function ConfirmDialog({ title, description, open, onOpenChange, onConfirm }: Co
   );
 }
 
-export function WorkpackageTarefas({ 
+export function WorkpackageTarefas({
   workpackage,
   _workpackageId,
   addingTarefa,
@@ -82,35 +88,35 @@ export function WorkpackageTarefas({
   onDeleteTarefa,
   onAddEntregavel,
   onEditEntregavel,
-  onDeleteEntregavel
+  onDeleteEntregavel,
 }: WorkpackageTarefasProps) {
   // Estados para os diálogos de confirmação
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
-    type: 'tarefa' | 'entregavel';
+    type: "tarefa" | "entregavel";
     id: string;
     tarefaId?: string;
   } | null>(null);
-  
+
   // Diálogo de confirmação para eliminar
-  const openDeleteDialog = (type: 'tarefa' | 'entregavel', id: string, tarefaId?: string) => {
+  const openDeleteDialog = (type: "tarefa" | "entregavel", id: string, tarefaId?: string) => {
     setItemToDelete({ type, id, tarefaId });
     setDeleteDialogOpen(true);
   };
-  
+
   // Eliminar tarefa ou entregável
   const handleDelete = () => {
     if (!itemToDelete) return;
-    
-    if (itemToDelete.type === 'entregavel') {
+
+    if (itemToDelete.type === "entregavel") {
       onDeleteEntregavel(itemToDelete.id);
-    } else if (itemToDelete.type === 'tarefa') {
+    } else if (itemToDelete.type === "tarefa") {
       onDeleteTarefa(itemToDelete.id);
     }
-    
+
     setItemToDelete(null);
   };
-  
+
   // Função para ordenar tarefas por data de início
   const sortTarefasPorData = (tarefas: any[] = []) => {
     return [...tarefas].sort((a, b) => {
@@ -126,37 +132,37 @@ export function WorkpackageTarefas({
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title={`Apagar ${itemToDelete?.type === 'tarefa' ? 'Tarefa' : 'Entregável'}`}
-        description={`Tem a certeza que deseja apagar ${itemToDelete?.type === 'tarefa' ? 'esta tarefa' : 'este entregável'}? Esta ação não pode ser desfeita.`}
+        title={`Apagar ${itemToDelete?.type === "tarefa" ? "Tarefa" : "Entregável"}`}
+        description={`Tem a certeza que deseja apagar ${itemToDelete?.type === "tarefa" ? "esta tarefa" : "este entregável"}? Esta ação não pode ser desfeita.`}
         onConfirm={handleDelete}
       />
-      
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Tarefas</h2>
           <p className="text-sm text-gray-500">Gerir tarefas do workpackage</p>
         </div>
-        
+
         {!addingTarefa && (
           <Button
             onClick={() => setAddingTarefa(true)}
-            className="h-10 bg-azul hover:bg-azul/90 text-white"
+            className="h-10 bg-azul text-white hover:bg-azul/90"
           >
-            <PlusIcon className="h-4 w-4 mr-2" />
+            <PlusIcon className="mr-2 h-4 w-4" />
             Nova Tarefa
           </Button>
         )}
       </div>
-      
+
       {/* Formulário para adicionar nova tarefa */}
       {addingTarefa && (
-        <motion.div 
-          className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6"
+        <motion.div
+          className="mb-6 rounded-xl border border-gray-100 bg-white p-6 shadow-sm"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-medium text-azul">Nova Tarefa</h3>
             <Button
               variant="ghost"
@@ -176,42 +182,45 @@ export function WorkpackageTarefas({
           />
         </motion.div>
       )}
-      
+
       {/* Lista de tarefas */}
       {workpackage.tarefas && workpackage.tarefas.length > 0 ? (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             {sortTarefasPorData(workpackage.tarefas).map((tarefa) => (
-              <Card key={tarefa.id} className="p-0 overflow-hidden border-gray-100 shadow-sm hover:shadow transition-shadow duration-200">
+              <Card
+                key={tarefa.id}
+                className="overflow-hidden border-gray-100 p-0 shadow-sm transition-shadow duration-200 hover:shadow"
+              >
                 <TarefaItem
                   tarefa={tarefa}
                   workpackageId={workpackage.id}
                   workpackageInicio={workpackage.inicio || new Date()}
                   workpackageFim={workpackage.fim || new Date()}
                   onUpdate={async () => await onToggleEstadoTarefa(tarefa.id)}
-                  onRemove={() => openDeleteDialog('tarefa', tarefa.id)}
+                  onRemove={() => openDeleteDialog("tarefa", tarefa.id)}
                   onEdit={(data) => onEditTarefa(tarefa.id, data)}
                   onAddEntregavel={onAddEntregavel}
                   onEditEntregavel={onEditEntregavel}
-                  onRemoveEntregavel={(id) => openDeleteDialog('entregavel', id, tarefa.id)}
+                  onRemoveEntregavel={(id) => openDeleteDialog("entregavel", id, tarefa.id)}
                 />
               </Card>
             ))}
           </div>
         </div>
       ) : (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm">
-          <ClipboardList className="h-16 w-16 text-azul/20 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-azul mb-2">Nenhuma tarefa adicionada</h3>
-          <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
+        <div className="rounded-xl border border-gray-100 bg-white py-16 text-center shadow-sm">
+          <ClipboardList className="mx-auto mb-4 h-16 w-16 text-azul/20" />
+          <h3 className="mb-2 text-lg font-medium text-azul">Nenhuma tarefa adicionada</h3>
+          <p className="mx-auto mb-6 max-w-md text-sm text-gray-500">
             Adicione tarefas e entregáveis a este workpackage para acompanhar o progresso
           </p>
-          
+
           <Button
             onClick={() => setAddingTarefa(true)}
-            className="bg-azul hover:bg-azul/90 text-white"
+            className="bg-azul text-white hover:bg-azul/90"
           >
-            <PlusIcon className="h-4 w-4 mr-2" />
+            <PlusIcon className="mr-2 h-4 w-4" />
             Adicionar primeira tarefa
           </Button>
         </div>

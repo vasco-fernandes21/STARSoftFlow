@@ -4,46 +4,73 @@ import { cn } from "@/lib/utils";
 type BadgeProps = {
   status: string;
   label: string;
-  variant?: 'projeto' | 'permissao' | 'regime' | 'prazo' | 'custom';
+  variant?: "projeto" | "permissao" | "regime" | "prazo" | "custom";
   customClassName?: string;
 };
 
-export const BadgeEstado = ({ 
-  status, 
-  label, 
-  variant = 'custom',
-  customClassName 
-}: BadgeProps) => {
+export const BadgeEstado = ({ status, label, variant = "custom", customClassName }: BadgeProps) => {
   return (
-    <Badge className={cn(
-      "px-3 py-1 rounded-full text-xs font-medium inline-flex items-center transition-colors duration-300 ease-in-out",
-      // Variante de projeto
-      variant === 'projeto' && status === "APROVADO" && "bg-emerald-50/70 text-emerald-600 border border-emerald-200 backdrop-blur-sm hover:bg-emerald-100 hover:border-emerald-300",
-      variant === 'projeto' && status === "ACEITE" && "bg-emerald-50/70 text-emerald-600 border border-emerald-200 backdrop-blur-sm hover:bg-emerald-100 hover:border-emerald-300",
-      variant === 'projeto' && status === "PENDENTE" && "bg-amber-50/70 text-amber-600 border border-amber-200 backdrop-blur-sm hover:bg-amber-100 hover:border-amber-300",
-      variant === 'projeto' && status === "RASCUNHO" && "bg-gray-50/70 text-gray-600 border border-gray-200 backdrop-blur-sm hover:bg-gray-100 hover:border-gray-300",
-      variant === 'projeto' && status === "EM_DESENVOLVIMENTO" && "bg-blue-50/70 text-blue-600 border border-blue-200 backdrop-blur-sm hover:bg-blue-100 hover:border-blue-300",
-      variant === 'projeto' && status === "CONCLUIDO" && "bg-azul/10 text-azul border border-azul/20 backdrop-blur-sm hover:bg-azul/20 hover:border-azul/30",
-      
-      // Variante de permissão
-      variant === 'permissao' && status === "ADMIN" && "bg-purple-50/70 text-purple-700 border border-purple-200 backdrop-blur-sm hover:bg-purple-100 hover:border-purple-300",
-      variant === 'permissao' && status === "GESTOR" && "bg-blue-50/70 text-azul border border-blue-200 backdrop-blur-sm hover:bg-blue-100 hover:border-blue-300",
-      variant === 'permissao' && status === "COMUM" && "bg-gray-50/70 text-gray-600 border border-gray-200 backdrop-blur-sm hover:bg-gray-100 hover:border-gray-300",
-      
-      // Variante de regime
-      variant === 'regime' && status === "INTEGRAL" && "bg-green-50/70 text-green-700 border border-green-200 backdrop-blur-sm hover:bg-green-100 hover:border-green-300",
-      variant === 'regime' && status === "PARCIAL" && "bg-orange-50/70 text-orange-700 border border-orange-200 backdrop-blur-sm hover:bg-orange-100 hover:border-orange-300",
-      
-      // Variante de prazo
-      variant === 'prazo' && status === "ESTE_MES" && "bg-green-50/70 text-green-600 border border-green-200 backdrop-blur-sm hover:bg-green-100 hover:border-green-300",
-      variant === 'prazo' && status === "PROXIMO_MES" && "bg-blue-50/70 text-blue-600 border border-blue-200 backdrop-blur-sm hover:bg-blue-100 hover:border-blue-300",
-      variant === 'prazo' && status === "ESTE_ANO" && "bg-purple-50/70 text-purple-600 border border-purple-200 backdrop-blur-sm hover:bg-purple-100 hover:border-purple-300",
-      variant === 'prazo' && status === "ATRASADO" && "bg-red-50/70 text-red-600 border border-red-200 backdrop-blur-sm hover:bg-red-100 hover:border-red-300",
-      
-      // Classe personalizada
-      customClassName
-    )}>
+    <Badge
+      className={cn(
+        "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors duration-300 ease-in-out",
+        // Variante de projeto
+        variant === "projeto" &&
+          status === "APROVADO" &&
+          "border border-emerald-200 bg-emerald-50/70 text-emerald-600 backdrop-blur-sm hover:border-emerald-300 hover:bg-emerald-100",
+        variant === "projeto" &&
+          status === "ACEITE" &&
+          "border border-emerald-200 bg-emerald-50/70 text-emerald-600 backdrop-blur-sm hover:border-emerald-300 hover:bg-emerald-100",
+        variant === "projeto" &&
+          status === "PENDENTE" &&
+          "border border-amber-200 bg-amber-50/70 text-amber-600 backdrop-blur-sm hover:border-amber-300 hover:bg-amber-100",
+        variant === "projeto" &&
+          status === "RASCUNHO" &&
+          "border border-gray-200 bg-gray-50/70 text-gray-600 backdrop-blur-sm hover:border-gray-300 hover:bg-gray-100",
+        variant === "projeto" &&
+          status === "EM_DESENVOLVIMENTO" &&
+          "border border-blue-200 bg-blue-50/70 text-blue-600 backdrop-blur-sm hover:border-blue-300 hover:bg-blue-100",
+        variant === "projeto" &&
+          status === "CONCLUIDO" &&
+          "border border-azul/20 bg-azul/10 text-azul backdrop-blur-sm hover:border-azul/30 hover:bg-azul/20",
+
+        // Variante de permissão
+        variant === "permissao" &&
+          status === "ADMIN" &&
+          "border border-purple-200 bg-purple-50/70 text-purple-700 backdrop-blur-sm hover:border-purple-300 hover:bg-purple-100",
+        variant === "permissao" &&
+          status === "GESTOR" &&
+          "border border-blue-200 bg-blue-50/70 text-azul backdrop-blur-sm hover:border-blue-300 hover:bg-blue-100",
+        variant === "permissao" &&
+          status === "COMUM" &&
+          "border border-gray-200 bg-gray-50/70 text-gray-600 backdrop-blur-sm hover:border-gray-300 hover:bg-gray-100",
+
+        // Variante de regime
+        variant === "regime" &&
+          status === "INTEGRAL" &&
+          "border border-green-200 bg-green-50/70 text-green-700 backdrop-blur-sm hover:border-green-300 hover:bg-green-100",
+        variant === "regime" &&
+          status === "PARCIAL" &&
+          "border border-orange-200 bg-orange-50/70 text-orange-700 backdrop-blur-sm hover:border-orange-300 hover:bg-orange-100",
+
+        // Variante de prazo
+        variant === "prazo" &&
+          status === "ESTE_MES" &&
+          "border border-green-200 bg-green-50/70 text-green-600 backdrop-blur-sm hover:border-green-300 hover:bg-green-100",
+        variant === "prazo" &&
+          status === "PROXIMO_MES" &&
+          "border border-blue-200 bg-blue-50/70 text-blue-600 backdrop-blur-sm hover:border-blue-300 hover:bg-blue-100",
+        variant === "prazo" &&
+          status === "ESTE_ANO" &&
+          "border border-purple-200 bg-purple-50/70 text-purple-600 backdrop-blur-sm hover:border-purple-300 hover:bg-purple-100",
+        variant === "prazo" &&
+          status === "ATRASADO" &&
+          "border border-red-200 bg-red-50/70 text-red-600 backdrop-blur-sm hover:border-red-300 hover:bg-red-100",
+
+        // Classe personalizada
+        customClassName
+      )}
+    >
       {label}
     </Badge>
   );
-}; 
+};

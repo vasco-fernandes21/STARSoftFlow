@@ -7,18 +7,18 @@ const rotasPublicas = ["/login", "/primeiro-login"];
 
 export async function middleware(request: NextRequest) {
   // Verificar token usando o cookie next-auth.session-token
-  const token = await getToken({ 
-    req: request, 
+  const token = await getToken({
+    req: request,
     secret: process.env.AUTH_SECRET,
-    cookieName: "next-auth.session-token"
+    cookieName: "next-auth.session-token",
   });
-  
+
   const isLoggedIn = !!token;
   const path = request.nextUrl.pathname;
-  
+
   // Verifica se a rota atual é pública
-  const isPublicRoute = rotasPublicas.some(route => 
-    path === route || path.startsWith(`${route}/`)
+  const isPublicRoute = rotasPublicas.some(
+    (route) => path === route || path.startsWith(`${route}/`)
   );
 
   console.log(`Path: ${path}, Logged in: ${isLoggedIn}, Public: ${isPublicRoute}`);
@@ -28,9 +28,7 @@ export async function middleware(request: NextRequest) {
   if (!isLoggedIn && !isPublicRoute) {
     // Guarda a URL original para redirecionar de volta após o login
     const returnUrl = encodeURIComponent(path);
-    return NextResponse.redirect(
-      new URL(`/login?returnUrl=${returnUrl}`, request.url)
-    );
+    return NextResponse.redirect(new URL(`/login?returnUrl=${returnUrl}`, request.url));
   }
 
   // Se o utilizador estiver autenticado e estiver na página de login,
@@ -49,6 +47,6 @@ export const config = {
     // Aplica a todas as rotas exceto:
     // 1. Recursos estáticos
     // 2. Rotas de API
-    '/((?!_next/static|_next/image|favicon.ico|api/auth|images|public).*)',
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|images|public).*)",
   ],
 };

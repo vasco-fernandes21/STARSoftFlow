@@ -4,12 +4,12 @@ import React, { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { 
-  Mail, 
-  Calendar, 
-  Briefcase, 
-  Shield, 
-  Clock, 
+import {
+  Mail,
+  Calendar,
+  Briefcase,
+  Shield,
+  Clock,
   ArrowLeft,
   FileText,
   BarChart2,
@@ -23,15 +23,9 @@ import {
   Activity,
   Send,
   MapPin,
-  Share2
+  Share2,
 } from "lucide-react";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle,
-  CardDescription
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,14 +120,14 @@ interface ProximoWorkpackage {
 }
 
 const PERMISSAO_LABELS: Record<string, string> = {
-  ADMIN: 'Administrador',
-  GESTOR: 'Gestor',
-  COMUM: 'Comum'
+  ADMIN: "Administrador",
+  GESTOR: "Gestor",
+  COMUM: "Comum",
 };
 
 const REGIME_LABELS: Record<string, string> = {
-  PARCIAL: 'Parcial',
-  INTEGRAL: 'Integral'
+  PARCIAL: "Parcial",
+  INTEGRAL: "Integral",
 };
 
 // Funções auxiliares
@@ -147,7 +141,7 @@ const getRegimeText = (regime: Regime) => {
 
 const formatarData = (data: Date | null | undefined) => {
   if (!data) return "Não definido";
-  return new Date(data).toLocaleDateString('pt-PT');
+  return new Date(data).toLocaleDateString("pt-PT");
 };
 
 const calcularAnosExperiencia = (dataContratacao: Date | null | undefined) => {
@@ -162,17 +156,15 @@ const utilizadorSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
   email: z.string().email().nullable(),
-  emailVerified: z.union([
-    z.string().nullable(),
-    z.date().nullable(),
-    z.null()
-  ]).transform(val => val ? new Date(val) : null),
+  emailVerified: z
+    .union([z.string().nullable(), z.date().nullable(), z.null()])
+    .transform((val) => (val ? new Date(val) : null)),
   foto: z.string().nullable(),
   atividade: z.string().nullable().default(""),
-  contratacao: z.union([
-    z.string(),
-    z.date()
-  ]).nullable().transform(val => val ? new Date(val) : null),
+  contratacao: z
+    .union([z.string(), z.date()])
+    .nullable()
+    .transform((val) => (val ? new Date(val) : null)),
   username: z.string().nullable(),
   permissao: z.enum(["ADMIN", "GESTOR", "COMUM"]),
   regime: z.enum(["PARCIAL", "INTEGRAL"]),
@@ -183,85 +175,84 @@ export default function PerfilUtilizador() {
   const router = useRouter();
   const { username } = useParams<{ username: string }>();
   const [activeTab, setActiveTab] = useState<string>("perfil");
-  
+
   // Dados do utilizador
-  const { 
-    data: utilizador, 
+  const {
+    data: utilizador,
     isLoading: isLoadingUser,
-    error: userError
+    error: userError,
   } = api.utilizador.getByUsername.useQuery(username as string, {
     enabled: !!username,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
   });
 
   // Dados das alocações
-  const { 
-    data: projetos,
-    isLoading: isLoadingProjetos 
-  } = api.utilizador.getProjetosWithUser.useQuery(
-    utilizador?.id ?? "",
-    {
+  const { data: projetos, isLoading: isLoadingProjetos } =
+    api.utilizador.getProjetosWithUser.useQuery(utilizador?.id ?? "", {
       enabled: !!utilizador?.id,
-      refetchOnWindowFocus: false
-    }
-  );
+      refetchOnWindowFocus: false,
+    });
 
   // Estado de carregamento geral
   const isLoading = isLoadingUser || isLoadingProjetos;
 
   // Preparar dados para os componentes
-  const alocacoesDetalhadas: AlocacaoDetalhada[] = useMemo(() => 
-    projetos?.flatMap((projeto: Projeto) => 
-      projeto.workpackages.flatMap((wp: Workpackage) => 
-        wp.alocacoes.map((alocacao) => ({
-          ...alocacao,
-          ocupacao: Number(alocacao.ocupacao),
-          projeto: {
-            id: projeto.id,
-            nome: projeto.nome
-          },
-          workpackage: {
-            id: wp.id,
-            nome: wp.nome
-          }
-        }))
-      )
-    ) ?? []
-  , [projetos]);
+  const alocacoesDetalhadas: AlocacaoDetalhada[] = useMemo(
+    () =>
+      projetos?.flatMap((projeto: Projeto) =>
+        projeto.workpackages.flatMap((wp: Workpackage) =>
+          wp.alocacoes.map((alocacao) => ({
+            ...alocacao,
+            ocupacao: Number(alocacao.ocupacao),
+            projeto: {
+              id: projeto.id,
+              nome: projeto.nome,
+            },
+            workpackage: {
+              id: wp.id,
+              nome: wp.nome,
+            },
+          }))
+        )
+      ) ?? [],
+    [projetos]
+  );
 
   // Converter alocacoesDetalhadas para alocacoesTabela para manter a tipagem correta
-  const alocacoesTabela: AlocacaoOriginal[] = useMemo(() => 
-    alocacoesDetalhadas.map(alocacao => ({
-      ...alocacao,
-      ano: Number(alocacao.ano),
-      ocupacao: Number(alocacao.ocupacao),
-      projeto: {
-        id: alocacao.projeto.id,
-        nome: alocacao.projeto.nome
-      },
-      workpackage: {
-        id: alocacao.workpackage.id,
-        nome: alocacao.workpackage.nome
-      }
-    }))
-  , [alocacoesDetalhadas]);
+  const alocacoesTabela: AlocacaoOriginal[] = useMemo(
+    () =>
+      alocacoesDetalhadas.map((alocacao) => ({
+        ...alocacao,
+        ano: Number(alocacao.ano),
+        ocupacao: Number(alocacao.ocupacao),
+        projeto: {
+          id: alocacao.projeto.id,
+          nome: alocacao.projeto.nome,
+        },
+        workpackage: {
+          id: alocacao.workpackage.id,
+          nome: alocacao.workpackage.nome,
+        },
+      })),
+    [alocacoesDetalhadas]
+  );
 
   // Encontrar o próximo workpackage (com data de início mais próxima)
   const proximoWorkpackage = useMemo<ProximoWorkpackage | null>(() => {
     const agora = new Date();
     if (!projetos || projetos.length === 0) return null;
-    
+
     let candidato: ProximoWorkpackage | null = null;
     let menorDiferenca = Infinity;
-    
+
     projetos.forEach((projeto: Projeto) => {
       projeto.workpackages.forEach((wp: Workpackage) => {
         const dataInicio = new Date(wp.inicio);
-        
+
         // Considerar apenas workpackages futuros
         if (dataInicio > agora) {
           const diferenca = dataInicio.getTime() - agora.getTime();
-          
+
           if (diferenca < menorDiferenca) {
             menorDiferenca = diferenca;
             candidato = {
@@ -270,24 +261,24 @@ export default function PerfilUtilizador() {
               dataInicio: dataInicio,
               projeto: {
                 id: projeto.id,
-                nome: projeto.nome
-              }
+                nome: projeto.nome,
+              },
             };
           }
         }
       });
     });
-    
+
     return candidato;
   }, [projetos]);
 
   // Componente de loading
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
-        <div className="w-16 h-16 relative animate-spin">
-          <div className="absolute inset-0 rounded-full border-t-2 border-b-2 border-azul/30"></div>
-          <div className="absolute inset-0 rounded-full border-t-2 border-azul animate-pulse"></div>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white to-gray-50">
+        <div className="relative h-16 w-16 animate-spin">
+          <div className="absolute inset-0 rounded-full border-b-2 border-t-2 border-azul/30"></div>
+          <div className="absolute inset-0 animate-pulse rounded-full border-t-2 border-azul"></div>
         </div>
       </div>
     );
@@ -296,21 +287,22 @@ export default function PerfilUtilizador() {
   // Componente de erro
   if (userError || !utilizador) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
-          <div className="bg-red-50 rounded-full p-4 w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white to-gray-50 p-6">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-lg">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 p-4">
             <FileText className="h-8 w-8 text-red-500" />
           </div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Erro ao carregar dados</h2>
-          <p className="text-gray-600 mb-6">
-            {userError?.message || "Não foi possível carregar os dados do utilizador. Por favor, tente novamente mais tarde."}
+          <h2 className="mb-2 text-2xl font-semibold text-gray-900">Erro ao carregar dados</h2>
+          <p className="mb-6 text-gray-600">
+            {userError?.message ||
+              "Não foi possível carregar os dados do utilizador. Por favor, tente novamente mais tarde."}
           </p>
           <Button
             variant="outline"
-            onClick={() => router.push('/utilizadores')}
-            className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200"
+            onClick={() => router.push("/utilizadores")}
+            className="border-gray-200 transition-all duration-200 hover:border-azul/30 hover:bg-azul/5"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar para a lista
           </Button>
         </div>
@@ -335,119 +327,127 @@ export default function PerfilUtilizador() {
       username: validatedUser.username ?? "Username não disponível",
       permissao: validatedUser.permissao,
       regime: validatedUser.regime,
-      informacoes: validatedUser.informacoes ?? null
+      informacoes: validatedUser.informacoes ?? null,
     };
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6">
         {/* Navegação superior com botão voltar */}
-        <div className="sticky top-0 z-40 backdrop-blur-sm bg-white/80 border-b border-gray-100 shadow-sm">
-          <div className="container mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 shadow-sm backdrop-blur-sm">
+          <div className="container mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push('/utilizadores')}
-              className="text-gray-600 hover:text-azul group flex items-center gap-2"
+              onClick={() => router.push("/utilizadores")}
+              className="group flex items-center gap-2 text-gray-600 hover:text-azul"
             >
-              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
               <span>Voltar</span>
             </Button>
-            
+
             <div className="text-sm text-gray-500">
-              <span className="font-medium">Perfil de {utilizador?.name ?? 'Utilizador'}</span>
+              <span className="font-medium">Perfil de {utilizador?.name ?? "Utilizador"}</span>
             </div>
-            
+
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="border-gray-200 text-gray-600 hover:text-azul">
-                <Share2 className="h-4 w-4 mr-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-gray-200 text-gray-600 hover:text-azul"
+              >
+                <Share2 className="mr-1 h-4 w-4" />
                 Partilhar
               </Button>
             </div>
           </div>
         </div>
-        
-        <main className="container mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-20">
+
+        <main className="container mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
           {/* Cabeçalho do perfil */}
           <div className="relative mb-10">
-            <div className="absolute inset-0 bg-gradient-to-r from-azul/5 to-indigo-50/30 h-48 -z-10 rounded-3xl"></div>
-            
-            <div className="relative pt-12 pb-8 px-6 sm:px-8 md:px-10">
-              <div className="flex flex-col sm:flex-row gap-8 items-center sm:items-start">
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-azul to-indigo-400 rounded-full blur opacity-30 group-hover:opacity-60 transition-all duration-500"></div>
-                  <Avatar className="h-32 w-32 border-4 border-white shadow-xl relative">
+            <div className="absolute inset-0 -z-10 h-48 rounded-3xl bg-gradient-to-r from-azul/5 to-indigo-50/30"></div>
+
+            <div className="relative px-6 pb-8 pt-12 sm:px-8 md:px-10">
+              <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-start">
+                <div className="group relative">
+                  <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-azul to-indigo-400 opacity-30 blur transition-all duration-500 group-hover:opacity-60"></div>
+                  <Avatar className="relative h-32 w-32 border-4 border-white shadow-xl">
                     {utilizador?.foto ? (
                       <AvatarImage src={utilizador.foto} alt={utilizador.name || ""} />
                     ) : (
-                      <AvatarFallback className="bg-gradient-to-br from-azul to-indigo-500 text-white text-4xl font-semibold">
+                      <AvatarFallback className="bg-gradient-to-br from-azul to-indigo-500 text-4xl font-semibold text-white">
                         {utilizador?.name?.slice(0, 2).toUpperCase() || "U"}
                       </AvatarFallback>
                     )}
                   </Avatar>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="icon"
-                    className="absolute bottom-1 right-1 rounded-full bg-white shadow-md hover:bg-azul/5 hover:scale-110 transition-all duration-300 w-8 h-8"
+                    className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-white shadow-md transition-all duration-300 hover:scale-110 hover:bg-azul/5"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 <div className="text-center sm:text-left">
-                  <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
-                    {utilizador?.name ?? 'Nome não disponível'}
+                  <h1 className="mb-2 text-3xl font-bold text-gray-900 sm:text-4xl">
+                    {utilizador?.name ?? "Nome não disponível"}
                   </h1>
-                  
-                  <p className="text-lg text-gray-600 mb-4 max-w-xl">
+
+                  <p className="mb-4 max-w-xl text-lg text-gray-600">
                     {utilizador?.atividade ?? "Sem atividade definida"}
                   </p>
-                  
-                  <div className="flex flex-wrap gap-2 justify-center sm:justify-start mb-6">
-                    <Badge className="bg-azul/10 hover:bg-azul/20 text-azul py-1.5 px-3 rounded-full text-sm transition-colors duration-200">
-                      <Shield className="h-3.5 w-3.5 mr-1.5" />
+
+                  <div className="mb-6 flex flex-wrap justify-center gap-2 sm:justify-start">
+                    <Badge className="rounded-full bg-azul/10 px-3 py-1.5 text-sm text-azul transition-colors duration-200 hover:bg-azul/20">
+                      <Shield className="mr-1.5 h-3.5 w-3.5" />
                       {getPermissaoText(utilizadorComDetalhes.permissao)}
                     </Badge>
-                    
-                    <Badge className="bg-azul/10 hover:bg-azul/20 text-azul py-1.5 px-3 rounded-full text-sm transition-colors duration-200">
-                      <Clock className="h-3.5 w-3.5 mr-1.5" />
+
+                    <Badge className="rounded-full bg-azul/10 px-3 py-1.5 text-sm text-azul transition-colors duration-200 hover:bg-azul/20">
+                      <Clock className="mr-1.5 h-3.5 w-3.5" />
                       {getRegimeText(utilizadorComDetalhes.regime)}
                     </Badge>
-                    
+
                     {utilizador?.contratacao && (
-                      <Badge className="bg-azul/10 hover:bg-azul/20 text-azul py-1.5 px-3 rounded-full text-sm transition-colors duration-200">
-                        <Briefcase className="h-3.5 w-3.5 mr-1.5" /> 
-                        {anosExperiencia} {anosExperiencia === 1 ? 'ano' : 'anos'} de experiência
+                      <Badge className="rounded-full bg-azul/10 px-3 py-1.5 text-sm text-azul transition-colors duration-200 hover:bg-azul/20">
+                        <Briefcase className="mr-1.5 h-3.5 w-3.5" />
+                        {anosExperiencia} {anosExperiencia === 1 ? "ano" : "anos"} de experiência
                       </Badge>
                     )}
                   </div>
-                  
-                  <div className="flex gap-3 justify-center sm:justify-start">
-                    <Button className="bg-azul hover:bg-azul/90 text-white">
-                      <Send className="h-4 w-4 mr-2" /> Contactar
+
+                  <div className="flex justify-center gap-3 sm:justify-start">
+                    <Button className="bg-azul text-white hover:bg-azul/90">
+                      <Send className="mr-2 h-4 w-4" /> Contactar
                     </Button>
                     <Button variant="outline" className="border-gray-200">
-                      <FileText className="h-4 w-4 mr-2" /> Ver CV
+                      <FileText className="mr-2 h-4 w-4" /> Ver CV
                     </Button>
                   </div>
                 </div>
-                
-                <div className="hidden md:flex flex-col gap-4 items-end ml-auto">
-                  <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 flex flex-col items-center transition-all hover:shadow-lg hover:scale-105">
-                    <div className="bg-azul/10 text-azul rounded-full p-2 mb-2">
+
+                <div className="ml-auto hidden flex-col items-end gap-4 md:flex">
+                  <div className="flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-4 shadow-md transition-all hover:scale-105 hover:shadow-lg">
+                    <div className="mb-2 rounded-full bg-azul/10 p-2 text-azul">
                       <Activity className="h-6 w-6" />
                     </div>
                     <span className="text-2xl font-bold text-gray-900">
-                      {alocacoesDetalhadas.length > 0 ? Math.round(alocacoesDetalhadas.reduce((sum, a) => sum + a.ocupacao, 0) * 100) / 100 : 0}
+                      {alocacoesDetalhadas.length > 0
+                        ? Math.round(
+                            alocacoesDetalhadas.reduce((sum, a) => sum + a.ocupacao, 0) * 100
+                          ) / 100
+                        : 0}
                     </span>
                     <span className="text-xs text-gray-500">Ocupação Total</span>
                   </div>
-                  
-                  <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 flex flex-col items-center transition-all hover:shadow-lg hover:scale-105">
-                    <div className="bg-indigo-100 text-indigo-600 rounded-full p-2 mb-2">
+
+                  <div className="flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-4 shadow-md transition-all hover:scale-105 hover:shadow-lg">
+                    <div className="mb-2 rounded-full bg-indigo-100 p-2 text-indigo-600">
                       <Grid3X3 className="h-6 w-6" />
                     </div>
                     <span className="text-2xl font-bold text-gray-900">
-                      {new Set(alocacoesDetalhadas.map(a => a.projeto.id)).size || 0}
+                      {new Set(alocacoesDetalhadas.map((a) => a.projeto.id)).size || 0}
                     </span>
                     <span className="text-xs text-gray-500">Projetos Ativos</span>
                   </div>
@@ -455,113 +455,137 @@ export default function PerfilUtilizador() {
               </div>
             </div>
           </div>
-          
+
           {/* Tabs de navegação */}
-          <Tabs defaultValue="perfil" value={activeTab} onValueChange={setActiveTab} className="mb-8">
-            <TabsList className="grid grid-cols-3 gap-2 bg-white rounded-xl p-1 border border-gray-100 shadow-sm">
-              <TabsTrigger 
-                value="perfil" 
+          <Tabs
+            defaultValue="perfil"
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="mb-8"
+          >
+            <TabsList className="grid grid-cols-3 gap-2 rounded-xl border border-gray-100 bg-white p-1 shadow-sm">
+              <TabsTrigger
+                value="perfil"
                 className={cn(
                   "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
                   "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
                   "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
                 )}
               >
-                <Briefcase className="h-4 w-4 mr-2" />
+                <Briefcase className="mr-2 h-4 w-4" />
                 Perfil Profissional
               </TabsTrigger>
-              <TabsTrigger 
-                value="alocacoes" 
+              <TabsTrigger
+                value="alocacoes"
                 className={cn(
                   "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
                   "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
                   "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
                 )}
               >
-                <BarChart2 className="h-4 w-4 mr-2" />
+                <BarChart2 className="mr-2 h-4 w-4" />
                 Alocações
               </TabsTrigger>
-              <TabsTrigger 
-                value="estatisticas" 
+              <TabsTrigger
+                value="estatisticas"
                 className={cn(
                   "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
                   "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
                   "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
                 )}
               >
-                <PieChart className="h-4 w-4 mr-2" />
+                <PieChart className="mr-2 h-4 w-4" />
                 Estatísticas
               </TabsTrigger>
             </TabsList>
-            
+
             {/* Conteúdo: Perfil Profissional */}
             <TabsContent value="perfil" className="pt-6">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-8 space-y-6">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                <div className="space-y-6 lg:col-span-8">
                   {/* Sobre */}
-                  <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
-                    <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                      <CardTitle className="text-xl text-gray-800 flex items-center">
-                        <FileText className="h-5 w-5 text-azul mr-2" />
+                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
+                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                      <CardTitle className="flex items-center text-xl text-gray-800">
+                        <FileText className="mr-2 h-5 w-5 text-azul" />
                         Sobre
                       </CardTitle>
                       <CardDescription className="text-gray-500">
                         Perfil e resumo profissional
                       </CardDescription>
                     </CardHeader>
-                    
+
                     <CardContent className="pt-6">
                       {utilizadorComDetalhes?.informacoes ? (
-                        <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        <div className="whitespace-pre-wrap leading-relaxed text-gray-700">
                           {utilizadorComDetalhes.informacoes}
                         </div>
                       ) : (
-                        <div className="text-center py-10">
-                          <div className="bg-gray-50 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                        <div className="py-10 text-center">
+                          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50 p-4">
                             <FileText className="h-8 w-8 text-gray-300" />
                           </div>
-                          <p className="text-gray-500 mb-4">Este utilizador ainda não tem um currículo resumido definido.</p>
-                          <Button variant="outline" className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200">
-                            <Edit className="h-4 w-4 mr-2" />
+                          <p className="mb-4 text-gray-500">
+                            Este utilizador ainda não tem um currículo resumido definido.
+                          </p>
+                          <Button
+                            variant="outline"
+                            className="border-gray-200 transition-all duration-200 hover:border-azul/30 hover:bg-azul/5"
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
                             Adicionar Informações
                           </Button>
                         </div>
                       )}
                     </CardContent>
                   </Card>
-                  
+
                   {/* Projetos */}
-                  <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
-                    <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                      <CardTitle className="text-xl text-gray-800 flex items-center">
-                        <Building2 className="h-5 w-5 text-azul mr-2" />
+                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
+                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                      <CardTitle className="flex items-center text-xl text-gray-800">
+                        <Building2 className="mr-2 h-5 w-5 text-azul" />
                         Projetos Atuais
                       </CardTitle>
                       <CardDescription className="text-gray-500">
                         Projetos em que o utilizador está alocado
                       </CardDescription>
                     </CardHeader>
-                    
+
                     <CardContent className="pt-6">
                       {projetos && projetos.length > 0 ? (
                         <div className="space-y-4">
                           {projetos.map((projeto: Projeto) => (
-                            <div key={projeto.id} className="group p-4 rounded-xl border border-gray-100 hover:border-azul/20 bg-white hover:bg-azul/5 transition-all duration-200">
-                              <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-medium text-gray-900 group-hover:text-azul transition-colors">{projeto.nome}</h3>
-                                <Badge className="bg-emerald-50 text-emerald-600 text-xs">
-                                  {new Date(projeto.inicio) <= new Date() && new Date(projeto.fim) >= new Date() ? 'Ativo' : 'Inativo'}
+                            <div
+                              key={projeto.id}
+                              className="group rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 hover:border-azul/20 hover:bg-azul/5"
+                            >
+                              <div className="mb-2 flex items-start justify-between">
+                                <h3 className="font-medium text-gray-900 transition-colors group-hover:text-azul">
+                                  {projeto.nome}
+                                </h3>
+                                <Badge className="bg-emerald-50 text-xs text-emerald-600">
+                                  {new Date(projeto.inicio) <= new Date() &&
+                                  new Date(projeto.fim) >= new Date()
+                                    ? "Ativo"
+                                    : "Inativo"}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-gray-600 mb-3 line-clamp-2">{projeto.descricao}</p>
-                              <div className="flex justify-between items-center text-xs text-gray-500">
+                              <p className="mb-3 line-clamp-2 text-sm text-gray-600">
+                                {projeto.descricao}
+                              </p>
+                              <div className="flex items-center justify-between text-xs text-gray-500">
                                 <div className="flex items-center">
-                                  <Calendar className="h-3.5 w-3.5 mr-1" />
+                                  <Calendar className="mr-1 h-3.5 w-3.5" />
                                   <span>
                                     {formatarData(projeto.inicio)} - {formatarData(projeto.fim)}
                                   </span>
                                 </div>
-                                <Button variant="ghost" size="sm" className="h-7 text-xs text-azul hover:bg-azul/10 px-2 -mr-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="-mr-2 h-7 px-2 text-xs text-azul hover:bg-azul/10"
+                                >
                                   <ChevronRight className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -569,13 +593,18 @@ export default function PerfilUtilizador() {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-10">
-                          <div className="bg-gray-50 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                        <div className="py-10 text-center">
+                          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50 p-4">
                             <Building2 className="h-8 w-8 text-gray-300" />
                           </div>
-                          <p className="text-gray-500 mb-4">Este utilizador não está alocado em nenhum projeto.</p>
-                          <Button variant="outline" className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200">
-                            <Plus className="h-4 w-4 mr-2" />
+                          <p className="mb-4 text-gray-500">
+                            Este utilizador não está alocado em nenhum projeto.
+                          </p>
+                          <Button
+                            variant="outline"
+                            className="border-gray-200 transition-all duration-200 hover:border-azul/30 hover:bg-azul/5"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
                             Adicionar a um Projeto
                           </Button>
                         </div>
@@ -583,104 +612,115 @@ export default function PerfilUtilizador() {
                     </CardContent>
                   </Card>
                 </div>
-                
+
                 {/* Sidebar */}
-                <div className="lg:col-span-4 space-y-6">
+                <div className="space-y-6 lg:col-span-4">
                   {/* Informação de Contacto */}
-                  <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
-                    <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                      <CardTitle className="text-xl text-gray-800 flex items-center">
-                        <Mail className="h-5 w-5 text-azul mr-2" />
+                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
+                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                      <CardTitle className="flex items-center text-xl text-gray-800">
+                        <Mail className="mr-2 h-5 w-5 text-azul" />
                         Contacto
                       </CardTitle>
                     </CardHeader>
-                    
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
-                        <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
+
+                    <CardContent className="space-y-4 pt-6">
+                      <div className="group flex items-center gap-3 rounded-xl p-3 text-gray-600 transition-all duration-200 hover:bg-gray-50">
+                        <div className="rounded-full bg-azul/10 p-2 text-azul transition-all group-hover:scale-105">
                           <Mail className="h-5 w-5" />
                         </div>
-                        <span className="group-hover:text-azul transition-colors duration-200">{utilizador?.email}</span>
+                        <span className="transition-colors duration-200 group-hover:text-azul">
+                          {utilizador?.email}
+                        </span>
                       </div>
-                      <div className="p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
-                        <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
+                      <div className="group flex items-center gap-3 rounded-xl p-3 text-gray-600 transition-all duration-200 hover:bg-gray-50">
+                        <div className="rounded-full bg-azul/10 p-2 text-azul transition-all group-hover:scale-105">
                           <MapPin className="h-5 w-5" />
                         </div>
-                        <span className="group-hover:text-azul transition-colors duration-200">Portugal</span>
+                        <span className="transition-colors duration-200 group-hover:text-azul">
+                          Portugal
+                        </span>
                       </div>
-                      <div className="p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-600 group">
-                        <div className="bg-azul/10 text-azul p-2 rounded-full group-hover:scale-105 transition-all">
+                      <div className="group flex items-center gap-3 rounded-xl p-3 text-gray-600 transition-all duration-200 hover:bg-gray-50">
+                        <div className="rounded-full bg-azul/10 p-2 text-azul transition-all group-hover:scale-105">
                           <Calendar className="h-5 w-5" />
                         </div>
-                        <span className="group-hover:text-azul transition-colors duration-200">
-                          {utilizador?.contratacao 
-                            ? `Membro desde ${format(new Date(utilizador?.contratacao), "MMMM yyyy", { locale: pt })}` 
+                        <span className="transition-colors duration-200 group-hover:text-azul">
+                          {utilizador?.contratacao
+                            ? `Membro desde ${format(new Date(utilizador?.contratacao), "MMMM yyyy", { locale: pt })}`
                             : "Data não definida"}
                         </span>
                       </div>
                     </CardContent>
                   </Card>
-                  
+
                   {/* Estatísticas Rápidas - Modificada */}
-                  <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
-                    <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                      <CardTitle className="text-xl text-gray-800 flex items-center">
-                        <Zap className="h-5 w-5 text-azul mr-2" />
+                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
+                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                      <CardTitle className="flex items-center text-xl text-gray-800">
+                        <Zap className="mr-2 h-5 w-5 text-azul" />
                         Estatísticas Rápidas
                       </CardTitle>
                     </CardHeader>
-                    
+
                     <CardContent className="pt-6">
                       <div className="grid grid-cols-1 gap-4">
                         {/* Projetos alocados */}
-                        <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-4 hover:bg-azul/5 hover:shadow-sm transition-all duration-200">
-                          <div className="bg-azul/10 text-azul p-3 rounded-xl">
+                        <div className="flex items-center gap-4 rounded-xl bg-gray-50 p-4 transition-all duration-200 hover:bg-azul/5 hover:shadow-sm">
+                          <div className="rounded-xl bg-azul/10 p-3 text-azul">
                             <Building2 className="h-6 w-6" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-azul">
-                              {new Set(alocacoesDetalhadas.map(a => a.projeto.id)).size || 0}
+                              {new Set(alocacoesDetalhadas.map((a) => a.projeto.id)).size || 0}
                             </p>
                             <p className="text-xs text-gray-500">Projetos alocados</p>
                           </div>
                         </div>
-                        
+
                         {/* Workpackages */}
-                        <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-4 hover:bg-azul/5 hover:shadow-sm transition-all duration-200">
-                          <div className="bg-indigo-100 text-indigo-600 p-3 rounded-xl">
+                        <div className="flex items-center gap-4 rounded-xl bg-gray-50 p-4 transition-all duration-200 hover:bg-azul/5 hover:shadow-sm">
+                          <div className="rounded-xl bg-indigo-100 p-3 text-indigo-600">
                             <Grid3X3 className="h-6 w-6" />
                           </div>
                           <div>
                             <p className="text-2xl font-bold text-indigo-600">
-                              {new Set(alocacoesDetalhadas.map(a => a.workpackage.id)).size || 0}
+                              {new Set(alocacoesDetalhadas.map((a) => a.workpackage.id)).size || 0}
                             </p>
                             <p className="text-xs text-gray-500">Workpackages ativos</p>
                           </div>
                         </div>
-                        
+
                         {/* Próximo workpackage */}
-                        <div className="bg-gray-50 rounded-xl p-4 hover:bg-azul/5 hover:shadow-sm transition-all duration-200">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-emerald-100 text-emerald-600 p-2 rounded-lg">
+                        <div className="rounded-xl bg-gray-50 p-4 transition-all duration-200 hover:bg-azul/5 hover:shadow-sm">
+                          <div className="mb-2 flex items-center gap-3">
+                            <div className="rounded-lg bg-emerald-100 p-2 text-emerald-600">
                               <Calendar className="h-5 w-5" />
                             </div>
                             <p className="font-medium text-gray-700">Próximo workpackage</p>
                           </div>
-                          
+
                           {proximoWorkpackage ? (
                             <div className="pl-2">
-                              <p className="font-medium text-azul truncate mb-1">{proximoWorkpackage.nome}</p>
+                              <p className="mb-1 truncate font-medium text-azul">
+                                {proximoWorkpackage.nome}
+                              </p>
                               <div className="flex justify-between text-xs">
                                 <span className="text-gray-500">
-                                  Projeto: <span className="text-gray-700">{proximoWorkpackage.projeto.nome}</span>
+                                  Projeto:{" "}
+                                  <span className="text-gray-700">
+                                    {proximoWorkpackage.projeto.nome}
+                                  </span>
                                 </span>
-                                <span className="text-emerald-600 font-medium">
-                                  {format(proximoWorkpackage.dataInicio, "dd MMM yyyy", { locale: pt })}
+                                <span className="font-medium text-emerald-600">
+                                  {format(proximoWorkpackage.dataInicio, "dd MMM yyyy", {
+                                    locale: pt,
+                                  })}
                                 </span>
                               </div>
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-500 pl-2">Sem workpackages futuros</p>
+                            <p className="pl-2 text-sm text-gray-500">Sem workpackages futuros</p>
                           )}
                         </div>
                       </div>
@@ -689,94 +729,100 @@ export default function PerfilUtilizador() {
                 </div>
               </div>
             </TabsContent>
-            
+
             {/* Conteúdo: Alocações */}
             <TabsContent value="alocacoes" className="pt-6">
               <div className="grid grid-cols-1 gap-6">
                 {/* Visão Detalhada */}
-                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                    <CardTitle className="text-xl text-gray-800 flex items-center">
-                      <Calendar className="h-5 w-5 text-azul mr-2" />
+                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
+                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                    <CardTitle className="flex items-center text-xl text-gray-800">
+                      <Calendar className="mr-2 h-5 w-5 text-azul" />
                       Alocações Detalhadas
                     </CardTitle>
                     <CardDescription className="text-gray-500">
                       Visão detalhada por projeto e workpackage
                     </CardDescription>
                   </CardHeader>
-                  
-                  <CardContent className="pt-6 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-azul/20 scrollbar-track-gray-100">
+
+                  <CardContent className="scrollbar-thin scrollbar-thumb-azul/20 scrollbar-track-gray-100 max-h-[500px] overflow-y-auto pt-6">
                     <AlocacoesDetalhadas alocacoes={alocacoesDetalhadas} />
                   </CardContent>
                 </Card>
-                
+
                 {/* Tabela de Alocações */}
-                <div className="bg-white rounded-2xl shadow-md border-0 overflow-hidden">
-                  <div className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 p-6">
-                    <h3 className="text-xl text-gray-800 flex items-center mb-1">
-                      <BarChart2 className="h-5 w-5 text-azul mr-2" />
+                <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-md">
+                  <div className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 p-6">
+                    <h3 className="mb-1 flex items-center text-xl text-gray-800">
+                      <BarChart2 className="mr-2 h-5 w-5 text-azul" />
                       Relatório de Alocações
                     </h3>
                     <p className="text-gray-500">
                       Tabela detalhada de alocações por projeto e workpackage
                     </p>
                   </div>
-                  
+
                   <TabelaAlocacoes alocacoes={alocacoesTabela} />
                 </div>
               </div>
             </TabsContent>
-            
+
             {/* Conteúdo: Estatísticas */}
             <TabsContent value="estatisticas" className="pt-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                    <CardTitle className="text-xl text-gray-800 flex items-center">
-                      <PieChart className="h-5 w-5 text-azul mr-2" />
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
+                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                    <CardTitle className="flex items-center text-xl text-gray-800">
+                      <PieChart className="mr-2 h-5 w-5 text-azul" />
                       Distribuição de Ocupação
                     </CardTitle>
                   </CardHeader>
-                  
-                  <CardContent className="pt-6 h-60 flex items-center justify-center">
+
+                  <CardContent className="flex h-60 items-center justify-center pt-6">
                     <div className="text-center text-gray-500">
-                      <PieChart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <PieChart className="mx-auto mb-4 h-12 w-12 text-gray-300" />
                       <p>Dados de gráfico não disponíveis.</p>
-                      <p className="text-sm">Adicione mais informações para visualizar estatísticas.</p>
+                      <p className="text-sm">
+                        Adicione mais informações para visualizar estatísticas.
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
-                
-                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                    <CardTitle className="text-xl text-gray-800 flex items-center">
-                      <Activity className="h-5 w-5 text-azul mr-2" />
+
+                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
+                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                    <CardTitle className="flex items-center text-xl text-gray-800">
+                      <Activity className="mr-2 h-5 w-5 text-azul" />
                       Tendência de Alocação
                     </CardTitle>
                   </CardHeader>
-                  
-                  <CardContent className="pt-6 h-60 flex items-center justify-center">
+
+                  <CardContent className="flex h-60 items-center justify-center pt-6">
                     <div className="text-center text-gray-500">
-                      <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <Activity className="mx-auto mb-4 h-12 w-12 text-gray-300" />
                       <p>Dados de gráfico não disponíveis.</p>
-                      <p className="text-sm">Adicione mais informações para visualizar estatísticas.</p>
+                      <p className="text-sm">
+                        Adicione mais informações para visualizar estatísticas.
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
-                
-                <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden lg:col-span-2">
-                  <CardHeader className="bg-gradient-to-r from-white to-azul/5 border-b border-gray-100 pb-4">
-                    <CardTitle className="text-xl text-gray-800 flex items-center">
-                      <Building2 className="h-5 w-5 text-azul mr-2" />
+
+                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg lg:col-span-2">
+                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
+                    <CardTitle className="flex items-center text-xl text-gray-800">
+                      <Building2 className="mr-2 h-5 w-5 text-azul" />
                       Distribuição por Projeto
                     </CardTitle>
                   </CardHeader>
-                  
-                  <CardContent className="pt-6 h-60 flex items-center justify-center">
+
+                  <CardContent className="flex h-60 items-center justify-center pt-6">
                     <div className="text-center text-gray-500">
-                      <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <Building2 className="mx-auto mb-4 h-12 w-12 text-gray-300" />
                       <p>Dados de gráfico não disponíveis.</p>
-                      <p className="text-sm">Adicione mais informações para visualizar estatísticas.</p>
+                      <p className="text-sm">
+                        Adicione mais informações para visualizar estatísticas.
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -793,25 +839,26 @@ export default function PerfilUtilizador() {
       console.error("Dados recebidos:", JSON.stringify(utilizador, null, 2));
     }
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
-          <div className="bg-red-50 rounded-full p-4 w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white to-gray-50 p-6">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-lg">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 p-4">
             <FileText className="h-8 w-8 text-red-500" />
           </div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Erro ao processar dados</h2>
-          <p className="text-gray-600 mb-6">
-            Ocorreu um erro ao processar os dados do utilizador. Por favor, tente novamente mais tarde.
+          <h2 className="mb-2 text-2xl font-semibold text-gray-900">Erro ao processar dados</h2>
+          <p className="mb-6 text-gray-600">
+            Ocorreu um erro ao processar os dados do utilizador. Por favor, tente novamente mais
+            tarde.
           </p>
           <Button
             variant="outline"
-            onClick={() => router.push('/utilizadores')}
-            className="border-gray-200 hover:border-azul/30 hover:bg-azul/5 transition-all duration-200"
+            onClick={() => router.push("/utilizadores")}
+            className="border-gray-200 transition-all duration-200 hover:border-azul/30 hover:bg-azul/5"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar para a lista
           </Button>
         </div>
       </div>
     );
   }
-} 
+}

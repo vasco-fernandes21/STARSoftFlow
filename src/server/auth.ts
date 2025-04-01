@@ -1,41 +1,41 @@
-import NextAuth from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import { PrismaClient } from "@prisma/client"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { compare, hash } from "bcryptjs"
-import { ZodError } from "zod"
-import { loginSchema } from "./api/auth/types"
-import { z } from "zod"
-import { cookies } from "next/headers"
+import NextAuth from "next-auth";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { PrismaClient } from "@prisma/client";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { compare, hash } from "bcryptjs";
+import { ZodError } from "zod";
+import { loginSchema } from "./api/auth/types";
+import { z } from "zod";
+import { cookies } from "next/headers";
 
 const prisma = new PrismaClient();
 
 // Schema para validação do token e senha
 const tokenValidationSchema = z.object({
   token: z.string(),
-  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres")
+  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres"),
 });
 
 // Lista de todos os cookies relacionados com autenticação
 export const authCookies = [
-  'next-auth.session-token',
-  'next-auth.csrf-token',
-  'next-auth.callback-url',
-  'authjs.session-token',
-  'authjs.csrf-token',
-  'authjs.callback-url',
-  '__Secure-next-auth.session-token',
-  'username-localhost-8888'
+  "next-auth.session-token",
+  "next-auth.csrf-token",
+  "next-auth.callback-url",
+  "authjs.session-token",
+  "authjs.csrf-token",
+  "authjs.callback-url",
+  "__Secure-next-auth.session-token",
+  "username-localhost-8888",
 ];
 
 // Função personalizada para limpar cookies
 export async function clearAuthCookies() {
-  'use server';
-  
+  "use server";
+
   const cookieStore = await cookies();
-  
+
   // Limpar todos os cookies de autenticação
-  authCookies.forEach(cookieName => {
+  authCookies.forEach((cookieName) => {
     try {
       cookieStore.delete(cookieName);
       console.log(`Cookie ${cookieName} removido com sucesso`);
@@ -43,7 +43,7 @@ export async function clearAuthCookies() {
       console.error(`Erro ao remover cookie ${cookieName}:`, error);
     }
   });
-  
+
   return { success: true };
 }
 
@@ -54,7 +54,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "Credenciais",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         try {
@@ -63,33 +63,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: string;
             password: string;
           };
-          
+
           // Validar as credenciais usando o loginSchema
-          await loginSchema.parseAsync({ 
-            email, 
-            password
+          await loginSchema.parseAsync({
+            email,
+            password,
           });
-          
+
           // Procurar o utilizador pelo email
           const user = await prisma.user.findUnique({
             where: { email },
-            include: { password: true }
-          })
+            include: { password: true },
+          });
 
           if (!user || !user.password) {
-            console.log("Utilizador não encontrado ou sem password")
-            return null
+            console.log("Utilizador não encontrado ou sem password");
+            return null;
           }
 
           // Verificar se a password está correta
-          const isPasswordValid = await compare(
-            password,
-            user.password.hash
-          )
+          const isPasswordValid = await compare(password, user.password.hash);
 
           if (!isPasswordValid) {
-            console.log("Password inválida")
-            return null
+            console.log("Password inválida");
+            return null;
           }
 
           // Retornar o utilizador sem a opção rememberMe
@@ -102,104 +99,104 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             atividade: user.atividade,
             regime: user.regime,
             username: user.username,
-            contratacao: user.contratacao
-          }
+            contratacao: user.contratacao,
+          };
         } catch (error) {
           // Tratar erros de validação do Zod
           if (error instanceof ZodError) {
-            console.error("Erro de validação:", error.errors)
-            return null
+            console.error("Erro de validação:", error.errors);
+            return null;
           }
-          
-          console.error("Erro na autenticação:", error)
-          return null
+
+          console.error("Erro na autenticação:", error);
+          return null;
         }
-      }
+      },
     }),
-    
+
     // Provider para validação de conta por token
     CredentialsProvider({
       id: "token-validation",
       name: "Validação por Token",
       credentials: {
         token: { label: "Token", type: "text" },
-        password: { label: "Nova Senha", type: "password" }
+        password: { label: "Nova Senha", type: "password" },
       },
       async authorize(credentials) {
         try {
           // Validar o token e a senha
           const { token, password } = await tokenValidationSchema.parseAsync(credentials);
-          
+
           // Primeiro tenta buscar em passwordReset (reset de senha)
           const passwordReset = await prisma.passwordReset.findUnique({
-            where: { token }
+            where: { token },
           });
-          
+
           let userEmail;
-          
+
           // Se não encontrou, tenta em verificationToken (primeiro acesso)
           if (!passwordReset) {
             const verificationToken = await prisma.verificationToken.findUnique({
-              where: { token }
+              where: { token },
             });
-            
+
             if (!verificationToken) {
               console.log("Token não encontrado em nenhuma tabela");
               return null;
             }
-            
+
             if (verificationToken.expires < new Date()) {
               console.log("Token de verificação expirado");
               return null;
             }
-            
+
             userEmail = verificationToken.identifier;
-            
+
             // Continua o processo com o email do verificationToken
             const user = await prisma.user.findUnique({
-              where: { email: userEmail }
+              where: { email: userEmail },
             });
-            
+
             if (!user) {
               console.log("Usuário não encontrado para o token");
               return null;
             }
-            
+
             // Criar ou atualizar a senha do usuário
             const hashedPassword = await hash(password, 12);
-            
+
             // Verificar se o usuário já tem uma senha
             const existingPassword = await prisma.password.findUnique({
-              where: { userId: user.id }
+              where: { userId: user.id },
             });
-            
+
             if (existingPassword) {
               // Atualizar a senha existente
               await prisma.password.update({
                 where: { userId: user.id },
-                data: { hash: hashedPassword }
+                data: { hash: hashedPassword },
               });
             } else {
               // Criar uma nova senha
               await prisma.password.create({
                 data: {
                   userId: user.id,
-                  hash: hashedPassword
-                }
+                  hash: hashedPassword,
+                },
               });
             }
-            
+
             // Marcar o email como verificado
             await prisma.user.update({
               where: { id: user.id },
-              data: { emailVerified: new Date() }
+              data: { emailVerified: new Date() },
             });
-            
+
             // No final, delete do verificationToken
             await prisma.verificationToken.delete({
-              where: { token }
+              where: { token },
             });
-            
+
             // Retornar apenas os campos necessários para o NextAuth
             return {
               id: user.id,
@@ -211,62 +208,62 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               atividade: user.atividade,
               regime: user.regime,
               username: user.username,
-              contratacao: user.contratacao
+              contratacao: user.contratacao,
             };
           }
-          
+
           // Resto do código para passwordReset como já está
           // Verificar se o token não expirou
           if (passwordReset.expires < new Date()) {
             console.log("Token de redefinição expirado");
             return null;
           }
-          
+
           // Buscar o usuário pelo email
           const user = await prisma.user.findUnique({
-            where: { email: passwordReset.email }
+            where: { email: passwordReset.email },
           });
-          
+
           if (!user) {
             console.log("Usuário não encontrado para o token");
             return null;
           }
-          
+
           // Criar ou atualizar a senha do usuário
           const hashedPassword = await hash(password, 12);
-          
+
           // Verificar se o usuário já tem uma senha
           const existingPassword = await prisma.password.findUnique({
-            where: { userId: user.id }
+            where: { userId: user.id },
           });
-          
+
           if (existingPassword) {
             // Atualizar a senha existente
             await prisma.password.update({
               where: { userId: user.id },
-              data: { hash: hashedPassword }
+              data: { hash: hashedPassword },
             });
           } else {
             // Criar uma nova senha
             await prisma.password.create({
               data: {
                 userId: user.id,
-                hash: hashedPassword
-              }
+                hash: hashedPassword,
+              },
             });
           }
-          
+
           // Marcar o email como verificado
           await prisma.user.update({
             where: { id: user.id },
-            data: { emailVerified: new Date() }
+            data: { emailVerified: new Date() },
           });
-          
+
           // Remover o token de redefinição após o uso
           await prisma.passwordReset.delete({
-            where: { id: passwordReset.id }
+            where: { id: passwordReset.id },
           });
-          
+
           // Retornar apenas os campos necessários para o NextAuth
           return {
             id: user.id,
@@ -278,19 +275,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             atividade: user.atividade,
             regime: user.regime,
             username: user.username,
-            contratacao: user.contratacao
+            contratacao: user.contratacao,
           };
         } catch (error) {
           if (error instanceof ZodError) {
             console.error("Erro de validação:", error.errors);
             return null;
           }
-          
+
           console.error("Erro na validação do token:", error);
           return null;
         }
-      }
-    })
+      },
+    }),
   ],
   adapter: PrismaAdapter(prisma),
   session: {
@@ -300,7 +297,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: "/login",
     verifyRequest: "/verificar-email",
-    newUser: "/bem-vindo"
+    newUser: "/bem-vindo",
   },
   cookies: {
     sessionToken: {
@@ -331,12 +328,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     },
     pkceCodeVerifier: {
-      name: 'authjs.session-token',
+      name: "authjs.session-token",
       options: {
         httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
       },
     },
   },
@@ -350,10 +347,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
-        
+
         // Campos já existentes
         token.permissao = (user as any).permissao;
-        
+
         // Adicionar novos campos
         token.atividade = (user as any).atividade;
         token.regime = (user as any).regime;
@@ -362,40 +359,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return token;
     },
-    
+
     async session({ session, token }) {
       console.log("Session callback - Token recebido:", token);
-      
+
       if (session.user) {
         // Campos já existentes
         (session.user as any).id = token.sub;
         (session.user as any).permissao = token.permissao;
-        
+
         // Adicionar novos campos
         (session.user as any).atividade = token.atividade;
         (session.user as any).regime = token.regime;
         (session.user as any).username = token.username;
         (session.user as any).contratacao = token.contratacao;
-        
+
         console.log("Session callback - Session após modificação:", session);
       }
       return session;
-    }
+    },
   },
-  secret: process.env.AUTH_SECRET
+  secret: process.env.AUTH_SECRET,
 });
 
 // Função personalizada de logout que combina signOut do NextAuth com limpeza manual de cookies
-export async function customSignOut(callbackUrl = '/login') {
-  'use server';
-  
+export async function customSignOut(callbackUrl = "/login") {
+  "use server";
+
   try {
     // Primeiro, usar o signOut padrão do NextAuth
     await signOut({ redirect: false });
-    
+
     // Em seguida, limpar manualmente todos os cookies
     await clearAuthCookies();
-    
+
     // Retornar sucesso e URL de redirecionamento
     return { success: true, url: callbackUrl };
   } catch (error) {

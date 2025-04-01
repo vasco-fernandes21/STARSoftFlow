@@ -18,22 +18,22 @@ type WorkpackageFormProps = {
     inicio?: Date;
     fim?: Date;
   };
-  projetoInicio?: Date; 
+  projetoInicio?: Date;
   projetoFim?: Date;
 };
 
-export function WorkpackageForm({ 
-  onSubmit, 
+export function WorkpackageForm({
+  onSubmit,
   onCancel,
   initialData,
   projetoInicio,
-  projetoFim
+  projetoFim,
 }: WorkpackageFormProps) {
   const [formData, setFormData] = useState({
-    nome: initialData?.nome || '',
-    descricao: initialData?.descricao || '',
+    nome: initialData?.nome || "",
+    descricao: initialData?.descricao || "",
     inicio: initialData?.inicio || projetoInicio,
-    fim: initialData?.fim || projetoFim
+    fim: initialData?.fim || projetoFim,
   });
 
   const handleSubmit = () => {
@@ -46,14 +46,14 @@ export function WorkpackageForm({
       nome: formData.nome,
       descricao: formData.descricao,
       inicio: formData.inicio,
-      fim: formData.fim
+      fim: formData.fim,
     });
   };
 
   return (
-    <Card className="p-6 border border-azul/10 shadow-sm bg-white/70 backdrop-blur-sm">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="h-10 w-10 rounded-xl bg-azul/10 flex items-center justify-center">
+    <Card className="border border-azul/10 bg-white/70 p-6 shadow-sm backdrop-blur-sm">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-azul/10">
           <Briefcase className="h-5 w-5 text-azul" />
         </div>
         <h3 className="text-lg font-medium text-azul">
@@ -63,7 +63,9 @@ export function WorkpackageForm({
 
       <div className="grid gap-4">
         <div>
-          <Label htmlFor="nome-wp" className="text-azul/80">Nome do Workpackage</Label>
+          <Label htmlFor="nome-wp" className="text-azul/80">
+            Nome do Workpackage
+          </Label>
           <Input
             id="nome-wp"
             placeholder="Ex: Desenvolvimento de Software"
@@ -72,9 +74,11 @@ export function WorkpackageForm({
             className="mt-1.5"
           />
         </div>
-        
+
         <div>
-          <Label htmlFor="descricao-wp" className="text-azul/80">Descrição</Label>
+          <Label htmlFor="descricao-wp" className="text-azul/80">
+            Descrição
+          </Label>
           <Textarea
             id="descricao-wp"
             placeholder="Descreva o workpackage e seus objetivos..."
@@ -86,9 +90,11 @@ export function WorkpackageForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="mb-1.5 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-azul/60" />
-              <Label htmlFor="data-inicio-wp" className="text-azul/80">Data de Início</Label>
+              <Label htmlFor="data-inicio-wp" className="text-azul/80">
+                Data de Início
+              </Label>
             </div>
             <DatePicker
               value={formData.inicio}
@@ -98,9 +104,11 @@ export function WorkpackageForm({
             />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="mb-1.5 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-azul/60" />
-              <Label htmlFor="data-fim-wp" className="text-azul/80">Data de Conclusão</Label>
+              <Label htmlFor="data-fim-wp" className="text-azul/80">
+                Data de Conclusão
+              </Label>
             </div>
             <DatePicker
               value={formData.fim}
@@ -111,26 +119,26 @@ export function WorkpackageForm({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-2">
+        <div className="mt-2 flex justify-end gap-2">
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
             className="border-azul/20 text-azul/70 hover:bg-azul/5"
           >
-            <X className="h-4 w-4 mr-2" />
+            <X className="mr-2 h-4 w-4" />
             Cancelar
           </Button>
           <Button
             type="button"
             onClick={handleSubmit}
-            className="bg-azul hover:bg-azul/90 text-white"
+            className="bg-azul text-white hover:bg-azul/90"
           >
-            <Save className="h-4 w-4 mr-2" />
+            <Save className="mr-2 h-4 w-4" />
             Guardar
           </Button>
         </div>
       </div>
     </Card>
   );
-} 
+}

@@ -35,7 +35,7 @@ export function AlertDialogProvider({ children }: { children: ReactNode }) {
   const showAlert = (options: AlertDialogOptions): Promise<boolean> => {
     setOptions(options);
     setIsOpen(true);
-    
+
     return new Promise<boolean>((resolve) => {
       setResolveRef(() => resolve);
     });
@@ -54,12 +54,15 @@ export function AlertDialogProvider({ children }: { children: ReactNode }) {
   return (
     <AlertContext.Provider value={{ showAlert }}>
       {children}
-      
+
       {options && (
-        <AlertDialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open && resolveRef) resolveRef(false);
-        }}>
+        <AlertDialog
+          open={isOpen}
+          onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open && resolveRef) resolveRef(false);
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{options.title}</AlertDialogTitle>
@@ -71,7 +74,7 @@ export function AlertDialogProvider({ children }: { children: ReactNode }) {
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirm}
-                className={options.destructive ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+                className={options.destructive ? "bg-red-600 text-white hover:bg-red-700" : ""}
               >
                 {options.confirmLabel || "Confirmar"}
               </AlertDialogAction>
@@ -85,10 +88,10 @@ export function AlertDialogProvider({ children }: { children: ReactNode }) {
 
 export function useAlertDialog() {
   const context = useContext(AlertContext);
-  
+
   if (context === undefined) {
     throw new Error("useAlertDialog must be used within an AlertDialogProvider");
   }
-  
+
   return context;
-} 
+}
