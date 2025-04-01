@@ -158,7 +158,7 @@ export const AppSidebar = () => {
       <div
         ref={sidebarRef}
         className={cn(
-          "-p-2 flex h-screen flex-col bg-[#F0F4FA]",
+          "-p-2 flex h-screen flex-col mt-2 bg-[#F0F4FA]",
           "transition-all duration-200 ease-in-out",
           collapsed ? "w-20" : "w-64",
           "backdrop-blur-xl supports-[backdrop-filter]:bg-[#F0F4FA]/90"

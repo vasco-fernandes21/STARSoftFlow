@@ -1,18 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { PageLayout } from "@/components/common/PageLayout";
 import {
   useProjetoForm,
   ProjetoFormProvider,
-  // Import state types needed for handlers
-  // type WorkpackageState,
-  // type TarefaState,
-  // type MaterialState,
-  // type EntregavelState,
-  // type RecursoState,
+  type ProjetoState,
 } from "@/components/projetos/criar/ProjetoFormContext";
 import { ProjetoHeader } from "@/components/projetos/criar/ProjetoHeader";
 import { ProjetoProgressContainer } from "@/components/projetos/criar/ProjetoProgressContainer";
@@ -25,7 +20,21 @@ import { ProjetoEstado, Rubrica } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { generateUUID } from "@/server/api/utils/token";
 import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
-import StateMonitor from "@/components/projetos/StateMonitor";
+import { Button } from "@/components/ui/button";
+import { Save } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { usePermissions } from "@/hooks/usePermissions";
 
 import {
   InformacoesTab,
@@ -61,6 +70,8 @@ export interface WorkpackageHandlers {
 
 function ProjetoFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rascunhoId = searchParams.get('rascunhoId');
   const { state, dispatch } = useProjetoForm();
   const [faseAtual, setFaseAtual] = useState<FaseType>("informacoes");
   const [fasesConcluidas, setFasesConcluidas] = useState<Record<FaseType, boolean>>(
@@ -68,11 +79,68 @@ function ProjetoFormContent() {
   );
   const [mostrarCronograma, setMostrarCronograma] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { isComum } = usePermissions();
+
+  // Query para carregar rascunho
+  const { data: draftData } = api.rascunho.get.useQuery(
+    { id: rascunhoId! },
+    {
+      enabled: !!rascunhoId,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: false
+    }
+  );
+
+  // Carregar rascunho quando disponível
+  useEffect(() => {
+    if (draftData?.conteudo) {
+      dispatch({ type: 'SET_STATE', state: draftData.conteudo as ProjetoState });
+      toast.success("Rascunho carregado com sucesso!");
+    }
+  }, [draftData, dispatch]);
+
+  // Mutation para guardar rascunho
+  const saveDraftMutation = api.rascunho.create.useMutation({
+    onSuccess: (data) => {
+      toast.success("Rascunho guardado com sucesso!");
+      router.push(`/projetos/criar?rascunhoId=${data.id}`);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao guardar rascunho");
+    }
+  });
+
+  // Função para guardar rascunho
+  const handleSaveDraft = () => {
+    if (!state.nome?.trim()) {
+      toast.error("Digite pelo menos o nome do projeto para guardar como rascunho");
+      return;
+    }
+
+    saveDraftMutation.mutate({
+      titulo: state.nome,
+      conteudo: state
+    });
+  };
 
   // Mutation para criar projeto
   const criarProjetoMutation = api.projeto.createCompleto.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.success) {
+        // Invalidar queries
+        const projetosKey = getQueryKey(api.projeto.findAll);
+        await queryClient.invalidateQueries({ queryKey: projetosKey });
+
+        // Se for um rascunho, invalidar também a query de rascunhos
+        if (rascunhoId && isComum) {
+          const rascunhosKey = getQueryKey(api.rascunho.findAll);
+          await queryClient.invalidateQueries({ queryKey: rascunhosKey });
+        }
+
         toast.success("Projeto criado com sucesso!");
         router.push(`/projetos/${data.data.id}`);
       } else {
@@ -542,23 +610,85 @@ export default function CriarProjetoPage() {
   return (
     <PageLayout>
       <ProjetoFormProvider>
-        <div className="flex h-full flex-col">
-          <div className="mb-8 flex flex-col items-center justify-between gap-6 md:flex-row">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <ProjetoHeader />
-              </div>
-            </div>
-
-            <div className="mt-4 flex-shrink-0 space-x-2 md:mt-0">
-              <ImportarProjetoButton />
-            </div>
-          </div>
-
-          <ProjetoFormContent />
-          <StateMonitor />
-        </div>
+        <ProjetoFormContentWrapper />
       </ProjetoFormProvider>
     </PageLayout>
+  );
+}
+
+function ProjetoFormContentWrapper() {
+  const { state } = useProjetoForm();
+  const router = useRouter();
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+
+  // Mutation para guardar rascunho
+  const saveDraftMutation = api.rascunho.create.useMutation({
+    onSuccess: () => {
+      toast.success("Rascunho guardado com sucesso!");
+      router.push('/projetos');
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao guardar rascunho");
+    }
+  });
+
+  // Função para guardar rascunho
+  const handleSaveDraft = () => {
+    if (!state.nome?.trim()) {
+      toast.error("Digite pelo menos o nome do projeto para guardar como rascunho");
+      return;
+    }
+
+    setShowSaveDialog(true);
+  };
+
+  const confirmSaveDraft = () => {
+    saveDraftMutation.mutate({
+      titulo: state.nome,
+      conteudo: state
+    });
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent tipo="confirmacao">
+          <AlertDialogHeader>
+            <AlertDialogTitle tipo="confirmacao">Guardar Rascunho</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza que deseja guardar este projeto como rascunho?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSaveDraft} disabled={saveDraftMutation.status === 'pending'}>
+              {saveDraftMutation.status === 'pending' ? "A guardar..." : "Guardar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="mb-8 flex flex-col items-center justify-between gap-6 md:flex-row">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <ProjetoHeader />
+          </div>
+        </div>
+
+        <div className="mt-4 flex-shrink-0 space-x-2 md:mt-0">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleSaveDraft}
+          >
+            <Save className="h-4 w-4" />
+            Guardar Rascunho
+          </Button>
+          <ImportarProjetoButton />
+        </div>
+      </div>
+
+      <ProjetoFormContent />
+    </div>
   );
 }

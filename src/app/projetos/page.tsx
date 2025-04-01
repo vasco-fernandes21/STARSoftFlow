@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -17,6 +17,8 @@ import { type ProjetoEstado } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 
 // Interface básica para o projeto
 interface Projeto {
@@ -54,33 +56,34 @@ const itemsPerPage = 6;
 const extrairProjetos = (apiResponse: any): Projeto[] => {
   if (!apiResponse) return [];
 
-  // Caso 1: resposta direto do TanStack Query/tRPC
-  if (apiResponse[0]?.result?.data?.json?.items) {
-    return apiResponse[0].result.data.json.items;
-  }
+  let projetos: Projeto[] = [];
 
-  // Caso 2: estrutura de objetos com items
+  // Extrair projetos regulares
   if (apiResponse.items && Array.isArray(apiResponse.items)) {
-    return apiResponse.items;
+    projetos = [...apiResponse.items];
+  } else if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
+    projetos = [...apiResponse.json.items];
+  } else if (apiResponse.json && Array.isArray(apiResponse.json)) {
+    projetos = [...apiResponse.json];
+  } else if (Array.isArray(apiResponse)) {
+    projetos = [...apiResponse];
   }
 
-  // Caso 3: estrutura aninhada com json.items
-  if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
-    return apiResponse.json.items;
+  // Adicionar rascunhos se existirem
+  if (apiResponse.rascunhos && Array.isArray(apiResponse.rascunhos)) {
+    const rascunhosProjetos = apiResponse.rascunhos.map((rascunho: any) => ({
+      id: rascunho.id,
+      nome: rascunho.titulo,
+      estado: "RASCUNHO" as ProjetoEstado,
+      progresso: 0,
+      inicio: rascunho.createdAt,
+      fim: null,
+      updatedAt: rascunho.updatedAt
+    }));
+    projetos = [...projetos, ...rascunhosProjetos];
   }
 
-  // Caso 4: resposta em json array
-  if (apiResponse.json && Array.isArray(apiResponse.json)) {
-    return apiResponse.json;
-  }
-
-  // Caso 5: resposta já é um array
-  if (Array.isArray(apiResponse)) {
-    return apiResponse;
-  }
-
-  console.log("Estrutura da resposta:", JSON.stringify(apiResponse, null, 2));
-  return [];
+  return projetos;
 };
 
 export default function Projetos() {
@@ -92,6 +95,7 @@ export default function Projetos() {
     "todos"
   );
   const [prazoFilter, setPrazoFilter] = useState<PrazoFilter>("todos");
+  const queryClient = useQueryClient();
 
   // Determina os parâmetros de consulta com base na permissão
   const queryParams = useMemo(
@@ -107,15 +111,54 @@ export default function Projetos() {
   );
 
   // Consulta com parâmetros baseados em permissão
-  const { data, isLoading } = api.projeto.findAll.useQuery(queryParams, {
+  const { data: projetosData, isLoading: isLoadingProjetos } = api.projeto.findAll.useQuery(queryParams, {
     staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
-  // Usando a função de extração para obter projetos
+  // Consulta para buscar rascunhos
+  const { data: rascunhosData, isLoading: isLoadingRascunhos } = api.rascunho.findAll.useQuery(
+    undefined,
+    {
+      enabled: isComum,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: true,
+    }
+  );
+
+  // Efeito para invalidar as queries quando a página monta
+  useEffect(() => {
+    // Invalidar a query de projetos
+    const projetosKey = getQueryKey(api.projeto.findAll, queryParams, "query");
+    queryClient.invalidateQueries({ queryKey: projetosKey });
+
+    // Invalidar a query de rascunhos se for utilizador comum
+    if (isComum) {
+      const rascunhosKey = getQueryKey(api.rascunho.findAll, undefined, "query");
+      queryClient.invalidateQueries({ queryKey: rascunhosKey });
+    }
+  }, []);
+
+  // Usando a função de extração para obter projetos e combinar com rascunhos
   const projetos = useMemo(() => {
-    return extrairProjetos(data);
-  }, [data]);
+    const projetosList = extrairProjetos(projetosData);
+    
+    // Adicionar rascunhos à lista se existirem
+    if (rascunhosData?.length) {
+      const rascunhosProjetos = rascunhosData.map(rascunho => ({
+        id: rascunho.id,
+        nome: rascunho.titulo,
+        estado: "RASCUNHO" as ProjetoEstado,
+        progresso: 0,
+        inicio: rascunho.createdAt,
+        fim: null,
+        updatedAt: rascunho.updatedAt
+      }));
+      return [...projetosList, ...rascunhosProjetos];
+    }
+    
+    return projetosList;
+  }, [projetosData, rascunhosData]);
 
   const stats = useMemo<StatItem[]>(() => {
     const totalProjetos = projetos.length;
@@ -171,6 +214,11 @@ export default function Projetos() {
 
   const handleRowClick = useCallback(
     (projeto: Projeto) => {
+      // Se for um rascunho, redirecionar para a página de edição de rascunho
+      if (projeto.estado === "RASCUNHO") {
+        router.push(`/projetos/criar?rascunhoId=${projeto.id}`);
+        return;
+      }
       router.push(`/projetos/${projeto.id}`);
     },
     [router]
@@ -365,34 +413,12 @@ export default function Projetos() {
 
         <StatsGrid stats={stats} />
 
-        {/* Seção de rascunhos para utilizadores COMUM */}
-        {isComum && data?.rascunhos && data.rascunhos.length > 0 && (
-          <div className="mb-6">
-            <h2 className="mb-3 text-lg font-medium text-slate-800">Seus Rascunhos</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {data.rascunhos.map((rascunho) => (
-                <div
-                  key={rascunho.id}
-                  className="cursor-pointer rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 ease-in-out hover:shadow-md"
-                  onClick={() => router.push(`/projetos/rascunho/${rascunho.id}`)}
-                >
-                  <h3 className="font-normal text-slate-800">{rascunho.titulo}</h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Última atualização:{" "}
-                    {format(new Date(rascunho.updatedAt), "dd MMM yyyy", { locale: ptBR })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="rounded-xl border border-slate-100 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] transition-all duration-200 hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)]">
           <TabelaDados<Projeto>
             title=""
             subtitle=""
             data={paginatedProjects}
-            isLoading={isLoading}
+            isLoading={isLoadingProjetos || isLoadingRascunhos}
             columns={columns}
             searchPlaceholder="Pesquisar projetos..."
             filterConfigs={filterConfigs}

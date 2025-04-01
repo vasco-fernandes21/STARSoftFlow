@@ -455,39 +455,15 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
           <div className="overflow-x-auto">
             <Table className="w-full text-sm">
               <TableHeader className="sticky top-0 z-[1] bg-slate-50/80 backdrop-blur-sm">
-                {" "}
-                {/* Cabeçalho fixo */}
-                <TableRow className="border-b border-slate-200/60 hover:bg-transparent">
-                  <TableHead className="w-[50px] px-3 py-2.5 font-semibold text-slate-600">
-                    Estado
-                  </TableHead>
-                  <TableHead className="min-w-[150px] px-3 py-2.5 font-semibold text-slate-600">
-                    Nome
-                  </TableHead>
-                  <TableHead className="min-w-[200px] px-3 py-2.5 font-semibold text-slate-600">
-                    Descrição
-                  </TableHead>
-                  <TableHead className="min-w-[150px] px-3 py-2.5 font-semibold text-slate-600">
-                    Workpackage
-                  </TableHead>
-                  <TableHead className="w-[160px] px-3 py-2.5 font-semibold text-slate-600">
-                    Rubrica
-                  </TableHead>
-                  <TableHead className="w-[100px] px-3 py-2.5 text-right font-semibold text-slate-600">
-                    Preço
-                  </TableHead>
-                  <TableHead className="w-[60px] px-3 py-2.5 text-right font-semibold text-slate-600">
-                    Qtd.
-                  </TableHead>
-                  <TableHead className="w-[100px] px-3 py-2.5 text-right font-semibold text-slate-600">
-                    Total
-                  </TableHead>
-                  <TableHead className="w-[70px] px-3 py-2.5 text-center font-semibold text-slate-600">
-                    Ano
-                  </TableHead>
-                  <TableHead className="w-[50px] px-3 py-2.5 text-center font-semibold text-slate-600">
-                    Ações
-                  </TableHead>
+                <TableRow>
+                  <TableHead>Material</TableHead>
+                  <TableHead>Workpackage</TableHead>
+                  <TableHead>Rubrica</TableHead>
+                  <TableHead className="text-right">Quantidade</TableHead>
+                  <TableHead className="text-right">Preço Unit.</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Ano</TableHead>
+                  <TableHead className="text-center">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -508,10 +484,10 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                     >
                       <TableCell className="px-3 py-2">
                         <Button
-                          variant="ghost" // Changed to ghost for a lighter look
+                          variant="ghost"
                           size="icon"
                           className={cn(
-                            "flex h-7 w-7 items-center justify-center rounded-full border shadow-sm transition-all duration-300 ease-in-out",
+                            "relative flex h-7 w-7 items-center justify-center rounded-full border shadow-sm transition-all duration-300 ease-in-out",
                             material.estado
                               ? "border-emerald-200 bg-emerald-100/70 text-emerald-600 hover:bg-emerald-200/70"
                               : "border-slate-200 bg-white text-slate-400 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-500"
@@ -522,27 +498,17 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                             material.estado ? "Marcar como pendente" : "Marcar como concluído"
                           }
                         >
-                          <Check
-                            className={cn(
-                              "h-4 w-4 transition-opacity",
-                              material.estado ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                            )}
-                          />
-                          {!material.estado && (
-                            <div className="h-2 w-2 rounded-full bg-slate-300 transition-colors group-hover:bg-emerald-400"></div>
+                          {material.estado ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="h-2 w-2 rounded-full bg-slate-300 transition-colors group-hover:bg-emerald-400" />
+                            </div>
                           )}
                         </Button>
                       </TableCell>
                       <TableCell className="px-3 py-2 font-medium text-slate-700 transition-colors duration-150 group-hover:text-emerald-700">
                         {material.nome}
-                      </TableCell>
-                      <TableCell
-                        className="max-w-[250px] truncate px-3 py-2 text-slate-500 transition-colors duration-150 group-hover:text-slate-700"
-                        title={material.descricao ?? undefined}
-                      >
-                        {material.descricao || (
-                          <span className="italic text-slate-400">Sem descrição</span>
-                        )}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
                         {material.workpackageName}
@@ -556,10 +522,10 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="px-3 py-2 text-right text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
-                        {formatCurrency(Number(material.preco))}
+                        {material.quantidade}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-right text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
-                        {material.quantidade}
+                        {formatCurrency(Number(material.preco))}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-right font-medium text-slate-700 transition-colors duration-150 group-hover:text-emerald-700">
                         {formatCurrency(total)}

@@ -120,7 +120,6 @@ const StatisticsCards = memo(
         value: workpackagesCount,
         iconClassName: "text-blue-600",
         iconContainerClassName: "bg-blue-50/80",
-        badgeText: "Total de pacotes de trabalho",
         statusCount: {
           completed: workpackagesCount > 0 ? Math.round(workpackagesCount * progresso) : 0,
           pending:
@@ -135,8 +134,8 @@ const StatisticsCards = memo(
         icon: CalendarClock,
         label: "Tarefas",
         value: totalTarefas,
-        iconClassName: "text-gray-600",
-        iconContainerClassName: "bg-gray-50/80",
+        iconClassName: "text-green-600",
+        iconContainerClassName: "bg-green-50/80",
         statusCount: {
           completed: tarefasConcluidas,
           pending: tarefasPendentes,
@@ -149,8 +148,8 @@ const StatisticsCards = memo(
         label: "Período",
         value: dataInicio && dataFim ? duracaoMeses : 0,
         suffix: dataInicio && dataFim ? " meses" : "",
-        iconClassName: "text-gray-600",
-        iconContainerClassName: "bg-gray-50/80",
+        iconClassName: "text-yellow -600",
+        iconContainerClassName: "bg-yellow-50/80",
         secondaryText:
           dataInicio && dataFim
             ? `${dataInicio.toLocaleDateString("pt")} - ${dataFim.toLocaleDateString("pt")}`

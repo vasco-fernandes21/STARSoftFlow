@@ -37,7 +37,7 @@ type WorkpackageState = Omit<Workpackage, "projetoId"> & {
 export type { EntregavelState, TarefaState, MaterialState, RecursoState, WorkpackageState };
 
 // Tipo base do estado usando o modelo Projeto do Prisma
-type ProjetoState = Omit<Projeto, "id" | "responsavel" | "responsavelId"> & {
+export type ProjetoState = Omit<Projeto, "id" | "responsavel" | "responsavelId"> & {
   responsavel: ResponsavelInfo | null;
   workpackages: WorkpackageState[];
 };
@@ -58,7 +58,7 @@ const initialState: ProjetoState = {
 };
 
 // Ações atualizadas usando os tipos do Prisma
-type Action =
+type ProjetoFormAction =
   | {
       type: "SET_FIELD";
       field: keyof Omit<ProjetoState, "workpackages" | "responsavel">;
@@ -93,7 +93,7 @@ type Action =
   | { type: "RESET" }
   | { type: "UPDATE_PROJETO"; data: Partial<Omit<ProjetoState, "workpackages" | "responsavel">> };
 
-function projetoReducer(state: ProjetoState, action: Action): ProjetoState {
+function projetoReducer(state: ProjetoState, action: ProjetoFormAction): ProjetoState {
   switch (action.type) {
     case "SET_FIELD":
       return { ...state, [action.field]: action.value };
@@ -320,7 +320,7 @@ function convertStateToCreateInput(state: ProjetoState): Prisma.ProjetoCreateInp
 
 const ProjetoFormContext = createContext<{
   state: ProjetoState;
-  dispatch: React.Dispatch<Action>;
+  dispatch: React.Dispatch<ProjetoFormAction>;
 } | null>(null);
 
 export function ProjetoFormProvider({ children }: { children: ReactNode }) {
