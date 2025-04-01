@@ -871,4 +871,83 @@ export const utilizadorRouter = createTRPCRouter({
       });
     }
   }),
+
+  // Obter ocupação mensal agregada para todos os utilizadores
+  getOcupacaoMensalTodosUtilizadores: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        // Buscar todos os utilizadores ativos
+        const users = await ctx.db.user.findMany({
+          select: {
+            id: true,
+          },
+        });
+
+        // Ano atual
+        const anoAtual = new Date().getFullYear();
+
+        // Buscar alocações do ano atual para todos os utilizadores
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            ano: anoAtual,
+          },
+          select: {
+            userId: true,
+            mes: true,
+            ocupacao: true,
+            workpackage: {
+              select: {
+                projeto: {
+                  select: {
+                    estado: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        // Organizar as alocações por usuário e mês
+        const resultado = [];
+
+        for (const user of users) {
+          const alocacoesUsuario = alocacoes.filter(a => a.userId === user.id);
+          
+          // Organizar por mês
+          const meses = Array.from({ length: 12 }, (_, i) => i + 1);
+          
+          for (const mes of meses) {
+            const alocacoesMes = alocacoesUsuario.filter(a => a.mes === mes);
+            
+            // Separar ocupações por estado do projeto
+            const ocupacaoAprovada = alocacoesMes
+              .filter(
+                a =>
+                  a.workpackage.projeto.estado === "APROVADO" ||
+                  a.workpackage.projeto.estado === "EM_DESENVOLVIMENTO" ||
+                  a.workpackage.projeto.estado === "CONCLUIDO"
+              )
+              .reduce((sum, a) => sum + Number(a.ocupacao), 0);
+            
+            const ocupacaoPendente = alocacoesMes
+              .filter(a => a.workpackage.projeto.estado === "PENDENTE")
+              .reduce((sum, a) => sum + Number(a.ocupacao), 0);
+            
+            // Adicionar ao resultado se houver alguma ocupação
+            if (ocupacaoAprovada > 0 || ocupacaoPendente > 0) {
+              resultado.push({
+                userId: user.id,
+                mes,
+                ocupacaoAprovada,
+                ocupacaoPendente,
+              });
+            }
+          }
+        }
+        
+        return resultado;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
 });

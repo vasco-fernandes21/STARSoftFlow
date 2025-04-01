@@ -102,18 +102,20 @@ export const AppSidebar = () => {
 
   const MenuItem = ({ item, className = "" }: { item: MenuItem; className?: string }) => {
     const isActive =
-      item.href === "/"
-        ? pathname === "/"
-        : pathname.startsWith(`${item.href}/`) || pathname === item.href;
+      pathname === null
+        ? false
+        : item.href === "/"
+          ? pathname === "/"
+          : pathname.startsWith(`${item.href}/`) || pathname === item.href;
     const isHovered = hoveredItem === item.href;
 
     return (
       <Link
         href={item.href}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ease-in-out",
+          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300 ease-in-out",
           isActive
-            ? "font-semibold text-azul"
+            ? "bg-gradient-to-r from-azul/15 to-azul/5 font-semibold text-azul shadow-sm"
             : "font-medium text-slate-600 hover:bg-azul/5 hover:text-azul",
           className
         )}
@@ -122,29 +124,33 @@ export const AppSidebar = () => {
       >
         <div
           className={cn(
-            "relative flex items-center justify-center rounded-xl p-2 transition-all duration-200 ease-in-out",
+            "relative flex items-center justify-center rounded-xl p-2 transition-all duration-300 ease-in-out",
             "min-h-[40px] min-w-[40px]",
             isActive
-              ? "bg-azul/10 text-azul shadow-sm ring-1 ring-azul/10"
-              : "text-slate-500 group-hover:bg-azul/5 group-hover:text-azul"
+              ? "bg-azul text-white shadow-md"
+              : "text-slate-500 group-hover:bg-azul/5 group-hover:text-azul group-hover:shadow-sm"
           )}
         >
           <item.icon
             size={20}
-            strokeWidth={isActive ? 2.5 : 2}
+            strokeWidth={isActive ? 2 : 2}
             className={cn(
-              "transition-transform duration-200 ease-in-out",
-              isHovered && !isActive && "rotate-3 scale-110"
+              "transition-transform duration-300 ease-in-out",
+              isHovered && !isActive && "scale-110"
             )}
           />
+          {isActive && (
+            <div className="absolute inset-0 -z-10 animate-pulse rounded-xl bg-azul/50 opacity-30 blur-sm" />
+          )}
         </div>
         <span
           className={cn(
-            "transform transition-all duration-200 ease-in-out",
+            "transform transition-all duration-300 ease-in-out",
             collapsed
               ? "pointer-events-none w-0 -translate-x-2 opacity-0"
               : "w-auto translate-x-0 opacity-100",
-            isActive ? "font-semibold" : "font-medium"
+            isActive ? "font-semibold" : "font-medium",
+            isHovered && !isActive && "translate-x-0.5"
           )}
         >
           {item.label}
@@ -213,20 +219,20 @@ export const AppSidebar = () => {
               size="sm"
               onClick={toggleCollapse}
               className={cn(
-                "flex-1 rounded-xl text-slate-600 transition-all duration-200 ease-in-out hover:bg-azul/5 hover:text-azul",
+                "flex-1 rounded-xl text-slate-600 transition-all duration-300 ease-in-out hover:bg-azul/5 hover:text-azul",
                 "shadow-sm hover:shadow",
                 collapsed ? "justify-center px-2" : "justify-between px-3"
               )}
               disabled={isPinned}
             >
               {collapsed ? (
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4 transition-transform duration-300 ease-in-out hover:scale-105" />
               ) : (
                 <>
-                  <span className="text-xs font-medium transition-opacity duration-200 ease-in-out">
+                  <span className="text-xs font-medium transition-all duration-300 ease-in-out">
                     Recolher
                   </span>
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 transition-transform duration-300 ease-in-out group-hover:translate-x-0.5" />
                 </>
               )}
             </Button>
@@ -236,36 +242,42 @@ export const AppSidebar = () => {
                 size="sm"
                 onClick={togglePin}
                 className={cn(
-                  "ml-2 h-9 w-9 rounded-xl transition-all duration-200 ease-in-out",
-                  "shadow-sm hover:bg-azul/5 hover:shadow",
-                  isPinned ? "bg-azul/5 text-azul" : "text-slate-600 hover:text-azul"
+                  "ml-2 h-9 w-9 rounded-xl transition-all duration-300 ease-in-out",
+                  "shadow-sm hover:shadow hover:scale-105",
+                  isPinned 
+                    ? "bg-azul text-white" 
+                    : "text-slate-600 hover:bg-azul/5 hover:text-azul"
                 )}
                 title={isPinned ? "Desafixar sidebar" : "Fixar sidebar"}
               >
-                {isPinned ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                {isPinned ? (
+                  <Lock className="h-4 w-4 transition-transform duration-300 ease-in-out" />
+                ) : (
+                  <Unlock className="h-4 w-4 transition-transform duration-300 ease-in-out" />
+                )}
               </Button>
             )}
           </div>
 
           <div className="p-2">
-            <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+            <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300 ease-in-out hover:bg-azul/5">
               <div className="relative flex min-w-[40px] items-center justify-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-azul/20 bg-gradient-to-br from-azul/5 to-azul/10 shadow-sm">
-                  <User size={18} className="text-azul" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-azul/20 bg-gradient-to-br from-azul/5 to-azul/10 shadow-sm transition-all duration-300 ease-in-out hover:shadow-md hover:scale-105">
+                  <User size={18} className="text-azul transition-all duration-300 ease-in-out" />
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm ring-2 ring-white" />
               </div>
               <div
                 className={cn(
-                  "flex transform items-center gap-3 transition-all duration-200 ease-in-out",
+                  "flex transform items-center gap-3 transition-all duration-300 ease-in-out",
                   collapsed ? "w-0 -translate-x-2 opacity-0" : "w-auto translate-x-0 opacity-100"
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-800">
+                  <p className="truncate text-sm font-semibold text-slate-800 transition-all duration-300 ease-in-out">
                     {session?.user?.name || "Utilizador"}
                   </p>
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="truncate text-xs text-slate-500 transition-all duration-300 ease-in-out">
                     {(session?.user as unknown as PrismaUser)?.atividade || ""}
                   </p>
                 </div>
@@ -273,7 +285,7 @@ export const AppSidebar = () => {
                   variant="ghost"
                   size="icon"
                   onClick={handleLogout}
-                  className="h-9 w-9 rounded-xl text-slate-500 shadow-sm transition-all duration-200 ease-in-out hover:rotate-12 hover:bg-red-50 hover:text-red-600 hover:shadow"
+                  className="h-9 w-9 rounded-xl text-slate-500 shadow-sm transition-all duration-300 ease-in-out hover:scale-105 hover:bg-red-50 hover:text-red-600 hover:shadow"
                   title="Sair"
                 >
                   <LogOut size={16} />

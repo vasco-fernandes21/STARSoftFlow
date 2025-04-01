@@ -28,6 +28,12 @@ import {
 // --- Type Definitions ---
 interface ProjetoRecursosProps {
   projetoId: string;
+  ocupacaoMensal?: Array<{
+    userId: string;
+    mes: number;
+    ocupacaoAprovada: number;
+    ocupacaoPendente: number;
+  }>;
 }
 
 // --- Formatter Functions ---
@@ -38,7 +44,7 @@ const formatEti = (value: number): string => {
   });
 };
 
-const ProjetoRecursos = ({ projetoId }: ProjetoRecursosProps) => {
+const ProjetoRecursos = ({ projetoId, ocupacaoMensal = [] }: ProjetoRecursosProps) => {
   // Estados
   const [selectedYear, setSelectedYear] = useState<string>("todos");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");

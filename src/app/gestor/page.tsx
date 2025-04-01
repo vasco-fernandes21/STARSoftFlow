@@ -4,23 +4,23 @@ import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
-import AdminDashboard from "@/components/dashboards/AdminDashboard";
+import GestorDashboard from "@/components/dashboards/GestorDashboard";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Page() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { isAdmin } = usePermissions();
+  const { isGestor } = usePermissions();
 
   // Redirecionar para a página de login se não houver sessão
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/(auth)/login");
-    } else if (status === "authenticated" && !isAdmin) {
-      // Redirecionar para a página inicial se não for admin
+    } else if (status === "authenticated" && !isGestor) {
+      // Redirecionar para a página inicial se não for gestor
       router.push("/");
     }
-  }, [status, router, isAdmin]);
+  }, [status, router, isGestor]);
 
   // Loading skeleton
   if (status === "loading") {
@@ -32,13 +32,10 @@ export default function Page() {
               <Skeleton key={i} className="h-32 w-full" />
             ))}
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <Skeleton className="h-80 w-full" />
-            </div>
-            <div>
-              <Skeleton className="h-80 w-full" />
-            </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {[...Array(2)].map((_, i) => (
+              <Skeleton key={i} className="h-80 w-full" />
+            ))}
           </div>
         </div>
       </div>
@@ -57,6 +54,6 @@ export default function Page() {
     );
   }
 
-  // Renderizar o dashboard de administração
-  return <AdminDashboard />;
-}
+  // Renderizar o dashboard do gestor
+  return <GestorDashboard />;
+} 

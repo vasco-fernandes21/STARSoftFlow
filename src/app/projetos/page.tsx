@@ -249,7 +249,7 @@ export default function Projetos() {
       },
       {
         accessorKey: "progresso",
-        header: "Progresso",
+        header: "Progresso Temporal",
         cell: ({ getValue }) => (
           <div className="w-full max-w-[200px]">
             <BarraProgresso value={Math.round((getValue<number>() || 0) * 100)} />
@@ -413,7 +413,7 @@ export default function Projetos() {
 
         <StatsGrid stats={stats} />
 
-        <div className="rounded-xl border border-slate-100 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] transition-all duration-200 hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)]">
+        <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
           <TabelaDados<Projeto>
             title=""
             subtitle=""

@@ -44,6 +44,17 @@ interface FormProps {
     }>;
   } | null;
   projetoEstado: "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO";
+  ocupacaoMensal?: {
+    userId: string;
+    mes: number;
+    ocupacaoAprovada: number;
+    ocupacaoPendente: number;
+  }[];
+  projeto: any;
+  alocacoesExistentes: any[];
+  onAlocacoes: (alocacoes: any[]) => void;
+  usersMappedById: any;
+  isClienteAtivo: boolean;
 }
 
 type NovaAlocacao = {
@@ -99,6 +110,12 @@ export function Form({
   onCancel,
   recursoEmEdicao,
   projetoEstado,
+  ocupacaoMensal,
+  projeto,
+  alocacoesExistentes,
+  onAlocacoes,
+  usersMappedById,
+  isClienteAtivo,
 }: FormProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [alocacoes, setAlocacoes] = useState<NovaAlocacao[]>([]);
@@ -156,26 +173,13 @@ export function Form({
       const novosInputValues: Record<string, string> = {};
 
       recursoEmEdicao.alocacoes.forEach((alocacao) => {
-        // Se o projeto estiver aprovado, usar o valor aprovado existente
-        const dadosMes = ocupacoesMensais.find((o) => o.mes === alocacao.mes);
-        let ocupacao;
-
-        if (
-          projetoEstado === "APROVADO" ||
-          projetoEstado === "EM_DESENVOLVIMENTO" ||
-          projetoEstado === "CONCLUIDO"
-        ) {
-          // Em projetos aprovados, usar o valor aprovado existente
-          ocupacao = dadosMes?.ocupacaoAprovada || 0;
-        } else {
-          // Em outros estados, usar o valor da alocação normalmente
-          ocupacao =
-            alocacao.ocupacao instanceof Decimal
-              ? alocacao.ocupacao.toNumber()
-              : typeof alocacao.ocupacao === "string"
-                ? parseFloat(alocacao.ocupacao)
-                : Number(alocacao.ocupacao);
-        }
+        // Converter o valor da alocação para número
+        const ocupacao =
+          alocacao.ocupacao instanceof Decimal
+            ? alocacao.ocupacao.toNumber()
+            : typeof alocacao.ocupacao === "string"
+              ? parseFloat(alocacao.ocupacao)
+              : Number(alocacao.ocupacao);
 
         // Garantir que o valor está entre 0 e 1
         const ocupacaoFinal = ocupacao > 1 ? ocupacao / 100 : ocupacao;
@@ -194,7 +198,7 @@ export function Form({
       setAlocacoes(novasAlocacoes);
       setInputValues(novosInputValues);
     }
-  }, [recursoEmEdicao, ocupacoesMensais, projetoEstado]);
+  }, [recursoEmEdicao]);
 
   // Validar entrada apenas com números, vírgulas e pontos
   const validarEntrada = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -248,7 +252,7 @@ export function Form({
     // Em modo de edição
     if (recursoEmEdicao) {
       if (isApprovedProject) {
-        // Em projetos aprovados, mostrar e editar o valor aprovado
+        // Em projetos aprovados, editar apenas a parte aprovada
         return {
           atual: ocupacaoAtual,
           aprovada: ocupacaoAtual,
@@ -257,7 +261,7 @@ export function Form({
           isEditable: true,
         };
       } else {
-        // Em projetos não aprovados, mostrar e editar o valor pendente
+        // Em projetos pendentes, editar apenas a parte pendente
         return {
           atual: ocupacaoAtual,
           aprovada: dadosMes.ocupacaoAprovada * 100,

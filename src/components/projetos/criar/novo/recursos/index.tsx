@@ -47,6 +47,15 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
 
   // Obter dados dos membros da equipa
   const { membrosEquipa = [] } = RecursosData();
+  
+  // Buscar dados de ocupação mensal de todos os utilizadores
+  const { data: ocupacaoMensal } = api.utilizador.getOcupacaoMensalTodosUtilizadores.useQuery(
+    undefined,
+    {
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Definir o tipo para os membros da equipa
   type MembroEquipa = {
@@ -374,6 +383,10 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                         }
                         inicio={selectedWorkpackage.inicio || new Date()}
                         fim={selectedWorkpackage.fim || new Date()}
+                        onUpdateAlocacao={(userId, alocacoes) => 
+                          handleAddAlocacao(selectedWorkpackageId, alocacoes)
+                        }
+                        ocupacaoMensal={ocupacaoMensal?.filter(o => o.userId === recurso.userId) || []}
                       />
                     );
                   })}
