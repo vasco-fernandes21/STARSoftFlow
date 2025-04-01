@@ -3,7 +3,6 @@
 // Componente que exibe uma visão geral financeira dos projetos
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,27 +14,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-} from "recharts";
-import {
-  DollarSign,
-  TrendingUp,
-  Wallet,
   ChevronRight,
   ChevronDown,
-  Package,
   Users,
-  ChartBar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
@@ -309,9 +290,8 @@ export function ProjetosFinancasOverview({ className }: ProjetosFinancasOverview
   const [statusFilter, setStatusFilter] = useState<string>("todos");
 
   const { data, isLoading } = api.financas.getTotaisFinanceiros.useQuery({
-    apenasAtivos: true,
     incluirDetalhesPorAno: true,
-    ano: undefined,
+    apenasAtivos: true,
   });
 
   if (isLoading || !data) {
@@ -319,14 +299,23 @@ export function ProjetosFinancasOverview({ className }: ProjetosFinancasOverview
       <div className="flex h-60 items-center justify-center">
         <div className="flex flex-col items-center gap-2">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-azul border-t-transparent" />
-          <span className="text-sm text-slate-500">Carregando dados financeiros...</span>
+          <span className="text-sm text-slate-500">A carregar dados financeiros...</span>
         </div>
       </div>
     );
   }
 
   const visaoGeral = data as VisaoGeralFinanceira;
-  const { projetos, totaisConsolidados: totais, projetosClassificados } = visaoGeral;
+  const { projetos, projetosClassificados } = visaoGeral || {
+    projetos: [],
+    projetosClassificados: {
+      saudaveis: 0,
+      emRisco: 0,
+      criticos: 0,
+      comResultadoPositivo: 0,
+      comResultadoNegativo: 0,
+    },
+  };
 
   // Função para filtrar projetos
   const filteredProjetos = projetos.filter((projeto) => {

@@ -50,11 +50,11 @@ interface FormProps {
     ocupacaoAprovada: number;
     ocupacaoPendente: number;
   }[];
-  projeto: any;
-  alocacoesExistentes: any[];
-  onAlocacoes: (alocacoes: any[]) => void;
-  usersMappedById: any;
-  isClienteAtivo: boolean;
+  _projeto?: any;
+  _alocacoesExistentes?: any[];
+  _onAlocacoes?: (alocacoes: any[]) => void;
+  _usersMappedById?: any;
+  _isClienteAtivo?: boolean;
 }
 
 type NovaAlocacao = {
@@ -110,12 +110,11 @@ export function Form({
   onCancel,
   recursoEmEdicao,
   projetoEstado,
-  ocupacaoMensal,
-  projeto,
-  alocacoesExistentes,
-  onAlocacoes,
-  usersMappedById,
-  isClienteAtivo,
+  _projeto = {},
+  _alocacoesExistentes = [],
+  _onAlocacoes = () => {},
+  _usersMappedById = {},
+  _isClienteAtivo = true,
 }: FormProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [alocacoes, setAlocacoes] = useState<NovaAlocacao[]>([]);

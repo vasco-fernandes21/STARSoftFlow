@@ -30,6 +30,8 @@ interface Projeto {
   estado: ProjetoEstado;
   progresso: number;
   workpackages?: Array<any>;
+  isRascunho?: boolean;
+  updatedAt?: Date;
 }
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -50,123 +52,64 @@ const uniqueEstados = [
 
 type PrazoFilter = "todos" | "este_mes" | "proximo_mes" | "este_ano" | "atrasados";
 
-const itemsPerPage = 6;
-
-// Função melhorada para extrair projetos da resposta da API
-const extrairProjetos = (apiResponse: any): Projeto[] => {
-  if (!apiResponse) return [];
-
-  let projetos: Projeto[] = [];
-
-  // Extrair projetos regulares
-  if (apiResponse.items && Array.isArray(apiResponse.items)) {
-    projetos = [...apiResponse.items];
-  } else if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
-    projetos = [...apiResponse.json.items];
-  } else if (apiResponse.json && Array.isArray(apiResponse.json)) {
-    projetos = [...apiResponse.json];
-  } else if (Array.isArray(apiResponse)) {
-    projetos = [...apiResponse];
-  }
-
-  // Adicionar rascunhos se existirem
-  if (apiResponse.rascunhos && Array.isArray(apiResponse.rascunhos)) {
-    const rascunhosProjetos = apiResponse.rascunhos.map((rascunho: any) => ({
-      id: rascunho.id,
-      nome: rascunho.titulo,
-      estado: "RASCUNHO" as ProjetoEstado,
-      progresso: 0,
-      inicio: rascunho.createdAt,
-      fim: null,
-      updatedAt: rascunho.updatedAt
-    }));
-    projetos = [...projetos, ...rascunhosProjetos];
-  }
-
-  return projetos;
-};
-
 export default function Projetos() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { isComum } = usePermissions();
-  const userId = (session?.user as any)?.id;
+  // These variables are kept for future enhancements
+  // const { isComum } = usePermissions();
+  // const userId = (session?.user as any)?.id;
   const [estadoFilter, setEstadoFilter] = useState<"todos" | (typeof uniqueEstados)[number]>(
     "todos"
   );
   const [prazoFilter, setPrazoFilter] = useState<PrazoFilter>("todos");
   const queryClient = useQueryClient();
 
-  // Determina os parâmetros de consulta com base na permissão
+  // Parâmetros para consulta de projetos
   const queryParams = useMemo(
     () => ({
       page: 1,
       limit: 100,
-      // Se for utilizador comum, filtra apenas pelos projetos dele
-      userId: isComum ? userId : undefined,
-      // Parâmetro que indica se deve filtrar por projetos alocados
-      apenasAlocados: isComum,
     }),
-    [isComum, userId]
+    []
   );
 
-  // Consulta com parâmetros baseados em permissão
-  const { data: projetosData, isLoading: isLoadingProjetos } = api.projeto.findAll.useQuery(queryParams, {
+  // Consulta projetos (que já incluem os rascunhos na resposta)
+  const { data: projetosData, isLoading } = api.projeto.findAll.useQuery(queryParams, {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 
-  // Consulta para buscar rascunhos
-  const { data: rascunhosData, isLoading: isLoadingRascunhos } = api.rascunho.findAll.useQuery(
-    undefined,
-    {
-      enabled: isComum,
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: true,
-    }
-  );
+  // Função para invalidar as queries
+  const invalidateQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: getQueryKey(api.projeto.findAll, queryParams, "query") });
+  }, [queryClient, queryParams]);
 
   // Efeito para invalidar as queries quando a página monta
   useEffect(() => {
-    // Invalidar a query de projetos
-    const projetosKey = getQueryKey(api.projeto.findAll, queryParams, "query");
-    queryClient.invalidateQueries({ queryKey: projetosKey });
+    invalidateQueries();
+  }, [invalidateQueries]);
 
-    // Invalidar a query de rascunhos se for utilizador comum
-    if (isComum) {
-      const rascunhosKey = getQueryKey(api.rascunho.findAll, undefined, "query");
-      queryClient.invalidateQueries({ queryKey: rascunhosKey });
-    }
-  }, []);
-
-  // Usando a função de extração para obter projetos e combinar com rascunhos
-  const projetos = useMemo(() => {
-    const projetosList = extrairProjetos(projetosData);
+  // Extrair todos os itens dos dados (projetos e rascunhos)
+  const allItems = useMemo(() => {
+    if (!projetosData?.data?.items) return [];
     
-    // Adicionar rascunhos à lista se existirem
-    if (rascunhosData?.length) {
-      const rascunhosProjetos = rascunhosData.map(rascunho => ({
-        id: rascunho.id,
-        nome: rascunho.titulo,
-        estado: "RASCUNHO" as ProjetoEstado,
-        progresso: 0,
-        inicio: rascunho.createdAt,
-        fim: null,
-        updatedAt: rascunho.updatedAt
-      }));
-      return [...projetosList, ...rascunhosProjetos];
-    }
+    const items = projetosData.data.items || [];
     
-    return projetosList;
-  }, [projetosData, rascunhosData]);
+    console.log("--- Dados recebidos ---");
+    console.log("Total de itens:", items.length);
+    console.log("Projetos e rascunhos recebidos:", items);
+    
+    // Os itens já vêm ordenados por nome do backend, mas podemos garantir isso aqui
+    return items;
+  }, [projetosData]);
 
   const stats = useMemo<StatItem[]>(() => {
-    const totalProjetos = projetos.length;
-    const projetosAtivos = projetos.filter(
+    const totalProjetos = allItems.length;
+    const projetosAtivos = allItems.filter(
       (p: Projeto) => p.estado === "EM_DESENVOLVIMENTO"
     ).length;
-    const projetosConcluidos = projetos.filter((p: Projeto) => p.estado === "CONCLUIDO").length;
-    const projetosAtrasados = projetos.filter((p: Projeto) => {
+    const projetosConcluidos = allItems.filter((p: Projeto) => p.estado === "CONCLUIDO").length;
+    const projetosAtrasados = allItems.filter((p: Projeto) => {
       if (!p.fim) return false;
       return new Date(p.fim) < new Date() && p.estado !== "CONCLUIDO";
     }).length;
@@ -210,15 +153,17 @@ export default function Projetos() {
         badgeClassName: "text-red-600 bg-red-50/80 hover:bg-red-100/80 border-red-100",
       },
     ];
-  }, [projetos]);
+  }, [allItems]);
 
   const handleRowClick = useCallback(
     (projeto: Projeto) => {
       // Se for um rascunho, redirecionar para a página de edição de rascunho
-      if (projeto.estado === "RASCUNHO") {
+      if (projeto.isRascunho) {
         router.push(`/projetos/criar?rascunhoId=${projeto.id}`);
         return;
       }
+      
+      // Se for um projeto normal, redirecionar para a página de detalhes
       router.push(`/projetos/${projeto.id}`);
     },
     [router]
@@ -230,19 +175,24 @@ export default function Projetos() {
       {
         accessorKey: "nome",
         header: "Projeto",
-        cell: ({ getValue }) => (
+        cell: ({ row, getValue }) => (
           <span className="font-normal text-slate-800 transition-colors duration-300 ease-in-out group-hover:text-azul">
             {getValue<string>()}
+            {row.original.isRascunho && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-800">
+                Rascunho
+              </span>
+            )}
           </span>
         ),
       },
       {
         accessorKey: "estado",
         header: "Estado",
-        cell: ({ getValue }) => (
+        cell: ({ row, getValue }) => (
           <BadgeEstado
-            status={getValue<ProjetoEstado>()}
-            label={ESTADO_LABELS[getValue<ProjetoEstado>()] || ""}
+            status={row.original.isRascunho ? "RASCUNHO" : getValue<ProjetoEstado>()}
+            label={row.original.isRascunho ? "Rascunho" : ESTADO_LABELS[getValue<ProjetoEstado>()] || ""}
             variant="projeto"
           />
         ),
@@ -250,16 +200,25 @@ export default function Projetos() {
       {
         accessorKey: "progresso",
         header: "Progresso Temporal",
-        cell: ({ getValue }) => (
+        cell: ({ row, getValue }) => (
           <div className="w-full max-w-[200px]">
-            <BarraProgresso value={Math.round((getValue<number>() || 0) * 100)} />
+            <BarraProgresso value={row.original.isRascunho ? 0 : Math.round((getValue<number>() || 0) * 100)} />
           </div>
         ),
       },
       {
         accessorKey: "fim",
         header: "Prazo",
-        cell: ({ getValue }) => {
+        cell: ({ row, getValue }) => {
+          if (row.original.isRascunho) {
+            return (
+              <div className="flex items-center gap-2 text-slate-600">
+                <Calendar className="h-4 w-4 text-slate-400" />
+                <span>Indefinido</span>
+              </div>
+            );
+          }
+          
           const date = getValue<string | Date | null>();
           return (
             <div className="flex items-center gap-2 text-slate-600">
@@ -354,25 +313,32 @@ export default function Projetos() {
   );
 
   const filteredProjects = useMemo(() => {
-    if (!projetos.length) return [];
+    if (!allItems.length) return [];
 
-    let result = [...projetos];
+    let result = [...allItems];
+    console.log("--- Filtragem iniciada ---");
+    console.log("Itens antes de filtrar:", result.length);
 
     // Filtro por estado
     if (estadoFilter !== "todos") {
-      result = result.filter((project: Projeto) => project.estado === estadoFilter);
+      result = result.filter((project: Projeto) => {
+        if (project.isRascunho) return estadoFilter === "RASCUNHO";
+        return project.estado === estadoFilter;
+      });
+      console.log(`Itens após filtro ESTADO (${estadoFilter}):`, result.length);
     }
 
-    // Filtro por prazo
+    // Filtro por prazo - sempre incluir rascunhos
     if (prazoFilter !== "todos") {
-      const hoje = new Date();
-      const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-      const ultimoDiaProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 2, 0);
-      const ultimoDiaAno = new Date(hoje.getFullYear(), 11, 31);
-
       result = result.filter((project: Projeto) => {
+        if (project.isRascunho) return true;
         if (!project.fim) return false;
+        
         const dataFim = new Date(project.fim);
+        const hoje = new Date();
+        const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+        const ultimoDiaProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 2, 0);
+        const ultimoDiaAno = new Date(hoje.getFullYear(), 11, 31);
 
         switch (prazoFilter) {
           case "este_mes":
@@ -387,17 +353,15 @@ export default function Projetos() {
             return true;
         }
       });
+      console.log(`Itens após filtro PRAZO (${prazoFilter}):`, result.length);
     }
+    console.log("Itens finais (filteredProjects):", result.length);
 
     return result;
-  }, [projetos, estadoFilter, prazoFilter]);
-
-  const paginatedProjects = useMemo(() => {
-    return filteredProjects.slice(0, itemsPerPage);
-  }, [filteredProjects]);
+  }, [allItems, estadoFilter, prazoFilter]);
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] p-8">
+    <div className="h-auto bg-[#F7F9FC] p-8">
       <div className="max-w-8xl mx-auto space-y-6">
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="space-y-1">
@@ -417,8 +381,8 @@ export default function Projetos() {
           <TabelaDados<Projeto>
             title=""
             subtitle=""
-            data={paginatedProjects}
-            isLoading={isLoadingProjetos || isLoadingRascunhos}
+            data={filteredProjects}
+            isLoading={isLoading}
             columns={columns}
             searchPlaceholder="Pesquisar projetos..."
             filterConfigs={filterConfigs}
@@ -426,7 +390,7 @@ export default function Projetos() {
             emptyStateMessage={{
               title: "Nenhum projeto encontrado",
               description:
-                "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa.",
+                "Experimente ajustar os filtros de pesquisa ou remover o texto na pesquisa.",
             }}
           />
         </div>

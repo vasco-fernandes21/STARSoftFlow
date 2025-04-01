@@ -28,7 +28,8 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const shouldHideSidebar = pagesWithoutSidebar.includes(pathname);
+  // Add null check for pathname
+  const shouldHideSidebar = pathname ? pagesWithoutSidebar.includes(pathname) : false;
 
   if (shouldHideSidebar) {
     return children;
@@ -38,8 +39,8 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-full overflow-hidden bg-[#F0F4FA] text-foreground">
       <AppSidebar />
       <main className="flex flex-1 flex-col overflow-hidden p-3.5 pl-1">
-        <div className="h-full flex-1 overflow-hidden rounded-xl bg-bgApp shadow-sm">
-          <div className="h-full overflow-y-auto">
+        <div className="h-full w-full flex-1 overflow-clip rounded-xl bg-bgApp shadow-sm">
+          <div className="h-full max-h-full w-full overflow-y-auto">
             <AlertDialogProvider>
               <ProjetoFormProvider>{children}</ProjetoFormProvider>
             </AlertDialogProvider>

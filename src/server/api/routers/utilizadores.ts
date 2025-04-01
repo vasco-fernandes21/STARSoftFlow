@@ -8,6 +8,8 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
+import { format } from "date-fns";
+import { Decimal } from "decimal.js";
 
 // Schemas base
 const emailSchema = z.string({ required_error: "Email é obrigatório" }).email("Email inválido");
@@ -103,6 +105,17 @@ const primeiroAcessoSchema = z
     path: ["confirmPassword"],
   });
 
+// Schema para validação de alocação
+const alocacaoValidationSchema = z.object({
+  workpackageId: z.string().uuid("ID do workpackage inválido"),
+  userId: z.string(),
+  mes: z.number().int().min(1).max(12),
+  ano: z.number().int().min(2000),
+  ocupacao: z.number().min(0).max(1),
+  // Flag para ignorar a alocação atual quando estiver editando
+  ignorarAlocacaoAtual: z.boolean().optional().default(false),
+});
+
 // Tipos inferidos dos schemas
 export type CreateUtilizadorInput = z.infer<typeof createUtilizadorSchema>;
 export type UpdateUtilizadorInput = z.infer<typeof updateUtilizadorSchema>;
@@ -180,6 +193,112 @@ export const utilizadorRouter = createTRPCRouter({
         return createPaginatedResponse(users, total, page, limit);
       } catch (error) {
         return handlePrismaError(error);
+      }
+    }),
+
+  // Validar alocação em tempo real
+  validateAlocacao: protectedProcedure
+    .input(alocacaoValidationSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { workpackageId, userId, mes, ano, ocupacao, ignorarAlocacaoAtual } = input;
+
+        // Verificar se o workpackage existe
+        const workpackage = await ctx.db.workpackage.findUnique({
+          where: { id: workpackageId },
+          include: { projeto: true }
+        });
+
+        if (!workpackage) {
+          return {
+            isValid: false,
+            message: "Workpackage não encontrado"
+          };
+        }
+
+        // Verificar se o utilizador existe
+        const user = await ctx.db.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!user) {
+          return {
+            isValid: false,
+            message: "Utilizador não encontrado"
+          };
+        }
+
+        // Validar se a data está dentro do período do workpackage
+        if (workpackage.inicio && workpackage.fim) {
+          const dataAlocacao = new Date(ano, mes - 1); // Mês é 0-indexed em JS
+          const inicioMes = new Date(workpackage.inicio.getFullYear(), workpackage.inicio.getMonth());
+          const fimMes = new Date(workpackage.fim.getFullYear(), workpackage.fim.getMonth());
+
+          if (dataAlocacao < inicioMes || dataAlocacao > fimMes) {
+            return {
+              isValid: false,
+              message: `A alocação deve estar dentro do período do workpackage (${format(workpackage.inicio, 'MM/yyyy')} - ${format(workpackage.fim, 'MM/yyyy')})`
+            };
+          }
+        }
+
+        // Buscar todas as alocações existentes do utilizador no mesmo mês/ano
+        // Excluindo a alocação atual se estiver em modo de edição
+        const whereCondition: Prisma.AlocacaoRecursoWhereInput = {
+          userId,
+          mes,
+          ano,
+        };
+
+        // Se estiver editando, excluir a alocação atual da verificação
+        if (ignorarAlocacaoAtual) {
+          whereCondition.NOT = {
+            workpackageId,
+          };
+        }
+
+        const alocacoesExistentes = await ctx.db.alocacaoRecurso.findMany({
+          where: whereCondition,
+          select: { ocupacao: true },
+        });
+
+        // Calcular a soma das alocações existentes
+        const somaOcupacoesExistentes = alocacoesExistentes.reduce(
+          (sum, aloc) => sum.add(aloc.ocupacao),
+          new Decimal(0)
+        );
+
+        // Verificar se a soma com a nova alocação excede 100%
+        const ocupacaoDecimal = new Decimal(ocupacao);
+        const novaOcupacaoTotal = somaOcupacoesExistentes.add(ocupacaoDecimal);
+
+        if (novaOcupacaoTotal.greaterThan(1)) {
+          return {
+            isValid: false,
+            message: `A ocupação total para ${user.name || userId} em ${mes}/${ano} excederia 100% (${novaOcupacaoTotal.times(100).toFixed(0)}%). Ocupação já alocada: ${somaOcupacoesExistentes.times(100).toFixed(0)}%.`
+          };
+        }
+
+        // Se o projeto estiver em estado que não permite edição
+        if (workpackage.projeto && ["APROVADO", "CONCLUIDO"].includes(workpackage.projeto.estado)) {
+          return {
+            isValid: false,
+            message: `Não é possível modificar alocações em projetos com status ${workpackage.projeto.estado}`
+          };
+        }
+
+        // Todas as validações passaram
+        return {
+          isValid: true,
+          message: null
+        };
+      } catch (error) {
+        console.error("Erro na validação da alocação:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao validar alocação",
+          cause: error,
+        });
       }
     }),
 
@@ -871,83 +990,4 @@ export const utilizadorRouter = createTRPCRouter({
       });
     }
   }),
-
-  // Obter ocupação mensal agregada para todos os utilizadores
-  getOcupacaoMensalTodosUtilizadores: protectedProcedure
-    .query(async ({ ctx }) => {
-      try {
-        // Buscar todos os utilizadores ativos
-        const users = await ctx.db.user.findMany({
-          select: {
-            id: true,
-          },
-        });
-
-        // Ano atual
-        const anoAtual = new Date().getFullYear();
-
-        // Buscar alocações do ano atual para todos os utilizadores
-        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
-          where: {
-            ano: anoAtual,
-          },
-          select: {
-            userId: true,
-            mes: true,
-            ocupacao: true,
-            workpackage: {
-              select: {
-                projeto: {
-                  select: {
-                    estado: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        // Organizar as alocações por usuário e mês
-        const resultado = [];
-
-        for (const user of users) {
-          const alocacoesUsuario = alocacoes.filter(a => a.userId === user.id);
-          
-          // Organizar por mês
-          const meses = Array.from({ length: 12 }, (_, i) => i + 1);
-          
-          for (const mes of meses) {
-            const alocacoesMes = alocacoesUsuario.filter(a => a.mes === mes);
-            
-            // Separar ocupações por estado do projeto
-            const ocupacaoAprovada = alocacoesMes
-              .filter(
-                a =>
-                  a.workpackage.projeto.estado === "APROVADO" ||
-                  a.workpackage.projeto.estado === "EM_DESENVOLVIMENTO" ||
-                  a.workpackage.projeto.estado === "CONCLUIDO"
-              )
-              .reduce((sum, a) => sum + Number(a.ocupacao), 0);
-            
-            const ocupacaoPendente = alocacoesMes
-              .filter(a => a.workpackage.projeto.estado === "PENDENTE")
-              .reduce((sum, a) => sum + Number(a.ocupacao), 0);
-            
-            // Adicionar ao resultado se houver alguma ocupação
-            if (ocupacaoAprovada > 0 || ocupacaoPendente > 0) {
-              resultado.push({
-                userId: user.id,
-                mes,
-                ocupacaoAprovada,
-                ocupacaoPendente,
-              });
-            }
-          }
-        }
-        
-        return resultado;
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
 });

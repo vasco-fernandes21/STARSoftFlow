@@ -184,10 +184,6 @@ export const projetoRouter = createTRPCRouter({
   findAll: publicProcedure
     .input(
       projetoFilterSchema
-        .extend({
-          userId: z.string().optional(),
-          apenasAlocados: z.boolean().optional(),
-        })
         .optional()
         .default({})
     )
@@ -199,9 +195,32 @@ export const projetoRouter = createTRPCRouter({
           financiamentoId,
           page = 1,
           limit = 10,
-          userId,
-          apenasAlocados,
         } = input;
+
+        
+        const userId = ctx.session?.user?.id;
+        
+        if (!userId) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Utilizador não autenticado",
+          });
+        }
+
+
+        const user = await ctx.db.user.findUnique({
+          where: { id: userId },
+          select: { permissao: true },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        const isComum = user.permissao === "COMUM";
 
         const where: Prisma.ProjetoWhereInput = {
           ...(search && {
@@ -212,19 +231,19 @@ export const projetoRouter = createTRPCRouter({
           }),
           ...(estado && { estado }),
           ...(financiamentoId && { financiamentoId }),
-        };
-
-        if (apenasAlocados && userId) {
-          where.workpackages = {
-            some: {
-              recursos: {
-                some: {
-                  userId: userId,
+          // Se for utilizador comum, vai mostrar apenas projetos onde está alocado
+          ...(isComum && {
+            workpackages: {
+              some: {
+                recursos: {
+                  some: {
+                    userId: userId,
+                  },
                 },
               },
             },
-          };
-        }
+          }),
+        };
 
         const total = await ctx.db.projeto.count({ where });
 
@@ -251,25 +270,22 @@ export const projetoRouter = createTRPCRouter({
                       select: {
                         id: true,
                         name: true,
-                        salario: true, // Keep salario for other potential calculations if needed elsewhere
+                        salario: true,
                       },
                     },
                   },
                 },
-                materiais: true, // Keep materiais for other potential calculations if needed elsewhere
+                materiais: true,
               },
             },
           },
         });
 
-        // Initialize rascunhos before conditional assignment
-        let rascunhos: Rascunho[] = [];
-        if (apenasAlocados && userId) {
-          rascunhos = await ctx.db.rascunho.findMany({
-            where: { userId },
-            orderBy: { updatedAt: "desc" },
-          });
-        }
+        // Sempre buscar rascunhos para o utilizador autenticado
+        const rascunhos = await ctx.db.rascunho.findMany({
+          where: { userId },
+          orderBy: { updatedAt: "desc" },
+        });
 
         // Processar projetos (sem cálculos financeiros)
         const projetosProcessados = projetos.map((projeto) => {
@@ -292,14 +308,31 @@ export const projetoRouter = createTRPCRouter({
           };
         });
 
+        // Processar rascunhos para combinar com a estrutura de projetos
+        const rascunhosProcessados = rascunhos.map((rascunho) => ({
+          id: rascunho.id,
+          nome: rascunho.titulo,
+          descricao: "Rascunho",
+          estado: ProjetoEstado.RASCUNHO,
+          progresso: 0,
+          inicio: rascunho.createdAt,
+          fim: null,
+          updatedAt: rascunho.updatedAt,
+          isRascunho: true,
+        }));
+
+        // Combinar projetos e rascunhos
+        const allItems = [...projetosProcessados, ...rascunhosProcessados];
+
         return {
-          items: projetosProcessados,
-          ...(rascunhos.length > 0 ? { rascunhos } : {}),
-          pagination: {
-            total,
-            pages: Math.ceil(total / limit),
-            page,
-            limit,
+          data: {
+            items: allItems,
+            pagination: {
+              total: total + rascunhos.length,
+              pages: Math.ceil((total + rascunhos.length) / limit),
+              page,
+              limit,
+            },
           },
         };
       } catch (error) {

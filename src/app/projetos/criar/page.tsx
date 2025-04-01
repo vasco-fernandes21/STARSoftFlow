@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { PageLayout } from "@/components/common/PageLayout";
@@ -71,7 +71,7 @@ export interface WorkpackageHandlers {
 function ProjetoFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const rascunhoId = searchParams.get('rascunhoId');
+  const rascunhoId = searchParams?.get('rascunhoId') || null;
   const { state, dispatch } = useProjetoForm();
   const [faseAtual, setFaseAtual] = useState<FaseType>("informacoes");
   const [fasesConcluidas, setFasesConcluidas] = useState<Record<FaseType, boolean>>(
@@ -98,34 +98,10 @@ function ProjetoFormContent() {
   // Carregar rascunho quando disponível
   useEffect(() => {
     if (draftData?.conteudo) {
-      dispatch({ type: 'SET_STATE', state: draftData.conteudo as ProjetoState });
+      dispatch({ type: 'SET_STATE', state: JSON.parse(JSON.stringify(draftData.conteudo)) as unknown as ProjetoState });
       toast.success("Rascunho carregado com sucesso!");
     }
   }, [draftData, dispatch]);
-
-  // Mutation para guardar rascunho
-  const saveDraftMutation = api.rascunho.create.useMutation({
-    onSuccess: (data) => {
-      toast.success("Rascunho guardado com sucesso!");
-      router.push(`/projetos/criar?rascunhoId=${data.id}`);
-    },
-    onError: (error) => {
-      toast.error(error.message || "Erro ao guardar rascunho");
-    }
-  });
-
-  // Função para guardar rascunho
-  const handleSaveDraft = () => {
-    if (!state.nome?.trim()) {
-      toast.error("Digite pelo menos o nome do projeto para guardar como rascunho");
-      return;
-    }
-
-    saveDraftMutation.mutate({
-      titulo: state.nome,
-      conteudo: state
-    });
-  };
 
   // Mutation para criar projeto
   const criarProjetoMutation = api.projeto.createCompleto.useMutation({
@@ -606,26 +582,37 @@ function ProjetoFormContent() {
   );
 }
 
+// Wrapper component to handle Suspense
+function ProjetoFormWrapper() {
+  return (
+    <Suspense fallback={<div className="flex h-full items-center justify-center">A carregar...</div>}>
+      <ProjetoFormContentWrapper />
+    </Suspense>
+  );
+}
+
+// Main page component
 export default function CriarProjetoPage() {
   return (
     <PageLayout>
       <ProjetoFormProvider>
-        <ProjetoFormContentWrapper />
+        <ProjetoFormWrapper />
       </ProjetoFormProvider>
     </PageLayout>
   );
 }
 
 function ProjetoFormContentWrapper() {
-  const { state } = useProjetoForm();
   const router = useRouter();
+  const { state } = useProjetoForm();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   // Mutation para guardar rascunho
   const saveDraftMutation = api.rascunho.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Rascunho guardado com sucesso!");
-      router.push('/projetos');
+      router.push(`/projetos/criar?rascunhoId=${data.id}`);
+      setShowSaveDialog(false);
     },
     onError: (error) => {
       toast.error(error.message || "Erro ao guardar rascunho");
@@ -639,29 +626,43 @@ function ProjetoFormContentWrapper() {
       return;
     }
 
-    setShowSaveDialog(true);
-  };
+    try {
+      // Clean up state before saving
+      const cleanState = JSON.parse(JSON.stringify(state, (key, value) => {
+        // Handle Date objects
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        // Handle Decimal objects
+        if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
+          return value.toString();
+        }
+        return value;
+      }));
 
-  const confirmSaveDraft = () => {
-    saveDraftMutation.mutate({
-      titulo: state.nome,
-      conteudo: state
-    });
+      saveDraftMutation.mutate({
+        titulo: state.nome,
+        conteudo: cleanState
+      });
+    } catch (error) {
+      console.error('Erro ao processar estado:', error);
+      toast.error('Erro ao processar dados do rascunho');
+    }
   };
 
   return (
     <div className="flex h-full flex-col">
       <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <AlertDialogContent tipo="confirmacao">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle tipo="confirmacao">Guardar Rascunho</AlertDialogTitle>
+            <AlertDialogTitle>Guardar Rascunho</AlertDialogTitle>
             <AlertDialogDescription>
               Tem a certeza que deseja guardar este projeto como rascunho?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmSaveDraft} disabled={saveDraftMutation.status === 'pending'}>
+            <AlertDialogAction onClick={handleSaveDraft} disabled={saveDraftMutation.status === 'pending'}>
               {saveDraftMutation.status === 'pending' ? "A guardar..." : "Guardar"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -679,7 +680,7 @@ function ProjetoFormContentWrapper() {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={handleSaveDraft}
+            onClick={() => setShowSaveDialog(true)}
           >
             <Save className="h-4 w-4" />
             Guardar Rascunho

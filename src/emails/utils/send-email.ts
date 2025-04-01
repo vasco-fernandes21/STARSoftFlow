@@ -141,6 +141,15 @@ const resend = new Resend(env.RESEND_API_KEY);
 // Função principal para enviar emails
 export async function sendEmail({ to, type, variables }: SendEmailOptions) {
   try {
+    // Validar configurações de email
+    if (!env.RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY não está configurada");
+    }
+
+    if (!env.RESEND_FROM_EMAIL) {
+      throw new Error("RESEND_FROM_EMAIL não está configurada");
+    }
+
     // Obter configuração do template
     const templateConfig = EMAIL_TEMPLATES[type];
     if (!templateConfig) {
@@ -153,7 +162,7 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     // Adicionar variáveis padrão
     const defaultVariables = {
       currentYear: new Date().getFullYear(),
-      logoUrl: `${env.NEXT_PUBLIC_APP_URL}/star-institute-logo.png`,
+      logoUrl: "https://starinstitute.pt/wp-content/uploads/2023/10/STAR_Logo-Principal_Cores-2048x374.png",
       baseUrl: env.NEXT_PUBLIC_APP_URL,
     };
 
@@ -183,7 +192,7 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     // FORÇAR ENVIO REAL independente do ambiente
     const forceRealSend = true;
 
-    if (!forceRealSend && (isTestMode || isDev)) {
+    if ((isTestMode || isDev) && !forceRealSend) {
       return debugEmail(to, templateConfig.subject, html);
     }
 
@@ -201,23 +210,99 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     const logoUrl = `${env.NEXT_PUBLIC_APP_URL}/star-institute-logo.png`;
     const updatedHtml = html.replace("{{logoUrl}}", logoUrl);
 
-    // Enviar o email usando o Resend
-    const { data, error } = await resend.emails.send({
-      from: `STAR Institute <${env.RESEND_FROM_EMAIL}>`,
+    // Determinar o email de origem correto
+    // Em ambiente de desenvolvimento, usar o endereço padrão do Resend
+    // Em produção, usar o endereço configurado em .env
+    const fromEmail = isDev 
+      ? "onboarding@resend.dev" 
+      : env.RESEND_FROM_EMAIL;
+
+    // Preparar o payload do email
+    const emailPayload = {
+      from: `STAR Institute <${fromEmail}>`,
       to,
       subject: templateConfig.subject,
       html: updatedHtml,
-    });
+    };
+
+    // Log do payload completo
+    console.log("\n");
+    console.log("╔═════════════════════════════════════════════════════╗");
+    console.log("║               PAYLOAD DO EMAIL                      ║");
+    console.log("╚═════════════════════════════════════════════════════╝");
+    console.log("FROM:", emailPayload.from);
+    console.log("TO:", emailPayload.to);
+    console.log("SUBJECT:", emailPayload.subject);
+    console.log("HTML Length:", emailPayload.html.length);
+    console.log("Campos presentes:", Object.keys(emailPayload).join(", "));
+    console.log("═════════════════════════════════════════════════════\n");
+
+    // Enviar o email usando o Resend com configuração simplificada
+    const response = await resend.emails.send(emailPayload);
+
+    // Log da resposta
+    console.log("\n");
+    console.log("╔═════════════════════════════════════════════════════╗");
+    console.log("║               RESPOSTA DO RESEND                    ║");
+    console.log("╚═════════════════════════════════════════════════════╝");
+    console.log("Resposta completa:", JSON.stringify(response, null, 2));
+    console.log("═════════════════════════════════════════════════════\n");
+
+    const { data, error } = response;
 
     if (error) {
-      console.error("Erro ao enviar email:", error);
+      console.error("\n");
+      console.error("╔═════════════════════════════════════════════════════╗");
+      console.error("║               ERRO DO RESEND                        ║");
+      console.error("╚═════════════════════════════════════════════════════╝");
+      console.error("Erro detalhado:", error);
+      if ('statusCode' in error) {
+        console.error("Status:", (error as any).statusCode);
+      }
+      console.error("Nome:", error.name);
+      console.error("Mensagem:", error.message);
+      console.error("═════════════════════════════════════════════════════\n");
       throw error;
     }
 
     console.log(`Email enviado com sucesso: ${data?.id}`);
     return { success: true, data };
   } catch (error) {
-    console.error("Erro ao enviar email:", error);
+    console.error("\n");
+    console.error("╔═════════════════════════════════════════════════════╗");
+    console.error("║               ERRO AO ENVIAR EMAIL                  ║");
+    console.error("╚═════════════════════════════════════════════════════╝");
+    console.error("Tipo do erro:", error instanceof Error ? error.constructor.name : typeof error);
+    console.error("Mensagem:", error instanceof Error ? error.message : String(error));
+    console.error("Stack:", error instanceof Error ? error.stack : "No stack trace");
+    
+    if (error instanceof Error && 'cause' in error) {
+      console.error("Causa:", (error as any).cause);
+    }
+
+    // Se for um objeto com propriedades específicas
+    if (typeof error === 'object' && error !== null) {
+      console.error("Erro detalhado:", JSON.stringify(error, null, 2));
+    }
+    
+    console.error("═════════════════════════════════════════════════════\n");
+    
+    // Melhorar a mensagem de erro para o usuário
+    if (error instanceof Error) {
+      if (error.message.includes("domain is not verified")) {
+        throw new Error(`O domínio do email não está verificado. Por favor, verifique o domínio em https://resend.com/domains ou use onboarding@resend.dev para testes.`);
+      }
+      if (error.message.includes("Invalid `from` field")) {
+        throw new Error(`Erro de configuração do email. Email atual: ${env.RESEND_FROM_EMAIL}`);
+      }
+      if (error.message.includes("API key")) {
+        throw new Error("Chave API do Resend inválida. Por favor, verifique a variável RESEND_API_KEY.");
+      }
+      if (error.message.includes("missing_required_field") || error.message.includes("missing one or more required fields")) {
+        throw new Error(`Campos obrigatórios faltando no email. Por favor, verifique se todos os campos necessários estão presentes.`);
+      }
+    }
+    
     throw error;
   }
 }

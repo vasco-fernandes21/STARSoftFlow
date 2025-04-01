@@ -1,4 +1,4 @@
-import { User as UserIcon, Edit, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { User as UserIcon, Edit, ChevronDown, ChevronUp, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { pt } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Decimal } from "decimal.js";
-import { toast } from "sonner";
+import { Form } from "./form";
 
 interface User {
   id: string;
@@ -20,14 +20,7 @@ interface Alocacao {
   mes: number;
   ano: number;
   ocupacao: Decimal;
-  workpackageId: string;
-}
-
-// Interface para representar a ocupação total de um utilizador por mês
-interface OcupacaoMensal {
-  mes: number;
-  ocupacaoAprovada: number;
-  ocupacaoPendente: number;
+  workpackageId?: string;
 }
 
 interface ItemProps {
@@ -35,13 +28,13 @@ interface ItemProps {
   alocacoes: Alocacao[];
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onEdit: () => void;
   onRemove: () => void;
   inicio: Date;
   fim: Date;
   projetoEstado: "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO";
   onUpdateAlocacao: (userId: string, alocacoes: Alocacao[]) => void;
-  ocupacaoMensal?: OcupacaoMensal[]; // Nova prop opcional para ocupações por mês
+  workpackageId: string;
+  utilizadores?: User[];
 }
 
 export function Item({
@@ -49,16 +42,21 @@ export function Item({
   alocacoes = [],
   isExpanded,
   onToggleExpand,
-  onEdit,
   onRemove,
   inicio,
   fim,
   projetoEstado,
   onUpdateAlocacao,
-  ocupacaoMensal = [], // Valor padrão para ocupações mensais
+  workpackageId,
+  utilizadores = [],
 }: ItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [showForm, setShowForm] = useState(false);
+
+  // Ensure valid dates
+  const validInicio = inicio instanceof Date ? inicio : new Date(inicio || Date.now());
+  const validFim = fim instanceof Date ? fim : new Date(fim || Date.now());
 
   // Organizar alocações por ano e mês
   const alocacoesPorAnoMes = (alocacoes || []).reduce((acc, alocacao) => {
@@ -127,70 +125,19 @@ export function Item({
     setIsEditing(true);
   };
 
-  // Função para verificar se a ocupação vai estourar o limite
-  const validarOcupacao = (mes: number, ano: number, valor: number): boolean => {
-    // Encontrar a ocupação mensal para o mês específico
-    const ocupacaoDoMes = ocupacaoMensal.find((o) => o.mes === mes);
-    if (!ocupacaoDoMes) return true; // Se não tiver dados, permitir
-
-    // Se for projeto aprovado, somar com as ocupações pendentes
-    // Se for projeto pendente, somar com as ocupações aprovadas
-    const isApproved = 
-      projetoEstado === "APROVADO" || 
-      projetoEstado === "EM_DESENVOLVIMENTO" ||
-      projetoEstado === "CONCLUIDO";
-      
-    // Buscar a alocação atual para este mês neste workpackage
-    const alocacaoAtual = alocacoes.find(a => a.mes === mes && a.ano === ano);
-    const ocupacaoAtual = alocacaoAtual ? Number(alocacaoAtual.ocupacao) : 0;
-    
-    // Calcular quanto já está alocado em outros projetos
-    const ocupacaoOutrosProjetos = isApproved 
-      ? ocupacaoDoMes.ocupacaoPendente 
-      : ocupacaoDoMes.ocupacaoAprovada;
-      
-    // Verifica se a nova ocupação somada com as outras excede 100%
-    return (valor + ocupacaoOutrosProjetos) <= 1;
-  };
-
   // Função para salvar edição
   const handleSaveEdit = () => {
-    let temAvisos = false;
-    
     const novasAlocacoes = alocacoes.map((alocacao) => {
       const chave = `${alocacao.ano}-${alocacao.mes}`;
       const valor = editValues[chave];
       if (!valor) return alocacao;
 
       const ocupacao = parseValorOcupacao(valor);
-      
-      // Verifica se a nova ocupação excede o limite
-      if (!validarOcupacao(alocacao.mes, alocacao.ano, ocupacao)) {
-        temAvisos = true;
-        const ocupacaoDoMes = ocupacaoMensal.find((o) => o.mes === alocacao.mes);
-        const ocupacaoOutros = projetoEstado === "APROVADO" 
-          ? ocupacaoDoMes?.ocupacaoPendente || 0
-          : ocupacaoDoMes?.ocupacaoAprovada || 0;
-          
-        toast.warning(
-          `Atenção: A ocupação total para ${format(new Date(alocacao.ano, alocacao.mes - 1), "MMMM", { locale: pt })} 
-          será de ${Math.min(((ocupacao + ocupacaoOutros) * 100), 100).toFixed(0)}%. 
-          O valor ideal seria menor que 100%.`
-        );
-      }
-      
       return {
         ...alocacao,
         ocupacao: new Decimal(ocupacao),
       };
     });
-
-    // Avisar o utilizador dos meses com sobrealocação
-    if (temAvisos) {
-      toast.warning(
-        "Existem meses com ocupação total acima de 100%. Verifique as alocações."
-      );
-    }
 
     onUpdateAlocacao(user.id, novasAlocacoes);
     setIsEditing(false);
@@ -202,12 +149,29 @@ export function Item({
     setEditValues({});
   };
 
+  // Função para abrir o formulário completo
+  const handleOpenForm = () => {
+    setShowForm(true);
+  };
+
+  // Função para lidar com atualizações via Form
+  const handleFormUpdate = (
+    workpackageId: string,
+    alocacoes: Array<{
+      userId: string;
+      mes: number;
+      ano: number;
+      ocupacao: Decimal;
+      user?: any;
+    }>
+  ) => {
+    onUpdateAlocacao(user.id, alocacoes);
+    setShowForm(false);
+  };
+
   return (
     <Card className="overflow-hidden border-azul/10 transition-all hover:border-azul/20">
-      <div
-        className="flex cursor-pointer items-center justify-between p-3"
-        onClick={onToggleExpand}
-      >
+      <div className="flex cursor-pointer items-center justify-between p-3">
         <div className="flex items-center gap-3">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-azul/10">
             <UserIcon className="h-3.5 w-3.5 text-azul" />
@@ -221,14 +185,14 @@ export function Item({
         </div>
 
         <div className="flex items-center gap-1">
-          {!isEditing ? (
+          {!isEditing && !showForm ? (
             <>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleStartEdit();
+                  handleOpenForm();
                 }}
                 className="h-7 w-7 rounded-lg p-0 text-azul hover:bg-azul/10"
               >
@@ -254,7 +218,9 @@ export function Item({
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleSaveEdit();
+                  if (isEditing) handleSaveEdit();
+                  setShowForm(false);
+                  setIsEditing(false);
                 }}
                 className="h-7 rounded-lg px-2 text-xs text-green-600 hover:bg-green-50"
               >
@@ -265,7 +231,9 @@ export function Item({
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleCancelEdit();
+                  if (isEditing) handleCancelEdit();
+                  setShowForm(false);
+                  setIsEditing(false);
                 }}
                 className="h-7 rounded-lg px-2 text-xs text-red-500 hover:bg-red-50"
               >
@@ -274,35 +242,56 @@ export function Item({
             </>
           )}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleExpand();
-            }}
-            className="h-7 w-7 rounded-lg p-0 hover:bg-azul/10"
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-3.5 w-3.5 text-azul/70" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5 text-azul/70" />
-            )}
-          </Button>
+          {!showForm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand();
+              }}
+              className="h-7 w-7 rounded-lg p-0 hover:bg-azul/10"
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5 text-azul/70" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-azul/70" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
-      {isExpanded && (
+      {showForm ? (
+        <div className="border-t border-azul/10">
+          <Form
+            workpackageId={workpackageId}
+            inicio={validInicio}
+            fim={validFim}
+            utilizadores={utilizadores || []}
+            onAddAlocacao={handleFormUpdate}
+            onCancel={() => setShowForm(false)}
+            recursoEmEdicao={{
+              userId: user.id,
+              alocacoes: alocacoes.map(a => ({
+                mes: a.mes,
+                ano: a.ano,
+                ocupacao: a.ocupacao
+              }))
+            }}
+            projetoEstado={projetoEstado}
+          />
+        </div>
+      ) : isExpanded && (
         <AlocacoesGrid
           alocacoesPorAnoMes={alocacoesPorAnoMes}
-          inicio={inicio}
-          fim={fim}
+          inicio={validInicio}
+          fim={validFim}
           isEditing={isEditing}
           editValues={editValues}
           setEditValues={setEditValues}
           validarEntrada={validarEntrada}
           projetoEstado={projetoEstado}
-          ocupacaoMensal={ocupacaoMensal}
         />
       )}
     </Card>
@@ -318,7 +307,6 @@ interface AlocacoesGridProps {
   setEditValues: (values: Record<string, string>) => void;
   validarEntrada: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   projetoEstado: "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO";
-  ocupacaoMensal?: OcupacaoMensal[];
 }
 
 function AlocacoesGrid({
@@ -330,19 +318,22 @@ function AlocacoesGrid({
   setEditValues,
   validarEntrada,
   projetoEstado,
-  ocupacaoMensal = [],
 }: AlocacoesGridProps) {
+  // Ensure dates are Date objects
+  const inicioDate = inicio instanceof Date ? inicio : new Date(inicio);
+  const fimDate = fim instanceof Date ? fim : new Date(fim);
+
   // Gerar array de anos entre início e fim
   const anos = Array.from(
-    { length: fim.getFullYear() - inicio.getFullYear() + 1 },
-    (_, i) => inicio.getFullYear() + i
+    { length: fimDate.getFullYear() - inicioDate.getFullYear() + 1 },
+    (_, i) => inicioDate.getFullYear() + i
   );
 
   // Função para gerar meses válidos para um ano específico
   const getMesesValidos = (ano: number) => {
     const meses = [];
-    const mesInicio = ano === inicio.getFullYear() ? inicio.getMonth() + 1 : 1;
-    const mesFim = ano === fim.getFullYear() ? fim.getMonth() + 1 : 12;
+    const mesInicio = ano === inicioDate.getFullYear() ? inicioDate.getMonth() + 1 : 1;
+    const mesFim = ano === fimDate.getFullYear() ? fimDate.getMonth() + 1 : 12;
 
     for (let mes = mesInicio; mes <= mesFim; mes++) {
       meses.push(mes);
@@ -365,36 +356,13 @@ function AlocacoesGrid({
         return false;
     }
   };
-  
-  // Função para obter a ocupação total para um mês específico
-  const getOcupacaoTotal = (mes: number, ano: number): { atual: number, aprovada: number, pendente: number, total: number } => {
-    // Ocupação atual neste projeto
-    const atual = alocacoesPorAnoMes[ano]?.[mes] || 0;
-    
-    // Ocupações de outros projetos
-    const ocupacaoDoMes = ocupacaoMensal.find(o => o.mes === mes);
-    const aprovada = (ocupacaoDoMes?.ocupacaoAprovada || 0) * 100;
-    const pendente = (ocupacaoDoMes?.ocupacaoPendente || 0) * 100;
-    
-    // Verificar se esta ocupação está sendo adicionada à parte aprovada ou pendente
-    const isApproved = 
-      projetoEstado === "APROVADO" || 
-      projetoEstado === "EM_DESENVOLVIMENTO" ||
-      projetoEstado === "CONCLUIDO";
-    
-    // Calcular o total (deve considerar que a alocação atual já pode estar incluída no total)
-    const total = isApproved
-      ? atual + pendente
-      : atual + aprovada;
-      
-    return { atual, aprovada, pendente, total };
-  };
 
   return (
     <div className="border-t border-azul/10 bg-azul/5">
       <div className="p-3">
         <div className="space-y-4">
           {anos.map((ano) => {
+            const meses = alocacoesPorAnoMes[ano] || {};
             const mesesValidos = getMesesValidos(ano);
 
             return (
@@ -403,9 +371,8 @@ function AlocacoesGrid({
 
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {mesesValidos.map((mes) => {
-                    const ocupacao = alocacoesPorAnoMes[ano]?.[mes] || 0;
-                    const ocupacaoInfo = getOcupacaoTotal(mes, ano);
-                    const { badgeClass, progressClass } = getOcupacaoStyles(ocupacaoInfo.total);
+                    const ocupacao = meses[mes] || 0;
+                    const { badgeClass, progressClass } = getOcupacaoStyles(ocupacao);
                     const chave = `${ano}-${mes}`;
                     const isEditable = isEditing && canEditAllocation(projetoEstado);
 
@@ -416,61 +383,26 @@ function AlocacoesGrid({
                       >
                         <div className="mb-1.5 flex justify-between text-xs">
                           <span>{format(new Date(ano, mes - 1), "MMMM", { locale: pt })}</span>
-                          <div className="flex flex-col items-end">
-                            {isEditable ? (
-                              <Input
-                                type="text"
-                                value={editValues[chave] || ""}
-                                onChange={(e) =>
-                                  setEditValues({ ...editValues, [chave]: e.target.value })
-                                }
-                                onKeyDown={validarEntrada}
-                                className="h-6 w-16 text-center text-xs"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            ) : (
-                              <span className="font-medium">{ocupacao}%</span>
-                            )}
-                            <span className="text-[9px] text-green-600">
-                              Aprovado: {ocupacaoInfo.aprovada.toFixed(0)}%
-                            </span>
-                            <span className="text-[9px] text-amber-600">
-                              Pendente: {ocupacaoInfo.pendente.toFixed(0)}%
-                            </span>
-                            <span className="text-[9px] text-azul/60">
-                              Total: {ocupacaoInfo.total.toFixed(0)}%
-                            </span>
-                          </div>
+                          {isEditable ? (
+                            <Input
+                              type="text"
+                              value={editValues[chave] || ""}
+                              onChange={(e) =>
+                                setEditValues({ ...editValues, [chave]: e.target.value })
+                              }
+                              onKeyDown={validarEntrada}
+                              className="h-6 w-16 text-center text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span className="font-medium">{ocupacao}%</span>
+                          )}
                         </div>
-                        <div className="space-y-1">
-                          {/* Barra para ocupação atual */}
-                          <div className="h-1.5 overflow-hidden rounded-full bg-white/50">
-                            <div
-                              className={`h-full ${progressClass} rounded-full transition-all duration-300`}
-                              style={{ width: `${ocupacao}%` }}
-                            />
-                          </div>
-                          {/* Barra para ocupação aprovada */}
-                          <div className="h-1 overflow-hidden rounded-full bg-white/50">
-                            <div
-                              className="h-full rounded-full bg-green-400 transition-all duration-300"
-                              style={{ width: `${ocupacaoInfo.aprovada}%` }}
-                            />
-                          </div>
-                          {/* Barra para ocupação pendente */}
-                          <div className="h-1 overflow-hidden rounded-full bg-white/50">
-                            <div
-                              className="h-full rounded-full bg-amber-400 transition-all duration-300"
-                              style={{ width: `${ocupacaoInfo.pendente}%` }}
-                            />
-                          </div>
-                          {/* Barra para ocupação total */}
-                          <div className="h-1 overflow-hidden rounded-full bg-white/50">
-                            <div
-                              className="h-full rounded-full bg-blue-600 transition-all duration-300"
-                              style={{ width: `${ocupacaoInfo.total}%` }}
-                            />
-                          </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-white/50">
+                          <div
+                            className={`h-full ${progressClass} rounded-full transition-all duration-300`}
+                            style={{ width: `${ocupacao}%` }}
+                          />
                         </div>
                       </div>
                     );
@@ -493,8 +425,8 @@ function getOcupacaoStyles(ocupacao: number) {
     };
   } else if (ocupacao >= 80) {
     return {
-      badgeClass: "bg-amber-50 text-amber-600 border-amber-100",
-      progressClass: "bg-amber-400",
+      badgeClass: "bg-emerald-50 text-emerald-600 border-emerald-200",
+      progressClass: "bg-emerald-400",
     };
   } else if (ocupacao >= 50) {
     return {
@@ -503,8 +435,8 @@ function getOcupacaoStyles(ocupacao: number) {
     };
   } else if (ocupacao >= 1) {
     return {
-      badgeClass: "bg-emerald-50 text-emerald-600 border-emerald-100",
-      progressClass: "bg-emerald-400",
+      badgeClass: "bg-amber-50 text-amber-600 border-amber-100",
+      progressClass: "bg-amber-400",
     };
   }
   return {

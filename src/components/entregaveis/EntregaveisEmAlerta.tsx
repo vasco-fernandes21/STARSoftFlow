@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
 // Tipagem para o entregável retornado pela API
-type EntregavelAlerta = {
+export type EntregavelAlerta = {
   id: string;
   nome: string;
   descricao: string | null;
@@ -109,8 +109,7 @@ export function EntregaveisEmAlerta({ title = true }: { title?: boolean }) {
                   className="text-xs"
                 >
                   {alerta.diasRestantes && alerta.diasRestantes < 0
-                    ? `${Math.abs(alerta.diasRestantes)} dias atrasado`
-                    : alerta.diasRestantes
+                    ? `${Math.abs(alerta.diasRestantes)} dias atrasado`                    : alerta.diasRestantes
                       ? `${alerta.diasRestantes} dias restantes`
                       : "Data indefinida"}
                 </Badge>
@@ -152,3 +151,4 @@ function EntregaveisCarregando() {
     </div>
   );
 }
+

@@ -10,6 +10,7 @@ import { materialRouter } from "./routers/materiais";
 import { dashboardRouter } from "./routers/dashboard";
 import { financasRouter } from "./routers/financas";
 import { rascunhoRouter } from "./routers/rascunhos";
+
 /**
  * This is the primary router for your server.
  *

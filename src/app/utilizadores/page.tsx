@@ -30,41 +30,34 @@ const uniquePermissoes = ["ADMIN", "GESTOR", "COMUM"] as const;
 const uniqueRegimes = ["INTEGRAL", "PARCIAL"] as const;
 
 // Skeleton para estado de carregamento
-const TableSkeleton = () => {
-  return (
-    <div className="animate-pulse rounded-lg bg-white p-4 shadow">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="h-8 w-1/4 rounded bg-gray-200"></div>
-        <div className="h-8 w-1/6 rounded bg-gray-200"></div>
+const TableSkeleton = () => (
+  <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
+    <div className="flex-none border-b border-slate-100 px-6 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="h-9 w-64 animate-pulse rounded-full bg-slate-100" />
+        <div className="h-9 w-32 animate-pulse rounded-full bg-slate-100" />
       </div>
-
-      {[...Array(5)].map((_, index) => (
-        <div
-          key={index}
-          className="flex items-center space-x-4 border-b border-gray-100 py-3 last:border-0"
-        >
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-gray-200"></div>
-            <div>
-              <div className="mb-2 h-4 w-32 rounded bg-gray-200"></div>
-              <div className="h-3 w-24 rounded bg-gray-100"></div>
-            </div>
-          </div>
-          <div className="flex-grow"></div>
-          <div className="h-4 w-24 rounded bg-gray-200"></div>
-          <div className="h-6 w-16 rounded bg-gray-200"></div>
-          <div className="h-6 w-16 rounded bg-gray-200"></div>
-          <div className="h-4 w-32 rounded bg-gray-200"></div>
-          <div className="flex space-x-2">
-            <div className="h-8 w-8 rounded-full bg-gray-200"></div>
-            <div className="h-8 w-8 rounded-full bg-gray-200"></div>
-            <div className="h-8 w-8 rounded-full bg-gray-200"></div>
-          </div>
-        </div>
-      ))}
     </div>
-  );
-};
+    <div className="p-6">
+      <div className="space-y-4">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 animate-pulse rounded-full bg-slate-100" />
+              <div className="space-y-2">
+                <div className="h-4 w-48 animate-pulse rounded bg-slate-100" />
+                <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
+              </div>
+            </div>
+            <div className="h-8 w-24 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-8 w-24 animate-pulse rounded-full bg-slate-100" />
+            <div className="h-8 w-32 animate-pulse rounded bg-slate-100" />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 // Função auxiliar para extrair utilizadores da resposta da API
 const extrairUtilizadores = (apiResponse: any) => {
@@ -147,7 +140,7 @@ const Users = () => {
   const queryParams = useMemo(
     () => ({
       page: 1,
-      limit: 100, // API limit
+      limit: 8, // Limite reduzido para melhor paginação
     }),
     []
   );
@@ -248,6 +241,7 @@ const Users = () => {
       {
         accessorKey: "contratacao",
         header: "Data de Contratação",
+        meta: { align: 'right' },
         cell: ({ getValue }) => {
           const date = getValue<string | null>();
           return (
@@ -308,41 +302,44 @@ const Users = () => {
 
   return (
     <ProtectedRoute blockPermission={"COMUM" as Permissao}>
-      <PageLayout className="h-screen overflow-hidden">
-        <div className="space-y-6">
-          <PaginaHeader
-            title="Utilizadores"
-            subtitle="Consulte os utilizadores do sistema"
-            action={<NovoUtilizadorModal />}
-          />
-
-          <StatsGrid stats={stats} className="my-4" />
-
-          <div className="flex-1 overflow-visible">
-            {isLoading ? (
-              <TableSkeleton />
-            ) : (
-              <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
-                <TabelaDados<any>
-                  title=""
-                  subtitle=""
-                  data={utilizadores}
-                  isLoading={isLoading}
-                  columns={columns}
-                  searchPlaceholder="Procurar utilizadores..."
-                  filterConfigs={filterConfigs}
-                  onRowClick={handleRowClick}
-                  emptyStateMessage={{
-                    title: "Nenhum utilizador encontrado",
-                    description:
-                      "Experimente ajustar os filtros de pesquisa ou remover o termo de pesquisa para ver todos os utilizadores.",
-                  }}
-                />
-              </div>
-            )}
+      <div className="h-auto bg-[#F7F9FC] p-8">
+        <div className="max-w-8xl mx-auto space-y-6">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-800">Utilizadores</h1>
+              <p className="text-sm text-slate-500">
+                Consulte os utilizadores do sistema
+              </p>
+            </div>
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <NovoUtilizadorModal />
+            </div>
           </div>
+
+          <StatsGrid stats={stats} />
+
+          {isLoading ? (
+            <TableSkeleton />
+          ) : (
+            <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
+              <TabelaDados<any>
+                data={utilizadores}
+                isLoading={isLoading}
+                columns={columns}
+                itemsPerPage={8}
+                searchPlaceholder="Procurar utilizadores..."
+                filterConfigs={filterConfigs}
+                onRowClick={handleRowClick}
+                emptyStateMessage={{
+                  title: "Nenhum utilizador encontrado",
+                  description:
+                    "Experimente ajustar os filtros de pesquisa ou remover o texto na pesquisa para ver todos os utilizadores.",
+                }}
+              />
+            </div>
+          )}
         </div>
-      </PageLayout>
+      </div>
     </ProtectedRoute>
   );
 };

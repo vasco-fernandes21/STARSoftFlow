@@ -15,8 +15,6 @@ import {
   Check,
   Flag,
   AlertTriangle,
-  CheckCircle,
-  Circle,
   Calendar,
   Clock,
 } from "lucide-react";
@@ -48,12 +46,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { api } from "@/trpc/react";
 
 // --- Mock Data ---
 
@@ -112,82 +110,6 @@ const mockResourceOccupation = [
   { id: "res8", resource: "Carlos Pereira", month: "Jan", occupation: 72, year: 2023 },
   { id: "res9", resource: "Beatriz Costa", month: "Fev", occupation: 91, year: 2023 },
   { id: "res10", resource: "Diogo Martins", month: "Fev", occupation: 83, year: 2023 },
-];
-
-// Mock data for materials list
-const mockMaterialsList = [
-  { 
-    id: "mat1", 
-    material: "Cimento Portland", 
-    project: "Edifício Central", 
-    quantity: 200, 
-    unit: "sacos", 
-    status: "Aprovado", 
-    year: 2024 
-  },
-  { 
-    id: "mat2", 
-    material: "Vergalhão Aço 10mm", 
-    project: "Ponte Norte", 
-    quantity: 500, 
-    unit: "metros", 
-    status: "Em Desenvolvimento", 
-    year: 2024 
-  },
-  { 
-    id: "mat3", 
-    material: "Tijolo Cerâmico", 
-    project: "Edifício Central", 
-    quantity: 5000, 
-    unit: "unidades", 
-    status: "Aprovado", 
-    year: 2024 
-  },
-  { 
-    id: "mat4", 
-    material: "Areia Média Lavada", 
-    project: "Ponte Norte", 
-    quantity: 10, 
-    unit: "m³", 
-    status: "Em Desenvolvimento", 
-    year: 2023 
-  },
-  { 
-    id: "mat5", 
-    material: "Tinta Acrílica Branca", 
-    project: "Complexo Residencial", 
-    quantity: 50, 
-    unit: "litros", 
-    status: "Aprovado", 
-    year: 2023 
-  },
-  { 
-    id: "mat6", 
-    material: "Painel Solar 400W", 
-    project: "Edifício Central", 
-    quantity: 100, 
-    unit: "unidades", 
-    status: "Em Desenvolvimento", 
-    year: 2024 
-  },
-  { 
-    id: "mat7", 
-    material: "Cabo Elétrico 2.5mm", 
-    project: "Ponte Norte", 
-    quantity: 1000, 
-    unit: "metros", 
-    status: "Aprovado", 
-    year: 2023 
-  },
-  { 
-    id: "mat8", 
-    material: "Vidro Temperado", 
-    project: "Complexo Residencial", 
-    quantity: 30, 
-    unit: "m²", 
-    status: "Em Desenvolvimento", 
-    year: 2024 
-  }
 ];
 
 // Mock data for milestone tracker
@@ -298,6 +220,21 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   Aprovado: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   "Em Desenvolvimento": { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
 };
+
+// Interface for processed material data
+interface ProcessedMaterial {
+  id: number;
+  material: string;
+  project: string;
+  workpackage: string;
+  quantity: number;
+  unit: string;
+  status: string;
+  price: number;
+  total: number;
+  rubrica: string;
+  year: number;
+}
 
 // --- Helper Components ---
 
@@ -584,7 +521,7 @@ function ResourceOccupationCard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((item) => (
+                {filteredData.map((item: any) => (
                   <TableRow 
                     key={item.id} 
                     className="group cursor-pointer border-b border-slate-100 transition-colors duration-300 ease-in-out hover:bg-emerald-50/50"
@@ -629,44 +566,62 @@ function MaterialsListCard() {
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [selectedProjetoId, setSelectedProjetoId] = useState<string | undefined>(undefined);
   
-  const statusOptions = [
-    { value: "Aprovado", label: "Aprovado" },
-    { value: "Em Desenvolvimento", label: "Em Desenvolvimento" },
-  ];
-
+  // Fetch projects for the dropdown
+  const { data: projetos } = api.projeto.findAll.useQuery({}, {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  // Fetch materials with filters
+  const { data: materiais, isLoading } = api.material.findAll.useQuery({
+    ano: parseInt(selectedYear, 10),
+    projetoId: selectedProjetoId,
+    estado: statusFilter === "todos" ? undefined : statusFilter === "concluidos",
+    searchTerm: searchTerm || undefined,
+  }, {
+    staleTime: 30 * 1000, // 30 seconds
+  });
+  
+  // Process data with applied filters
   const filteredData = useMemo(() => {
-    let filtered = mockMaterialsList.filter(item => 
-      item.year === parseInt(selectedYear)
-    );
+    if (!materiais) return [];
     
-    if (statusFilter !== "todos") {
-      filtered = filtered.filter(item => item.status === statusFilter);
-    }
-    
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.material.toLowerCase().includes(searchLower) ||
-        item.project.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    return filtered;
-  }, [selectedYear, statusFilter, searchTerm]);
+    return materiais.map((material) => {
+      // Ensure workpackage is not null before accessing its properties
+      const workpackage = material.workpackage || { nome: "N/A", projeto: { nome: "N/A", id: "" } };
+      
+      return {
+        id: material.id,
+        material: material.nome,
+        project: workpackage.projeto.nome,
+        workpackage: workpackage.nome,
+        quantity: material.quantidade,
+        unit: "unid.", // Unidade padrão, poderia ser adicionada ao modelo
+        // Mapear o estado para os valores esperados pelo UI
+        status: material.estado ? "Aprovado" : "Em Desenvolvimento",
+        price: Number(material.preco),
+        total: Number(material.preco) * material.quantidade,
+        rubrica: material.rubrica,
+        year: material.ano_utilizacao,
+      };
+    });
+  }, [materiais]);
 
   // Active filters count
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (statusFilter !== "todos") count++;
     if (searchTerm) count++;
+    if (selectedProjetoId) count++;
     return count;
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter, searchTerm, selectedProjetoId]);
 
   // Clear all filters
   const clearAllFilters = () => {
     setSearchTerm("");
     setStatusFilter("todos");
+    setSelectedProjetoId(undefined);
   };
 
   return (
@@ -748,7 +703,8 @@ function MaterialsListCard() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="my-1" />
 
-              <div className="rounded-lg bg-slate-50/50 p-3">
+              {/* Estado */}
+              <div className="mb-3 rounded-lg bg-slate-50/50 p-3">
                 <DropdownMenuLabel className="mb-2 px-1 text-xs font-medium text-slate-700">
                   Estado
                 </DropdownMenuLabel>
@@ -771,31 +727,92 @@ function MaterialsListCard() {
                     )}
                   </DropdownMenuItem>
                   
-                  {statusOptions.map(status => {
-                    const statusColor = STATUS_COLORS[status.value] || { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" };
-                    return (
+                  <DropdownMenuItem
+                    className={cn(
+                      "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
+                      statusFilter === "concluidos" 
+                        ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                        : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
+                    )}
+                    onClick={() => setStatusFilter("concluidos")}
+                  >
+                    <div className="flex flex-1 items-center gap-2">
+                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      <span>Concluídos</span>
+                    </div>
+                    {statusFilter === "concluidos" && (
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    )}
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem
+                    className={cn(
+                      "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
+                      statusFilter === "pendentes" 
+                        ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                        : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
+                    )}
+                    onClick={() => setStatusFilter("pendentes")}
+                  >
+                    <div className="flex flex-1 items-center gap-2">
+                      <div className="h-2.5 w-2.5 rounded-full bg-blue-400" />
+                      <span>Pendentes</span>
+                    </div>
+                    {statusFilter === "pendentes" && (
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    )}
+                  </DropdownMenuItem>
+                </div>
+              </div>
+              
+              {/* Projetos */}
+              {projetos?.data?.items && projetos.data.items.length > 0 && (
+                <div className="rounded-lg bg-slate-50/50 p-3">
+                  <DropdownMenuLabel className="mb-2 px-1 text-xs font-medium text-slate-700">
+                    Projeto
+                  </DropdownMenuLabel>
+                  <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto">
+                    <DropdownMenuItem 
+                      className={cn(
+                        "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
+                        !selectedProjetoId 
+                          ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                          : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
+                      )}
+                      onClick={() => setSelectedProjetoId(undefined)}
+                    >
+                      <div className="flex flex-1 items-center gap-2">
+                        <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />
+                        <span>Todos os Projetos</span>
+                      </div>
+                      {!selectedProjetoId && (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      )}
+                    </DropdownMenuItem>
+                    
+                    {projetos.data.items.map((projeto: { id: string; nome: string }) => (
                       <DropdownMenuItem
-                        key={status.value}
+                        key={projeto.id}
                         className={cn(
                           "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                          statusFilter === status.value 
+                          selectedProjetoId === projeto.id 
                             ? "bg-white font-medium text-emerald-600 shadow-sm" 
                             : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                         )}
-                        onClick={() => setStatusFilter(status.value)}
+                        onClick={() => setSelectedProjetoId(projeto.id)}
                       >
                         <div className="flex flex-1 items-center gap-2">
-                          <div className={cn("h-2.5 w-2.5 rounded-full", statusColor.bg, statusColor.text)} />
-                          <span>{status.label}</span>
+                          <div className="h-2.5 w-2.5 rounded-full bg-purple-400" />
+                          <span className="truncate">{projeto.nome}</span>
                         </div>
-                        {statusFilter === status.value && (
+                        {selectedProjetoId === projeto.id && (
                           <Check className="h-3.5 w-3.5 text-emerald-600" />
                         )}
                       </DropdownMenuItem>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -809,22 +826,39 @@ function MaterialsListCard() {
                 variant="outline"
                 className={cn(
                   "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs transition-all duration-300 ease-in-out",
-                  statusFilter === "Aprovado" 
+                  statusFilter === "concluidos" 
                     ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-100" 
                     : "border-blue-200 bg-blue-50 text-blue-600 hover:border-blue-300 hover:bg-blue-100"
                 )}
               >
-                <span>Estado: {statusFilter}</span>
+                <span>Estado: {statusFilter === "concluidos" ? "Concluídos" : "Pendentes"}</span>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setStatusFilter("todos")}
                   className={cn(
                     "h-4 w-4 rounded-full p-0 transition-colors duration-200 ease-in-out",
-                    statusFilter === "Aprovado"
+                    statusFilter === "concluidos"
                       ? "hover:bg-emerald-100/70 hover:text-emerald-700"
                       : "hover:bg-blue-100/70 hover:text-blue-700"
                   )}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
+            
+            {selectedProjetoId && projetos && (
+              <Badge
+                variant="outline"
+                className="flex h-7 items-center gap-1.5 rounded-full border-purple-200 bg-purple-50 px-2.5 text-xs text-purple-600 transition-all duration-300 ease-in-out hover:border-purple-300 hover:bg-purple-100"
+              >
+                <span>Projeto: {projetos.data.items.find((p: { id: string }) => p.id === selectedProjetoId)?.nome}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedProjetoId(undefined)}
+                  className="h-4 w-4 rounded-full p-0 transition-colors duration-200 ease-in-out hover:bg-purple-100/70 hover:text-purple-700"
                 >
                   <X className="h-2.5 w-2.5" />
                 </Button>
@@ -852,7 +886,14 @@ function MaterialsListCard() {
       </div>
 
       <div className="flex-1 overflow-auto" ref={tableContainerRef}>
-        {filteredData.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col space-y-3 p-6">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : filteredData.length === 0 ? (
           <div className="py-12 text-center">
             <div className="flex flex-col items-center justify-center space-y-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/50 bg-slate-50/80 shadow-sm backdrop-blur-sm">
@@ -887,7 +928,7 @@ function MaterialsListCard() {
                   </TableHead>
                   <TableHead className="py-3 text-sm font-medium text-slate-700">
                     <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
-                      Projeto
+                      Projeto/WP
                       <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500">
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
@@ -895,42 +936,65 @@ function MaterialsListCard() {
                   </TableHead>
                   <TableHead className="py-3 text-sm font-medium text-slate-700">
                     <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                      Rubrica
+                    </div>
+                  </TableHead>
+                  <TableHead className="py-3 text-right text-sm font-medium text-slate-700">
+                    <div className="flex items-center justify-end gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
                       Qtd.
                     </div>
                   </TableHead>
-                  <TableHead className="py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
-                      Unid.
+                  <TableHead className="py-3 text-right text-sm font-medium text-slate-700">
+                    <div className="flex items-center justify-end gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                      Valor
                     </div>
                   </TableHead>
-                  <TableHead className="py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                  <TableHead className="py-3 text-center text-sm font-medium text-slate-700">
+                    <div className="flex items-center justify-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
                       Estado
                     </div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((item) => {
+                {filteredData.map((item: ProcessedMaterial) => {
+                  const rubricaColor = RUBRICA_COLORS[item.rubrica] || { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" };
                   const statusColor = STATUS_COLORS[item.status] || { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" };
+                  
                   return (
                     <TableRow 
                       key={item.id} 
                       className="group cursor-pointer border-b border-slate-100 transition-colors duration-300 ease-in-out hover:bg-emerald-50/50"
                     >
-                      <TableCell className="px-2 py-3 text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
+                      <TableCell className="px-2 py-3 text-sm font-medium text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
                         {item.material}
                       </TableCell>
                       <TableCell className="px-2 py-3 text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
-                        {item.project}
-                      </TableCell>
-                      <TableCell className="px-2 py-3 text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
-                        {item.quantity}
-                      </TableCell>
-                      <TableCell className="px-2 py-3 text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
-                        {item.unit}
+                        <div>
+                          {item.project}
+                          <p className="text-xs text-slate-500">{item.workpackage}</p>
+                        </div>
                       </TableCell>
                       <TableCell className="px-2 py-3 text-sm">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-xs font-medium transition-colors duration-200",
+                            rubricaColor.bg,
+                            rubricaColor.text,
+                            rubricaColor.border
+                          )}
+                        >
+                          {RUBRICA_LABELS[item.rubrica]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
+                        {item.quantity}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
+                        {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(item.total)}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-center text-sm">
                         <Badge
                           variant="outline"
                           className={cn(

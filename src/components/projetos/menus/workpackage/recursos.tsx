@@ -6,10 +6,8 @@ import { useMutations } from "@/hooks/useMutations";
 import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
 import { Card } from "@/components/ui/card";
 import { api } from "@/trpc/react";
-import { Details } from "@/components/projetos/criar/novo/recursos/details";
-import { format } from "date-fns";
-import { pt } from "date-fns/locale";
-import type { Decimal } from "decimal.js";
+import { Item } from "@/components/projetos/criar/novo/recursos/item";
+import { Decimal } from "decimal.js";
 
 interface WorkpackageRecursosProps {
   workpackage: WorkpackageCompleto;
@@ -24,7 +22,6 @@ export function WorkpackageRecursos({
 }: WorkpackageRecursosProps) {
   // Estado para controlar adição de recurso
   const [addingRecurso, setAddingRecurso] = useState(false);
-  const [editingUsuarioId, setEditingUsuarioId] = useState<string | null>(null);
   const [expandedUsuarioId, setExpandedUsuarioId] = useState<string | null>(null);
 
   // Mutations usando o projetoId
@@ -40,6 +37,12 @@ export function WorkpackageRecursos({
     email: user.email || "",
     regime: user.regime,
   }));
+
+  // Criar mapeamento de userIds para objetos de utilizador
+  const usersMappedById = utilizadoresList.reduce((acc, user) => {
+    acc[user.id] = user;
+    return acc;
+  }, {} as Record<string, typeof utilizadoresList[0]>);
 
   // Handler para adicionar recursos
   const handleAddRecurso = (
@@ -64,37 +67,19 @@ export function WorkpackageRecursos({
     });
 
     setAddingRecurso(false);
-    setEditingUsuarioId(null);
   };
 
-  // Handler para editar recursos
-  const handleEditRecurso = (
-    workpackageId: string,
-    alocacoes: Array<{
-      userId: string;
-      mes: number;
-      ano: number;
-      ocupacao: Decimal;
-      user?: any;
-    }>
-  ) => {
+  // Handler para atualizar alocações de um recurso
+  const handleUpdateAlocacao = (userId: string, alocacoes: Array<any>) => {
     // Para cada alocação no array, usar a mutação updateAlocacao (ou addAlocacao com upsert)
     alocacoes.forEach((alocacao) => {
-      mutations.workpackage.addAlocacao.mutate(
-        {
-          workpackageId: _workpackageId,
-          userId: alocacao.userId,
-          mes: alocacao.mes,
-          ano: alocacao.ano,
-          ocupacao: Number(alocacao.ocupacao),
-        },
-        {
-          onSuccess: () => {
-            // Limpar estado de edição após sucesso
-            setEditingUsuarioId(null);
-          },
-        }
-      );
+      mutations.workpackage.addAlocacao.mutate({
+        workpackageId: _workpackageId,
+        userId: userId,
+        mes: alocacao.mes,
+        ano: alocacao.ano,
+        ocupacao: Number(alocacao.ocupacao),
+      });
     });
   };
 
@@ -116,19 +101,6 @@ export function WorkpackageRecursos({
     }
   };
 
-  // Função para formatar data de forma segura
-  const formatarDataSegura = (
-    ano: string | number,
-    mes: string | number,
-    formatString: string
-  ): string => {
-    try {
-      return format(new Date(Number(ano), Number(mes) - 1), formatString, { locale: pt });
-    } catch {
-      return `${mes}/${ano}`;
-    }
-  };
-
   // Agrupar recursos por utilizador
   const agruparRecursosPorUtilizador = () => {
     if (!workpackage.recursos || workpackage.recursos.length === 0) return [];
@@ -137,10 +109,11 @@ export function WorkpackageRecursos({
       string,
       {
         userId: string;
+        user?: any;
         alocacoes: Array<{
           mes: number;
           ano: number;
-          ocupacao: number;
+          ocupacao: Decimal;
         }>;
         total: number;
       }
@@ -150,8 +123,10 @@ export function WorkpackageRecursos({
       const userId = recurso.userId;
 
       if (!usuariosMap.has(userId)) {
+        const userInfo = utilizadoresList.find(u => u.id === userId);
         usuariosMap.set(userId, {
           userId,
+          user: userInfo,
           alocacoes: [],
           total: 0,
         });
@@ -161,7 +136,7 @@ export function WorkpackageRecursos({
       usuario.alocacoes.push({
         mes: recurso.mes,
         ano: recurso.ano,
-        ocupacao: Number(recurso.ocupacao),
+        ocupacao: new Decimal(recurso.ocupacao),
       });
 
       usuario.total += Number(recurso.ocupacao);
@@ -170,28 +145,8 @@ export function WorkpackageRecursos({
     return Array.from(usuariosMap.values());
   };
 
-  // Processar alocações por utilizador para formato esperado pelo componente Details
-  const processarAlocacoesPorUsuario = (userId: string) => {
-    if (!workpackage.recursos) return {};
-
-    const alocacoesUsuario = workpackage.recursos.filter((r) => r.userId === userId);
-    const alocacoesPorAnoMes: Record<string, Record<number, number>> = {};
-
-    alocacoesUsuario.forEach((alocacao) => {
-      const ano = alocacao.ano.toString();
-      if (!alocacoesPorAnoMes[ano]) {
-        alocacoesPorAnoMes[ano] = {};
-      }
-
-      // Armazenar o valor em percentagem (0-100)
-      alocacoesPorAnoMes[ano][alocacao.mes] = Number(alocacao.ocupacao) * 100;
-    });
-
-    return alocacoesPorAnoMes;
-  };
-
   const recursosPorUtilizador = agruparRecursosPorUtilizador();
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -223,6 +178,21 @@ export function WorkpackageRecursos({
             onAddAlocacao={handleAddRecurso}
             onCancel={() => setAddingRecurso(false)}
             projetoEstado={workpackage.projeto?.estado || "RASCUNHO"}
+            _projeto={workpackage.projeto || {}}
+            _alocacoesExistentes={workpackage.recursos || []}
+            _onAlocacoes={(alocacoes) => {
+              // Map the alocacoes to the format expected by handleAddRecurso
+              const formattedAlocacoes = alocacoes.map(alocacao => ({
+                userId: alocacao.userId,
+                mes: alocacao.mes,
+                ano: alocacao.ano,
+                ocupacao: new Decimal(alocacao.ocupacao),
+                user: usersMappedById[alocacao.userId]
+              }));
+              handleAddRecurso(workpackage.id, formattedAlocacoes);
+            }}
+            _usersMappedById={usersMappedById}
+            _isClienteAtivo={true}
           />
         </Card>
       )}
@@ -230,36 +200,32 @@ export function WorkpackageRecursos({
       {/* Lista de recursos agrupados por utilizador */}
       {recursosPorUtilizador.length > 0 ? (
         <div className="space-y-2">
-          {recursosPorUtilizador.map((usuario) => {
+          {recursosPorUtilizador.map((recursoInfo) => {
             // Encontrar o utilizador a partir do userId
-            const membroEquipa = utilizadoresList.find((u) => u.id === usuario.userId);
+            const membroEquipa = utilizadoresList.find((u) => u.id === recursoInfo.userId);
+            
+            if (!membroEquipa) return null;
 
             return (
-              <Details
-                key={usuario.userId}
-                userId={usuario.userId}
-                recurso={usuario}
-                membroEquipa={membroEquipa}
-                isExpanded={expandedUsuarioId === usuario.userId}
-                workpackageId={_workpackageId}
+              <Item
+                key={recursoInfo.userId}
+                user={membroEquipa}
+                alocacoes={recursoInfo.alocacoes}
+                isExpanded={expandedUsuarioId === recursoInfo.userId}
                 onToggleExpand={() => {
-                  if (expandedUsuarioId === usuario.userId) {
+                  if (expandedUsuarioId === recursoInfo.userId) {
                     setExpandedUsuarioId(null);
                   } else {
-                    setExpandedUsuarioId(usuario.userId);
+                    setExpandedUsuarioId(recursoInfo.userId);
                   }
                 }}
-                onEdit={() => setEditingUsuarioId(usuario.userId)}
-                onRemove={() => handleRemoveRecurso(usuario.userId)}
-                _formatarDataSegura={formatarDataSegura}
-                alocacoesPorAnoMes={processarAlocacoesPorUsuario(usuario.userId)}
-                isEditing={editingUsuarioId === usuario.userId}
-                onCancelEdit={() => setEditingUsuarioId(null)}
-                onSaveEdit={handleEditRecurso}
-                utilizadores={utilizadoresList}
+                onRemove={() => handleRemoveRecurso(recursoInfo.userId)}
+                onUpdateAlocacao={handleUpdateAlocacao}
                 inicio={workpackage.inicio || new Date()}
                 fim={workpackage.fim || new Date()}
                 projetoEstado={workpackage.projeto?.estado || "RASCUNHO"}
+                workpackageId={_workpackageId}
+                utilizadores={utilizadoresList}
               />
             );
           })}

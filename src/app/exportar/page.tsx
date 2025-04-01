@@ -28,7 +28,7 @@ export default function ExportarPage() {
       select: (data) => {
         // Selecionar apenas id e nome para evitar problemas de serialização
         return {
-          items: data.items.map((projeto) => ({
+          items: data.data.items.map((projeto: { id: string; nome: string; isRascunho?: boolean }) => ({
             id: projeto.id,
             nome: projeto.nome,
           })),
@@ -78,7 +78,7 @@ export default function ExportarPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {projetos.length > 0 ? (
-                      projetos.map((projeto) => (
+                      projetos.map((projeto: { id: string; nome: string }) => (
                         <SelectItem key={projeto.id} value={projeto.id}>
                           {projeto.nome}
                         </SelectItem>

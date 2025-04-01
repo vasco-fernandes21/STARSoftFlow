@@ -173,7 +173,7 @@ const utilizadorSchema = z.object({
 
 export default function PerfilUtilizador() {
   const router = useRouter();
-  const { username } = useParams<{ username: string }>();
+  const params = useParams<{ username: string }>();
   const [activeTab, setActiveTab] = useState<string>("perfil");
 
   // Dados do utilizador
@@ -181,8 +181,8 @@ export default function PerfilUtilizador() {
     data: utilizador,
     isLoading: isLoadingUser,
     error: userError,
-  } = api.utilizador.getByUsername.useQuery(username as string, {
-    enabled: !!username,
+  } = api.utilizador.getByUsername.useQuery(params?.username ?? "", {
+    enabled: !!params?.username,
     refetchOnWindowFocus: false,
   });
 
@@ -271,6 +271,26 @@ export default function PerfilUtilizador() {
 
     return candidato;
   }, [projetos]);
+
+  // Early return if no username is found
+  if (!params?.username) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-slate-800">Utilizador não encontrado</h1>
+          <p className="mt-2 text-slate-500">O utilizador que procura não existe ou foi removido.</p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => router.push("/utilizadores")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar à lista
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Componente de loading
   if (isLoading) {

@@ -6,11 +6,10 @@ import {
   AlertTriangle,
   Users,
   DollarSign,
-  ListChecks,
   AlertCircle,
   ChevronRight,
-  Clock,
   PieChart as PieChartIcon,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -32,10 +31,7 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
   Line,
-  ComposedChart,
-  Area,
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -280,8 +276,8 @@ function DashboardCharts() {
     innerRadius,
     outerRadius,
     percent,
-    index,
-    name,
+    _index,
+    _name,
   }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -324,7 +320,7 @@ function DashboardCharts() {
           <TabsContent value="financeiro" className="p-1">
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
+                <BarChart
                   data={mockFinancialTrends}
                   margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
                 >
@@ -377,16 +373,7 @@ function DashboardCharts() {
                     barSize={20}
                     radius={[4, 4, 0, 0]}
                   />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="projetos"
-                    name="Nº Projetos"
-                    stroke="#8b5cf6"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: "#8b5cf6" }}
-                  />
-                </ComposedChart>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </TabsContent>

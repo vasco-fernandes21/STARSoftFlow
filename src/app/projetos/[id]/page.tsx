@@ -324,7 +324,8 @@ const ProjectTabs = memo(
 // Componente principal
 export default function DetalheProjeto() {
   const router = useRouter();
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id || "";
   const [separadorAtivo, setSeparadorAtivo] = useState("cronograma");
   const queryClient = useQueryClient();
 

@@ -267,4 +267,80 @@ export const materialRouter = createTRPCRouter({
 
       return materiais;
     }),
+
+  // Endpoint para dashboard com filtros avançados
+  findAll: protectedProcedure
+    .input(
+      z.object({
+        ano: z.number().optional(),
+        projetoId: z.string().optional(),
+        estado: z.boolean().optional(),
+        searchTerm: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        // Construir condições where baseadas nos filtros
+        const where: Prisma.MaterialWhereInput = {};
+        
+        // Filtrar por ano se fornecido
+        if (input.ano) {
+          where.ano_utilizacao = input.ano;
+        }
+        
+        // Filtrar por estado se fornecido
+        if (input.estado !== undefined) {
+          where.estado = input.estado;
+        }
+        
+        // Filtrar por projeto se fornecido
+        if (input.projetoId) {
+          where.workpackage = {
+            projetoId: input.projetoId
+          };
+        }
+        
+        // Implementar pesquisa por termo
+        if (input.searchTerm && input.searchTerm.trim() !== "") {
+          const term = input.searchTerm.trim();
+          where.OR = [
+            { nome: { contains: term, mode: "insensitive" } },
+            { descricao: { contains: term, mode: "insensitive" } },
+            { workpackage: { nome: { contains: term, mode: "insensitive" } } }
+          ];
+        }
+        
+        // Buscar materiais com filtros aplicados
+        const materiais = await ctx.db.material.findMany({
+          where,
+          include: {
+            workpackage: {
+              select: {
+                id: true,
+                nome: true,
+                projeto: {
+                  select: {
+                    id: true,
+                    nome: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [
+            { ano_utilizacao: "desc" },
+            { nome: "asc" },
+          ],
+        });
+        
+        return materiais;
+      } catch (error) {
+        console.error("Erro ao buscar materiais:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao buscar materiais",
+          cause: error,
+        });
+      }
+    }),
 });

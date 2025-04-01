@@ -9,7 +9,7 @@ import {
   Home,
   FolderKanban,
   Users,
-  Settings,
+  Bell,
   User,
   ChevronLeft,
   ChevronRight,
@@ -36,10 +36,10 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { icon: Home, label: "Início", href: "/", requiredPermission: null },
-  { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
   { icon: Euro, label: "Finanças", href: "/financas", requiredPermission: null },
+  { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
-  { icon: Settings, label: "Validações", href: "/validations", requiredPermission: "ADMIN" },
+  { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: "ADMIN" },
 ];
 
 export const AppSidebar = () => {
@@ -191,12 +191,12 @@ export const AppSidebar = () => {
           </div>
           <div
             className={cn(
-              "absolute flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-azul/5 to-azul/10",
-              "transform border border-azul/20 shadow-sm transition-all duration-200 ease-in-out",
+              "absolute flex h-9 w-9 items-center justify-center rounded-xl bg-azul shadow-md",
+              "transform transition-all duration-200 ease-in-out",
               collapsed ? "translate-x-0 scale-100 opacity-100" : "translate-x-4 scale-75 opacity-0"
             )}
           >
-            <span className="bg-gradient-to-br from-azul to-azul-light bg-clip-text text-lg font-bold text-azul text-transparent">
+            <span className="text-lg font-bold text-white">
               S
             </span>
           </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabNavigation } from "../../components/TabNavigation";
-import { Users, Briefcase, Plus, Trash2 } from "lucide-react";
+import { Users, Briefcase, Plus, Trash2, User as UserIcon, Edit, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { toast } from "sonner";
 import React from "react";
-import type { Decimal } from "decimal.js";
+import { Decimal } from "decimal.js";
 import { Form } from "./form";
 import { Item } from "./item";
 import { api } from "@/trpc/react";
@@ -18,6 +18,14 @@ interface RecursosTabProps {
   onNavigateBack: () => void;
   onNavigateForward: () => void;
 }
+
+interface Alocacao {
+  mes: number;
+  ano: number;
+  ocupacao: Decimal;
+  workpackageId?: string;
+}
+
 // Dados dos membros da equipa obtidos da API
 const RecursosData = () => {
   const { data, isLoading, error } = api.utilizador.findAll.useQuery();
@@ -34,6 +42,33 @@ const RecursosData = () => {
   return { membrosEquipa };
 };
 
+// Transform user data to match the expected User interface
+const transformUser = (user: any) => ({
+  id: user.id,
+  name: user.name || "Utilizador desconhecido",
+  email: user.email || "",
+  regime: user.regime,
+});
+
+// Transform alocacoesPorAnoMes into the expected format
+const transformAlocacoes = (alocacoesPorAnoMes: Record<string, Record<number, number>>): Alocacao[] => {
+  return Object.entries(alocacoesPorAnoMes).flatMap(([ano, meses]) =>
+    Object.entries(meses).map(([mes, ocupacao]) => ({
+      mes: parseInt(mes),
+      ano: parseInt(ano),
+      ocupacao: new Decimal(Number(ocupacao) / 100),
+    }))
+  );
+};
+
+// Transform alocacoes to include userId for the API
+const transformAlocacoesForApi = (userId: string, alocacoes: Alocacao[]) => {
+  return alocacoes.map(alocacao => ({
+    ...alocacao,
+    userId,
+  }));
+};
+
 export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabProps) {
   const { state, dispatch } = useProjetoForm();
   const [selectedWorkpackageId, setSelectedWorkpackageId] = useState<string>("");
@@ -47,24 +82,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
 
   // Obter dados dos membros da equipa
   const { membrosEquipa = [] } = RecursosData();
-  
-  // Buscar dados de ocupação mensal de todos os utilizadores
-  const { data: ocupacaoMensal } = api.utilizador.getOcupacaoMensalTodosUtilizadores.useQuery(
-    undefined,
-    {
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  // Definir o tipo para os membros da equipa
-  type MembroEquipa = {
-    id: string;
-    name: string | null;
-    email: string | null;
-    regime: string;
-    [key: string]: any;
-  };
 
   // Verificar se há workpackages
   const hasWorkpackages = state.workpackages && state.workpackages.length > 0;
@@ -195,23 +212,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     setEditingRecursoId(null);
   }, [selectedWorkpackageId]);
 
-  const formatarDataSegura = (ano: string | number, mes: string | number, formatString: string) => {
-    try {
-      const anoNum = Number(ano);
-      const mesNum = Number(mes) - 1;
-
-      if (isNaN(anoNum) || isNaN(mesNum) || mesNum < 0 || mesNum > 11) {
-        return `${mes}/${ano}`;
-      }
-
-      const data = new Date(anoNum, mesNum);
-      return format(data, formatString, { locale: pt });
-    } catch (error) {
-      console.error("Erro de formatação:", error, { mes, ano });
-      return `${mes}/${ano}`;
-    }
-  };
-
   return (
     <div className="flex flex-col">
       <div className="flex">
@@ -308,7 +308,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
               inicio={selectedWorkpackage.inicio || new Date()}
               fim={selectedWorkpackage.fim || new Date()}
               utilizadores={membrosEquipa.map(
-                (u: MembroEquipa): { id: string; name: string; email: string; regime: string } => ({
+                (u: any): { id: string; name: string; email: string; regime: string } => ({
                   id: u.id,
                   name: u.name || "",
                   email: u.email || "",
@@ -346,47 +346,29 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {Object.values(recursosAgrupados).map((recurso) => {
-                    const user = membrosEquipa.find((m: MembroEquipa) => m.id === recurso.userId);
-                    const isExpanded = expandedRecursoId === recurso.userId;
-
+                  {Object.entries(recursosAgrupados).map(([userId, recurso]) => {
+                    const user = membrosEquipa.find((m) => m.id === userId);
                     if (!user) return null;
 
-                    // Converter as alocações para o formato esperado pelo componente Item
+                    const isExpanded = expandedRecursoId === userId;
                     const alocacoesPorAnoMes = converterParaAlocacoesPorAnoMes(recurso.alocacoes);
 
                     return (
                       <Item
-                        key={recurso.userId}
-                        user={{
-                          id: user.id,
-                          name: user.name || "Utilizador desconhecido",
-                          email: user.email || "",
-                          regime: user.regime,
-                        }}
-                        alocacoesPorAnoMes={alocacoesPorAnoMes}
+                        key={userId}
+                        user={transformUser(user)}
+                        alocacoes={transformAlocacoes(alocacoesPorAnoMes)}
                         isExpanded={isExpanded}
-                        onToggleExpand={() =>
-                          setExpandedRecursoId(isExpanded ? null : recurso.userId)
-                        }
-                        onEdit={() => {
-                          setEditingRecursoId(recurso.userId);
-                          setAddingRecurso(true);
-                          setRecursoEmEdicao(recurso);
-                        }}
-                        onRemove={() =>
-                          handleRemoveRecurso(
-                            selectedWorkpackageId,
-                            recurso.userId,
-                            recurso.alocacoes
-                          )
-                        }
-                        inicio={selectedWorkpackage.inicio || new Date()}
-                        fim={selectedWorkpackage.fim || new Date()}
+                        onToggleExpand={() => setExpandedRecursoId(isExpanded ? null : userId)}
+                        onRemove={() => handleRemoveRecurso(selectedWorkpackageId, userId, recurso.alocacoes)}
+                        inicio={selectedWorkpackage?.inicio || new Date()}
+                        fim={selectedWorkpackage?.fim || new Date()}
+                        projetoEstado={"RASCUNHO"}
                         onUpdateAlocacao={(userId, alocacoes) => 
-                          handleAddAlocacao(selectedWorkpackageId, alocacoes)
+                          handleAddAlocacao(selectedWorkpackageId, transformAlocacoesForApi(userId, alocacoes))
                         }
-                        ocupacaoMensal={ocupacaoMensal?.filter(o => o.userId === recurso.userId) || []}
+                        workpackageId={selectedWorkpackageId}
+                        utilizadores={membrosEquipa.map(transformUser)}
                       />
                     );
                   })}
