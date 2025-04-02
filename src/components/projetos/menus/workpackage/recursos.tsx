@@ -89,8 +89,10 @@ export function WorkpackageRecursos({
   // Handler para remover recurso
   const handleRemoveRecurso = (userId: string) => {
     if (confirm("Tem a certeza que deseja remover este recurso e todas as suas alocações?")) {
-      // Encontrar todas as alocações deste utilizador
-      const alocacoesUsuario = workpackage.recursos?.filter((r) => r.userId === userId) || [];
+      // Encontrar todas as alocações deste utilizador neste workpackage
+      const alocacoesUsuario = workpackage.recursos?.filter(
+        (r) => r.userId === userId && r.workpackageId === _workpackageId
+      ) || [];
 
       // Remover cada alocação individualmente
       alocacoesUsuario.forEach((alocacao) => {
@@ -108,6 +110,13 @@ export function WorkpackageRecursos({
   const agruparRecursosPorUtilizador = () => {
     if (!workpackage.recursos || workpackage.recursos.length === 0) return [];
 
+    // Filter recursos to only include those from the current workpackage
+    const recursosDoWorkpackage = workpackage.recursos.filter(
+      (recurso) => recurso.workpackageId === _workpackageId
+    );
+    
+    if (recursosDoWorkpackage.length === 0) return [];
+
     const usuariosMap = new Map<
       string,
       {
@@ -122,7 +131,7 @@ export function WorkpackageRecursos({
       }
     >();
 
-    workpackage.recursos.forEach((recurso) => {
+    recursosDoWorkpackage.forEach((recurso) => {
       const userId = recurso.userId;
 
       if (!usuariosMap.has(userId)) {

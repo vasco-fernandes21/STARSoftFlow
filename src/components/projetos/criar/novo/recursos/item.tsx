@@ -81,23 +81,28 @@ export function Item({
       e.preventDefault();
       return;
     }
-
+    
     // Se for o primeiro caractere, só permitir 0 ou 1
     if (e.currentTarget.value.length === 0 && !["0", "1"].includes(e.key)) {
       e.preventDefault();
       return;
     }
-
-    // Se já tiver o primeiro dígito e não for vírgula ou ponto, bloquear segundo dígito
-    if (
-      e.currentTarget.value.length === 1 &&
-      !/^[01]$/.test(e.currentTarget.value) &&
-      !["0", "1", ",", "."].includes(e.key)
-    ) {
-      e.preventDefault();
-      return;
+    
+    // Após o primeiro dígito, aplicar regras específicas
+    if (e.currentTarget.value.length === 1) {
+      // Se o primeiro caractere é 1, não permitir mais caracteres
+      if (e.currentTarget.value === "1") {
+        e.preventDefault();
+        return;
+      }
+      
+      // Se o primeiro caractere é 0, permitir apenas , ou .
+      if (e.currentTarget.value === "0" && ![",", "."].includes(e.key)) {
+        e.preventDefault();
+        return;
+      }
     }
-
+    
     // Verificar se já tem 3 casas decimais
     const partes = e.currentTarget.value.split(/[,.]/);
     const parteDecimal = partes[1];
@@ -154,10 +159,16 @@ export function Item({
       mes: number;
       ano: number;
       ocupacao: Decimal;
+      workpackageId?: string;
       user?: any;
     }>
   ) => {
-    onUpdateAlocacao(user.id, alocacoes);
+    const alocacoesComWorkpackage = alocacoes.map(alocacao => ({
+      ...alocacao,
+      workpackageId
+    }));
+    
+    onUpdateAlocacao(user.id, alocacoesComWorkpackage);
     setShowForm(false);
   };
 
@@ -203,36 +214,7 @@ export function Item({
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isEditing) handleSaveEdit();
-                  setShowForm(false);
-                  setIsEditing(false);
-                }}
-                className="h-7 rounded-lg px-2 text-xs text-green-600 hover:bg-green-50"
-              >
-                Guardar
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isEditing) handleCancelEdit();
-                  setShowForm(false);
-                  setIsEditing(false);
-                }}
-                className="h-7 rounded-lg px-2 text-xs text-red-500 hover:bg-red-50"
-              >
-                Cancelar
-              </Button>
-            </>
-          )}
+          ) : null}
 
           {!showForm && (
             <Button

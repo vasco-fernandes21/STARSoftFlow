@@ -928,4 +928,107 @@ export const projetoRouter = createTRPCRouter({
         return handlePrismaError(error);
       }
     }),
+
+  // Validar projeto (aprovar ou rejeitar)
+  validarProjeto: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid("ID do projeto inválido"),
+        aprovar: z.boolean(),
+        comentario: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { id, aprovar, comentario } = input;
+        
+        // Verificar se o projeto existe
+        const projeto = await ctx.db.projeto.findUnique({
+          where: { id },
+          select: { 
+            id: true,
+            nome: true,
+            estado: true,
+          },
+        });
+
+        if (!projeto) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Projeto não encontrado",
+          });
+        }
+
+        // Verificar se o projeto está em estado que permite validação
+        if (projeto.estado !== ProjetoEstado.PENDENTE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Apenas projetos pendentes podem ser validados",
+          });
+        }
+
+        // Verificar permissões do utilizador (apenas ADMIN ou GESTOR)
+        const user = await ctx.db.user.findUnique({
+          where: { id: ctx.session.user.id },
+          select: { permissao: true },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        const isAdmin = user.permissao === "ADMIN";
+        const isGestor = user.permissao === "GESTOR";
+
+        if (!isAdmin && !isGestor) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Sem permissão para validar projetos",
+          });
+        }
+
+        // Se for para aprovar, atualiza o estado
+        if (aprovar) {
+          const projetoAtualizado = await ctx.db.projeto.update({
+            where: { id },
+            data: { 
+              estado: ProjetoEstado.APROVADO,
+              // Se houvesse um campo para comentários, poderia adicionar aqui
+            },
+          });
+
+          return {
+            success: true,
+            message: `Projeto "${projeto.nome}" aprovado com sucesso`,
+            data: projetoAtualizado,
+          };
+        } 
+        // Se não for para aprovar, elimina o projeto
+        else {
+          await ctx.db.projeto.delete({
+            where: { id },
+          });
+
+          return {
+            success: true,
+            message: `Projeto "${projeto.nome}" rejeitado e eliminado`,
+            data: null,
+          };
+        }
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        console.error("Erro ao validar projeto:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao validar projeto",
+          cause: error,
+        });
+      }
+    }),
 });

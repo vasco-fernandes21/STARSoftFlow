@@ -13,6 +13,9 @@ import {
   FileText,
   Calendar,
   Package,
+  Check,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -22,6 +25,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { EditarProjeto } from "@/components/projetos/EditarProjeto";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
+import { usePermissions } from "@/hooks/usePermissions";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useSession } from "next-auth/react";
 
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));
@@ -30,9 +47,111 @@ const ProjetoRecursos = lazy(() => import("@/components/projetos/tabs/ProjetoRec
 const ProjetoMateriais = lazy(() => import("@/components/projetos/tabs/ProjetoMateriais"));
 const VisaoGeral = lazy(() => import("@/components/projetos/tabs/VisaoGeral"));
 
+// Componente para validar projeto (aprovar/rejeitar)
+const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const validarProjetoMutation = api.projeto.validarProjeto.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message);
+        
+        // Se o projeto foi rejeitado e removido, redirecionar para a lista de projetos
+        if (!data.data) {
+          router.push("/projetos");
+        } else {
+          // Atualizar cache se o projeto foi aprovado
+          void queryClient.invalidateQueries({ 
+            queryKey: [["projeto", "findById"], { input: id }] 
+          });
+        }
+      }
+    },
+    onError: (error) => {
+      toast.error(`Erro: ${error.message}`);
+      setIsSubmitting(false);
+    },
+  });
+
+  const handleAprovar = () => {
+    setIsSubmitting(true);
+    validarProjetoMutation.mutate({ 
+      id, 
+      aprovar: true 
+    });
+  };
+
+  const handleRejeitar = () => {
+    setIsSubmitting(true);
+    validarProjetoMutation.mutate({ 
+      id, 
+      aprovar: false 
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        onClick={handleAprovar}
+        disabled={isSubmitting}
+        variant="outline"
+        size="sm"
+        className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
+      >
+        {isSubmitting && validarProjetoMutation.isPending ? (
+          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+        ) : (
+          <Check className="mr-1 h-4 w-4" />
+        )}
+        <span>Aprovar</span>
+      </Button>
+
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700"
+            disabled={isSubmitting}
+          >
+            <X className="mr-1 h-4 w-4" />
+            <span>Rejeitar</span>
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá rejeitar e eliminar o projeto &quot;{nome}&quot; permanentemente.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRejeitar}
+              disabled={isSubmitting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isSubmitting && validarProjetoMutation.isPending ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <X className="mr-1 h-4 w-4" />
+              )}
+              Rejeitar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+});
+
 // Componente para o breadcrumb
 const ProjectBreadcrumb = memo(
-  ({ nome, estado, onBack }: { nome: string; estado: ProjetoEstado; onBack: () => void }) => (
+  ({ nome, estado, onBack, isValidator, projetoId }: { nome: string; estado: ProjetoEstado; onBack: () => void; isValidator: boolean; projetoId: string }) => (
     <div className="-ml-2 flex w-full items-center justify-between">
       <div className="flex items-center text-sm font-medium">
         <Button
@@ -62,6 +181,11 @@ const ProjectBreadcrumb = memo(
           </span>
         </div>
       </div>
+      
+      {/* Botões de validação - aparecem apenas se projeto está pendente e o utilizador é validador */}
+      {estado === "PENDENTE" && isValidator && (
+        <ValidarProjeto id={projetoId} nome={nome} />
+      )}
     </div>
   )
 );
@@ -103,6 +227,7 @@ const StatisticsCards = memo(
     dataFim,
     duracaoMeses,
     progresso,
+    estado,
   }: {
     workpackagesCount: number;
     totalTarefas: number;
@@ -112,6 +237,7 @@ const StatisticsCards = memo(
     dataFim: Date | null;
     duracaoMeses: number;
     progresso: number;
+    estado: ProjetoEstado;
   }) => {
     const stats: Array<StatItem> = [
       {
@@ -148,7 +274,7 @@ const StatisticsCards = memo(
         label: "Período",
         value: dataInicio && dataFim ? duracaoMeses : 0,
         suffix: dataInicio && dataFim ? " meses" : "",
-        iconClassName: "text-yellow -600",
+        iconClassName: "text-yellow-600",
         iconContainerClassName: "bg-yellow-50/80",
         secondaryText:
           dataInicio && dataFim
@@ -172,6 +298,10 @@ const StatisticsCards = memo(
             : progresso >= 0.5
               ? "bg-amber-50/80"
               : "bg-rose-50/80",
+        secondaryText: estado
+          .split("_")
+          .map((word: string) => word.charAt(0) + word.slice(1).toLowerCase())
+          .join(" "),
       },
     ];
 
@@ -328,6 +458,9 @@ export default function DetalheProjeto() {
   const id = params?.id || "";
   const [separadorAtivo, setSeparadorAtivo] = useState("cronograma");
   const queryClient = useQueryClient();
+  const { isGestor, isAdmin } = usePermissions();
+  const { data: session } = useSession();
+  const usuarioAtualId = session?.user?.id;
 
   // Query principal do projeto
   const {
@@ -424,6 +557,16 @@ export default function DetalheProjeto() {
     return projeto?.responsavel !== null && projeto?.responsavel !== undefined;
   }, [projeto]);
 
+  // Verifica se o utilizador atual é o responsável pelo projeto
+  const isResponsavel = useMemo(() => {
+    return temResponsavel && usuarioAtualId === projeto?.responsavel?.id;
+  }, [temResponsavel, usuarioAtualId, projeto?.responsavel?.id]);
+
+  // Verifica se o utilizador pode editar o projeto
+  const podeEditar = useMemo(() => {
+    return isAdmin || isGestor || isResponsavel;
+  }, [isAdmin, isGestor, isResponsavel]);
+
   // Loading e error states
   if (isLoading) {
     return (
@@ -448,13 +591,19 @@ export default function DetalheProjeto() {
   return (
     <div className="h-full bg-[#F7F9FC] p-8">
       <div className="max-w-8xl mx-auto space-y-4">
-        <ProjectBreadcrumb nome={projeto.nome} estado={projeto.estado} onBack={handleBack} />
+        <ProjectBreadcrumb 
+          nome={projeto.nome} 
+          estado={projeto.estado} 
+          onBack={handleBack} 
+          isValidator={isGestor} 
+          projetoId={projeto.id} 
+        />
 
         <ProjectHeader
           nome={projeto.nome}
           descricao={projeto.descricao}
           editTrigger={
-            temResponsavel && projetoFormatado ? (
+            podeEditar && projetoFormatado ? (
               <EditarProjeto projeto={projetoFormatado} financiamentos={financiamentos} />
             ) : null
           }
@@ -469,6 +618,7 @@ export default function DetalheProjeto() {
           dataFim={dataFim}
           duracaoMeses={duracaoMeses}
           progresso={projeto.progresso}
+          estado={projeto.estado}
         />
 
         <ProjectTabs

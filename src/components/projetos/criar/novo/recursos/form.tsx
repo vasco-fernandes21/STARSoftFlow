@@ -76,7 +76,10 @@ function parseValorOcupacao(valor: string): number {
   const valorNormalizado = valor.replace(",", ".");
   const num = parseFloat(valorNormalizado);
 
+  // Se for NaN, retornar 0
   if (isNaN(num)) return 0;
+  
+  // Limitar entre 0 e 1
   if (num > 1) return 1;
   if (num < 0) return 0;
 
@@ -217,19 +220,32 @@ export function Form({
       e.preventDefault();
       return;
     }
-
+    
     // Se for o primeiro caractere, só permitir 0 ou 1
     if (e.currentTarget.value.length === 0 && !["0", "1"].includes(e.key)) {
       e.preventDefault();
       return;
     }
-
-    // Se já tiver o primeiro dígito e não for vírgula ou ponto, bloquear segundo dígito
-    if (
-      e.currentTarget.value.length === 1 &&
-      !/^[01]$/.test(e.currentTarget.value) &&
-      !["0", "1", ",", "."].includes(e.key)
-    ) {
+    
+    // Após o primeiro dígito, aplicar regras específicas
+    if (e.currentTarget.value.length === 1) {
+      // Se o primeiro caractere é 1, não permitir mais caracteres
+      if (e.currentTarget.value === "1") {
+        e.preventDefault();
+        return;
+      }
+      
+      // Se o primeiro caractere é 0, permitir apenas , ou .
+      if (e.currentTarget.value === "0" && ![",", "."].includes(e.key)) {
+        e.preventDefault();
+        return;
+      }
+    }
+    
+    // Verificar se já tem 3 casas decimais
+    const partes = e.currentTarget.value.split(/[,.]/);
+    const parteDecimal = partes[1];
+    if (parteDecimal && parteDecimal.length >= 3 && !teclasSistema.includes(e.key)) {
       e.preventDefault();
       return;
     }
@@ -291,23 +307,16 @@ export function Form({
       return;
     }
 
-    // Permite entrada vazia para remover alocação completamente
-    if (valor === "" || valor === "0" || valor === "0,0" || valor === "0,00") {
-      setInputValues((prev) => {
-        const newValues = { ...prev };
-        delete newValues[chave];
-        return newValues;
-      });
+    // Atualizar sempre o valor do input diretamente
+    setInputValues((prev) => ({ ...prev, [chave]: valor }));
 
+    // Apenas limpar a alocação se for string vazia
+    if (valor === "") {
       setAlocacoes((prev) =>
         prev.filter((a) => !(a.userId === selectedUserId && a.mes === mes && a.ano === ano))
       );
-
       return;
     }
-
-    // Atualizar sempre o valor do input diretamente
-    setInputValues((prev) => ({ ...prev, [chave]: valor }));
 
     // Validar o valor antes de atualizar alocações
     const valorNormalizado = valor.replace(",", ".");
@@ -444,37 +453,51 @@ export function Form({
 
   return (
     <Card className="overflow-hidden border-azul/10 transition-all hover:border-azul/20">
-      {/* Cabeçalho do Form */}
-      <div className="flex items-center justify-between border-b border-azul/10 p-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-azul/10">
-            <User className="h-3.5 w-3.5 text-azul" />
+      {/* Cabeçalho do Form - mostrar apenas quando não estiver em modo de edição */}
+      {!recursoEmEdicao && (
+        <div className="flex items-center justify-between border-b border-azul/10 p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-azul/10">
+              <User className="h-3.5 w-3.5 text-azul" />
+            </div>
+            <div>
+              <h5 className="text-sm font-medium text-azul">Adicionar Recurso</h5>
+              <Badge
+                variant="outline"
+                className="h-4 border-azul/20 bg-azul/5 px-1 py-0 text-[10px] text-azul/80"
+              >
+                Novo
+              </Badge>
+            </div>
           </div>
-          <div>
-            <h5 className="text-sm font-medium text-azul">
-              {recursoEmEdicao ? "Editar Alocação" : "Adicionar Recurso"}
-            </h5>
-            <Badge
-              variant="outline"
-              className="h-4 border-azul/20 bg-azul/5 px-1 py-0 text-[10px] text-azul/80"
-            >
-              {recursoEmEdicao ? "Edição" : "Novo"}
-            </Badge>
-          </div>
-        </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          className="h-7 w-7 rounded-lg p-0 hover:bg-red-50 hover:text-red-500"
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="h-7 w-7 rounded-lg p-0 hover:bg-red-50 hover:text-red-500"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       {/* Conteúdo do Form */}
-      <div className="space-y-4 bg-azul/5 p-4">
+      <div className={`space-y-4 bg-azul/5 ${recursoEmEdicao ? 'p-2 pt-1' : 'p-4'}`}>
+        {/* Botão de cancelar para modo de edição */}
+        {recursoEmEdicao && (
+          <div className="flex justify-end mb-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              className="h-7 w-7 rounded-lg p-0 hover:bg-red-50 hover:text-red-500"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+        
         {/* Seleção de utilizador - só mostrar se não estiver em edição */}
         {!recursoEmEdicao && (
           <div className="space-y-2">

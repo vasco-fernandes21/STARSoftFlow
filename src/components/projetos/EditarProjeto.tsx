@@ -156,7 +156,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
     <Button
       variant="outline"
       size="sm"
-      className="flex items-center gap-2 text-slate-600 transition-colors hover:border-azul hover:text-azul"
+      className="flex items-center gap-2 border-gray-200 bg-white text-gray-700 shadow-sm transition-all duration-200 hover:scale-105 hover:border-azul hover:bg-azul hover:text-white"
     >
       <Pencil className="h-4 w-4" />
       Editar
@@ -166,15 +166,15 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{renderTrigger ?? defaultTrigger}</DialogTrigger>
-      <DialogContent className="rounded-lg shadow-lg sm:max-w-2xl">
-        <DialogHeader className="border-b pb-4">
-          <DialogTitle>Editar Projeto</DialogTitle>
-          <DialogDescription className="pt-1 text-sm text-muted-foreground">
+      <DialogContent className="glass-card max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-100 bg-white/95 p-0 shadow-xl backdrop-blur-sm sm:max-w-4xl">
+        <DialogHeader className="border-b border-gray-100/50 bg-gradient-to-br from-white to-gray-50/50 p-6">
+          <DialogTitle className="text-xl font-semibold tracking-tight text-azul">Editar Projeto</DialogTitle>
+          <DialogDescription className="pt-1.5 text-sm text-gray-500">
             Atualize as informações principais do projeto.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-6">
             {/* Grid for Name and Responsavel */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
@@ -191,18 +191,13 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
                   />
                 )}
               />
-              {/* Campo do responsável sem integração com o formulário */}
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="responsavel-display" className="text-sm font-medium">
-                  Responsável
-                </Label>
-                <div
-                  id="responsavel-display"
-                  className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
-                >
-                  {getNomeResponsavel()}
-                </div>
-              </div>
+              <TextField
+                label="Responsável"
+                value={getNomeResponsavel()}
+                onChange={() => {}}
+                disabled
+                className="opacity-90"
+              />
             </div>
 
             {/* Description Field */}
@@ -310,18 +305,22 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
               />
             </div>
 
-            <DialogFooter className="gap-2 pt-6 sm:gap-0">
+            <DialogFooter className="gap-2 border-t border-gray-100/50 pt-6 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setOpen(false)}
                 disabled={isPending}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50/80"
               >
                 <X className="h-4 w-4" />
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isPending} className="flex items-center gap-2">
+              <Button 
+                type="submit" 
+                disabled={isPending} 
+                className="flex items-center gap-2 bg-azul text-white transition-colors hover:bg-azul/90"
+              >
                 <Save className="h-4 w-4" />
                 {isPending ? "A guardar..." : "Guardar alterações"}
               </Button>
