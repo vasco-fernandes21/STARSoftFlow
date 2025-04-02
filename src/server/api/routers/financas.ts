@@ -14,7 +14,7 @@ async function getOrcamentoSubmetido(
   projetoId: string,
   filtros?: { ano?: number }
 ) {
-  // Buscar o valor ETI do projeto
+  // Vai buscar o valor ETI do projeto
   const projeto = await db.projeto.findUnique({
     where: { id: projetoId },
     select: { valor_eti: true },
@@ -29,7 +29,7 @@ async function getOrcamentoSubmetido(
     };
   }
 
-  // Buscar todas as alocações de recursos do projeto
+  // Vai buscar todas as alocações de recursos do projeto
   const alocacoes = await db.alocacaoRecurso.findMany({
     where: {
       workpackage: { projetoId },
@@ -41,20 +41,20 @@ async function getOrcamentoSubmetido(
     },
   });
 
-  // Somar todas as alocações
+  // Soma todas as alocações
   const totalAlocacao = alocacoes.reduce(
     (sum, alocacao) => sum.plus(alocacao.ocupacao),
     new Decimal(0)
   );
 
-  // Calcular o orçamento submetido total: valor ETI * total de alocações
+  // Calcula o orçamento submetido total: valor ETI * total de alocações
   const orcamentoTotal = totalAlocacao.times(projeto.valor_eti);
 
-  // Se solicitar detalhes por ano, calcular o orçamento submetido por ano
+  // Se solicitar detalhes por ano, calcula o orçamento submetido por ano
   const detalhesPorAno: { ano: number; totalAlocacao: Decimal; orcamento: Decimal }[] = [];
 
   if (alocacoes.length > 0) {
-    // Agrupar alocações por ano
+    // Agrupa as alocações por ano
     const alocacoesPorAno = alocacoes.reduce(
       (acc, alocacao) => {
         if (!acc[alocacao.ano]) {
@@ -67,7 +67,7 @@ async function getOrcamentoSubmetido(
       {} as Record<number, Decimal>
     );
 
-    // Calcular orçamento por ano
+    // Calcula o orçamento por ano
     for (const [ano, alocacao] of Object.entries(alocacoesPorAno)) {
       const anoNum = parseInt(ano);
       detalhesPorAno.push({
@@ -77,7 +77,7 @@ async function getOrcamentoSubmetido(
       });
     }
 
-    // Ordenar por ano
+    // Ordena por ano
     detalhesPorAno.sort((a, b) => a.ano - b.ano);
   }
 
@@ -102,7 +102,7 @@ async function getOrcamentoReal(
   const VALOR_SALARIO = new Decimal(1.223);
   const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
 
-  // Buscar todas as alocações de recursos do projeto com informações do utilizador (salário)
+  // Vai buscar todas as alocações de recursos do projeto com informações do utilizador (salário)
   const alocacoes = await db.alocacaoRecurso.findMany({
     where: {
       workpackage: { projetoId },
@@ -119,7 +119,7 @@ async function getOrcamentoReal(
     },
   });
 
-  // Buscar todos os materiais do projeto com detalhes
+  // Vai buscar todos os materiais do projeto com detalhes
   const materiais = await db.material.findMany({
     where: {
       workpackage: { projetoId },
@@ -142,7 +142,7 @@ async function getOrcamentoReal(
     },
   });
 
-  // Agrupar materiais por rubrica
+  // Agrupa materiais por rubrica
   const detalhesMateriais = materiais.reduce(
     (acc, material) => {
       if (!material.preco || !material.workpackage || !material.rubrica) return acc;

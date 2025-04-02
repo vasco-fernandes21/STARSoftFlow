@@ -75,7 +75,7 @@ const hoje = new Date();
 const mockNotificacoesData: Notificacao[] = [
   {
     id: "not_1",
-    titulo: "Entregável E1 do Projeto CRM approaching deadline",
+    titulo: "Entregável E1 do Projeto CRM está quase no prazo", 
     descricao: "O entregável 'Documento de Requisitos' está a 2 dias do prazo de entrega",
     tipo: "ENTREGAVEL",
     urgencia: "ALTA",
@@ -88,8 +88,8 @@ const mockNotificacoesData: Notificacao[] = [
   },
   {
     id: "not_2",
-    titulo: "Projeto Mobile App aguardando validação",
-    descricao: "O projeto foi submetido e está aguardando aprovação do administrador",
+    titulo: "Projeto Mobile App a aguardar aprovação",
+    descricao: "O projeto foi submetido e está a aguardar aprovação do administrador",
     tipo: "PROJETO",
     urgencia: "MEDIA",
     estado: "PENDENTE",

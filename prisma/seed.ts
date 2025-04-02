@@ -68,14 +68,14 @@ async function main() {
       permissao: Permissao.ADMIN,
       regime: Regime.INTEGRAL,
       salario: new Decimal(2000.0),
-    },
+    },  
     "admin123"
   );
 
   const gestor = await createUserWithPassword(
     {
       name: "Helga Carvalho",
-      email: "helga.carvalho@starinstitute.com",
+      email: "gestor@starinstitute.com",
       emailVerified: new Date(),
       foto: "https://ui-avatars.com/api/?name=Helga+Carvalho&background=15803d&color=fff",
       atividade: "Administração",
@@ -91,7 +91,7 @@ async function main() {
   const commonUsersData = [
     {
       name: "Ricardo Correia",
-      email: "ricardo.correia@starinstitute.com",
+      email: "utilizador@starinstitute.com",
       foto: "https://ui-avatars.com/api/?name=Ricardo+Correia&background=0284c7&color=fff",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2021-01-10"),
