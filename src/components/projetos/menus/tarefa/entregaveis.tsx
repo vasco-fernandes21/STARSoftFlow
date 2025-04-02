@@ -8,7 +8,8 @@ import { EntregavelSubmit } from "@/components/projetos/menus/tarefa/submit";
 import { EntregavelForm } from "@/components/projetos/criar/novo/workpackages/entregavel/form";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { useMutations } from "@/hooks/useMutations";
+// useMutations will be used in future implementations
+// import { useMutations } from "@/hooks/useMutations";
 
 interface TarefaEntregaveisProps {
   tarefa: any;
@@ -16,7 +17,6 @@ interface TarefaEntregaveisProps {
   addingEntregavel: boolean;
   setAddingEntregavel: (value: boolean) => void;
   onUpdate: (data: any) => Promise<void>;
-  projetoId: string;
   onCreateEntregavel: (data: any) => Promise<void>;
   onUpdateEntregavel: (id: string, data: any) => Promise<void>;
   onDeleteEntregavel: (id: string) => Promise<void>;
@@ -28,15 +28,12 @@ export function TarefaEntregaveis({
   addingEntregavel,
   setAddingEntregavel,
   onUpdate,
-  projetoId,
   onCreateEntregavel,
   onUpdateEntregavel,
   onDeleteEntregavel,
 }: TarefaEntregaveisProps) {
   const [submittingEntregavel, setSubmittingEntregavel] = useState<string | null>(null);
 
-  // Usar mutations com o projetoId
-  const mutations = useMutations(projetoId);
 
   // Buscar entregáveis da tarefa
   const { data: entregaveis = [] } = api.tarefa.getEntregaveisByTarefa.useQuery(tarefaId, {

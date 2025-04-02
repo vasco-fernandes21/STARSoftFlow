@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
 import { NovoUtilizadorModal } from "@/components/utilizadores/NovoUtilizadorModal";
-import { PageLayout } from "@/components/common/PageLayout";
-import { PaginaHeader } from "@/components/common/PaginaHeader";
+// import { PageLayout } from "@/components/common/PageLayout";
+// import { PaginaHeader } from "@/components/common/PaginaHeader";
 import { TabelaDados } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { StatsGrid } from "@/components/common/StatsGrid";
@@ -241,7 +241,7 @@ const Users = () => {
       {
         accessorKey: "contratacao",
         header: "Data de Contratação",
-        meta: { align: 'right' },
+        meta: { align: "right" },
         cell: ({ getValue }) => {
           const date = getValue<string | null>();
           return (
@@ -307,9 +307,7 @@ const Users = () => {
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <div className="space-y-1">
               <h1 className="text-3xl font-bold tracking-tight text-slate-800">Utilizadores</h1>
-              <p className="text-sm text-slate-500">
-                Consulte os utilizadores do sistema
-              </p>
+              <p className="text-sm text-slate-500">Consulte os utilizadores do sistema</p>
             </div>
             <div className="flex items-center gap-3 self-end sm:self-auto">
               <NovoUtilizadorModal />

@@ -11,14 +11,16 @@ import { cn } from "@/lib/utils";
 
 interface TarefaInformacoesProps {
   tarefa: any;
-  tarefaId: string;
+  // tarefaId is required in props for future implementations but not used currently
+  // tarefaId: string;
   onUpdate: (data: any) => Promise<void>;
   onToggleEstado: () => Promise<void>;
 }
 
 export function TarefaInformacoes({
   tarefa,
-  tarefaId,
+  // tarefaId is required in props for future implementations but not used currently
+  // tarefaId,
   onUpdate,
   onToggleEstado,
 }: TarefaInformacoesProps) {

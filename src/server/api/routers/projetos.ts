@@ -182,31 +182,19 @@ export type CreateProjetoCompletoInput = z.infer<typeof createProjetoCompletoSch
 export const projetoRouter = createTRPCRouter({
   // Obter todos os projetos
   findAll: publicProcedure
-    .input(
-      projetoFilterSchema
-        .optional()
-        .default({})
-    )
+    .input(projetoFilterSchema.optional().default({}))
     .query(async ({ ctx, input }) => {
       try {
-        const {
-          search,
-          estado,
-          financiamentoId,
-          page = 1,
-          limit = 10,
-        } = input;
+        const { search, estado, financiamentoId, page = 1, limit = 10 } = input;
 
-        
         const userId = ctx.session?.user?.id;
-        
+
         if (!userId) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "Utilizador não autenticado",
           });
         }
-
 
         const user = await ctx.db.user.findUnique({
           where: { id: userId },

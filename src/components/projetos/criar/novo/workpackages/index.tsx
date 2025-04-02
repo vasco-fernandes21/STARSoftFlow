@@ -57,6 +57,9 @@ interface WorkpackagesTabProps {
   handlers: WorkpackageHandlers;
   onNavigateForward: () => void;
   onNavigateBack: () => void;
+  // Update project dates to allow null
+  projetoInicio: Date | null;
+  projetoFim: Date | null;
 }
 
 export function WorkpackagesTab({
@@ -64,6 +67,8 @@ export function WorkpackagesTab({
   handlers,
   onNavigateForward,
   onNavigateBack,
+  projetoInicio,
+  projetoFim,
 }: WorkpackagesTabProps) {
   const [selectedWorkpackageId, setSelectedWorkpackageId] = useState<string>("");
   const [addingWorkpackage, setAddingWorkpackage] = useState(false);
@@ -288,6 +293,8 @@ export function WorkpackagesTab({
           <WorkpackageForm
             onSubmit={handleAddWorkpackageLocal}
             onCancel={() => setAddingWorkpackage(false)}
+            projetoInicio={projetoInicio || new Date()}
+            projetoFim={projetoFim || new Date()}
           />
         </DialogContent>
       </Dialog>
@@ -462,6 +469,8 @@ export function WorkpackagesTab({
                             handleUpdateWorkpackageLocal(editingWorkpackage.id, data)
                           }
                           onCancel={() => setEditingWorkpackage(null)}
+                          projetoInicio={projetoInicio || new Date()}
+                          projetoFim={projetoFim || new Date()}
                         />
                       </div>
                     )}

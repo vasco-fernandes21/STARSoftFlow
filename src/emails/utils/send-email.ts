@@ -162,7 +162,8 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     // Adicionar variáveis padrão
     const defaultVariables = {
       currentYear: new Date().getFullYear(),
-      logoUrl: "https://starinstitute.pt/wp-content/uploads/2023/10/STAR_Logo-Principal_Cores-2048x374.png",
+      logoUrl:
+        "https://starinstitute.pt/wp-content/uploads/2023/10/STAR_Logo-Principal_Cores-2048x374.png",
       baseUrl: env.NEXT_PUBLIC_APP_URL,
     };
 
@@ -213,9 +214,7 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     // Determinar o email de origem correto
     // Em ambiente de desenvolvimento, usar o endereço padrão do Resend
     // Em produção, usar o endereço configurado em .env
-    const fromEmail = isDev 
-      ? "onboarding@resend.dev" 
-      : env.RESEND_FROM_EMAIL;
+    const fromEmail = isDev ? "onboarding@resend.dev" : env.RESEND_FROM_EMAIL;
 
     // Preparar o payload do email
     const emailPayload = {
@@ -256,7 +255,7 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
       console.error("║               ERRO DO RESEND                        ║");
       console.error("╚═════════════════════════════════════════════════════╝");
       console.error("Erro detalhado:", error);
-      if ('statusCode' in error) {
+      if ("statusCode" in error) {
         console.error("Status:", (error as any).statusCode);
       }
       console.error("Nome:", error.name);
@@ -275,34 +274,43 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     console.error("Tipo do erro:", error instanceof Error ? error.constructor.name : typeof error);
     console.error("Mensagem:", error instanceof Error ? error.message : String(error));
     console.error("Stack:", error instanceof Error ? error.stack : "No stack trace");
-    
-    if (error instanceof Error && 'cause' in error) {
+
+    if (error instanceof Error && "cause" in error) {
       console.error("Causa:", (error as any).cause);
     }
 
     // Se for um objeto com propriedades específicas
-    if (typeof error === 'object' && error !== null) {
+    if (typeof error === "object" && error !== null) {
       console.error("Erro detalhado:", JSON.stringify(error, null, 2));
     }
-    
+
     console.error("═════════════════════════════════════════════════════\n");
-    
+
     // Melhorar a mensagem de erro para o usuário
     if (error instanceof Error) {
       if (error.message.includes("domain is not verified")) {
-        throw new Error(`O domínio do email não está verificado. Por favor, verifique o domínio em https://resend.com/domains ou use onboarding@resend.dev para testes.`);
+        throw new Error(
+          `O domínio do email não está verificado. Por favor, verifique o domínio em https://resend.com/domains ou use onboarding@resend.dev para testes.`
+        );
       }
       if (error.message.includes("Invalid `from` field")) {
         throw new Error(`Erro de configuração do email. Email atual: ${env.RESEND_FROM_EMAIL}`);
       }
       if (error.message.includes("API key")) {
-        throw new Error("Chave API do Resend inválida. Por favor, verifique a variável RESEND_API_KEY.");
+        throw new Error(
+          "Chave API do Resend inválida. Por favor, verifique a variável RESEND_API_KEY."
+        );
       }
-      if (error.message.includes("missing_required_field") || error.message.includes("missing one or more required fields")) {
-        throw new Error(`Campos obrigatórios faltando no email. Por favor, verifique se todos os campos necessários estão presentes.`);
+      if (
+        error.message.includes("missing_required_field") ||
+        error.message.includes("missing one or more required fields")
+      ) {
+        throw new Error(
+          `Campos obrigatórios faltando no email. Por favor, verifique se todos os campos necessários estão presentes.`
+        );
       }
     }
-    
+
     throw error;
   }
 }

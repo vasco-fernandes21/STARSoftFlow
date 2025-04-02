@@ -18,8 +18,8 @@ type WorkpackageFormProps = {
     inicio?: Date;
     fim?: Date;
   };
-  projetoInicio?: Date;
-  projetoFim?: Date;
+  projetoInicio: Date;
+  projetoFim: Date;
 };
 
 export function WorkpackageForm({
@@ -29,24 +29,22 @@ export function WorkpackageForm({
   projetoInicio,
   projetoFim,
 }: WorkpackageFormProps) {
-  const [formData, setFormData] = useState({
-    nome: initialData?.nome || "",
-    descricao: initialData?.descricao || "",
-    inicio: initialData?.inicio || projetoInicio,
-    fim: initialData?.fim || projetoFim,
-  });
+  const [nome, setNome] = useState(initialData?.nome || "");
+  const [descricao, setDescricao] = useState(initialData?.descricao || "");
+  const [inicio, setInicio] = useState<Date>(initialData?.inicio || projetoInicio || new Date());
+  const [fim, setFim] = useState<Date>(initialData?.fim || projetoFim || new Date());
 
   const handleSubmit = () => {
-    if (!formData.nome) {
+    if (!nome.trim()) {
       toast.error("O nome do workpackage é obrigatório");
       return;
     }
 
     onSubmit({
-      nome: formData.nome,
-      descricao: formData.descricao,
-      inicio: formData.inicio,
-      fim: formData.fim,
+      nome,
+      descricao: descricao || null,
+      inicio,
+      fim,
     });
   };
 
@@ -69,8 +67,8 @@ export function WorkpackageForm({
           <Input
             id="nome-wp"
             placeholder="Ex: Desenvolvimento de Software"
-            value={formData.nome}
-            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
             className="mt-1.5"
           />
         </div>
@@ -82,8 +80,8 @@ export function WorkpackageForm({
           <Textarea
             id="descricao-wp"
             placeholder="Descreva o workpackage e seus objetivos..."
-            value={formData.descricao}
-            onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
             className="mt-1.5"
           />
         </div>
@@ -97,8 +95,8 @@ export function WorkpackageForm({
               </Label>
             </div>
             <DatePicker
-              value={formData.inicio}
-              onChange={(date) => setFormData({ ...formData, inicio: date })}
+              value={inicio}
+              onChange={(date) => date && setInicio(date)}
               minDate={projetoInicio}
               maxDate={projetoFim}
             />
@@ -111,9 +109,9 @@ export function WorkpackageForm({
               </Label>
             </div>
             <DatePicker
-              value={formData.fim}
-              onChange={(date) => setFormData({ ...formData, fim: date })}
-              minDate={formData.inicio || projetoInicio}
+              value={fim}
+              onChange={(date) => date && setFim(date)}
+              minDate={inicio}
               maxDate={projetoFim}
             />
           </div>

@@ -39,10 +39,13 @@ export function WorkpackageRecursos({
   }));
 
   // Criar mapeamento de userIds para objetos de utilizador
-  const usersMappedById = utilizadoresList.reduce((acc, user) => {
-    acc[user.id] = user;
-    return acc;
-  }, {} as Record<string, typeof utilizadoresList[0]>);
+  const usersMappedById = utilizadoresList.reduce(
+    (acc, user) => {
+      acc[user.id] = user;
+      return acc;
+    },
+    {} as Record<string, (typeof utilizadoresList)[0]>
+  );
 
   // Handler para adicionar recursos
   const handleAddRecurso = (
@@ -123,7 +126,7 @@ export function WorkpackageRecursos({
       const userId = recurso.userId;
 
       if (!usuariosMap.has(userId)) {
-        const userInfo = utilizadoresList.find(u => u.id === userId);
+        const userInfo = utilizadoresList.find((u) => u.id === userId);
         usuariosMap.set(userId, {
           userId,
           user: userInfo,
@@ -146,7 +149,7 @@ export function WorkpackageRecursos({
   };
 
   const recursosPorUtilizador = agruparRecursosPorUtilizador();
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -182,12 +185,12 @@ export function WorkpackageRecursos({
             _alocacoesExistentes={workpackage.recursos || []}
             _onAlocacoes={(alocacoes) => {
               // Map the alocacoes to the format expected by handleAddRecurso
-              const formattedAlocacoes = alocacoes.map(alocacao => ({
+              const formattedAlocacoes = alocacoes.map((alocacao) => ({
                 userId: alocacao.userId,
                 mes: alocacao.mes,
                 ano: alocacao.ano,
                 ocupacao: new Decimal(alocacao.ocupacao),
-                user: usersMappedById[alocacao.userId]
+                user: usersMappedById[alocacao.userId],
               }));
               handleAddRecurso(workpackage.id, formattedAlocacoes);
             }}
@@ -203,7 +206,7 @@ export function WorkpackageRecursos({
           {recursosPorUtilizador.map((recursoInfo) => {
             // Encontrar o utilizador a partir do userId
             const membroEquipa = utilizadoresList.find((u) => u.id === recursoInfo.userId);
-            
+
             if (!membroEquipa) return null;
 
             return (

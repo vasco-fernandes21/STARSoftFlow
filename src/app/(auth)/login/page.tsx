@@ -18,7 +18,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -44,12 +44,8 @@ export default function LoginPage() {
         return;
       }
 
-      try {
-        router.push("/");
-        router.refresh();
-      } catch (redirectError) {
-        window.location.href = "/";
-      }
+      router.push("/");
+      router.refresh();
     } catch (error) {
       if (error instanceof ZodError) {
         const fieldErrors = error.errors.map((err) => err.message);
@@ -59,11 +55,9 @@ export default function LoginPage() {
           description: fieldErrors[0] || "Por favor verifique os campos de entrada",
         });
       } else {
-        toast({
-          variant: "destructive",
-          title: "Erro no login",
-          description: "Ocorreu um erro durante o login. Por favor, tente novamente.",
-        });
+        // If there's a navigation error, redirect using window.location
+        window.location.href = "/";
+        return;
       }
     } finally {
       if (document.visibilityState !== "hidden") {

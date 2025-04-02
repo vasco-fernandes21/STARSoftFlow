@@ -7,31 +7,31 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
-// Tipagem para o entregável retornado pela API
-type EntregavelAlerta = {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  data: Date | null;
-  estado: boolean;
-  diasRestantes: number | null;
-  tarefa: {
-    id: string;
-    nome: string;
-    workpackage: {
-      id: string;
-      nome: string;
-      projeto: {
-        id: string;
-        nome: string;
-        responsavel: {
-          id: string;
-          name: string | null;
-        } | null;
-      };
-    };
-  };
-};
+// Currently not used but kept for reference and type documentation
+// type EntregavelApiResponse = {
+//   id: string;
+//   nome: string;
+//   descricao: string | null;
+//   data: Date | null;
+//   estado: boolean;
+//   diasRestantes: number | null;
+//   tarefa: {
+//     id: string;
+//     nome: string;
+//     workpackage: {
+//       id: string;
+//       nome: string;
+//       projeto: {
+//         id: string;
+//         nome: string;
+//         responsavel: {
+//           id: string;
+//           name: string | null;
+//         } | null;
+//       };
+//     };
+//   };
+// };
 
 export function ProximosEntregaveis({ title = true }: { title?: boolean }) {
   const router = useRouter();

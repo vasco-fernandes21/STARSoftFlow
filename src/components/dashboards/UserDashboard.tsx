@@ -11,7 +11,8 @@ import { useRouter } from "next/navigation";
 import { format, isBefore, addDays, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePermissions } from "@/hooks/usePermissions";
+// Import below might be needed in future implementations
+// import { usePermissions } from "@/hooks/usePermissions";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -29,7 +30,7 @@ import { useSession } from "next-auth/react";
 export default function UserDashboard() {
   const router = useRouter();
   const { data: session } = useSession();
-  
+
   // Obter dados do dashboard do utilizador
   const { data: dashboardData, isLoading: isLoadingDashboard } =
     api.dashboard.getDashboard.useQuery();
@@ -481,4 +482,4 @@ export default function UserDashboard() {
       </div>
     </div>
   );
-} 
+}

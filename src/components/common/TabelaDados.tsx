@@ -8,7 +8,12 @@ import {
   getSortedRowModel,
   flexRender,
 } from "@tanstack/react-table";
-import type { ColumnDef, SortingState, ColumnFiltersState, PaginationState } from "@tanstack/react-table";
+import type {
+  ColumnDef,
+  SortingState,
+  ColumnFiltersState,
+  PaginationState,
+} from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -22,7 +27,6 @@ import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -91,7 +95,7 @@ export function TabelaDados<TData>({
 }: TabelaDadosProps<TData>) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [dynamicItemsPerPage, setDynamicItemsPerPage] = useState(itemsPerPage);
-  
+
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: dynamicItemsPerPage,
@@ -107,23 +111,29 @@ export function TabelaDados<TData>({
 
     const availableHeight = tableContainerRef.current.clientHeight - HEADER_FOOTER_HEIGHT;
     const calculatedItems = Math.max(1, Math.floor((availableHeight + 5) / ROW_HEIGHT));
-    
+
     return Math.max(MIN_ROWS, Math.min(calculatedItems, MAX_ROWS));
   }, [itemsPerPage]);
 
   useEffect(() => {
     const updateItemsPerPage = () => {
       const calculated = calculateItemsPerPage();
-      
+
       if (tableContainerRef.current) {
         console.log(`Altura do container: ${tableContainerRef.current.clientHeight}px`);
-        console.log(`Altura disponível calculada: ${tableContainerRef.current.clientHeight - 70}px`);
-        console.log(`Linhas calculadas (antes): ${Math.floor((tableContainerRef.current.clientHeight - 80) / 44)}`);
-        console.log(`Linhas calculadas (após ajuste): ${Math.floor((tableContainerRef.current.clientHeight - 70 + 5) / 44)}`);
+        console.log(
+          `Altura disponível calculada: ${tableContainerRef.current.clientHeight - 70}px`
+        );
+        console.log(
+          `Linhas calculadas (antes): ${Math.floor((tableContainerRef.current.clientHeight - 80) / 44)}`
+        );
+        console.log(
+          `Linhas calculadas (após ajuste): ${Math.floor((tableContainerRef.current.clientHeight - 70 + 5) / 44)}`
+        );
         console.log(`Itens por página definido: ${calculated}`);
       }
-      
-      setDynamicItemsPerPage(prev => prev !== calculated ? calculated : prev);
+
+      setDynamicItemsPerPage((prev) => (prev !== calculated ? calculated : prev));
     };
 
     updateItemsPerPage();
@@ -147,9 +157,9 @@ export function TabelaDados<TData>({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   useEffect(() => {
-    setPagination(prev => ({
+    setPagination((prev) => ({
       ...prev,
-      pageSize: dynamicItemsPerPage
+      pageSize: dynamicItemsPerPage,
     }));
   }, [dynamicItemsPerPage]);
 
@@ -188,7 +198,7 @@ export function TabelaDados<TData>({
     table.resetGlobalFilter();
     table.resetColumnFilters();
     filterConfigs.forEach((config) => config.onChange("todos"));
-    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
   const paginationNumbers = useMemo(() => {
@@ -199,32 +209,32 @@ export function TabelaDados<TData>({
     const MAX_TOTAL_VISIBLE_BUTTONS = 5;
 
     if (totalPages <= MAX_TOTAL_VISIBLE_BUTTONS + 2) {
-        for (let i = 0; i < totalPages; i++) {
-            pageNumbers.push(i);
-        }
+      for (let i = 0; i < totalPages; i++) {
+        pageNumbers.push(i);
+      }
     } else {
-        pageNumbers.push(0);
+      pageNumbers.push(0);
 
-        const startPage = Math.max(1, currentPage - MAX_VISIBLE_PAGES_AROUND_CURRENT);
-        const endPage = Math.min(totalPages - 2, currentPage + MAX_VISIBLE_PAGES_AROUND_CURRENT);
+      const startPage = Math.max(1, currentPage - MAX_VISIBLE_PAGES_AROUND_CURRENT);
+      const endPage = Math.min(totalPages - 2, currentPage + MAX_VISIBLE_PAGES_AROUND_CURRENT);
 
-        if (startPage > 1) {
-            pageNumbers.push('...');
-        }
+      if (startPage > 1) {
+        pageNumbers.push("...");
+      }
 
-        for (let i = startPage; i <= endPage; i++) {
-            pageNumbers.push(i);
-        }
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
 
-        if (endPage < totalPages - 2) {
-            pageNumbers.push('...');
-        }
+      if (endPage < totalPages - 2) {
+        pageNumbers.push("...");
+      }
 
-        pageNumbers.push(totalPages - 1);
+      pageNumbers.push(totalPages - 1);
     }
 
     return pageNumbers;
-  }, [table.getPageCount(), table.getState().pagination.pageIndex]);
+  }, [table]);
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md transition-all hover:shadow-lg">
@@ -298,7 +308,7 @@ export function TabelaDados<TData>({
                   <div className="space-y-3 p-1.5">
                     {filterConfigs.map((config) => (
                       <div key={config.id}>
-                        <p className="mb-2 px-1 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500">
                           {config.label}
                         </p>
                         <div className="grid grid-cols-1 gap-1">
@@ -314,7 +324,7 @@ export function TabelaDados<TData>({
                               onSelect={(e) => {
                                 e.preventDefault();
                                 config.onChange(option.value);
-                                setPagination(prev => ({ ...prev, pageIndex: 0 }));
+                                setPagination((prev) => ({ ...prev, pageIndex: 0 }));
                               }}
                             >
                               <div className="flex items-center gap-2">
@@ -326,7 +336,10 @@ export function TabelaDados<TData>({
                                     customClassName="w-2 h-2 p-0 rounded-full min-w-0"
                                   />
                                 ) : (
-                                  option.value !== 'todos' && option.value !== 'all' && <div className="h-2 w-2 rounded-full bg-slate-300" />
+                                  option.value !== "todos" &&
+                                  option.value !== "all" && (
+                                    <div className="h-2 w-2 rounded-full bg-slate-300" />
+                                  )
                                 )}
                                 <span>{option.label}</span>
                               </div>
@@ -372,7 +385,7 @@ export function TabelaDados<TData>({
                           onClick={(e) => {
                             e.stopPropagation();
                             config.onChange("todos");
-                            setPagination(prev => ({ ...prev, pageIndex: 0 }));
+                            setPagination((prev) => ({ ...prev, pageIndex: 0 }));
                           }}
                           className="ml-1 h-4 w-4 rounded-full p-0 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
                         >
@@ -387,7 +400,7 @@ export function TabelaDados<TData>({
         </div>
       </div>
 
-      <div ref={tableContainerRef} className="flex-1 overflow-auto min-h-[400px]">
+      <div ref={tableContainerRef} className="min-h-[400px] flex-1 overflow-auto">
         <div className="h-full min-w-full">
           {isLoading ? (
             <LoadingTable columns={columns} itemsPerPage={dynamicItemsPerPage} />
@@ -395,21 +408,20 @@ export function TabelaDados<TData>({
             <EmptyState message={emptyStateMessage} onClearFilters={clearAllFilters} />
           ) : (
             <div className="h-full">
-              <Table className="border-separate border-spacing-y-0.5 px-6 h-full">
+              <Table className="h-full border-separate border-spacing-y-0.5 px-6">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow
-                      key={headerGroup.id}
-                      className="border-b-0"
-                    >
+                    <TableRow key={headerGroup.id} className="border-b-0">
                       {headerGroup.headers.map((header) => (
                         <TableHead
                           key={header.id}
                           className={cn(
-                            "h-10 px-3 py-2 align-middle text-xs font-semibold uppercase tracking-wider text-slate-500 sticky top-0 bg-white/95 backdrop-blur-sm z-10",
-                            (header.column.columnDef.meta as any)?.align === 'right' ? 'text-right' : 'text-left'
+                            "sticky top-0 z-10 h-10 bg-white/95 px-3 py-2 align-middle text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm",
+                            (header.column.columnDef.meta as any)?.align === "right"
+                              ? "text-right"
+                              : "text-left"
                           )}
-                          style={{ top: '-1px' }}
+                          style={{ top: "-1px" }}
                         >
                           {header.isPlaceholder ? null : (
                             <div
@@ -451,15 +463,15 @@ export function TabelaDados<TData>({
                         "border-b-0"
                       )}
                       onClick={() => onRowClick?.(row.original)}
-                      style={{ borderRadius: '8px' }}
+                      style={{ borderRadius: "8px" }}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell
                           key={cell.id}
                           className={cn(
                             "h-[44px] px-3 py-2.5 align-middle text-sm font-normal text-slate-700 transition-colors duration-150",
-                            "group-hover:text-slate-800 first:rounded-l-lg last:rounded-r-lg",
-                            row.getIsSelected() && "text-azul/90 font-medium"
+                            "first:rounded-l-lg last:rounded-r-lg group-hover:text-slate-800",
+                            row.getIsSelected() && "font-medium text-azul/90"
                           )}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -475,68 +487,77 @@ export function TabelaDados<TData>({
       </div>
 
       {table.getPageCount() > 1 && !isLoading && table.getFilteredRowModel().rows.length > 0 && (
-            <div className="flex-none border-t border-slate-100 px-6 py-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">
-                  A mostrar{" "}
-                  <span className="font-medium text-slate-700">
-                    {pagination.pageIndex * pagination.pageSize + 1}-
-                    {Math.min(
-                      (pagination.pageIndex + 1) * pagination.pageSize,
-                      table.getFilteredRowModel().rows.length
+        <div className="flex-none border-t border-slate-100 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              A mostrar{" "}
+              <span className="font-medium text-slate-700">
+                {pagination.pageIndex * pagination.pageSize + 1}-
+                {Math.min(
+                  (pagination.pageIndex + 1) * pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )}
+              </span>{" "}
+              de{" "}
+              <span className="font-medium text-slate-700">
+                {table.getFilteredRowModel().rows.length}
+              </span>{" "}
+              itens
+            </p>
+
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={!table.getCanPreviousPage()}
+                onClick={() => table.previousPage()}
+                aria-label="Página anterior"
+                className="h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow disabled:opacity-50 disabled:hover:shadow-sm"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {paginationNumbers.map((page, index) =>
+                typeof page === "number" ? (
+                  <Button
+                    key={page}
+                    onClick={() => {
+                      setPagination((prev) => ({ ...prev, pageIndex: page }));
+                    }}
+                    aria-label={`Ir para página ${page + 1}`}
+                    className={cn(
+                      "h-7 w-7 rounded-full p-0 text-xs shadow-sm transition-all duration-150 hover:shadow",
+                      pagination.pageIndex === page
+                        ? "bg-azul font-medium text-white hover:bg-azul/90"
+                        : "border border-slate-200 bg-white font-normal text-slate-600 hover:border-azul/30 hover:bg-slate-50 hover:text-azul"
                     )}
-                  </span>{" "}
-                  de <span className="font-medium text-slate-700">{table.getFilteredRowModel().rows.length}</span> itens
-                </p>
-
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={!table.getCanPreviousPage()}
-                    onClick={() => table.previousPage()}
-                    aria-label="Página anterior"
-                    className="h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow disabled:opacity-50 disabled:hover:shadow-sm"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    {page + 1}
                   </Button>
-
-                  {paginationNumbers.map((page, index) =>
-                    typeof page === 'number' ? (
-                      <Button
-                        key={page}
-                        onClick={() => {
-                          setPagination(prev => ({ ...prev, pageIndex: page }));
-                        }}
-                        aria-label={`Ir para página ${page + 1}`}
-                        className={cn(
-                          "h-7 w-7 rounded-full p-0 text-xs shadow-sm transition-all duration-150 hover:shadow",
-                           pagination.pageIndex === page
-                            ? "bg-azul font-medium text-white hover:bg-azul/90"
-                            : "border border-slate-200 bg-white font-normal text-slate-600 hover:border-azul/30 hover:bg-slate-50 hover:text-azul"
-                        )}
-                      >
-                        {page + 1}
-                      </Button>
-                    ) : (
-                      <span key={`ellipsis-${index}`} className="flex h-7 w-7 items-center justify-center p-0 text-xs text-slate-400">...</span>
-                    )
-                  )}
-
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={!table.getCanNextPage()}
-                    onClick={() => table.nextPage()}
-                    aria-label="Próxima página"
-                    className="h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow disabled:opacity-50 disabled:hover:shadow-sm"
+                ) : (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-7 w-7 items-center justify-center p-0 text-xs text-slate-400"
                   >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+                    ...
+                  </span>
+                )
+              )}
+
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={!table.getCanNextPage()}
+                onClick={() => table.nextPage()}
+                aria-label="Próxima página"
+                className="h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow disabled:opacity-50 disabled:hover:shadow-sm"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-        )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -557,7 +578,7 @@ const LoadingTable = ({
               key={idx}
               className="h-10 px-3 py-2 text-left align-middle text-xs font-semibold uppercase tracking-wider text-slate-500"
             >
-               <div className="h-4 w-20 animate-pulse rounded bg-slate-200/80"></div>
+              <div className="h-4 w-20 animate-pulse rounded bg-slate-200/80"></div>
             </TableHead>
           ))}
         </TableRow>

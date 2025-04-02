@@ -1,7 +1,8 @@
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabNavigation } from "../../components/TabNavigation";
 import { TextField, TextareaField, DateField } from "../../components/FormFields";
-import { type ProjetoCreateInput } from "../../../types";
+// Type imported for reference but used implicitly through the ProjetoFormContext
+// import { type ProjetoCreateInput } from "../../../types";
 import { differenceInDays, differenceInMonths, differenceInYears, addDays } from "date-fns";
 
 interface InformacoesTabProps {

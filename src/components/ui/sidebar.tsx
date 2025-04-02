@@ -36,7 +36,7 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { icon: Home, label: "Início", href: "/", requiredPermission: null },
-  { icon: Euro, label: "Finanças", href: "/financas", requiredPermission: null },
+  { icon: Euro, label: "Finanças", href: "/financas", requiredPermission: "ADMIN" },
   { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
   { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: "ADMIN" },
@@ -164,7 +164,7 @@ export const AppSidebar = () => {
       <div
         ref={sidebarRef}
         className={cn(
-          "-p-2 flex h-screen flex-col mt-2 bg-[#F0F4FA]",
+          "-p-2 mt-2 flex h-screen flex-col bg-[#F0F4FA]",
           "transition-all duration-200 ease-in-out",
           collapsed ? "w-20" : "w-64",
           "backdrop-blur-xl supports-[backdrop-filter]:bg-[#F0F4FA]/90"
@@ -196,9 +196,7 @@ export const AppSidebar = () => {
               collapsed ? "translate-x-0 scale-100 opacity-100" : "translate-x-4 scale-75 opacity-0"
             )}
           >
-            <span className="text-lg font-bold text-white">
-              S
-            </span>
+            <span className="text-lg font-bold text-white">S</span>
           </div>
         </div>
 
@@ -243,10 +241,8 @@ export const AppSidebar = () => {
                 onClick={togglePin}
                 className={cn(
                   "ml-2 h-9 w-9 rounded-xl transition-all duration-300 ease-in-out",
-                  "shadow-sm hover:shadow hover:scale-105",
-                  isPinned 
-                    ? "bg-azul text-white" 
-                    : "text-slate-600 hover:bg-azul/5 hover:text-azul"
+                  "shadow-sm hover:scale-105 hover:shadow",
+                  isPinned ? "bg-azul text-white" : "text-slate-600 hover:bg-azul/5 hover:text-azul"
                 )}
                 title={isPinned ? "Desafixar sidebar" : "Fixar sidebar"}
               >
@@ -260,9 +256,12 @@ export const AppSidebar = () => {
           </div>
 
           <div className="p-2">
-            <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300 ease-in-out hover:bg-azul/5">
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300 ease-in-out hover:bg-azul/5"
+            >
               <div className="relative flex min-w-[40px] items-center justify-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-azul/20 bg-gradient-to-br from-azul/5 to-azul/10 shadow-sm transition-all duration-300 ease-in-out hover:shadow-md hover:scale-105">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-azul/20 bg-gradient-to-br from-azul/5 to-azul/10 shadow-sm transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-md">
                   <User size={18} className="text-azul transition-all duration-300 ease-in-out" />
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm ring-2 ring-white" />

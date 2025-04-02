@@ -15,7 +15,7 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
 import { type ProjetoEstado } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
-import { usePermissions } from "@/hooks/usePermissions";
+// import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -54,7 +54,10 @@ type PrazoFilter = "todos" | "este_mes" | "proximo_mes" | "este_ano" | "atrasado
 
 export default function Projetos() {
   const router = useRouter();
-  const { data: session } = useSession();
+  // Keeping the session for future authorization checks
+  const {
+    /* data: session */
+  } = useSession();
   // These variables are kept for future enhancements
   // const { isComum } = usePermissions();
   // const userId = (session?.user as any)?.id;
@@ -81,7 +84,9 @@ export default function Projetos() {
 
   // Função para invalidar as queries
   const invalidateQueries = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: getQueryKey(api.projeto.findAll, queryParams, "query") });
+    queryClient.invalidateQueries({
+      queryKey: getQueryKey(api.projeto.findAll, queryParams, "query"),
+    });
   }, [queryClient, queryParams]);
 
   // Efeito para invalidar as queries quando a página monta
@@ -92,13 +97,13 @@ export default function Projetos() {
   // Extrair todos os itens dos dados (projetos e rascunhos)
   const allItems = useMemo(() => {
     if (!projetosData?.data?.items) return [];
-    
+
     const items = projetosData.data.items || [];
-    
+
     console.log("--- Dados recebidos ---");
     console.log("Total de itens:", items.length);
     console.log("Projetos e rascunhos recebidos:", items);
-    
+
     // Os itens já vêm ordenados por nome do backend, mas podemos garantir isso aqui
     return items;
   }, [projetosData]);
@@ -162,7 +167,7 @@ export default function Projetos() {
         router.push(`/projetos/criar?rascunhoId=${projeto.id}`);
         return;
       }
-      
+
       // Se for um projeto normal, redirecionar para a página de detalhes
       router.push(`/projetos/${projeto.id}`);
     },
@@ -192,17 +197,21 @@ export default function Projetos() {
         cell: ({ row, getValue }) => (
           <BadgeEstado
             status={row.original.isRascunho ? "RASCUNHO" : getValue<ProjetoEstado>()}
-            label={row.original.isRascunho ? "Rascunho" : ESTADO_LABELS[getValue<ProjetoEstado>()] || ""}
+            label={
+              row.original.isRascunho ? "Rascunho" : ESTADO_LABELS[getValue<ProjetoEstado>()] || ""
+            }
             variant="projeto"
           />
         ),
       },
       {
         accessorKey: "progresso",
-        header: "Progresso Temporal",
+        header: "Progresso de execução",
         cell: ({ row, getValue }) => (
           <div className="w-full max-w-[200px]">
-            <BarraProgresso value={row.original.isRascunho ? 0 : Math.round((getValue<number>() || 0) * 100)} />
+            <BarraProgresso
+              value={row.original.isRascunho ? 0 : Math.round((getValue<number>() || 0) * 100)}
+            />
           </div>
         ),
       },
@@ -218,7 +227,7 @@ export default function Projetos() {
               </div>
             );
           }
-          
+
           const date = getValue<string | Date | null>();
           return (
             <div className="flex items-center gap-2 text-slate-600">
@@ -333,7 +342,7 @@ export default function Projetos() {
       result = result.filter((project: Projeto) => {
         if (project.isRascunho) return true;
         if (!project.fim) return false;
-        
+
         const dataFim = new Date(project.fim);
         const hoje = new Date();
         const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);

@@ -45,6 +45,11 @@ export function EntregavelForm({
       return;
     }
 
+    if (!formData.data) {
+      toast.error("A data de entrega é obrigatória");
+      return;
+    }
+
     // Verificar se a data está dentro do período da tarefa
     if (formData.data < tarefaDates.inicio) {
       toast.error("A data do entregável não pode ser anterior à data de início da tarefa");
@@ -95,7 +100,20 @@ export function EntregavelForm({
           </Label>
           <DatePicker
             value={formData.data}
-            onChange={(date: Date | undefined) => date && setFormData({ ...formData, data: date })}
+            onChange={(date) => {
+              if (date) {
+                // Ensure the date is within the task's date range
+                if (date < tarefaDates.inicio) {
+                  setFormData({ ...formData, data: tarefaDates.inicio });
+                  toast.warning("Data ajustada para a data de início da tarefa");
+                } else if (date > tarefaDates.fim) {
+                  setFormData({ ...formData, data: tarefaDates.fim });
+                  toast.warning("Data ajustada para a data de fim da tarefa");
+                } else {
+                  setFormData({ ...formData, data: date });
+                }
+              }
+            }}
             minDate={tarefaDates.inicio}
             maxDate={tarefaDates.fim}
           />

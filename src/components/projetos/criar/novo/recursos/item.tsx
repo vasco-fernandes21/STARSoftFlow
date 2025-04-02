@@ -1,4 +1,4 @@
-import { User as UserIcon, Edit, ChevronDown, ChevronUp, Trash2, X } from "lucide-react";
+import { User as UserIcon, Edit, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -59,14 +59,17 @@ export function Item({
   const validFim = fim instanceof Date ? fim : new Date(fim || Date.now());
 
   // Organizar alocações por ano e mês
-  const alocacoesPorAnoMes = (alocacoes || []).reduce((acc, alocacao) => {
-    const ano = alocacao.ano;
-    if (!acc[ano]) {
-      acc[ano] = {};
-    }
-    acc[ano]![alocacao.mes] = Number(alocacao.ocupacao) * 100;
-    return acc;
-  }, {} as Record<string, Record<number, number>>);
+  const alocacoesPorAnoMes = (alocacoes || []).reduce(
+    (acc, alocacao) => {
+      const ano = alocacao.ano;
+      if (!acc[ano]) {
+        acc[ano] = {};
+      }
+      acc[ano]![alocacao.mes] = Number(alocacao.ocupacao) * 100;
+      return acc;
+    },
+    {} as Record<string, Record<number, number>>
+  );
 
   // Função para validar entrada de ocupação
   const validarEntrada = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -112,17 +115,6 @@ export function Item({
     if (num > 1) return 1;
     if (num < 0) return 0;
     return num;
-  };
-
-  // Função para iniciar edição
-  const handleStartEdit = () => {
-    const valoresIniciais = (alocacoes || []).reduce((acc, alocacao) => {
-      const chave = `${alocacao.ano}-${alocacao.mes}`;
-      acc[chave] = Number(alocacao.ocupacao).toFixed(3).replace(".", ",");
-      return acc;
-    }, {} as Record<string, string>);
-    setEditValues(valoresIniciais);
-    setIsEditing(true);
   };
 
   // Função para salvar edição
@@ -273,26 +265,28 @@ export function Item({
             onCancel={() => setShowForm(false)}
             recursoEmEdicao={{
               userId: user.id,
-              alocacoes: alocacoes.map(a => ({
+              alocacoes: alocacoes.map((a) => ({
                 mes: a.mes,
                 ano: a.ano,
-                ocupacao: a.ocupacao
-              }))
+                ocupacao: a.ocupacao,
+              })),
             }}
             projetoEstado={projetoEstado}
           />
         </div>
-      ) : isExpanded && (
-        <AlocacoesGrid
-          alocacoesPorAnoMes={alocacoesPorAnoMes}
-          inicio={validInicio}
-          fim={validFim}
-          isEditing={isEditing}
-          editValues={editValues}
-          setEditValues={setEditValues}
-          validarEntrada={validarEntrada}
-          projetoEstado={projetoEstado}
-        />
+      ) : (
+        isExpanded && (
+          <AlocacoesGrid
+            alocacoesPorAnoMes={alocacoesPorAnoMes}
+            inicio={validInicio}
+            fim={validFim}
+            isEditing={isEditing}
+            editValues={editValues}
+            setEditValues={setEditValues}
+            validarEntrada={validarEntrada}
+            projetoEstado={projetoEstado}
+          />
+        )
       )}
     </Card>
   );

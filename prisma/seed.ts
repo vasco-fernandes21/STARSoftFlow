@@ -10,17 +10,16 @@ async function main() {
   // --- Limpar dados existentes ---
   console.log("🧹 A limpar tabelas existentes...");
 
-  // Helper function to safely delete data, ignoring "table not found" errors
+  // Helper function to safely delete data
   const deleteIfExists = async (deleteFunction: () => Promise<any>, tableName: string) => {
     try {
       await deleteFunction();
     } catch (error: any) {
       if (error.code === "P2021") {
-        // P2021: Table does not exist
         console.warn(`⚠️ Tabela ${tableName} não existe, a ignorar limpeza.`);
       } else {
         console.error(`❌ Erro grave ao limpar ${tableName}: ${error.message}`);
-        throw error; // Re-throw other errors
+        throw error;
       }
     }
   };
@@ -56,7 +55,8 @@ async function main() {
     return user;
   };
 
-  const _admin = await createUserWithPassword(
+  // Criar admin e gestor primeiro
+  const admin = await createUserWithPassword(
     {
       name: "Vasco Fernandes",
       email: "admin@starinstitute.com",
@@ -72,7 +72,7 @@ async function main() {
     "admin123"
   );
 
-  const _gestor = await createUserWithPassword(
+  const gestor = await createUserWithPassword(
     {
       name: "Helga Carvalho",
       email: "helga.carvalho@starinstitute.com",
@@ -145,20 +145,23 @@ async function main() {
     },
   ];
 
-  const users = await Promise.all(
+  const commonUsers = await Promise.all(
     commonUsersData.map((userData) =>
       createUserWithPassword(
         {
           ...userData,
           emailVerified: new Date(),
           permissao: Permissao.COMUM,
-          salario: new Decimal(2000.0), // Default salary for common users
+          salario: new Decimal(2000.0),
         },
         "password123"
       )
     )
   );
-  console.log(`✅ ${users.length + 2} utilizadores criados.`);
+
+  // Combinar todos os usuários em um array
+  const users = [admin, gestor, ...commonUsers];
+  console.log(`✅ ${users.length} utilizadores criados.`);
 
   // --- Criar Tipos de Financiamento ---
   console.log("💰 A criar tipos de financiamento...");
@@ -187,25 +190,7 @@ async function main() {
         overhead: new Decimal(0.15),
         taxa_financiamento: new Decimal(0.85),
         valor_eti: new Decimal(4432.0),
-      },
-      {
-        nome: "Interno",
-        overhead: new Decimal(0.1),
-        taxa_financiamento: new Decimal(0.85),
-        valor_eti: new Decimal(4432.0),
-      },
-      {
-        nome: "Co-promoção",
-        overhead: new Decimal(0.0),
-        taxa_financiamento: new Decimal(0.85),
-        valor_eti: new Decimal(4432.0),
-      },
-      {
-        nome: "RCI",
-        overhead: new Decimal(0.0),
-        taxa_financiamento: new Decimal(0.85),
-        valor_eti: new Decimal(4432.0),
-      },
+      }
     ],
   });
   const financiamentoMap = await prisma.financiamento.findMany({
@@ -216,604 +201,1081 @@ async function main() {
   console.log(`✅ ${financiamentos.count} tipos de financiamento criados.`);
 
   // --- Criar Materiais Genéricos ---
-  // Note: Materials will be associated later more specifically or randomly
   console.log("🖥️ A criar materiais genéricos...");
   await prisma.material.createMany({
     data: [
       {
-        nome: "Laptop Dell XPS 15",
-        preco: new Decimal(1799.99),
-        quantidade: 8,
+        nome: "Sistema WAAM Industrial",
+        preco: new Decimal(75000.0),
+        quantidade: 1,
         ano_utilizacao: 2025,
         rubrica: Rubrica.MATERIAIS,
       },
       {
-        nome: 'Monitor Dell UltraSharp 27"',
-        preco: new Decimal(549.9),
-        quantidade: 12,
-        ano_utilizacao: 2025,
-        rubrica: Rubrica.MATERIAIS,
-      },
-      {
-        nome: "Servidor HPE ProLiant DL380 Gen10",
-        preco: new Decimal(6299.0),
+        nome: "Drone DJI Matrice 300 RTK",
+        preco: new Decimal(12000.0),
         quantidade: 2,
         ano_utilizacao: 2025,
         rubrica: Rubrica.MATERIAIS,
       },
       {
-        nome: "Impressora HP LaserJet Pro",
-        preco: new Decimal(349.99),
+        nome: "Sistema de Navegação AGV",
+        preco: new Decimal(15000.0),
+        quantidade: 1,
+        ano_utilizacao: 2025,
+        rubrica: Rubrica.MATERIAIS,
+      },
+      {
+        nome: "Sensores LiDAR",
+        preco: new Decimal(8000.0),
         quantidade: 3,
         ano_utilizacao: 2025,
         rubrica: Rubrica.MATERIAIS,
       },
       {
-        nome: "Kit Desenvolvimento IoT",
-        preco: new Decimal(189.9),
-        quantidade: 15,
-        ano_utilizacao: 2025,
-        rubrica: Rubrica.MATERIAIS,
-      },
-      {
-        nome: "Licença Software Estatístico SPSS",
-        preco: new Decimal(2499.0),
-        quantidade: 5,
-        ano_utilizacao: 2025,
-        rubrica: Rubrica.SERVICOS_TERCEIROS,
-      },
-      {
-        nome: "Mesa de Reunião",
-        preco: new Decimal(299.0),
+        nome: "Workstation Dell Precision",
+        preco: new Decimal(3500.0),
         quantidade: 4,
         ano_utilizacao: 2025,
-        rubrica: Rubrica.OUTROS_CUSTOS,
-      },
+        rubrica: Rubrica.MATERIAIS,
+      }
     ],
   });
   console.log("✅ Materiais genéricos criados.");
 
-  // --- Criar Projetos (Um por estado) ---
-  console.log("📋 A criar projetos (um por estado)...");
+  // --- Criar Projetos ---
+  console.log("📋 A criar projetos...");
 
   const fctId = getFinanciamentoId("FCT");
-  const portugal2030Id = getFinanciamentoId("Portugal 2030");
   const horizonteEuropaId = getFinanciamentoId("Horizonte Europa");
-  const privadoId = getFinanciamentoId("Financiamento Privado");
+  const portugal2030Id = getFinanciamentoId("Portugal 2030");
 
-  if (!fctId || !portugal2030Id || !horizonteEuropaId || !privadoId) {
+  if (!fctId || !horizonteEuropaId || !portugal2030Id) {
     throw new Error("❌ Erro: Não foi possível encontrar IDs de financiamento necessários.");
   }
 
-  // Projeto 1: APROVADO
-  const projetoAprovado = await prisma.projeto.create({
+  // Projeto 1: CONCLUÍDO - INOVC+
+  const projetoConcluido = await prisma.projeto.create({
     data: {
       nome: "INOVC+",
-      descricao:
-        "Implementação de um Ecossistema de Inovação para a Transferência de Conhecimento.",
-      inicio: new Date("2023-03-01"),
-      fim: new Date("2025-02-28"),
-      estado: ProjetoEstado.APROVADO,
+      descricao: "Implementação de um Ecossistema de Inovação para a Transferência de Conhecimento na Região Centro.",
+      inicio: new Date("2023-01-01"),
+      fim: new Date("2025-01-31"),
+      estado: ProjetoEstado.CONCLUIDO,
       financiamentoId: fctId,
       valor_eti: new Decimal(4432.0),
       taxa_financiamento: new Decimal(0.85),
       workpackages: {
         create: [
           {
-            nome: "WP1 - Recolha e Processamento de Dados",
-            inicio: new Date("2023-03-01"),
-            fim: new Date("2023-08-31"),
-            estado: true, // Concluído
+            nome: "WP1 - Análise do Ecossistema Regional",
+            inicio: new Date("2023-01-01"),
+            fim: new Date("2023-06-30"),
+            estado: true,
             tarefas: {
               create: [
                 {
-                  nome: "T1.1 - Definição de protocolos",
-                  inicio: new Date("2023-03-01"),
-                  fim: new Date("2023-04-15"),
+                  nome: "T1.1 - Mapeamento de atores",
+                  inicio: new Date("2023-01-01"),
+                  fim: new Date("2023-03-31"),
                   estado: true,
                 },
                 {
-                  nome: "T1.2 - Recolha de dados clínicos",
-                  inicio: new Date("2023-04-16"),
-                  fim: new Date("2023-07-31"),
+                  nome: "T1.2 - Análise de capacidades",
+                  inicio: new Date("2023-04-01"),
+                  fim: new Date("2023-06-30"),
                   estado: true,
-                },
-                {
-                  nome: "T1.3 - Processamento datasets",
-                  inicio: new Date("2023-06-01"),
-                  fim: new Date("2023-08-31"),
-                  estado: true,
-                },
-              ],
-            },
+                }
+              ]
+            }
           },
           {
-            nome: "WP2 - Desenvolvimento de Algoritmos",
+            nome: "WP2 - Desenvolvimento da Plataforma",
             inicio: new Date("2023-07-01"),
             fim: new Date("2024-06-30"),
-            estado: false, // Em andamento
+            estado: true,
             tarefas: {
               create: [
                 {
-                  nome: "T2.1 - Estado da arte",
+                  nome: "T2.1 - Arquitetura do sistema",
                   inicio: new Date("2023-07-01"),
                   fim: new Date("2023-09-30"),
                   estado: true,
                 },
                 {
-                  nome: "T2.2 - Implementação ML/DL",
+                  nome: "T2.2 - Implementação",
                   inicio: new Date("2023-10-01"),
                   fim: new Date("2024-03-31"),
-                  estado: false,
+                  estado: true,
                 },
                 {
-                  nome: "T2.3 - Otimização e avaliação",
+                  nome: "T2.3 - Testes e validação",
                   inicio: new Date("2024-04-01"),
                   fim: new Date("2024-06-30"),
-                  estado: false,
-                },
-              ],
-            },
-          },
-          {
-            nome: "WP3 - Validação e Testes",
-            inicio: new Date("2024-04-01"),
-            fim: new Date("2024-12-31"),
-            estado: false,
-            tarefas: {
-              create: [
-                {
-                  nome: "T3.1 - Configuração ambiente",
-                  inicio: new Date("2024-04-01"),
-                  fim: new Date("2024-05-31"),
-                  estado: false,
-                },
-                {
-                  nome: "T3.2 - Validação com especialistas",
-                  inicio: new Date("2024-06-01"),
-                  fim: new Date("2024-09-30"),
-                  estado: false,
-                },
-                {
-                  nome: "T3.3 - Refinamento e documentação",
-                  inicio: new Date("2024-10-01"),
-                  fim: new Date("2024-12-31"),
-                  estado: false,
-                },
-              ],
-            },
-          },
-          {
-            nome: "WP4 - Divulgação e Integração",
-            inicio: new Date("2024-10-01"),
-            fim: new Date("2025-02-28"),
-            estado: false,
-            tarefas: {
-              create: [
-                {
-                  nome: "T4.1 - Publicações científicas",
-                  inicio: new Date("2024-10-01"),
-                  fim: new Date("2025-01-31"),
-                  estado: false,
-                },
-                {
-                  nome: "T4.2 - Workshops e demonstrações",
-                  inicio: new Date("2025-01-01"),
-                  fim: new Date("2025-02-28"),
-                  estado: false,
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  });
-  console.log(`✅ Projeto APROVADO criado: ${projetoAprovado.nome}`);
-
-  // Projeto 2: EM_DESENVOLVIMENTO
-  const projetoEmDesenvolvimento = await prisma.projeto.create({
-    data: {
-      nome: "SMART-CITY - Plataforma para Cidades Inteligentes",
-      descricao: "Desenvolvimento de plataforma open-source para gestão de serviços urbanos.",
-      inicio: new Date("2025-04-01"),
-      fim: new Date("2027-03-31"),
-      estado: ProjetoEstado.EM_DESENVOLVIMENTO,
-      financiamentoId: portugal2030Id,
-      valor_eti: new Decimal(4432.0),
-      taxa_financiamento: new Decimal(0.85),
-      workpackages: {
-        create: [
-          {
-            nome: "WP1 - Requisitos e Especificação",
-            inicio: new Date("2025-04-01"),
-            fim: new Date("2025-09-30"),
-            estado: false,
-            tarefas: {
-              create: [
-                {
-                  nome: "T1.1 - Análise estado da arte",
-                  inicio: new Date("2025-04-01"),
-                  fim: new Date("2025-05-31"),
-                  estado: false,
-                },
-                {
-                  nome: "T1.2 - Workshops stakeholders",
-                  inicio: new Date("2025-06-01"),
-                  fim: new Date("2025-08-15"),
-                  estado: false,
-                },
-                {
-                  nome: "T1.3 - Especificações técnicas",
-                  inicio: new Date("2025-08-15"),
-                  fim: new Date("2025-09-30"),
-                  estado: false,
-                },
-              ],
-            },
-          },
-          {
-            nome: "WP2 - Arquitetura e Desenvolvimento",
-            inicio: new Date("2025-08-01"),
-            fim: new Date("2026-07-31"),
-            estado: false,
-          },
-          {
-            nome: "WP3 - Pilotos e Validação",
-            inicio: new Date("2026-04-01"),
-            fim: new Date("2027-01-31"),
-            estado: false,
-          },
-          {
-            nome: "WP4 - Disseminação e Exploração",
-            inicio: new Date("2025-10-01"),
-            fim: new Date("2027-03-31"),
-            estado: false,
-          },
-        ],
-      },
-    },
-  });
-  console.log(`✅ Projeto EM_DESENVOLVIMENTO criado: ${projetoEmDesenvolvimento.nome}`);
-
-  // Projeto 3: CONCLUÍDO
-  const projetoConcluido = await prisma.projeto.create({
-    data: {
-      nome: "EDUSEC - Segurança Cibernética Educacional",
-      descricao: "Framework e boas práticas para segurança cibernética em instituições de ensino.",
-      inicio: new Date("2022-01-15"),
-      fim: new Date("2023-07-31"),
-      estado: ProjetoEstado.CONCLUIDO,
-      financiamentoId: privadoId,
-      valor_eti: new Decimal(4432.0),
-      taxa_financiamento: new Decimal(0.85),
-      workpackages: {
-        create: [
-          {
-            nome: "WP1 - Levantamento de Vulnerabilidades",
-            inicio: new Date("2022-01-15"),
-            fim: new Date("2022-04-30"),
-            estado: true,
-            tarefas: {
-              create: [
-                {
-                  nome: "T1.1 - Auditoria inicial",
-                  inicio: new Date("2022-01-15"),
-                  fim: new Date("2022-02-28"),
                   estado: true,
-                },
-                {
-                  nome: "T1.2 - Análise de protocolos",
-                  inicio: new Date("2022-03-01"),
-                  fim: new Date("2022-04-30"),
-                  estado: true,
-                },
-              ],
-            },
+                }
+              ]
+            }
           },
           {
-            nome: "WP2 - Desenvolvimento de Framework",
-            inicio: new Date("2022-05-01"),
-            fim: new Date("2023-01-31"),
-            estado: true,
-            tarefas: {
-              create: [
-                {
-                  nome: "T2.1 - Definição arquitetura",
-                  inicio: new Date("2022-05-01"),
-                  fim: new Date("2022-07-31"),
-                  estado: true,
-                },
-                {
-                  nome: "T2.2 - Desenvolvimento protocolos",
-                  inicio: new Date("2022-08-01"),
-                  fim: new Date("2022-11-30"),
-                  estado: true,
-                },
-                {
-                  nome: "T2.3 - Ferramentas monitorização",
-                  inicio: new Date("2022-10-01"),
-                  fim: new Date("2023-01-31"),
-                  estado: true,
-                },
-              ],
-            },
-          },
-          {
-            nome: "WP3 - Implementação e Formação",
-            inicio: new Date("2023-02-01"),
-            fim: new Date("2023-07-31"),
+            nome: "WP3 - Piloto e Avaliação",
+            inicio: new Date("2024-07-01"),
+            fim: new Date("2025-01-31"),
             estado: true,
             tarefas: {
               create: [
                 {
                   nome: "T3.1 - Implementação piloto",
-                  inicio: new Date("2023-02-01"),
-                  fim: new Date("2023-04-30"),
+                  inicio: new Date("2024-07-01"),
+                  fim: new Date("2024-10-31"),
                   estado: true,
                 },
                 {
-                  nome: "T3.2 - Formação técnica",
-                  inicio: new Date("2023-05-01"),
-                  fim: new Date("2023-06-30"),
+                  nome: "T3.2 - Avaliação e relatório final",
+                  inicio: new Date("2024-11-01"),
+                  fim: new Date("2025-01-31"),
                   estado: true,
-                },
-                {
-                  nome: "T3.3 - Documentação final",
-                  inicio: new Date("2023-06-01"),
-                  fim: new Date("2023-07-31"),
-                  estado: true,
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
   });
-  console.log(`✅ Projeto CONCLUIDO criado: ${projetoConcluido.nome}`);
 
-  // Projeto 4: PENDENTE
-  const projetoPendente = await prisma.projeto.create({
+  // Adicionar mais alocações distribuídas
+  const ricardoId = users.find(u => u.name === "Ricardo Correia")?.id;
+  const anaIsabelId = users.find(u => u.name === "Ana Isabel Carvalho")?.id;
+  const anaClaudiaId = users.find(u => u.name === "Ana Claudia Carvalho")?.id;
+  const joaoId = users.find(u => u.name === "João Lopes")?.id;
+  const filipeId = users.find(u => u.name === "Filipe Coutinho")?.id;
+  const ruiId = users.find(u => u.name === "Rui Coimbra")?.id;
+
+  if (!ricardoId || !anaIsabelId || !anaClaudiaId || !joaoId || !filipeId || !ruiId) {
+    throw new Error("❌ Erro: Não foi possível encontrar todos os IDs dos utilizadores.");
+  }
+
+  // Função helper para criar alocações
+  const createAlocacoes = async (workpackageId: string, alocacoes: Array<{
+    userId: string;
+    mes: number;
+    ano: number;
+    ocupacao: number;
+  }>) => {
+    await prisma.alocacaoRecurso.createMany({
+      data: alocacoes.map(a => ({
+        workpackageId,
+        userId: a.userId,
+        mes: a.mes,
+        ano: a.ano,
+        ocupacao: new Decimal(a.ocupacao)
+      }))
+    });
+  };
+
+  // Projeto 2: EM_DESENVOLVIMENTO - IAMFat
+  const projetoEmDesenvolvimento = await prisma.projeto.create({
     data: {
-      nome: "NEXGEN - Redes de Comunicação Futuras",
-      descricao: "Tecnologias e protocolos para redes de próxima geração.",
-      inicio: new Date("2026-06-01"),
-      fim: new Date("2029-05-31"),
-      estado: ProjetoEstado.PENDENTE,
+      nome: "IAMFat",
+      descricao: "Desenvolvimento de tecnologia WAAM para fabrico de componentes estruturais com alta resistência à fadiga.",
+      inicio: new Date("2024-11-01"),
+      fim: new Date("2026-12-31"),
+      estado: ProjetoEstado.EM_DESENVOLVIMENTO,
       financiamentoId: horizonteEuropaId,
       valor_eti: new Decimal(4432.0),
       taxa_financiamento: new Decimal(0.85),
       workpackages: {
         create: [
           {
-            nome: "WP1 - Coordenação e Gestão",
-            inicio: new Date("2026-06-01"),
-            fim: new Date("2029-05-31"),
-            estado: false,
+            nome: "WP1 - Análise e Requisitos",
+            inicio: new Date("2024-11-01"),
+            fim: new Date("2025-03-31"),
+            estado: true,
+            tarefas: {
+              create: [
+                {
+                  nome: "T1.1 - Análise de requisitos",
+                  descricao: "Levantamento de requisitos técnicos",
+                  inicio: new Date("2024-11-01"),
+                  fim: new Date("2025-01-31"),
+                  estado: true,
+                },
+                {
+                  nome: "T1.2 - Especificações técnicas",
+                  descricao: "Definição das especificações do sistema",
+                  inicio: new Date("2025-02-01"),
+                  fim: new Date("2025-03-31"),
+                  estado: true,
+                }
+              ]
+            }
           },
           {
-            nome: "WP2 - Arquitetura de Rede 7G",
-            inicio: new Date("2026-06-01"),
-            fim: new Date("2027-11-30"),
+            nome: "WP2 - Desenvolvimento WAAM",
+            inicio: new Date("2025-04-01"),
+            fim: new Date("2026-03-31"),
             estado: false,
             tarefas: {
               create: [
                 {
-                  nome: "T2.1 - Requisitos rede 7G",
-                  inicio: new Date("2026-06-01"),
-                  fim: new Date("2026-10-31"),
+                  nome: "T2.1 - Simulação numérica",
+                  descricao: "Desenvolvimento de modelos de simulação",
+                  inicio: new Date("2025-04-01"),
+                  fim: new Date("2025-09-30"),
                   estado: false,
                 },
                 {
-                  nome: "T2.2 - Especificação arquitetura",
-                  inicio: new Date("2026-11-01"),
-                  fim: new Date("2027-05-31"),
+                  nome: "T2.2 - Implementação processo",
+                  descricao: "Implementação do processo WAAM",
+                  inicio: new Date("2025-10-01"),
+                  fim: new Date("2026-03-31"),
                   estado: false,
-                },
-                {
-                  nome: "T2.3 - Simulação e modelagem",
-                  inicio: new Date("2027-06-01"),
-                  fim: new Date("2027-11-30"),
-                  estado: false,
-                },
-              ],
-            },
+                }
+              ]
+            }
           },
           {
-            nome: "WP3 - Protocolos de Segurança Avançados",
-            inicio: new Date("2027-06-01"),
+            nome: "WP3 - Validação e Testes",
+            inicio: new Date("2026-04-01"),
+            fim: new Date("2026-09-30"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "T3.1 - Testes de fadiga",
+                  descricao: "Realização de testes de fadiga",
+                  inicio: new Date("2026-04-01"),
+                  fim: new Date("2026-06-30"),
+                  estado: false,
+                },
+                {
+                  nome: "T3.2 - Validação final",
+                  descricao: "Validação final do processo",
+                  inicio: new Date("2026-07-01"),
+                  fim: new Date("2026-09-30"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "WP4 - Disseminação",
+            inicio: new Date("2026-10-01"),
+            fim: new Date("2026-12-31"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "T4.1 - Publicações científicas",
+                  descricao: "Preparação e submissão de artigos",
+                  inicio: new Date("2026-10-01"),
+                  fim: new Date("2026-11-15"),
+                  estado: false,
+                },
+                {
+                  nome: "T4.2 - Workshop final",
+                  descricao: "Organização do workshop de encerramento",
+                  inicio: new Date("2026-11-16"),
+                  fim: new Date("2026-12-31"),
+                  estado: false,
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  });
+
+  // Projeto 3: PENDENTE - GreenAuto
+  const projetoPendente = await prisma.projeto.create({
+    data: {
+      nome: "GreenAuto",
+      descricao: "Desenvolvimento de tecnologias avançadas para automação industrial.",
+      inicio: new Date("2025-09-01"),
+      fim: new Date("2028-11-30"),
+      estado: ProjetoEstado.PENDENTE,
+      financiamentoId: portugal2030Id,
+      valor_eti: new Decimal(5500.0),
+      taxa_financiamento: new Decimal(0.85),
+      workpackages: {
+        create: [
+          {
+            nome: "WP1 - Análise e Especificações",
+            inicio: new Date("2025-09-01"),
+            fim: new Date("2026-02-28"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "T1.1 - Levantamento de requisitos",
+                  descricao: "Análise detalhada dos requisitos do sistema",
+                  inicio: new Date("2025-09-01"),
+                  fim: new Date("2025-11-30"),
+                  estado: false,
+                },
+                {
+                  nome: "T1.2 - Especificações técnicas",
+                  descricao: "Definição das especificações técnicas",
+                  inicio: new Date("2025-12-01"),
+                  fim: new Date("2026-02-28"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "WP2 - Desenvolvimento Core",
+            inicio: new Date("2026-03-01"),
+            fim: new Date("2027-08-31"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "T2.1 - Desenvolvimento base",
+                  descricao: "Implementação das funcionalidades core",
+                  inicio: new Date("2026-03-01"),
+                  fim: new Date("2026-11-30"),
+                  estado: false,
+                },
+                {
+                  nome: "T2.2 - Integração sistemas",
+                  descricao: "Integração com sistemas existentes",
+                  inicio: new Date("2026-12-01"),
+                  fim: new Date("2027-08-31"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "WP3 - Validação",
+            inicio: new Date("2027-09-01"),
+            fim: new Date("2028-08-31"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "T3.1 - Testes piloto",
+                  descricao: "Realização de testes piloto",
+                  inicio: new Date("2027-09-01"),
+                  fim: new Date("2028-02-28"),
+                  estado: false,
+                },
+                {
+                  nome: "T3.2 - Validação industrial",
+                  descricao: "Validação em ambiente industrial",
+                  inicio: new Date("2028-03-01"),
+                  fim: new Date("2028-08-31"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "WP4 - Disseminação",
+            inicio: new Date("2028-06-01"),
             fim: new Date("2028-11-30"),
             estado: false,
             tarefas: {
               create: [
                 {
-                  nome: "T3.1 - Análise vulnerabilidades",
-                  inicio: new Date("2027-06-01"),
-                  fim: new Date("2027-10-31"),
-                  estado: false,
-                },
-                {
-                  nome: "T3.2 - Protocolos encriptação",
-                  inicio: new Date("2027-11-01"),
-                  fim: new Date("2028-05-31"),
-                  estado: false,
-                },
-                {
-                  nome: "T3.3 - Sistemas deteção intrusão",
+                  nome: "T4.1 - Divulgação científica",
+                  descricao: "Publicações e apresentações",
                   inicio: new Date("2028-06-01"),
+                  fim: new Date("2028-09-30"),
+                  estado: false,
+                },
+                {
+                  nome: "T4.2 - Exploração resultados",
+                  descricao: "Plano de exploração e disseminação",
+                  inicio: new Date("2028-10-01"),
                   fim: new Date("2028-11-30"),
                   estado: false,
-                },
-              ],
-            },
-          },
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  });
+
+  // Projeto 4: APROVADO - DreamFAB
+  const projetoAprovado = await prisma.projeto.create({
+    data: {
+      nome: "DreamFAB",
+      descricao: "Desenvolvimento de tecnologias avançadas para fabricação digital e automação industrial.",
+      inicio: new Date("2025-09-01"),
+      fim: new Date("2028-11-30"),
+      estado: ProjetoEstado.APROVADO,
+      financiamentoId: horizonteEuropaId,
+      valor_eti: new Decimal(5500.0),
+      taxa_financiamento: new Decimal(0.85),
+      workpackages: {
+        create: [
           {
-            nome: "WP4 - Implementação e Validação",
-            inicio: new Date("2028-06-01"),
-            fim: new Date("2029-04-30"),
+            nome: "WP1 - Análise e Especificações",
+            inicio: new Date("2025-09-01"),
+            fim: new Date("2026-02-28"),
             estado: false,
             tarefas: {
               create: [
                 {
-                  nome: "T4.1 - Implementação protótipo",
-                  inicio: new Date("2028-06-01"),
-                  fim: new Date("2028-10-31"),
+                  nome: "T1.1 - Levantamento de requisitos",
+                  descricao: "Análise detalhada dos requisitos do sistema",
+                  inicio: new Date("2025-09-01"),
+                  fim: new Date("2025-11-30"),
                   estado: false,
                 },
                 {
-                  nome: "T4.2 - Testes validação",
-                  inicio: new Date("2028-11-01"),
-                  fim: new Date("2029-02-28"),
+                  nome: "T1.2 - Especificações técnicas",
+                  descricao: "Definição das especificações técnicas",
+                  inicio: new Date("2025-12-01"),
+                  fim: new Date("2026-02-28"),
                   estado: false,
-                },
-                {
-                  nome: "T4.3 - Avaliação desempenho",
-                  inicio: new Date("2029-03-01"),
-                  fim: new Date("2029-04-30"),
-                  estado: false,
-                },
-              ],
-            },
+                }
+              ]
+            }
           },
           {
-            nome: "WP5 - Disseminação e Exploração",
-            inicio: new Date("2026-10-01"),
-            fim: new Date("2029-05-31"),
+            nome: "WP2 - Desenvolvimento Core",
+            inicio: new Date("2026-03-01"),
+            fim: new Date("2027-08-31"),
             estado: false,
-          },
-        ],
-      },
-    },
-  });
-  console.log(`✅ Projeto PENDENTE criado: ${projetoPendente.nome}`);
-
-  // --- Associações Genéricas (Materiais, Alocações, Entregáveis) ---
-  console.log("🔗 A criar associações genéricas (materiais, alocações, entregáveis)...");
-
-  const todosWorkpackages = await prisma.workpackage.findMany();
-  const todosMateriaisBase = await prisma.material.findMany({ where: { workpackageId: null } }); // Get only generic materials
-  const todosUtilizadores = await prisma.user.findMany({
-    where: { permissao: { not: Permissao.ADMIN } },
-  });
-  const todasTarefas = await prisma.tarefa.findMany();
-
-  // Associar materiais genéricos aleatoriamente aos workpackages
-  if (todosMateriaisBase.length > 0) {
-    console.log("  - Associando materiais genéricos a workpackages...");
-    for (const workpackage of todosWorkpackages) {
-      const numMateriais = Math.floor(Math.random() * 3); // 0 to 2 materials per WP
-      for (let i = 0; i < numMateriais; i++) {
-        const materialModelo =
-          todosMateriaisBase[Math.floor(Math.random() * todosMateriaisBase.length)];
-        // Add check for materialModelo before accessing its properties
-        if (materialModelo) {
-          await prisma.material.create({
-            data: {
-              nome: `${materialModelo.nome} (WP: ${workpackage.nome.substring(0, 15)})`, // Truncate name if needed
-              preco: materialModelo.preco,
-              quantidade: Math.floor(Math.random() * 5) + 1, // 1 to 5 units
-              ano_utilizacao: materialModelo.ano_utilizacao,
-              rubrica: materialModelo.rubrica,
-              workpackageId: workpackage.id,
-            },
-          });
-        }
-      }
-    }
-  }
-
-  // Associar utilizadores aleatoriamente às tarefas com alocações mensais
-  console.log("  - Associando utilizadores a tarefas (com alocações)...");
-  const alocacoesExistentes = new Set<string>(); // Track WP-User-Month-Year combinations
-  if (todosUtilizadores.length > 0) {
-    for (const tarefa of todasTarefas) {
-      const inicio = tarefa.inicio || new Date();
-      const fim = tarefa.fim || new Date(inicio.getFullYear(), inicio.getMonth() + 1, 0); // Default to end of start month
-      const duracaoMeses = Math.max(
-        1,
-        (fim.getFullYear() - inicio.getFullYear()) * 12 + fim.getMonth() - inicio.getMonth() + 1
-      );
-      const numUtilizadores = Math.floor(Math.random() * 2) + 1; // 1 or 2 users per task
-      const utilizadoresSelecionados = [...todosUtilizadores]
-        .sort(() => 0.5 - Math.random())
-        .slice(0, numUtilizadores);
-
-      const workpackage = todosWorkpackages.find((wp) => wp.id === tarefa.workpackageId);
-      if (!workpackage) continue;
-
-      for (const utilizador of utilizadoresSelecionados) {
-        for (let i = 0; i < duracaoMeses; i++) {
-          const data = new Date(inicio);
-          data.setMonth(data.getMonth() + i);
-          const mes = data.getMonth() + 1;
-          const ano = data.getFullYear();
-          const chaveUnica = `${workpackage.id}-${utilizador.id}-${mes}-${ano}`;
-
-          if (!alocacoesExistentes.has(chaveUnica)) {
-            alocacoesExistentes.add(chaveUnica);
-            const ocupacao = new Decimal((Math.random() * 0.4 + 0.1).toFixed(2)); // 10% to 50%
-            try {
-              await prisma.alocacaoRecurso.create({
-                data: {
-                  workpackageId: workpackage.id,
-                  userId: utilizador.id,
-                  mes: mes,
-                  ano: ano,
-                  ocupacao: ocupacao,
+            tarefas: {
+              create: [
+                {
+                  nome: "T2.1 - Desenvolvimento base",
+                  descricao: "Implementação das funcionalidades core",
+                  inicio: new Date("2026-03-01"),
+                  fim: new Date("2026-11-30"),
+                  estado: false,
                 },
-              });
-            } catch (error: any) {
-              // Ignore unique constraint violations if the combination was somehow created elsewhere
-              if (error.code !== "P2002") {
-                console.warn(
-                  `Não foi possível criar alocação para ${chaveUnica}: ${error.message}`
-                );
-              }
+                {
+                  nome: "T2.2 - Integração sistemas",
+                  descricao: "Integração com sistemas existentes",
+                  inicio: new Date("2026-12-01"),
+                  fim: new Date("2027-08-31"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "WP3 - Validação",
+            inicio: new Date("2027-09-01"),
+            fim: new Date("2028-08-31"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "T3.1 - Testes piloto",
+                  descricao: "Realização de testes piloto",
+                  inicio: new Date("2027-09-01"),
+                  fim: new Date("2028-02-28"),
+                  estado: false,
+                },
+                {
+                  nome: "T3.2 - Validação industrial",
+                  descricao: "Validação em ambiente industrial",
+                  inicio: new Date("2028-03-01"),
+                  fim: new Date("2028-08-31"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "WP4 - Disseminação",
+            inicio: new Date("2028-06-01"),
+            fim: new Date("2028-11-30"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "T4.1 - Divulgação científica",
+                  descricao: "Publicações e apresentações",
+                  inicio: new Date("2028-06-01"),
+                  fim: new Date("2028-09-30"),
+                  estado: false,
+                },
+                {
+                  nome: "T4.2 - Exploração resultados",
+                  descricao: "Plano de exploração e disseminação",
+                  inicio: new Date("2028-10-01"),
+                  fim: new Date("2028-11-30"),
+                  estado: false,
+                }
+              ]
             }
           }
-        }
+        ]
       }
     }
-  }
-  console.log(
-    `  - ${await prisma.alocacaoRecurso.count()} alocações de recursos criadas/atualizadas.`
-  );
+  });
 
-  // Criar entregáveis aleatórios para tarefas
-  console.log("  - Criando entregáveis...");
-  for (const tarefa of todasTarefas) {
-    // Create 0 to 2 deliverables per task
-    const numEntregaveis = Math.floor(Math.random() * 3);
-    for (let i = 0; i < numEntregaveis; i++) {
-      let dataEntrega: Date;
-      if (tarefa.estado && tarefa.fim) {
-        // Completed task
-        dataEntrega = new Date(tarefa.fim);
-        dataEntrega.setDate(dataEntrega.getDate() - Math.floor(Math.random() * 15)); // Within last 15 days of task
-      } else if (tarefa.inicio) {
-        // Ongoing or pending task
-        dataEntrega = new Date(tarefa.inicio);
-        dataEntrega.setDate(dataEntrega.getDate() + Math.floor(Math.random() * 30)); // Within first 30 days
-        if (dataEntrega > new Date()) dataEntrega = new Date(); // Cap at today if future
-      } else {
-        dataEntrega = new Date(); // Default to today
-      }
+  // Buscar workpackages dos projetos após sua criação
+  const wp1IAM = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoEmDesenvolvimento.id, nome: { contains: "WP1" } }
+  });
 
-      await prisma.entregavel.create({
-        data: {
-          tarefaId: tarefa.id,
-          nome: `Entregável ${i + 1} - ${tarefa.nome.substring(0, 30)}...`,
-          descricao: `Entregável ${i + 1} ${tarefa.estado ? "final" : "parcial"} para a tarefa ${tarefa.nome}`,
-          data: dataEntrega,
-          anexo: i === 0 && Math.random() > 0.5 ? "https://example.com/docs/report.pdf" : null,
+  const wp2IAM = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoEmDesenvolvimento.id, nome: { contains: "WP2" } }
+  });
+
+  const wp3IAM = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoEmDesenvolvimento.id, nome: { contains: "WP3" } }
+  });
+
+  const wp4IAM = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoEmDesenvolvimento.id, nome: { contains: "WP4" } }
+  });
+
+  const wp1Green = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoPendente.id, nome: { contains: "WP1" } }
+  });
+
+  const wp2Green = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoPendente.id, nome: { contains: "WP2" } }
+  });
+
+  const wp3Green = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoPendente.id, nome: { contains: "WP3" } }
+  });
+
+  const wp4Green = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoPendente.id, nome: { contains: "WP4" } }
+  });
+
+  const wp1Dream = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoAprovado.id, nome: { contains: "WP1" } }
+  });
+
+  const wp2Dream = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoAprovado.id, nome: { contains: "WP2" } }
+  });
+
+  const wp3Dream = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoAprovado.id, nome: { contains: "WP3" } }
+  });
+
+  const wp4Dream = await prisma.workpackage.findFirst({
+    where: { projetoId: projetoAprovado.id, nome: { contains: "WP4" } }
+  });
+
+  // Adicionar materiais aos workpackages do DreamFAB
+  if (wp1Dream) {
+    await prisma.material.createMany({
+      data: [
+        {
+          nome: "Software CAD/CAM Avançado",
+          preco: new Decimal(8000.0),
+          quantidade: 2,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp1Dream.id,
+          estado: false
         },
-      });
-    }
+        {
+          nome: "Workstation de Desenvolvimento",
+          preco: new Decimal(5000.0),
+          quantidade: 2,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp1Dream.id,
+          estado: false
+        }
+      ]
+    });
   }
-  console.log(`  - ${await prisma.entregavel.count()} entregáveis criados.`);
 
-  console.log("✅ Seed concluído com sucesso!");
+  if (wp2Dream) {
+    await prisma.material.createMany({
+      data: [
+        {
+          nome: "Sistema Robótico Industrial",
+          preco: new Decimal(45000.0),
+          quantidade: 1,
+          ano_utilizacao: 2026,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2Dream.id,
+          estado: false
+        },
+        {
+          nome: "Sensores Industriais",
+          preco: new Decimal(12000.0),
+          quantidade: 1,
+          ano_utilizacao: 2026,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2Dream.id,
+          estado: false
+        },
+        {
+          nome: "Sistema de Visão 3D",
+          preco: new Decimal(15000.0),
+          quantidade: 1,
+          ano_utilizacao: 2027,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2Dream.id,
+          estado: false
+        }
+      ]
+    });
+  }
+
+  if (wp3Dream) {
+    await prisma.material.createMany({
+      data: [
+        {
+          nome: "Equipamento de Teste",
+          preco: new Decimal(45000.0),
+          quantidade: 1,
+          ano_utilizacao: 2027,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp3Dream.id,
+          estado: false
+        },
+        {
+          nome: "Sistema de Monitorização",
+          preco: new Decimal(28000.0),
+          quantidade: 1,
+          ano_utilizacao: 2028,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp3Dream.id,
+          estado: false
+        }
+      ]
+    });
+  }
+
+  if (wp4Dream) {
+    await prisma.material.createMany({
+      data: [
+        {
+          nome: "Material Promocional",
+          preco: new Decimal(5000.0),
+          quantidade: 1,
+          ano_utilizacao: 2028,
+          rubrica: Rubrica.OUTROS_CUSTOS,
+          workpackageId: wp4Dream.id,
+          estado: false
+        },
+        {
+          nome: "Organização Eventos",
+          preco: new Decimal(15000.0),
+          quantidade: 1,
+          ano_utilizacao: 2028,
+          rubrica: Rubrica.OUTROS_CUSTOS,
+          workpackageId: wp4Dream.id,
+          estado: false
+        }
+      ]
+    });
+  }
+
+  // Adicionar alocações para o DreamFAB
+  if (wp1Dream) {
+    await createAlocacoes(wp1Dream.id, [
+      { userId: ricardoId, mes: 9, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 9, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 9, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 9, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 9, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 9, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 10, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 10, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 11, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 11, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 12, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 12, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 12, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 12, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 12, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 12, ano: 2025, ocupacao: 0.3 }
+    ]);
+  }
+
+  if (wp2Dream) {
+    await createAlocacoes(wp2Dream.id, [
+      { userId: anaClaudiaId, mes: 6, ano: 2028, ocupacao: 0.3 },
+      { userId: filipeId, mes: 6, ano: 2028, ocupacao: 0.3 },
+      { userId: ruiId, mes: 6, ano: 2028, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 7, ano: 2028, ocupacao: 0.3 },
+      { userId: filipeId, mes: 7, ano: 2028, ocupacao: 0.3 },
+      { userId: ruiId, mes: 7, ano: 2028, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 8, ano: 2028, ocupacao: 0.3 },
+      { userId: filipeId, mes: 8, ano: 2028, ocupacao: 0.3 },
+      { userId: ruiId, mes: 8, ano: 2028, ocupacao: 0.3 }
+    ]);
+  }
+
+  // Adicionar materiais aos workpackages do IAMFat
+  if (wp1IAM) {
+    await prisma.material.createMany({
+      data: [
+        {
+          nome: "Sistema WAAM Laboratorial",
+          preco: new Decimal(15000.0),
+          quantidade: 1,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp1IAM.id,
+          estado: false
+        },
+        {
+          nome: "Material Base Testes",
+          preco: new Decimal(2500.0),
+          quantidade: 1,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp1IAM.id,
+          estado: true
+        },
+        {
+          nome: "Sensores de Temperatura",
+          preco: new Decimal(1500.0),
+          quantidade: 4,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp1IAM.id,
+          estado: false
+        }
+      ]
+    });
+  }
+
+  // Adicionar alocações para o IAMFat
+  if (wp1IAM) {
+    await createAlocacoes(wp1IAM.id, [
+      // Novembro 2024
+      { userId: ricardoId, mes: 11, ano: 2024, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 11, ano: 2024, ocupacao: 0.3 },
+      { userId: joaoId, mes: 11, ano: 2024, ocupacao: 0.3 },
+      { userId: filipeId, mes: 11, ano: 2024, ocupacao: 0.4 },
+      { userId: ruiId, mes: 11, ano: 2024, ocupacao: 0.3 },
+      // Dezembro 2024
+      { userId: ricardoId, mes: 12, ano: 2024, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 12, ano: 2024, ocupacao: 0.3 },
+      { userId: joaoId, mes: 12, ano: 2024, ocupacao: 0.3 },
+      { userId: filipeId, mes: 12, ano: 2024, ocupacao: 0.4 },
+      { userId: ruiId, mes: 12, ano: 2024, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 12, ano: 2024, ocupacao: 0.3 },
+      // Janeiro 2025
+      { userId: ricardoId, mes: 1, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 1, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 1, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 1, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 1, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 1, ano: 2025, ocupacao: 0.3 },
+      // Fevereiro 2025
+      { userId: ricardoId, mes: 2, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 2, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 2, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 2, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 2, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 2, ano: 2025, ocupacao: 0.3 },
+      // Março 2025
+      { userId: ricardoId, mes: 3, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 3, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 3, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 3, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 3, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 3, ano: 2025, ocupacao: 0.3 }
+    ]);
+  }
+
+  if (wp2IAM) {
+    await prisma.material.createMany({
+      data: [
+        {
+          nome: "Sistema WAAM Laboratorial",
+          preco: new Decimal(15000.0),
+          quantidade: 1,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2IAM.id,
+          estado: false
+        },
+        {
+          nome: "Material Base Testes",
+          preco: new Decimal(2500.0),
+          quantidade: 1,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2IAM.id,
+          estado: true
+        },
+        {
+          nome: "Sensores de Temperatura",
+          preco: new Decimal(1500.0),
+          quantidade: 4,
+          ano_utilizacao: 2025,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2IAM.id,
+          estado: false
+        }
+      ]
+    });
+  }
+
+  if (wp2IAM) {
+    await createAlocacoes(wp2IAM.id, [
+      // Abril 2025
+      { userId: filipeId, mes: 4, ano: 2025, ocupacao: 0.5 },
+      { userId: ruiId, mes: 4, ano: 2025, ocupacao: 0.4 },
+      { userId: anaClaudiaId, mes: 4, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 4, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 4, ano: 2025, ocupacao: 0.3 },
+      // Maio 2025
+      { userId: filipeId, mes: 5, ano: 2025, ocupacao: 0.5 },
+      { userId: ruiId, mes: 5, ano: 2025, ocupacao: 0.4 },
+      { userId: anaClaudiaId, mes: 5, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 5, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 5, ano: 2025, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 5, ano: 2025, ocupacao: 0.3 },
+      // Junho a Dezembro 2025
+      { userId: filipeId, mes: 6, ano: 2025, ocupacao: 0.5 },
+      { userId: ruiId, mes: 6, ano: 2025, ocupacao: 0.4 },
+      { userId: anaClaudiaId, mes: 6, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 6, ano: 2025, ocupacao: 0.3 },
+      { userId: joaoId, mes: 6, ano: 2025, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 6, ano: 2025, ocupacao: 0.3 }
+    ]);
+  }
+
+  if (wp3IAM) {
+    await createAlocacoes(wp3IAM.id, [
+      // Abril 2026
+      { userId: joaoId, mes: 4, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 4, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 4, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 4, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 4, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 4, ano: 2026, ocupacao: 0.3 },
+      // Maio 2026
+      { userId: joaoId, mes: 5, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 5, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 5, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 5, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 5, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 5, ano: 2026, ocupacao: 0.3 },
+      // Junho 2026
+      { userId: joaoId, mes: 6, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 6, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 6, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 6, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 6, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 6, ano: 2026, ocupacao: 0.3 },
+      // Julho 2026
+      { userId: joaoId, mes: 7, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 7, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 7, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 7, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 7, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 7, ano: 2026, ocupacao: 0.3 },
+      // Agosto 2026
+      { userId: joaoId, mes: 8, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 8, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 8, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 8, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 8, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 8, ano: 2026, ocupacao: 0.3 },
+      // Setembro 2026
+      { userId: joaoId, mes: 9, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 9, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 9, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 9, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 9, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 9, ano: 2026, ocupacao: 0.3 }
+    ]);
+  }
+
+  if (wp4IAM) {
+    await createAlocacoes(wp4IAM.id, [
+      // Outubro 2026
+      { userId: anaClaudiaId, mes: 10, ano: 2026, ocupacao: 0.4 },
+      { userId: filipeId, mes: 10, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 10, ano: 2026, ocupacao: 0.4 },
+      { userId: joaoId, mes: 10, ano: 2026, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 10, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 10, ano: 2026, ocupacao: 0.3 },
+      // Novembro 2026
+      { userId: anaClaudiaId, mes: 11, ano: 2026, ocupacao: 0.4 },
+      { userId: filipeId, mes: 11, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 11, ano: 2026, ocupacao: 0.4 },
+      { userId: joaoId, mes: 11, ano: 2026, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 11, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 11, ano: 2026, ocupacao: 0.3 },
+      // Dezembro 2026
+      { userId: anaClaudiaId, mes: 12, ano: 2026, ocupacao: 0.4 },
+      { userId: filipeId, mes: 12, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 12, ano: 2026, ocupacao: 0.4 },
+      { userId: joaoId, mes: 12, ano: 2026, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 12, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 12, ano: 2026, ocupacao: 0.3 }
+    ]);
+  }
+
+  // Adicionar alocações para o GreenAuto
+  if (wp1Green) {
+    await createAlocacoes(wp1Green.id, [
+      // Setembro 2025
+      { userId: joaoId, mes: 9, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 9, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 9, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 9, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 9, ano: 2025, ocupacao: 0.3 },
+      // Outubro 2025
+      { userId: joaoId, mes: 10, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 10, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 10, ano: 2025, ocupacao: 0.3 },
+      // Novembro 2025
+      { userId: joaoId, mes: 11, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 11, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 11, ano: 2025, ocupacao: 0.3 },
+      // Dezembro 2025
+      { userId: joaoId, mes: 12, ano: 2025, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 12, ano: 2025, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 12, ano: 2025, ocupacao: 0.3 },
+      { userId: filipeId, mes: 12, ano: 2025, ocupacao: 0.4 },
+      { userId: ruiId, mes: 12, ano: 2025, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 12, ano: 2025, ocupacao: 0.3 },
+      // Janeiro 2026
+      { userId: joaoId, mes: 1, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 1, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 1, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 1, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 1, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 1, ano: 2026, ocupacao: 0.3 },
+      // Fevereiro 2026
+      { userId: joaoId, mes: 2, ano: 2026, ocupacao: 0.4 },
+      { userId: anaIsabelId, mes: 2, ano: 2026, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 2, ano: 2026, ocupacao: 0.3 },
+      { userId: filipeId, mes: 2, ano: 2026, ocupacao: 0.4 },
+      { userId: ruiId, mes: 2, ano: 2026, ocupacao: 0.3 },
+      { userId: anaClaudiaId, mes: 2, ano: 2026, ocupacao: 0.3 }
+    ]);
+  }
+
+  if (wp2Green) {
+    await createAlocacoes(wp2Green.id, [
+      // Março 2026
+      { userId: filipeId, mes: 3, ano: 2026, ocupacao: 0.5 },
+      { userId: ruiId, mes: 3, ano: 2026, ocupacao: 0.4 },
+      { userId: anaClaudiaId, mes: 3, ano: 2026, ocupacao: 0.3 },
+      { userId: joaoId, mes: 3, ano: 2026, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 3, ano: 2026, ocupacao: 0.3 },
+      // Abril 2026 a Agosto 2027
+      { userId: filipeId, mes: 4, ano: 2026, ocupacao: 0.5 },
+      { userId: ruiId, mes: 4, ano: 2026, ocupacao: 0.4 },
+      { userId: anaClaudiaId, mes: 4, ano: 2026, ocupacao: 0.3 },
+      { userId: joaoId, mes: 4, ano: 2026, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 4, ano: 2026, ocupacao: 0.3 }
+    ]);
+
+    // Adicionar materiais ao WP2
+    await prisma.material.createMany({
+      data: [
+        {
+          nome: "Sistema de Navegação AGV",
+          preco: new Decimal(8000.0), // Reduced from 15000
+          quantidade: 1,
+          ano_utilizacao: 2026,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2Green.id,
+          estado: false
+        },
+        {
+          nome: "Sensores LiDAR",
+          preco: new Decimal(4000.0), // Reduced from 8000
+          quantidade: 3,
+          ano_utilizacao: 2026,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2Green.id,
+          estado: false
+        },
+        {
+          nome: "Workstation Dell Precision",
+          preco: new Decimal(2000.0), // Reduced from 3500
+          quantidade: 4,
+          ano_utilizacao: 2026,
+          rubrica: Rubrica.MATERIAIS,
+          workpackageId: wp2Green.id,
+          estado: false
+        }
+      ]
+    });
+  }
+
+  if (wp3Green) {
+    await createAlocacoes(wp3Green.id, [
+      // Setembro 2027 a Agosto 2028
+      { userId: anaClaudiaId, mes: 9, ano: 2027, ocupacao: 0.4 },
+      { userId: filipeId, mes: 9, ano: 2027, ocupacao: 0.4 },
+      { userId: ruiId, mes: 9, ano: 2027, ocupacao: 0.4 },
+      { userId: joaoId, mes: 9, ano: 2027, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 9, ano: 2027, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 9, ano: 2027, ocupacao: 0.3 },
+      // Outubro 2027
+      { userId: anaClaudiaId, mes: 10, ano: 2027, ocupacao: 0.4 },
+      { userId: filipeId, mes: 10, ano: 2027, ocupacao: 0.4 },
+      { userId: ruiId, mes: 10, ano: 2027, ocupacao: 0.4 },
+      { userId: joaoId, mes: 10, ano: 2027, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 10, ano: 2027, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 10, ano: 2027, ocupacao: 0.3 },
+      // Novembro 2027
+      { userId: anaClaudiaId, mes: 11, ano: 2027, ocupacao: 0.4 },
+      { userId: filipeId, mes: 11, ano: 2027, ocupacao: 0.4 },
+      { userId: ruiId, mes: 11, ano: 2027, ocupacao: 0.4 },
+      { userId: joaoId, mes: 11, ano: 2027, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 11, ano: 2027, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 11, ano: 2027, ocupacao: 0.3 }
+    ]);
+  }
+
+  if (wp4Green) {
+    await createAlocacoes(wp4Green.id, [
+      // Junho 2028
+      { userId: anaClaudiaId, mes: 6, ano: 2028, ocupacao: 0.4 },
+      { userId: filipeId, mes: 6, ano: 2028, ocupacao: 0.4 },
+      { userId: ruiId, mes: 6, ano: 2028, ocupacao: 0.4 },
+      { userId: joaoId, mes: 6, ano: 2028, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 6, ano: 2028, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 6, ano: 2028, ocupacao: 0.3 },
+      // Julho 2028
+      { userId: anaClaudiaId, mes: 7, ano: 2028, ocupacao: 0.4 },
+      { userId: filipeId, mes: 7, ano: 2028, ocupacao: 0.4 },
+      { userId: ruiId, mes: 7, ano: 2028, ocupacao: 0.4 },
+      { userId: joaoId, mes: 7, ano: 2028, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 7, ano: 2028, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 7, ano: 2028, ocupacao: 0.3 },
+      // Agosto 2028
+      { userId: anaClaudiaId, mes: 8, ano: 2028, ocupacao: 0.4 },
+      { userId: filipeId, mes: 8, ano: 2028, ocupacao: 0.4 },
+      { userId: ruiId, mes: 8, ano: 2028, ocupacao: 0.4 },
+      { userId: joaoId, mes: 8, ano: 2028, ocupacao: 0.3 },
+      { userId: anaIsabelId, mes: 8, ano: 2028, ocupacao: 0.3 },
+      { userId: ricardoId, mes: 8, ano: 2028, ocupacao: 0.3 }
+    ]);
+  }
+
+  console.log("✅ Alocações e entregáveis criados com sucesso!");
 
   // --- Estatísticas Finais ---
   const stats = {
@@ -836,8 +1298,8 @@ main()
     console.error("❌ Erro durante o processo de seed:", error);
     process.exit(1);
   })
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  .finally(async () => {
-    await prisma.$disconnect();
-    console.log("🔌 Conexão Prisma desconectada.");
-  });
+  .finally(() => {
+    void prisma.$disconnect().then(() => {
+      console.log("🔌 Conexão Prisma desconectada.");
+    });
+  }); 

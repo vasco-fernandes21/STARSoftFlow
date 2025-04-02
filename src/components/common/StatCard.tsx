@@ -52,33 +52,27 @@ export const StatCard = ({
 
   if (centerContent) {
     return (
-      <Card 
+      <Card
         className={cn(
           "flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-4 shadow-md",
           hover && "transition-all hover:scale-105 hover:shadow-lg"
         )}
       >
-        <div className={cn(
-          "mb-2 rounded-full bg-azul/10 p-2 text-azul",
-          iconContainerClassName
-        )}>
+        <div className={cn("mb-2 rounded-full bg-azul/10 p-2 text-azul", iconContainerClassName)}>
           <Icon className={cn("h-6 w-6", iconClassName)} />
         </div>
         <span className="text-2xl font-bold text-gray-900">
-          {typeof value === 'number' ? value.toLocaleString("pt-PT") : value}
+          {typeof value === "number" ? value.toLocaleString("pt-PT") : value}
           {suffix && <span className="ml-1 text-gray-600">{suffix}</span>}
         </span>
         <span className="text-xs text-gray-500">{label}</span>
-        
-        {secondaryText && <p className="text-xs text-gray-400 mt-1">{secondaryText}</p>}
-        
+
+        {secondaryText && <p className="mt-1 text-xs text-gray-400">{secondaryText}</p>}
+
         {badgeText && (
           <Badge
             variant="outline"
-            className={cn(
-              "mt-2 bg-white px-2 py-0.5 text-xs font-medium",
-              badgeClassName
-            )}
+            className={cn("mt-2 bg-white px-2 py-0.5 text-xs font-medium", badgeClassName)}
           >
             {BadgeIcon && <BadgeIcon className="mr-1 h-3 w-3" />}
             {badgeText}
@@ -124,7 +118,7 @@ export const StatCard = ({
 
           <div className="space-y-0.5">
             <h2 className="text-xl font-medium tracking-tight text-gray-900">
-              {typeof value === 'number' ? value.toLocaleString("pt-PT") : value}
+              {typeof value === "number" ? value.toLocaleString("pt-PT") : value}
               {suffix && <span className="ml-1 text-gray-600">{suffix}</span>}
             </h2>
 

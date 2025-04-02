@@ -10,13 +10,13 @@ type BadgeProps = {
   showDot?: boolean;
 };
 
-export const BadgeEstado = ({ 
-  status, 
-  label, 
-  variant = "custom", 
-  customClassName, 
+export const BadgeEstado = ({
+  status,
+  label,
+  variant = "custom",
+  customClassName,
   isRead = true,
-  showDot = false 
+  showDot = false,
 }: BadgeProps) => {
   return (
     <Badge
@@ -78,13 +78,13 @@ export const BadgeEstado = ({
         // Variante de notificação
         variant === "notificacao" &&
           status === "NAO_LIDA" &&
-          "border border-blue-200 bg-blue-50/70 text-blue-600 backdrop-blur-sm hover:border-blue-300 hover:bg-blue-100 font-semibold",
+          "border border-blue-200 bg-blue-50/70 font-semibold text-blue-600 backdrop-blur-sm hover:border-blue-300 hover:bg-blue-100",
         variant === "notificacao" &&
           status === "LIDA" &&
           "border border-gray-200 bg-gray-50/70 text-gray-600 backdrop-blur-sm hover:border-gray-300 hover:bg-gray-100",
         variant === "notificacao" &&
           status === "URGENTE" &&
-          "border border-red-200 bg-red-50/70 text-red-600 backdrop-blur-sm hover:border-red-300 hover:bg-red-100 font-semibold",
+          "border border-red-200 bg-red-50/70 font-semibold text-red-600 backdrop-blur-sm hover:border-red-300 hover:bg-red-100",
         variant === "notificacao" &&
           status === "IMPORTANTE" &&
           "border border-amber-200 bg-amber-50/70 text-amber-600 backdrop-blur-sm hover:border-amber-300 hover:bg-amber-100",
@@ -97,9 +97,7 @@ export const BadgeEstado = ({
       )}
     >
       {label}
-      {showDot && !isRead && (
-        <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-      )}
+      {showDot && !isRead && <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />}
     </Badge>
   );
 };

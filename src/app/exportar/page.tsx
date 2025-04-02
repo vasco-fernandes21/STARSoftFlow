@@ -28,10 +28,12 @@ export default function ExportarPage() {
       select: (data) => {
         // Selecionar apenas id e nome para evitar problemas de serialização
         return {
-          items: data.data.items.map((projeto: { id: string; nome: string; isRascunho?: boolean }) => ({
-            id: projeto.id,
-            nome: projeto.nome,
-          })),
+          items: data.data.items.map(
+            (projeto: { id: string; nome: string; isRascunho?: boolean }) => ({
+              id: projeto.id,
+              nome: projeto.nome,
+            })
+          ),
         };
       },
     }

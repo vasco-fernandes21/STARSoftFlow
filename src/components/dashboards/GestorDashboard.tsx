@@ -121,7 +121,7 @@ const mockMilestones = [
     dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     status: "pendente",
     responsible: "Carlos Pereira",
-    progress: 75
+    progress: 75,
   },
   {
     id: "ms2",
@@ -130,7 +130,7 @@ const mockMilestones = [
     dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
     status: "pendente",
     responsible: "Ana Silva",
-    progress: 60
+    progress: 60,
   },
   {
     id: "ms3",
@@ -139,7 +139,7 @@ const mockMilestones = [
     dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
     status: "atrasado",
     responsible: "Beatriz Costa",
-    progress: 45
+    progress: 45,
   },
   {
     id: "ms4",
@@ -148,7 +148,7 @@ const mockMilestones = [
     dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
     status: "pendente",
     responsible: "Diogo Martins",
-    progress: 30
+    progress: 30,
   },
   {
     id: "ms5",
@@ -157,42 +157,50 @@ const mockMilestones = [
     dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
     status: "pendente",
     responsible: "Carlos Pereira",
-    progress: 90
-  }
+    progress: 90,
+  },
 ];
 
 // Mock data for future allocation
 const mockFutureAllocation = [
-  { 
-    month: "Junho", 
+  {
+    month: "Junho",
     year: 2024,
     resources: [
       { name: "Ana Silva", allocation: 85, projects: ["Edifício Central", "Ponte Norte"] },
-      { name: "Carlos Pereira", allocation: 100, projects: ["Edifício Central", "Complexo Residencial"] },
+      {
+        name: "Carlos Pereira",
+        allocation: 100,
+        projects: ["Edifício Central", "Complexo Residencial"],
+      },
       { name: "Beatriz Costa", allocation: 75, projects: ["Ponte Norte"] },
-      { name: "Diogo Martins", allocation: 90, projects: ["Complexo Residencial"] }
-    ]
+      { name: "Diogo Martins", allocation: 90, projects: ["Complexo Residencial"] },
+    ],
   },
-  { 
-    month: "Julho", 
+  {
+    month: "Julho",
     year: 2024,
     resources: [
       { name: "Ana Silva", allocation: 100, projects: ["Edifício Central", "Ponte Norte"] },
       { name: "Carlos Pereira", allocation: 80, projects: ["Edifício Central"] },
       { name: "Beatriz Costa", allocation: 90, projects: ["Ponte Norte", "Novo Projeto A"] },
-      { name: "Diogo Martins", allocation: 60, projects: ["Complexo Residencial"] }
-    ]
+      { name: "Diogo Martins", allocation: 60, projects: ["Complexo Residencial"] },
+    ],
   },
-  { 
-    month: "Agosto", 
+  {
+    month: "Agosto",
     year: 2024,
     resources: [
       { name: "Ana Silva", allocation: 50, projects: ["Ponte Norte"] },
       { name: "Carlos Pereira", allocation: 75, projects: ["Novo Projeto B"] },
       { name: "Beatriz Costa", allocation: 100, projects: ["Novo Projeto A"] },
-      { name: "Diogo Martins", allocation: 70, projects: ["Complexo Residencial", "Novo Projeto B"] }
-    ]
-  }
+      {
+        name: "Diogo Martins",
+        allocation: 70,
+        projects: ["Complexo Residencial", "Novo Projeto B"],
+      },
+    ],
+  },
 ];
 
 // Mapeamento de rubricas para exibição amigável
@@ -242,11 +250,11 @@ function ResourceOccupationCard() {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear - 1, currentYear - 2];
-  
+
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("todos");
-  
+
   const months = [
     { value: "Jan", label: "Janeiro" },
     { value: "Fev", label: "Fevereiro" },
@@ -259,25 +267,21 @@ function ResourceOccupationCard() {
     { value: "Set", label: "Setembro" },
     { value: "Out", label: "Outubro" },
     { value: "Nov", label: "Novembro" },
-    { value: "Dez", label: "Dezembro" }
+    { value: "Dez", label: "Dezembro" },
   ];
 
   const filteredData = useMemo(() => {
-    let filtered = mockResourceOccupation.filter(item => 
-      item.year === parseInt(selectedYear)
-    );
-    
+    let filtered = mockResourceOccupation.filter((item) => item.year === parseInt(selectedYear));
+
     if (selectedMonth !== "todos") {
-      filtered = filtered.filter(item => item.month === selectedMonth);
+      filtered = filtered.filter((item) => item.month === selectedMonth);
     }
-    
+
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.resource.toLowerCase().includes(searchLower)
-      );
+      filtered = filtered.filter((item) => item.resource.toLowerCase().includes(searchLower));
     }
-    
+
     return filtered;
   }, [selectedYear, selectedMonth, searchTerm]);
 
@@ -302,7 +306,9 @@ function ResourceOccupationCard() {
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-slate-500" />
             <div>
-              <CardTitle className="text-base font-medium text-slate-700">Ocupação de Recursos</CardTitle>
+              <CardTitle className="text-base font-medium text-slate-700">
+                Ocupação de Recursos
+              </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 Visualize a ocupação da sua equipa por mês
               </CardDescription>
@@ -314,7 +320,7 @@ function ResourceOccupationCard() {
                 <SelectValue placeholder="Ano" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border border-slate-100/80 bg-white/95 shadow-lg backdrop-blur-sm">
-                {years.map(year => (
+                {years.map((year) => (
                   <SelectItem key={year} value={year.toString()} className="text-xs">
                     {year}
                   </SelectItem>
@@ -354,8 +360,8 @@ function ResourceOccupationCard() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="start" 
+            <DropdownMenuContent
+              align="start"
               className="w-[320px] rounded-xl border border-slate-100/80 bg-white/95 p-4 shadow-lg backdrop-blur-sm"
             >
               <DropdownMenuLabel className="mb-2 flex items-center justify-between px-2 py-1">
@@ -379,11 +385,11 @@ function ResourceOccupationCard() {
                   Mês
                 </DropdownMenuLabel>
                 <div className="grid grid-cols-2 gap-1">
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className={cn(
                       "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                      selectedMonth === "todos" 
-                        ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                      selectedMonth === "todos"
+                        ? "bg-white font-medium text-emerald-600 shadow-sm"
                         : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                     )}
                     onClick={() => setSelectedMonth("todos")}
@@ -396,14 +402,14 @@ function ResourceOccupationCard() {
                       <Check className="h-3.5 w-3.5 text-emerald-600" />
                     )}
                   </DropdownMenuItem>
-                  
-                  {months.map(month => (
+
+                  {months.map((month) => (
                     <DropdownMenuItem
                       key={month.value}
                       className={cn(
                         "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                        selectedMonth === month.value 
-                          ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                        selectedMonth === month.value
+                          ? "bg-white font-medium text-emerald-600 shadow-sm"
                           : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                       )}
                       onClick={() => setSelectedMonth(month.value)}
@@ -426,7 +432,7 @@ function ResourceOccupationCard() {
         {activeFiltersCount > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/60 pt-3 duration-300 ease-in-out animate-in fade-in slide-in-from-top-2">
             <span className="mr-2 text-xs text-gray-500">Filtros ativos:</span>
-            
+
             {selectedMonth !== "todos" && (
               <Badge
                 variant="outline"
@@ -434,7 +440,7 @@ function ResourceOccupationCard() {
                   "flex h-7 items-center gap-1.5 rounded-full border-emerald-200 bg-emerald-50 px-2.5 text-xs text-emerald-600 transition-all duration-300 ease-in-out hover:border-emerald-300 hover:bg-emerald-100"
                 )}
               >
-                <span>Mês: {months.find(m => m.value === selectedMonth)?.label}</span>
+                <span>Mês: {months.find((m) => m.value === selectedMonth)?.label}</span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -445,7 +451,7 @@ function ResourceOccupationCard() {
                 </Button>
               </Badge>
             )}
-            
+
             {searchTerm && (
               <Badge
                 variant="outline"
@@ -477,7 +483,9 @@ function ResourceOccupationCard() {
               </div>
               <div className="space-y-1">
                 <p className="text-base font-medium text-slate-700">Nenhum recurso encontrado</p>
-                <p className="text-sm text-slate-500">Experimente ajustar os filtros de pesquisa.</p>
+                <p className="text-sm text-slate-500">
+                  Experimente ajustar os filtros de pesquisa.
+                </p>
               </div>
               <Button
                 variant="outline"
@@ -495,25 +503,37 @@ function ResourceOccupationCard() {
               <TableHeader>
                 <TableRow className="border-b border-slate-100 hover:bg-transparent">
                   <TableHead className="py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Recurso
-                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500"
+                      >
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableHead>
                   <TableHead className="py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Mês
-                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500"
+                      >
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableHead>
-                  <TableHead className="text-right py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center justify-end gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                  <TableHead className="py-3 text-right text-sm font-medium text-slate-700">
+                    <div className="flex cursor-pointer select-none items-center justify-end gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Ocupação
-                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500"
+                      >
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
                     </div>
@@ -522,8 +542,8 @@ function ResourceOccupationCard() {
               </TableHeader>
               <TableBody>
                 {filteredData.map((item: any) => (
-                  <TableRow 
-                    key={item.id} 
+                  <TableRow
+                    key={item.id}
                     className="group cursor-pointer border-b border-slate-100 transition-colors duration-300 ease-in-out hover:bg-emerald-50/50"
                   >
                     <TableCell className="px-2 py-3 text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
@@ -532,12 +552,12 @@ function ResourceOccupationCard() {
                     <TableCell className="px-2 py-3 text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
                       {item.month}
                     </TableCell>
-                    <TableCell className="text-right px-2 py-3 text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
+                    <TableCell className="px-2 py-3 text-right text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
                       <Badge
                         variant="outline"
                         className={cn(
                           "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-200",
-                          item.occupation > 90 
+                          item.occupation > 90
                             ? "border-red-200 bg-red-50 text-red-600"
                             : item.occupation > 75
                               ? "border-amber-200 bg-amber-50 text-amber-600"
@@ -562,35 +582,41 @@ function MaterialsListCard() {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear - 1, currentYear - 2];
-  
+
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [selectedProjetoId, setSelectedProjetoId] = useState<string | undefined>(undefined);
-  
+
   // Fetch projects for the dropdown
-  const { data: projetos } = api.projeto.findAll.useQuery({}, {
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-  
+  const { data: projetos } = api.projeto.findAll.useQuery(
+    {},
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+
   // Fetch materials with filters
-  const { data: materiais, isLoading } = api.material.findAll.useQuery({
-    ano: parseInt(selectedYear, 10),
-    projetoId: selectedProjetoId,
-    estado: statusFilter === "todos" ? undefined : statusFilter === "concluidos",
-    searchTerm: searchTerm || undefined,
-  }, {
-    staleTime: 30 * 1000, // 30 seconds
-  });
-  
+  const { data: materiais, isLoading } = api.material.findAll.useQuery(
+    {
+      ano: parseInt(selectedYear, 10),
+      projetoId: selectedProjetoId,
+      estado: statusFilter === "todos" ? undefined : statusFilter === "concluidos",
+      searchTerm: searchTerm || undefined,
+    },
+    {
+      staleTime: 30 * 1000, // 30 seconds
+    }
+  );
+
   // Process data with applied filters
   const filteredData = useMemo(() => {
     if (!materiais) return [];
-    
+
     return materiais.map((material) => {
       // Ensure workpackage is not null before accessing its properties
       const workpackage = material.workpackage || { nome: "N/A", projeto: { nome: "N/A", id: "" } };
-      
+
       return {
         id: material.id,
         material: material.nome,
@@ -631,7 +657,9 @@ function MaterialsListCard() {
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-slate-500" />
             <div>
-              <CardTitle className="text-base font-medium text-slate-700">Lista de Materiais</CardTitle>
+              <CardTitle className="text-base font-medium text-slate-700">
+                Lista de Materiais
+              </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 {filteredData.length} {filteredData.length === 1 ? "item" : "itens"} encontrados
               </CardDescription>
@@ -643,7 +671,7 @@ function MaterialsListCard() {
                 <SelectValue placeholder="Ano" />
               </SelectTrigger>
               <SelectContent className="rounded-xl border border-slate-100/80 bg-white/95 shadow-lg backdrop-blur-sm">
-                {years.map(year => (
+                {years.map((year) => (
                   <SelectItem key={year} value={year.toString()} className="text-xs">
                     {year}
                   </SelectItem>
@@ -683,8 +711,8 @@ function MaterialsListCard() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="start" 
+            <DropdownMenuContent
+              align="start"
               className="w-[320px] rounded-xl border border-slate-100/80 bg-white/95 p-4 shadow-lg backdrop-blur-sm"
             >
               <DropdownMenuLabel className="mb-2 flex items-center justify-between px-2 py-1">
@@ -709,11 +737,11 @@ function MaterialsListCard() {
                   Estado
                 </DropdownMenuLabel>
                 <div className="grid grid-cols-1 gap-1">
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className={cn(
                       "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                      statusFilter === "todos" 
-                        ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                      statusFilter === "todos"
+                        ? "bg-white font-medium text-emerald-600 shadow-sm"
                         : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                     )}
                     onClick={() => setStatusFilter("todos")}
@@ -722,16 +750,14 @@ function MaterialsListCard() {
                       <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                       <span>Todos</span>
                     </div>
-                    {statusFilter === "todos" && (
-                      <Check className="h-3.5 w-3.5 text-emerald-600" />
-                    )}
+                    {statusFilter === "todos" && <Check className="h-3.5 w-3.5 text-emerald-600" />}
                   </DropdownMenuItem>
-                  
+
                   <DropdownMenuItem
                     className={cn(
                       "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                      statusFilter === "concluidos" 
-                        ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                      statusFilter === "concluidos"
+                        ? "bg-white font-medium text-emerald-600 shadow-sm"
                         : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                     )}
                     onClick={() => setStatusFilter("concluidos")}
@@ -744,12 +770,12 @@ function MaterialsListCard() {
                       <Check className="h-3.5 w-3.5 text-emerald-600" />
                     )}
                   </DropdownMenuItem>
-                  
+
                   <DropdownMenuItem
                     className={cn(
                       "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                      statusFilter === "pendentes" 
-                        ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                      statusFilter === "pendentes"
+                        ? "bg-white font-medium text-emerald-600 shadow-sm"
                         : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                     )}
                     onClick={() => setStatusFilter("pendentes")}
@@ -764,19 +790,19 @@ function MaterialsListCard() {
                   </DropdownMenuItem>
                 </div>
               </div>
-              
+
               {/* Projetos */}
               {projetos?.data?.items && projetos.data.items.length > 0 && (
                 <div className="rounded-lg bg-slate-50/50 p-3">
                   <DropdownMenuLabel className="mb-2 px-1 text-xs font-medium text-slate-700">
                     Projeto
                   </DropdownMenuLabel>
-                  <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto">
-                    <DropdownMenuItem 
+                  <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto">
+                    <DropdownMenuItem
                       className={cn(
                         "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                        !selectedProjetoId 
-                          ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                        !selectedProjetoId
+                          ? "bg-white font-medium text-emerald-600 shadow-sm"
                           : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                       )}
                       onClick={() => setSelectedProjetoId(undefined)}
@@ -785,18 +811,16 @@ function MaterialsListCard() {
                         <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                         <span>Todos os Projetos</span>
                       </div>
-                      {!selectedProjetoId && (
-                        <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      )}
+                      {!selectedProjetoId && <Check className="h-3.5 w-3.5 text-emerald-600" />}
                     </DropdownMenuItem>
-                    
+
                     {projetos.data.items.map((projeto: { id: string; nome: string }) => (
                       <DropdownMenuItem
                         key={projeto.id}
                         className={cn(
                           "cursor-pointer rounded-md px-2 py-1.5 text-sm transition-all duration-200 ease-in-out",
-                          selectedProjetoId === projeto.id 
-                            ? "bg-white font-medium text-emerald-600 shadow-sm" 
+                          selectedProjetoId === projeto.id
+                            ? "bg-white font-medium text-emerald-600 shadow-sm"
                             : "text-slate-700 hover:bg-white/90 hover:text-emerald-600"
                         )}
                         onClick={() => setSelectedProjetoId(projeto.id)}
@@ -820,14 +844,14 @@ function MaterialsListCard() {
         {activeFiltersCount > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/60 pt-3 duration-300 ease-in-out animate-in fade-in slide-in-from-top-2">
             <span className="mr-2 text-xs text-gray-500">Filtros ativos:</span>
-            
+
             {statusFilter !== "todos" && (
               <Badge
                 variant="outline"
                 className={cn(
                   "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs transition-all duration-300 ease-in-out",
-                  statusFilter === "concluidos" 
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-100" 
+                  statusFilter === "concluidos"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-100"
                     : "border-blue-200 bg-blue-50 text-blue-600 hover:border-blue-300 hover:bg-blue-100"
                 )}
               >
@@ -847,13 +871,19 @@ function MaterialsListCard() {
                 </Button>
               </Badge>
             )}
-            
+
             {selectedProjetoId && projetos && (
               <Badge
                 variant="outline"
                 className="flex h-7 items-center gap-1.5 rounded-full border-purple-200 bg-purple-50 px-2.5 text-xs text-purple-600 transition-all duration-300 ease-in-out hover:border-purple-300 hover:bg-purple-100"
               >
-                <span>Projeto: {projetos.data.items.find((p: { id: string }) => p.id === selectedProjetoId)?.nome}</span>
+                <span>
+                  Projeto:{" "}
+                  {
+                    projetos.data.items.find((p: { id: string }) => p.id === selectedProjetoId)
+                      ?.nome
+                  }
+                </span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -864,7 +894,7 @@ function MaterialsListCard() {
                 </Button>
               </Badge>
             )}
-            
+
             {searchTerm && (
               <Badge
                 variant="outline"
@@ -901,7 +931,9 @@ function MaterialsListCard() {
               </div>
               <div className="space-y-1">
                 <p className="text-base font-medium text-slate-700">Nenhum material encontrado</p>
-                <p className="text-sm text-slate-500">Experimente ajustar os filtros de pesquisa.</p>
+                <p className="text-sm text-slate-500">
+                  Experimente ajustar os filtros de pesquisa.
+                </p>
               </div>
               <Button
                 variant="outline"
@@ -919,38 +951,46 @@ function MaterialsListCard() {
               <TableHeader>
                 <TableRow className="border-b border-slate-100 hover:bg-transparent">
                   <TableHead className="py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Material
-                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500"
+                      >
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableHead>
                   <TableHead className="py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Projeto/WP
-                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-50 hover:text-emerald-500"
+                      >
                         <ArrowUpDown className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableHead>
                   <TableHead className="py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Rubrica
                     </div>
                   </TableHead>
                   <TableHead className="py-3 text-right text-sm font-medium text-slate-700">
-                    <div className="flex items-center justify-end gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center justify-end gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Qtd.
                     </div>
                   </TableHead>
                   <TableHead className="py-3 text-right text-sm font-medium text-slate-700">
-                    <div className="flex items-center justify-end gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center justify-end gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Valor
                     </div>
                   </TableHead>
                   <TableHead className="py-3 text-center text-sm font-medium text-slate-700">
-                    <div className="flex items-center justify-center gap-1 cursor-pointer select-none transition-colors duration-200 hover:text-emerald-500">
+                    <div className="flex cursor-pointer select-none items-center justify-center gap-1 transition-colors duration-200 hover:text-emerald-500">
                       Estado
                     </div>
                   </TableHead>
@@ -958,12 +998,20 @@ function MaterialsListCard() {
               </TableHeader>
               <TableBody>
                 {filteredData.map((item: ProcessedMaterial) => {
-                  const rubricaColor = RUBRICA_COLORS[item.rubrica] || { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" };
-                  const statusColor = STATUS_COLORS[item.status] || { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" };
-                  
+                  const rubricaColor = RUBRICA_COLORS[item.rubrica] || {
+                    bg: "bg-slate-50",
+                    text: "text-slate-700",
+                    border: "border-slate-200",
+                  };
+                  const statusColor = STATUS_COLORS[item.status] || {
+                    bg: "bg-slate-50",
+                    text: "text-slate-700",
+                    border: "border-slate-200",
+                  };
+
                   return (
-                    <TableRow 
-                      key={item.id} 
+                    <TableRow
+                      key={item.id}
                       className="group cursor-pointer border-b border-slate-100 transition-colors duration-300 ease-in-out hover:bg-emerald-50/50"
                     >
                       <TableCell className="px-2 py-3 text-sm font-medium text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
@@ -992,7 +1040,10 @@ function MaterialsListCard() {
                         {item.quantity}
                       </TableCell>
                       <TableCell className="px-2 py-3 text-right text-sm text-slate-700 transition-colors duration-300 group-hover:text-emerald-600">
-                        {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(item.total)}
+                        {new Intl.NumberFormat("pt-PT", {
+                          style: "currency",
+                          currency: "EUR",
+                        }).format(item.total)}
                       </TableCell>
                       <TableCell className="px-2 py-3 text-center text-sm">
                         <Badge
@@ -1002,7 +1053,7 @@ function MaterialsListCard() {
                             statusColor.bg,
                             statusColor.text,
                             statusColor.border,
-                            "group-hover:bg-emerald-50/80 group-hover:text-emerald-700 group-hover:border-emerald-200"
+                            "group-hover:border-emerald-200 group-hover:bg-emerald-50/80 group-hover:text-emerald-700"
                           )}
                         >
                           {item.status}
@@ -1023,23 +1074,24 @@ function MaterialsListCard() {
 function MilestoneTrackerCard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
-  
+
   const filteredMilestones = useMemo(() => {
     let filtered = [...mockMilestones];
-    
+
     if (statusFilter !== "todos") {
-      filtered = filtered.filter(ms => ms.status === statusFilter);
+      filtered = filtered.filter((ms) => ms.status === statusFilter);
     }
-    
+
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(ms => 
-        ms.title.toLowerCase().includes(searchLower) ||
-        ms.project.toLowerCase().includes(searchLower) ||
-        ms.responsible.toLowerCase().includes(searchLower)
+      filtered = filtered.filter(
+        (ms) =>
+          ms.title.toLowerCase().includes(searchLower) ||
+          ms.project.toLowerCase().includes(searchLower) ||
+          ms.responsible.toLowerCase().includes(searchLower)
       );
     }
-    
+
     // Sort by due date (most urgent first)
     return filtered.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
   }, [searchTerm, statusFilter]);
@@ -1049,30 +1101,30 @@ function MilestoneTrackerCard() {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const isToday = date.toDateString() === today.toDateString();
     const isTomorrow = date.toDateString() === tomorrow.toDateString();
-    
+
     if (isToday) return "Hoje";
     if (isTomorrow) return "Amanhã";
-    
-    return date.toLocaleDateString('pt-PT', { 
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
+
+    return date.toLocaleDateString("pt-PT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
     });
   };
-  
+
   // Calculate days difference
   const getDaysUntil = (date: Date): number => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dueDate = new Date(date);
     dueDate.setHours(0, 0, 0, 0);
-    
+
     const diffTime = dueDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return diffDays;
   };
 
@@ -1083,7 +1135,9 @@ function MilestoneTrackerCard() {
           <div className="flex items-center gap-2">
             <Flag className="h-5 w-5 text-slate-500" />
             <div>
-              <CardTitle className="text-base font-medium text-slate-700">Milestone Tracker</CardTitle>
+              <CardTitle className="text-base font-medium text-slate-700">
+                Milestone Tracker
+              </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 Próximos entregáveis e marcos importantes
               </CardDescription>
@@ -1102,38 +1156,41 @@ function MilestoneTrackerCard() {
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-100/80 bg-white/95 shadow-lg backdrop-blur-sm">
+              <DropdownMenuContent
+                align="end"
+                className="w-48 rounded-xl border-slate-100/80 bg-white/95 shadow-lg backdrop-blur-sm"
+              >
                 <DropdownMenuLabel className="text-xs font-medium text-slate-700">
                   Status
                 </DropdownMenuLabel>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className={cn(
                     "cursor-pointer text-xs transition-colors hover:bg-slate-50",
                     statusFilter === "todos" && "font-medium text-emerald-600"
                   )}
                   onClick={() => setStatusFilter("todos")}
                 >
-                  <div className="h-2 w-2 rounded-full bg-slate-300 mr-2"></div>
+                  <div className="mr-2 h-2 w-2 rounded-full bg-slate-300"></div>
                   Todos os status
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className={cn(
                     "cursor-pointer text-xs transition-colors hover:bg-slate-50",
                     statusFilter === "pendente" && "font-medium text-emerald-600"
                   )}
                   onClick={() => setStatusFilter("pendente")}
                 >
-                  <div className="h-2 w-2 rounded-full bg-amber-400 mr-2"></div>
+                  <div className="mr-2 h-2 w-2 rounded-full bg-amber-400"></div>
                   Pendentes
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className={cn(
                     "cursor-pointer text-xs transition-colors hover:bg-slate-50",
                     statusFilter === "atrasado" && "font-medium text-emerald-600"
                   )}
                   onClick={() => setStatusFilter("atrasado")}
                 >
-                  <div className="h-2 w-2 rounded-full bg-red-500 mr-2"></div>
+                  <div className="mr-2 h-2 w-2 rounded-full bg-red-500"></div>
                   Atrasados
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -1148,7 +1205,7 @@ function MilestoneTrackerCard() {
           </div>
         </div>
       </CardHeader>
-      
+
       <div className="flex-1 overflow-auto p-4">
         {filteredMilestones.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-6 text-center">
@@ -1158,13 +1215,13 @@ function MilestoneTrackerCard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredMilestones.map(milestone => {
+            {filteredMilestones.map((milestone) => {
               const daysUntil = getDaysUntil(milestone.dueDate);
               const isLate = daysUntil < 0;
               const isUrgent = daysUntil >= 0 && daysUntil <= 2;
-              
+
               return (
-                <div 
+                <div
                   key={milestone.id}
                   className="group relative rounded-lg border border-slate-100 bg-white p-3 shadow-sm transition-all duration-200 hover:border-emerald-100 hover:shadow"
                 >
@@ -1177,14 +1234,16 @@ function MilestoneTrackerCard() {
                       ) : (
                         <Calendar className="h-4 w-4 text-emerald-500" />
                       )}
-                      <h3 className="font-medium text-slate-800 group-hover:text-emerald-600">{milestone.title}</h3>
+                      <h3 className="font-medium text-slate-800 group-hover:text-emerald-600">
+                        {milestone.title}
+                      </h3>
                     </div>
                     <Badge
                       variant="outline"
                       className={cn(
                         "rounded-full px-2 py-0.5 text-[10px]",
-                        isLate 
-                          ? "border-red-200 bg-red-50 text-red-600" 
+                        isLate
+                          ? "border-red-200 bg-red-50 text-red-600"
                           : isUrgent
                             ? "border-amber-200 bg-amber-50 text-amber-600"
                             : "border-emerald-200 bg-emerald-50 text-emerald-600"
@@ -1193,25 +1252,21 @@ function MilestoneTrackerCard() {
                       {formatDate(milestone.dueDate)}
                     </Badge>
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>{milestone.project}</span>
                     <span>{milestone.responsible}</span>
                   </div>
-                  
+
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500">Progresso: {milestone.progress}%</span>
                     </div>
                     <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100">
-                      <div 
+                      <div
                         className={cn(
                           "h-full rounded-full",
-                          isLate 
-                            ? "bg-red-500" 
-                            : isUrgent
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
+                          isLate ? "bg-red-500" : isUrgent ? "bg-amber-500" : "bg-emerald-500"
                         )}
                         style={{ width: `${milestone.progress}%` }}
                       ></div>
@@ -1229,28 +1284,36 @@ function MilestoneTrackerCard() {
 
 function FutureAllocationCard() {
   const [selectedMonth, setSelectedMonth] = useState(0);
-  
+
   // Garantindo que sempre temos pelo menos um mês de dados
-  const safeData = mockFutureAllocation.length > 0 ? mockFutureAllocation : [{
-    month: "N/A",
-    year: new Date().getFullYear(),
-    resources: []
-  }];
-  
+  const safeData = useMemo(() => {
+    return mockFutureAllocation.length > 0
+      ? mockFutureAllocation
+      : [
+          {
+            month: "N/A",
+            year: new Date().getFullYear(),
+            resources: [],
+          },
+        ];
+  }, []);
+
   const months = useMemo(() => {
     return safeData.map((item, index) => ({
       index,
-      label: `${item.month} ${item.year}`
+      label: `${item.month} ${item.year}`,
     }));
   }, [safeData]);
 
   // Garantindo que selectedMonth está dentro dos limites
   const safeSelectedMonth = Math.min(selectedMonth, safeData.length - 1);
   const currentMonthData = safeData[safeSelectedMonth];
-  
-  // Garantindo que resources existe
-  const resources = currentMonthData?.resources || [];
-  
+
+  // Garantindo que resources existe e memoizando esse valor
+  const resources = useMemo(() => {
+    return currentMonthData?.resources || [];
+  }, [currentMonthData]);
+
   // Sort resources by allocation (descending)
   const sortedResources = useMemo(() => {
     return [...resources].sort((a, b) => b.allocation - a.allocation);
@@ -1263,14 +1326,19 @@ function FutureAllocationCard() {
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-slate-500" />
             <div>
-              <CardTitle className="text-base font-medium text-slate-700">Previsão de Alocação Futura</CardTitle>
+              <CardTitle className="text-base font-medium text-slate-700">
+                Previsão de Alocação Futura
+              </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 Ocupação prevista da equipa nos próximos meses
               </CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+            <Select
+              value={selectedMonth.toString()}
+              onValueChange={(value) => setSelectedMonth(parseInt(value))}
+            >
               <SelectTrigger className="h-8 w-[120px] rounded-full bg-white/80 text-xs text-gray-600 shadow-sm transition-all duration-300 ease-in-out hover:border-emerald-200 hover:bg-slate-50/80 hover:text-emerald-500 hover:shadow">
                 <SelectValue placeholder="Mês" />
               </SelectTrigger>
@@ -1285,7 +1353,7 @@ function FutureAllocationCard() {
           </div>
         </div>
       </CardHeader>
-      
+
       <div className="flex-1 overflow-auto p-4">
         <div className="space-y-4">
           {sortedResources.map((resource, index) => (
@@ -1294,7 +1362,10 @@ function FutureAllocationCard() {
                 <div className="flex items-center gap-2">
                   <Avatar className="h-6 w-6">
                     <AvatarFallback className="bg-slate-100 text-xs text-slate-500">
-                      {resource.name.split(' ').map(n => n[0]).join('')}
+                      {resource.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium text-slate-700">{resource.name}</span>
@@ -1313,10 +1384,10 @@ function FutureAllocationCard() {
                   {resource.allocation}%
                 </Badge>
               </div>
-              
+
               <div className="ml-8 space-y-1">
                 <div className="h-2 w-full rounded-full bg-slate-100">
-                  <div 
+                  <div
                     className={cn(
                       "h-full rounded-full",
                       resource.allocation > 95
@@ -1328,7 +1399,7 @@ function FutureAllocationCard() {
                     style={{ width: `${resource.allocation}%` }}
                   ></div>
                 </div>
-                
+
                 <div className="flex flex-wrap gap-1">
                   {resource.projects.map((project, idx) => (
                     <Badge
@@ -1389,7 +1460,7 @@ export default function GestorDashboard() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8">
       <div className="max-w-8xl mx-auto space-y-6">
         {/* Header */}
-         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-slate-800">Painel do Gestor</h1>
             <p className="text-sm text-slate-500">Visão geral dos seus projetos e equipa.</p>
@@ -1405,17 +1476,17 @@ export default function GestorDashboard() {
           <div className="lg:col-span-6">
             <ResourceOccupationCard />
           </div>
-          
+
           {/* Lista de Materiais - ocupa 6 colunas */}
           <div className="lg:col-span-6">
             <MaterialsListCard />
           </div>
-          
+
           {/* Milestone Tracker - ocupa 6 colunas */}
           <div className="lg:col-span-6">
             <MilestoneTrackerCard />
           </div>
-          
+
           {/* Previsão de Alocação Futura - ocupa 6 colunas */}
           <div className="lg:col-span-6">
             <FutureAllocationCard />
@@ -1424,4 +1495,4 @@ export default function GestorDashboard() {
       </div>
     </div>
   );
-} 
+}

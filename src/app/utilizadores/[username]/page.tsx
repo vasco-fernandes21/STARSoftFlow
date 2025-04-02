@@ -278,12 +278,10 @@ export default function PerfilUtilizador() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-slate-800">Utilizador não encontrado</h1>
-          <p className="mt-2 text-slate-500">O utilizador que procura não existe ou foi removido.</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => router.push("/utilizadores")}
-          >
+          <p className="mt-2 text-slate-500">
+            O utilizador que procura não existe ou foi removido.
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => router.push("/utilizadores")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar à lista
           </Button>

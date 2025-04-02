@@ -56,4 +56,4 @@ export default function Page() {
 
   // Renderizar o dashboard do gestor
   return <GestorDashboard />;
-} 
+}

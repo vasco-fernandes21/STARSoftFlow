@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabNavigation } from "../../components/TabNavigation";
-import { Users, Briefcase, Plus, Trash2, User as UserIcon, Edit, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Briefcase, Plus } from "lucide-react";
+// These icons might be needed in the future:
+// import { Trash2, UserIcon, Edit, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
-import { pt } from "date-fns/locale";
+// Date utilities not currently used:
+// import { format } from "date-fns";
+// import { pt } from "date-fns/locale";
 import { toast } from "sonner";
 import React from "react";
 import { Decimal } from "decimal.js";
@@ -51,7 +54,9 @@ const transformUser = (user: any) => ({
 });
 
 // Transform alocacoesPorAnoMes into the expected format
-const transformAlocacoes = (alocacoesPorAnoMes: Record<string, Record<number, number>>): Alocacao[] => {
+const transformAlocacoes = (
+  alocacoesPorAnoMes: Record<string, Record<number, number>>
+): Alocacao[] => {
   return Object.entries(alocacoesPorAnoMes).flatMap(([ano, meses]) =>
     Object.entries(meses).map(([mes, ocupacao]) => ({
       mes: parseInt(mes),
@@ -63,7 +68,7 @@ const transformAlocacoes = (alocacoesPorAnoMes: Record<string, Record<number, nu
 
 // Transform alocacoes to include userId for the API
 const transformAlocacoesForApi = (userId: string, alocacoes: Alocacao[]) => {
-  return alocacoes.map(alocacao => ({
+  return alocacoes.map((alocacao) => ({
     ...alocacao,
     userId,
   }));
@@ -74,7 +79,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   const [selectedWorkpackageId, setSelectedWorkpackageId] = useState<string>("");
   const [addingRecurso, setAddingRecurso] = useState(false);
   const [expandedRecursoId, setExpandedRecursoId] = useState<string | null>(null);
-  const [editingRecursoId, setEditingRecursoId] = useState<string | null>(null);
   const [recursoEmEdicao, setRecursoEmEdicao] = useState<{
     userId: string;
     alocacoes: any[];
@@ -180,7 +184,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     setAddingRecurso(false);
     setRecursoEmEdicao(null);
     setExpandedRecursoId(null);
-    setEditingRecursoId(null);
   };
 
   // Função para remover recurso
@@ -209,7 +212,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     setAddingRecurso(false);
     setExpandedRecursoId(null);
     setRecursoEmEdicao(null);
-    setEditingRecursoId(null);
   }, [selectedWorkpackageId]);
 
   return (
@@ -360,12 +362,17 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                         alocacoes={transformAlocacoes(alocacoesPorAnoMes)}
                         isExpanded={isExpanded}
                         onToggleExpand={() => setExpandedRecursoId(isExpanded ? null : userId)}
-                        onRemove={() => handleRemoveRecurso(selectedWorkpackageId, userId, recurso.alocacoes)}
+                        onRemove={() =>
+                          handleRemoveRecurso(selectedWorkpackageId, userId, recurso.alocacoes)
+                        }
                         inicio={selectedWorkpackage?.inicio || new Date()}
                         fim={selectedWorkpackage?.fim || new Date()}
                         projetoEstado={"RASCUNHO"}
-                        onUpdateAlocacao={(userId, alocacoes) => 
-                          handleAddAlocacao(selectedWorkpackageId, transformAlocacoesForApi(userId, alocacoes))
+                        onUpdateAlocacao={(userId, alocacoes) =>
+                          handleAddAlocacao(
+                            selectedWorkpackageId,
+                            transformAlocacoesForApi(userId, alocacoes)
+                          )
                         }
                         workpackageId={selectedWorkpackageId}
                         utilizadores={membrosEquipa.map(transformUser)}

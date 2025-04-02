@@ -305,21 +305,22 @@ export function DateField({
   id,
   disabled,
 }: DateFieldProps) {
-  const _disabled = disabled;
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
         {label}
       </FormLabel>
-      <DatePicker
-        value={value ?? undefined}
-        onChange={(date) => {
-          console.log("DateField onChange:", date);
-          if (onChange) onChange(date ?? null);
-        }}
-        minDate={minDate}
-        maxDate={maxDate}
-      />
+      <div className={disabled ? "pointer-events-none opacity-60" : ""}>
+        <DatePicker
+          value={value ?? undefined}
+          onChange={(date) => {
+            console.log("DateField onChange:", date);
+            if (onChange) onChange(date ?? null);
+          }}
+          minDate={minDate}
+          maxDate={maxDate}
+        />
+      </div>
       {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
     </div>
   );
@@ -407,7 +408,6 @@ export function NumberField({
   id,
   disabled,
 }: NumberFieldProps) {
-  const _disabled = disabled;
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
@@ -437,7 +437,7 @@ export function NumberField({
           min={min}
           max={max}
           required={required}
-          disabled={_disabled}
+          disabled={disabled}
         />
         {suffix && (
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
@@ -480,7 +480,6 @@ export function DropdownField({
   disabled,
   triggerClassName,
 }: DropdownFieldProps) {
-  const _disabled = disabled;
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
@@ -492,7 +491,7 @@ export function DropdownField({
       <DropdownMenu>
         <DropdownMenuTrigger
           id={id}
-          disabled={_disabled}
+          disabled={disabled}
           className={cn(
             "flex w-full items-center justify-between",
             "h-10 px-3 py-2 text-sm",

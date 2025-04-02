@@ -39,6 +39,11 @@ export function TarefaForm({
       return;
     }
 
+    if (!formData.inicio || !formData.fim) {
+      toast.error("As datas de início e fim são obrigatórias");
+      return;
+    }
+
     if (formData.fim < formData.inicio) {
       toast.error("A data de fim não pode ser anterior à data de início");
       return;
@@ -102,7 +107,16 @@ export function TarefaForm({
             </div>
             <DatePicker
               value={formData.inicio}
-              onChange={(date) => date && setFormData({ ...formData, inicio: date })}
+              onChange={(date) => {
+                if (date) {
+                  // Adjust fim if it's before the new inicio
+                  if (formData.fim && date > formData.fim) {
+                    setFormData({ ...formData, inicio: date, fim: date });
+                  } else {
+                    setFormData({ ...formData, inicio: date });
+                  }
+                }
+              }}
               minDate={workpackageInicio}
               maxDate={workpackageFim}
             />
@@ -116,7 +130,16 @@ export function TarefaForm({
             </div>
             <DatePicker
               value={formData.fim}
-              onChange={(date) => date && setFormData({ ...formData, fim: date })}
+              onChange={(date) => {
+                if (date) {
+                  // Adjust inicio if it's after the new fim
+                  if (formData.inicio && date < formData.inicio) {
+                    setFormData({ ...formData, inicio: date, fim: date });
+                  } else {
+                    setFormData({ ...formData, fim: date });
+                  }
+                }
+              }}
               minDate={formData.inicio || workpackageInicio}
               maxDate={workpackageFim}
             />

@@ -206,13 +206,13 @@ export const utilizadorRouter = createTRPCRouter({
         // Verificar se o workpackage existe
         const workpackage = await ctx.db.workpackage.findUnique({
           where: { id: workpackageId },
-          include: { projeto: true }
+          include: { projeto: true },
         });
 
         if (!workpackage) {
           return {
             isValid: false,
-            message: "Workpackage não encontrado"
+            message: "Workpackage não encontrado",
           };
         }
 
@@ -224,20 +224,23 @@ export const utilizadorRouter = createTRPCRouter({
         if (!user) {
           return {
             isValid: false,
-            message: "Utilizador não encontrado"
+            message: "Utilizador não encontrado",
           };
         }
 
         // Validar se a data está dentro do período do workpackage
         if (workpackage.inicio && workpackage.fim) {
           const dataAlocacao = new Date(ano, mes - 1); // Mês é 0-indexed em JS
-          const inicioMes = new Date(workpackage.inicio.getFullYear(), workpackage.inicio.getMonth());
+          const inicioMes = new Date(
+            workpackage.inicio.getFullYear(),
+            workpackage.inicio.getMonth()
+          );
           const fimMes = new Date(workpackage.fim.getFullYear(), workpackage.fim.getMonth());
 
           if (dataAlocacao < inicioMes || dataAlocacao > fimMes) {
             return {
               isValid: false,
-              message: `A alocação deve estar dentro do período do workpackage (${format(workpackage.inicio, 'MM/yyyy')} - ${format(workpackage.fim, 'MM/yyyy')})`
+              message: `A alocação deve estar dentro do período do workpackage (${format(workpackage.inicio, "MM/yyyy")} - ${format(workpackage.fim, "MM/yyyy")})`,
             };
           }
         }
@@ -275,7 +278,7 @@ export const utilizadorRouter = createTRPCRouter({
         if (novaOcupacaoTotal.greaterThan(1)) {
           return {
             isValid: false,
-            message: `A ocupação total para ${user.name || userId} em ${mes}/${ano} excederia 100% (${novaOcupacaoTotal.times(100).toFixed(0)}%). Ocupação já alocada: ${somaOcupacoesExistentes.times(100).toFixed(0)}%.`
+            message: `A ocupação total para ${user.name || userId} em ${mes}/${ano} excederia 100% (${novaOcupacaoTotal.times(100).toFixed(0)}%). Ocupação já alocada: ${somaOcupacoesExistentes.times(100).toFixed(0)}%.`,
           };
         }
 
@@ -283,14 +286,14 @@ export const utilizadorRouter = createTRPCRouter({
         if (workpackage.projeto && ["APROVADO", "CONCLUIDO"].includes(workpackage.projeto.estado)) {
           return {
             isValid: false,
-            message: `Não é possível modificar alocações em projetos com status ${workpackage.projeto.estado}`
+            message: `Não é possível modificar alocações em projetos com status ${workpackage.projeto.estado}`,
           };
         }
 
         // Todas as validações passaram
         return {
           isValid: true,
-          message: null
+          message: null,
         };
       } catch (error) {
         console.error("Erro na validação da alocação:", error);

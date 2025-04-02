@@ -21,7 +21,7 @@ import { Decimal } from "decimal.js";
 import { generateUUID } from "@/server/api/utils/token";
 import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
+import { Save, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +71,7 @@ export interface WorkpackageHandlers {
 function ProjetoFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const rascunhoId = searchParams?.get('rascunhoId') || null;
+  const rascunhoId = searchParams?.get("rascunhoId") || null;
   const { state, dispatch } = useProjetoForm();
   const [faseAtual, setFaseAtual] = useState<FaseType>("informacoes");
   const [fasesConcluidas, setFasesConcluidas] = useState<Record<FaseType, boolean>>(
@@ -91,14 +91,17 @@ function ProjetoFormContent() {
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       refetchOnReconnect: false,
-      retry: false
+      retry: false,
     }
   );
 
   // Carregar rascunho quando disponível
   useEffect(() => {
     if (draftData?.conteudo) {
-      dispatch({ type: 'SET_STATE', state: JSON.parse(JSON.stringify(draftData.conteudo)) as unknown as ProjetoState });
+      dispatch({
+        type: "SET_STATE",
+        state: JSON.parse(JSON.stringify(draftData.conteudo)) as unknown as ProjetoState,
+      });
       toast.success("Rascunho carregado com sucesso!");
     }
   }, [draftData, dispatch]);
@@ -433,6 +436,8 @@ function ProjetoFormContent() {
             {...commonProps}
             workpackages={state.workpackages}
             handlers={workpackageHandlers}
+            projetoInicio={state.inicio}
+            projetoFim={state.fim}
           />
         );
       case "recursos":
@@ -585,7 +590,9 @@ function ProjetoFormContent() {
 // Wrapper component to handle Suspense
 function ProjetoFormWrapper() {
   return (
-    <Suspense fallback={<div className="flex h-full items-center justify-center">A carregar...</div>}>
+    <Suspense
+      fallback={<div className="flex h-full items-center justify-center">A carregar...</div>}
+    >
       <ProjetoFormContentWrapper />
     </Suspense>
   );
@@ -604,19 +611,45 @@ export default function CriarProjetoPage() {
 
 function ProjetoFormContentWrapper() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rascunhoId = searchParams?.get("rascunhoId");
   const { state } = useProjetoForm();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Mutation para guardar rascunho
   const saveDraftMutation = api.rascunho.create.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       toast.success("Rascunho guardado com sucesso!");
-      router.push(`/projetos/criar?rascunhoId=${data.id}`);
+      router.push("/projetos");
       setShowSaveDialog(false);
     },
     onError: (error) => {
       toast.error(error.message || "Erro ao guardar rascunho");
-    }
+    },
+  });
+
+  // Mutation para atualizar rascunho
+  const updateDraftMutation = api.rascunho.update.useMutation({
+    onSuccess: (_data) => {
+      toast.success("Rascunho atualizado com sucesso!");
+      router.push("/projetos");
+      setShowSaveDialog(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao atualizar rascunho");
+    },
+  });
+
+  // Mutation para apagar rascunho
+  const deleteDraftMutation = api.rascunho.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Rascunho apagado com sucesso!");
+      router.push("/projetos");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao apagar rascunho");
+    },
   });
 
   // Função para guardar rascunho
@@ -628,42 +661,96 @@ function ProjetoFormContentWrapper() {
 
     try {
       // Clean up state before saving
-      const cleanState = JSON.parse(JSON.stringify(state, (key, value) => {
-        // Handle Date objects
-        if (value instanceof Date) {
-          return value.toISOString();
-        }
-        // Handle Decimal objects
-        if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
-          return value.toString();
-        }
-        return value;
-      }));
+      const cleanState = JSON.parse(
+        JSON.stringify(state, (key, value) => {
+          // Handle Date objects
+          if (value instanceof Date) {
+            return value.toISOString();
+          }
+          // Handle Decimal objects
+          if (value && typeof value === "object" && value.constructor?.name === "Decimal") {
+            return value.toString();
+          }
+          return value;
+        })
+      );
 
-      saveDraftMutation.mutate({
-        titulo: state.nome,
-        conteudo: cleanState
-      });
+      if (rascunhoId) {
+        // Se tiver rascunhoId, atualizar o rascunho existente
+        updateDraftMutation.mutate({
+          id: rascunhoId,
+          titulo: state.nome,
+          conteudo: cleanState,
+        });
+      } else {
+        // Se não tiver rascunhoId, criar novo rascunho
+        saveDraftMutation.mutate({
+          titulo: state.nome,
+          conteudo: cleanState,
+        });
+      }
     } catch (error) {
-      console.error('Erro ao processar estado:', error);
-      toast.error('Erro ao processar dados do rascunho');
+      console.error("Erro ao processar estado:", error);
+      toast.error("Erro ao processar dados do rascunho");
+    }
+  };
+
+  // Função para apagar rascunho
+  const handleDeleteDraft = () => {
+    if (rascunhoId) {
+      deleteDraftMutation.mutate({ id: rascunhoId });
+      setShowDeleteDialog(false);
     }
   };
 
   return (
     <div className="flex h-full flex-col">
+      {/* Dialog para guardar rascunho */}
       <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Guardar Rascunho</AlertDialogTitle>
+            <AlertDialogTitle>
+              {rascunhoId ? "Atualizar Rascunho" : "Guardar Rascunho"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza que deseja guardar este projeto como rascunho?
+              {rascunhoId
+                ? "Tem a certeza que deseja atualizar este rascunho?"
+                : "Tem a certeza que deseja guardar este projeto como rascunho?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSaveDraft} disabled={saveDraftMutation.status === 'pending'}>
-              {saveDraftMutation.status === 'pending' ? "A guardar..." : "Guardar"}
+            <AlertDialogAction
+              onClick={handleSaveDraft}
+              disabled={saveDraftMutation.status === "pending" || updateDraftMutation.status === "pending"}
+            >
+              {saveDraftMutation.status === "pending" || updateDraftMutation.status === "pending"
+                ? "A guardar..."
+                : rascunhoId
+                ? "Atualizar"
+                : "Guardar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para apagar rascunho */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar Rascunho</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza que deseja apagar este rascunho? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteDraft}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteDraftMutation.status === "pending"}
+            >
+              {deleteDraftMutation.status === "pending" ? "A apagar..." : "Apagar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -677,13 +764,19 @@ function ProjetoFormContentWrapper() {
         </div>
 
         <div className="mt-4 flex-shrink-0 space-x-2 md:mt-0">
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => setShowSaveDialog(true)}
-          >
+          {rascunhoId && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="outline" className="gap-2" onClick={() => setShowSaveDialog(true)}>
             <Save className="h-4 w-4" />
-            Guardar Rascunho
+            {rascunhoId ? "Guardar Alterações" : "Guardar Rascunho"}
           </Button>
           <ImportarProjetoButton />
         </div>

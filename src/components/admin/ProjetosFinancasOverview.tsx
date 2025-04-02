@@ -13,11 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ChevronRight,
-  ChevronDown,
-  Users,
-} from "lucide-react";
+import { ChevronRight, ChevronDown, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import Link from "next/link";

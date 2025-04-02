@@ -282,34 +282,34 @@ export const materialRouter = createTRPCRouter({
       try {
         // Construir condições where baseadas nos filtros
         const where: Prisma.MaterialWhereInput = {};
-        
+
         // Filtrar por ano se fornecido
         if (input.ano) {
           where.ano_utilizacao = input.ano;
         }
-        
+
         // Filtrar por estado se fornecido
         if (input.estado !== undefined) {
           where.estado = input.estado;
         }
-        
+
         // Filtrar por projeto se fornecido
         if (input.projetoId) {
           where.workpackage = {
-            projetoId: input.projetoId
+            projetoId: input.projetoId,
           };
         }
-        
+
         // Implementar pesquisa por termo
         if (input.searchTerm && input.searchTerm.trim() !== "") {
           const term = input.searchTerm.trim();
           where.OR = [
             { nome: { contains: term, mode: "insensitive" } },
             { descricao: { contains: term, mode: "insensitive" } },
-            { workpackage: { nome: { contains: term, mode: "insensitive" } } }
+            { workpackage: { nome: { contains: term, mode: "insensitive" } } },
           ];
         }
-        
+
         // Buscar materiais com filtros aplicados
         const materiais = await ctx.db.material.findMany({
           where,
@@ -327,12 +327,9 @@ export const materialRouter = createTRPCRouter({
               },
             },
           },
-          orderBy: [
-            { ano_utilizacao: "desc" },
-            { nome: "asc" },
-          ],
+          orderBy: [{ ano_utilizacao: "desc" }, { nome: "asc" }],
         });
-        
+
         return materiais;
       } catch (error) {
         console.error("Erro ao buscar materiais:", error);

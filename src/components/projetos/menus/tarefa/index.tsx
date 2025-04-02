@@ -232,7 +232,6 @@ export function MenuTarefa({ tarefaId, open, onClose, onUpdate, projetoId }: Men
             <div className="space-y-6 p-5">
               <TarefaInformacoes
                 tarefa={tarefa}
-                tarefaId={tarefa.id}
                 onUpdate={handleTarefaStateUpdate}
                 onToggleEstado={handleToggleEstado}
               />
@@ -243,7 +242,6 @@ export function MenuTarefa({ tarefaId, open, onClose, onUpdate, projetoId }: Men
                 addingEntregavel={addingEntregavel}
                 setAddingEntregavel={setAddingEntregavel}
                 onUpdate={() => onUpdate({}, tarefa.workpackageId)}
-                projetoId={projetoId}
                 onCreateEntregavel={handleCreateEntregavel}
                 onUpdateEntregavel={handleUpdateEntregavel}
                 onDeleteEntregavel={handleDeleteEntregavel}
