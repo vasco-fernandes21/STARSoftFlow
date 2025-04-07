@@ -39,6 +39,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useSession } from "next-auth/react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));
@@ -196,15 +197,44 @@ const ProjectHeader = memo(
     nome,
     descricao,
     editTrigger,
+    onViewModeChange,
+    viewMode,
+    canToggleView,
   }: {
     nome: string;
     descricao?: string | null;
     editTrigger?: React.ReactNode;
+    onViewModeChange?: (mode: 'real' | 'submetido') => void;
+    viewMode?: 'real' | 'submetido';
+    canToggleView?: boolean;
   }) => (
     <div className="w-full space-y-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">{nome}</h1>
-        {editTrigger}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">{nome}</h1>
+          {editTrigger}
+        </div>
+        
+        {canToggleView && onViewModeChange && (
+          <div className="flex items-center gap-2">
+            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && onViewModeChange(v as 'real' | 'submetido')}>
+              <ToggleGroupItem value="real" aria-label="Ver dados reais" className={cn(
+                "flex items-center gap-2 px-3 py-2 text-sm",
+                viewMode === 'real' ? "bg-blue-50 text-blue-700" : "text-gray-600"
+              )}>
+                <LineChart className="h-4 w-4" />
+                <span>Dados Reais</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="submetido" aria-label="Ver dados submetidos" className={cn(
+                "flex items-center gap-2 px-3 py-2 text-sm",
+                viewMode === 'submetido' ? "bg-amber-50 text-amber-700" : "text-gray-600"
+              )}>
+                <FileText className="h-4 w-4" />
+                <span>Dados Submetidos</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        )}
       </div>
 
       {descricao && (
@@ -322,6 +352,7 @@ const ProjectTabs = memo(
     calculatedValues,
     onUpdateWorkPackage,
     onUpdateTarefa,
+    disableInteractions,
   }: {
     separadorAtivo: string;
     onTabChange: (value: string) => void;
@@ -329,6 +360,7 @@ const ProjectTabs = memo(
     calculatedValues: any;
     onUpdateWorkPackage: () => Promise<void>;
     onUpdateTarefa: () => Promise<void>;
+    disableInteractions: boolean;
   }) => (
     <Tabs value={separadorAtivo} onValueChange={onTabChange} className="flex flex-1 flex-col">
       <div className="w-full">
@@ -402,7 +434,7 @@ const ProjectTabs = memo(
                     projetoId={projeto.id}
                     options={{
                       leftColumnWidth: 300,
-                      disableInteractions: false,
+                      disableInteractions: disableInteractions,
                     }}
                   />
                 </div>
@@ -451,6 +483,21 @@ const ProjectTabs = memo(
   )
 );
 
+// Adicionar antes do componente principal:
+const getProjetoData = (projeto: any, viewMode: 'real' | 'submetido') => {
+  if (!projeto) return null;
+  
+  if (viewMode === 'submetido' && projeto.estado === "APROVADO" && projeto.aprovado) {
+    return {
+      ...projeto.aprovado,
+      id: projeto.id, // Mantemos o ID original
+      estado: projeto.estado, // Mantemos o estado original
+    };
+  }
+  
+  return projeto;
+};
+
 // Componente principal
 export default function DetalheProjeto() {
   const router = useRouter();
@@ -461,6 +508,7 @@ export default function DetalheProjeto() {
   const { isGestor, isAdmin } = usePermissions();
   const { data: session } = useSession();
   const usuarioAtualId = session?.user?.id;
+  const [viewMode, setViewMode] = useState<'real' | 'submetido'>('real');
 
   // Query principal do projeto
   const {
@@ -588,6 +636,9 @@ export default function DetalheProjeto() {
   const { totalTarefas, tarefasConcluidas, tarefasPendentes, dataInicio, dataFim, duracaoMeses } =
     calculatedValues;
 
+  const projetoData = getProjetoData(projeto, viewMode);
+  const canToggleView = projeto.estado === "APROVADO" && !!projeto.aprovado;
+
   return (
     <div className="h-full bg-[#F7F9FC] p-8">
       <div className="max-w-8xl mx-auto space-y-4">
@@ -607,27 +658,31 @@ export default function DetalheProjeto() {
               <EditarProjeto projeto={projetoFormatado} financiamentos={financiamentos} />
             ) : null
           }
+          onViewModeChange={setViewMode}
+          viewMode={viewMode}
+          canToggleView={canToggleView}
         />
 
         <StatisticsCards
-          workpackagesCount={projeto.workpackages.length}
+          workpackagesCount={projetoData?.workpackages.length ?? 0}
           totalTarefas={totalTarefas}
           tarefasConcluidas={tarefasConcluidas}
           tarefasPendentes={tarefasPendentes}
           dataInicio={dataInicio}
           dataFim={dataFim}
           duracaoMeses={duracaoMeses}
-          progresso={projeto.progresso}
+          progresso={projetoData?.progresso ?? 0}
           estado={projeto.estado}
         />
 
         <ProjectTabs
           separadorAtivo={separadorAtivo}
           onTabChange={setSeparadorAtivo}
-          projeto={projeto}
+          projeto={projetoData}
           calculatedValues={calculatedValues}
           onUpdateWorkPackage={handleUpdateWorkPackage}
           onUpdateTarefa={handleUpdateTarefa}
+          disableInteractions={viewMode === 'submetido'}
         />
       </div>
     </div>

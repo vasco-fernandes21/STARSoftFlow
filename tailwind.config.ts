@@ -23,6 +23,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)"],
+      },
       colors: {
         azul: {
           DEFAULT: "#2C5697",

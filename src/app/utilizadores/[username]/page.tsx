@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -31,11 +31,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/trpc/react";
-import type { Permissao, Regime } from "@prisma/client";
+import type { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { AlocacoesDetalhadas } from "./AlocacoesDetalhadas";
 import { TabelaAlocacoes } from "./TabelaAlocacoes";
 import { z } from "zod";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { toast } from "sonner";
+import type { ViewMode } from "@/types/projeto";
 
 // Interfaces e mapeamentos
 interface UserWithDetails {
@@ -54,47 +57,18 @@ interface UserWithDetails {
 
 // Interface para os dados recebidos da API
 interface AlocacaoAPI {
+  workpackageId: string;
+  workpackageNome: string;
+  projetoId: string;
+  projetoNome: string;
+  projetoEstado?: ProjetoEstado;
   mes: number;
   ano: number;
   ocupacao: number;
 }
 
-interface Workpackage {
-  id: string;
-  nome: string;
-  descricao: string;
-  inicio: Date;
-  fim: Date;
-  estado: string;
-  alocacoes: AlocacaoAPI[];
-}
-
-interface Projeto {
-  id: string;
-  nome: string;
-  descricao: string;
-  inicio: Date;
-  fim: Date;
-  workpackages: Workpackage[];
-}
-
-// Interface para o componente AlocacoesDetalhadas
+// Interface para alocação detalhada
 interface AlocacaoDetalhada {
-  ano: number | string;
-  mes: number;
-  ocupacao: number;
-  workpackage: {
-    id: string;
-    nome: string;
-  };
-  projeto: {
-    id: string;
-    nome: string;
-  };
-}
-
-// Interface para o componente TabelaAlocacoes
-interface AlocacaoOriginal {
   ano: number;
   mes: number;
   ocupacao: number;
@@ -105,10 +79,11 @@ interface AlocacaoOriginal {
   projeto: {
     id: string;
     nome: string;
+    estado?: ProjetoEstado;
   };
 }
 
-// Interface para o próximo workpackage
+// Interface para próximo workpackage
 interface ProximoWorkpackage {
   id: string;
   nome: string;
@@ -139,11 +114,7 @@ const getRegimeText = (regime: Regime) => {
   return REGIME_LABELS[regime] || regime;
 };
 
-const formatarData = (data: Date | null | undefined) => {
-  if (!data) return "Não definido";
-  return new Date(data).toLocaleDateString("pt-PT");
-};
-
+// Função para calcular anos de experiência
 const calcularAnosExperiencia = (dataContratacao: Date | null | undefined) => {
   if (!dataContratacao) return 0;
   const hoje = new Date();
@@ -174,93 +145,137 @@ const utilizadorSchema = z.object({
 export default function PerfilUtilizador() {
   const router = useRouter();
   const params = useParams<{ username: string }>();
-  const [activeTab, setActiveTab] = useState<string>("perfil");
+  const username = params?.username || "";
 
-  // Dados do utilizador
-  const {
+  // Estados
+  const [activeTab, setActiveTab] = useState<string>("perfil");
+  const [viewMode, setViewMode] = useState<ViewMode>('real');
+  const currentYear = new Date().getFullYear();
+
+  // Query única para dados do utilizador
+  const { 
     data: utilizador,
-    isLoading: isLoadingUser,
-    error: userError,
-  } = api.utilizador.getByUsername.useQuery(params?.username ?? "", {
-    enabled: !!params?.username,
+    isLoading: isLoadingUtilizador,
+    error: utilizadorError,
+  } = api.utilizador.getByUsername.useQuery(username, {
+    enabled: !!username,
     refetchOnWindowFocus: false,
   });
 
-  // Dados das alocações
-  const { data: projetos, isLoading: isLoadingProjetos } =
-    api.utilizador.getProjetosWithUser.useQuery(utilizador?.id ?? "", {
-      enabled: !!utilizador?.id,
-      refetchOnWindowFocus: false,
-    });
+  const { 
+    data: alocacoes, 
+    isLoading: isLoadingAlocacoes 
+  } = api.utilizador.getAlocacoes.useQuery({
+    userId: utilizador?.id || "",
+    ano: currentYear,
+  }, {
+    enabled: !!utilizador?.id,
+    refetchOnWindowFocus: false,
+  });
 
-  // Estado de carregamento geral
-  const isLoading = isLoadingUser || isLoadingProjetos;
+  // Transformar dados para o formato da tabela
+  const alocacoesTabela = useMemo(() => {
+    if (!alocacoes) return {
+      real: [],
+      submetido: [],
+      anos: [currentYear]
+    };
+    
+    const transformarAlocacoes = (dados: AlocacaoAPI[]) => dados.map((alocacao) => ({
+      workpackage: {
+        id: alocacao.workpackageId,
+        nome: alocacao.workpackageNome,
+      },
+      projeto: {
+        id: alocacao.projetoId,
+        nome: alocacao.projetoNome,
+        estado: alocacao.projetoEstado || "RASCUNHO",
+      },
+      mes: alocacao.mes,
+      ano: alocacao.ano,
+      ocupacao: alocacao.ocupacao,
+    }));
+
+    return {
+      real: transformarAlocacoes(alocacoes.real),
+      submetido: transformarAlocacoes(alocacoes.submetido),
+      anos: alocacoes.anos ?? [currentYear]
+    };
+  }, [alocacoes, currentYear]);
 
   // Preparar dados para os componentes
-  const alocacoesDetalhadas: AlocacaoDetalhada[] = useMemo(
+  const alocacoesDetalhadas = useMemo<AlocacaoDetalhada[]>(
     () =>
-      projetos?.flatMap((projeto: Projeto) =>
-        projeto.workpackages.flatMap((wp: Workpackage) =>
-          wp.alocacoes.map((alocacao) => ({
-            ...alocacao,
-            ocupacao: Number(alocacao.ocupacao),
-            projeto: {
-              id: projeto.id,
-              nome: projeto.nome,
-            },
-            workpackage: {
-              id: wp.id,
-              nome: wp.nome,
-            },
-          }))
-        )
-      ) ?? [],
-    [projetos]
-  );
-
-  // Converter alocacoesDetalhadas para alocacoesTabela para manter a tipagem correta
-  const alocacoesTabela: AlocacaoOriginal[] = useMemo(
-    () =>
-      alocacoesDetalhadas.map((alocacao) => ({
-        ...alocacao,
-        ano: Number(alocacao.ano),
-        ocupacao: Number(alocacao.ocupacao),
-        projeto: {
-          id: alocacao.projeto.id,
-          nome: alocacao.projeto.nome,
-        },
+      alocacoes?.real?.map((alocacao) => ({
+        ano: alocacao.ano,
+        mes: alocacao.mes,
+        ocupacao: alocacao.ocupacao,
         workpackage: {
-          id: alocacao.workpackage.id,
-          nome: alocacao.workpackage.nome,
+          id: alocacao.workpackageId,
+          nome: alocacao.workpackageNome,
         },
-      })),
-    [alocacoesDetalhadas]
+        projeto: {
+          id: alocacao.projetoId,
+          nome: alocacao.projetoNome,
+          estado: alocacao.projetoEstado,
+        },
+      })) ?? [],
+    [alocacoes?.real]
   );
 
-  // Encontrar o próximo workpackage (com data de início mais próxima)
+  // Handler para mudança de modo de visualização
+  const handleViewModeChange = (mode: ViewMode) => {
+    if (mode === 'submetido' && !projetoAprovado) {
+      toast.warning("Não existem dados submetidos para visualizar.");
+      return;
+    }
+    setViewMode(mode);
+  };
+
+  // Estado de carregamento geral
+  const isLoading = isLoadingUtilizador || isLoadingAlocacoes;
+
+  // Encontrar o próximo workpackage
   const proximoWorkpackage = useMemo<ProximoWorkpackage | null>(() => {
+    if (!alocacoes?.real || alocacoes.real.length === 0) return null;
+
     const agora = new Date();
-    if (!projetos || projetos.length === 0) return null;
+    const projetosUnicos = new Map<string, { nome: string; workpackages: AlocacaoAPI[] }>();
+    
+    alocacoes.real.forEach((alocacao) => {
+      if (!projetosUnicos.has(alocacao.projetoId)) {
+        projetosUnicos.set(alocacao.projetoId, {
+          nome: alocacao.projetoNome,
+          workpackages: [],
+        });
+      }
+      projetosUnicos.get(alocacao.projetoId)?.workpackages.push(alocacao);
+    });
 
     let candidato: ProximoWorkpackage | null = null;
     let menorDiferenca = Infinity;
 
-    projetos.forEach((projeto: Projeto) => {
-      projeto.workpackages.forEach((wp: Workpackage) => {
-        const dataInicio = new Date(wp.inicio);
+    projetosUnicos.forEach((projeto, projetoId) => {
+      const workpackagesUnicos = new Map<string, AlocacaoAPI>();
+      projeto.workpackages.forEach((wp) => {
+        if (!workpackagesUnicos.has(wp.workpackageId)) {
+          workpackagesUnicos.set(wp.workpackageId, wp);
+        }
+      });
 
-        // Considerar apenas workpackages futuros
+      workpackagesUnicos.forEach((wp) => {
+        const dataInicio = new Date(wp.ano, wp.mes - 1);
+
         if (dataInicio > agora) {
           const diferenca = dataInicio.getTime() - agora.getTime();
-
           if (diferenca < menorDiferenca) {
             menorDiferenca = diferenca;
             candidato = {
-              id: wp.id,
-              nome: wp.nome,
-              dataInicio: dataInicio,
+              id: wp.workpackageId,
+              nome: wp.workpackageNome,
+              dataInicio,
               projeto: {
-                id: projeto.id,
+                id: projetoId,
                 nome: projeto.nome,
               },
             };
@@ -270,7 +285,21 @@ export default function PerfilUtilizador() {
     });
 
     return candidato;
-  }, [projetos]);
+  }, [alocacoes?.real]);
+
+  // Encontrar o projeto aprovado e seus dados
+  const projetoAprovado = useMemo(() => {
+    const aprovados = alocacoes?.real?.filter(p => p.projetoEstado === "APROVADO") ?? [];
+    return aprovados.length > 0;
+  }, [alocacoes?.real]);
+
+  // Resetar para modo real quando não houver dados submetidos
+  useEffect(() => {
+    if (viewMode === 'submetido' && !alocacoes?.submetido) {
+      setViewMode('real');
+      toast.warning("Voltando para dados reais pois não existem dados submetidos.");
+    }
+  }, [viewMode, alocacoes?.submetido]);
 
   // Early return if no username is found
   if (!params?.username) {
@@ -290,20 +319,18 @@ export default function PerfilUtilizador() {
     );
   }
 
-  // Componente de loading
+  // Early return for loading state
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white to-gray-50">
-        <div className="relative h-16 w-16 animate-spin">
-          <div className="absolute inset-0 rounded-full border-b-2 border-t-2 border-azul/30"></div>
-          <div className="absolute inset-0 animate-pulse rounded-full border-t-2 border-azul"></div>
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500/20 border-t-blue-500"></div>
+        <span className="ml-3">A carregar...</span>
       </div>
     );
   }
 
-  // Componente de erro
-  if (userError || !utilizador) {
+  // Early return for error state
+  if (utilizadorError || !utilizador) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-white to-gray-50 p-6">
         <div className="w-full max-w-lg rounded-2xl bg-white p-8 text-center shadow-lg">
@@ -312,7 +339,7 @@ export default function PerfilUtilizador() {
           </div>
           <h2 className="mb-2 text-2xl font-semibold text-gray-900">Erro ao carregar dados</h2>
           <p className="mb-6 text-gray-600">
-            {userError?.message ||
+            {utilizadorError?.message ||
               "Não foi possível carregar os dados do utilizador. Por favor, tente novamente mais tarde."}
           </p>
           <Button
@@ -350,38 +377,36 @@ export default function PerfilUtilizador() {
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6">
-        {/* Navegação superior com botão voltar */}
-        <div className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 shadow-sm backdrop-blur-sm">
-          <div className="container mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/utilizadores")}
-              className="group flex items-center gap-2 text-gray-600 hover:text-azul"
-            >
-              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-              <span>Voltar</span>
-            </Button>
-
-            <div className="text-sm text-gray-500">
-              <span className="font-medium">Perfil de {utilizador?.name ?? "Utilizador"}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
+        <div className="container max-w-8xl mx-auto  px-4 pb-20 sm:px-6">
+          {/* Breadcrumb Navigation */}
+          <div className="-ml-2 mb-8 flex w-full items-center justify-between">
+            <div className="flex items-center text-sm font-medium">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="border-gray-200 text-gray-600 hover:text-azul"
+                onClick={() => router.push("/utilizadores")}
+                className="flex h-7 items-center gap-1 px-2 py-0 text-gray-500 hover:text-azul"
+                aria-label="Voltar para utilizadores"
               >
-                <Share2 className="mr-1 h-4 w-4" />
-                Partilhar
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Utilizadores</span>
               </Button>
+              <span className="mx-1 text-gray-400">/</span>
+              <div className="flex items-center gap-1.5">
+                <div className={cn(
+                  "h-2 w-2 rounded-full",
+                  utilizadorComDetalhes.regime === "INTEGRAL" 
+                    ? "bg-emerald-500" 
+                    : "bg-amber-500"
+                )}></div>
+                <span className="max-w-[300px] truncate text-gray-700 sm:max-w-[400px]" title={utilizadorComDetalhes.name ?? ""}>
+                  {utilizadorComDetalhes.name ?? "Nome não disponível"}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <main className="container mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
-          {/* Cabeçalho do perfil */}
+          {/* Profile Content */}
           <div className="relative mb-10">
             <div className="absolute inset-0 -z-10 h-48 rounded-3xl bg-gradient-to-r from-azul/5 to-indigo-50/30"></div>
 
@@ -571,44 +596,46 @@ export default function PerfilUtilizador() {
                     </CardHeader>
 
                     <CardContent className="pt-6">
-                      {projetos && projetos.length > 0 ? (
+                      {alocacoes?.real && alocacoes.real.length > 0 ? (
                         <div className="space-y-4">
-                          {projetos.map((projeto: Projeto) => (
-                            <div
-                              key={projeto.id}
-                              className="group rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 hover:border-azul/20 hover:bg-azul/5"
-                            >
-                              <div className="mb-2 flex items-start justify-between">
-                                <h3 className="font-medium text-gray-900 transition-colors group-hover:text-azul">
-                                  {projeto.nome}
-                                </h3>
-                                <Badge className="bg-emerald-50 text-xs text-emerald-600">
-                                  {new Date(projeto.inicio) <= new Date() &&
-                                  new Date(projeto.fim) >= new Date()
-                                    ? "Ativo"
-                                    : "Inativo"}
-                                </Badge>
-                              </div>
-                              <p className="mb-3 line-clamp-2 text-sm text-gray-600">
-                                {projeto.descricao}
-                              </p>
-                              <div className="flex items-center justify-between text-xs text-gray-500">
-                                <div className="flex items-center">
-                                  <Calendar className="mr-1 h-3.5 w-3.5" />
-                                  <span>
-                                    {formatarData(projeto.inicio)} - {formatarData(projeto.fim)}
-                                  </span>
+                          {Array.from(new Set(alocacoes.real.map(a => a.projetoId))).map((projetoId) => {
+                            const projeto = alocacoes.real.find(a => a.projetoId === projetoId);
+                            if (!projeto) return null;
+                            
+                            return (
+                              <div
+                                key={projetoId}
+                                className="group rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 hover:border-azul/20 hover:bg-azul/5"
+                              >
+                                <div className="mb-2 flex items-start justify-between">
+                                  <h3 className="font-medium text-gray-900 transition-colors group-hover:text-azul">
+                                    {projeto.projetoNome}
+                                  </h3>
+                                  <Badge className="bg-emerald-50 text-xs text-emerald-600">
+                                    {projeto.projetoEstado === "EM_DESENVOLVIMENTO" ? "Ativo" : "Inativo"}
+                                  </Badge>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="-mr-2 h-7 px-2 text-xs text-azul hover:bg-azul/10"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </Button>
+                                <p className="mb-3 line-clamp-2 text-sm text-gray-600">
+                                  {projeto.projetoNome}
+                                </p>
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <div className="flex items-center">
+                                    <Calendar className="mr-1 h-3.5 w-3.5" />
+                                    <span>
+                                      {projeto.mes}/{projeto.ano}
+                                    </span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="-mr-2 h-7 px-2 text-xs text-azul hover:bg-azul/10"
+                                  >
+                                    <ChevronRight className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="py-10 text-center">
@@ -771,16 +798,61 @@ export default function PerfilUtilizador() {
                 {/* Tabela de Alocações */}
                 <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-md">
                   <div className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 p-6">
-                    <h3 className="mb-1 flex items-center text-xl text-gray-800">
-                      <BarChart2 className="mr-2 h-5 w-5 text-azul" />
-                      Relatório de Alocações
-                    </h3>
-                    <p className="text-gray-500">
-                      Tabela detalhada de alocações por projeto e workpackage
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="mb-1 flex items-center text-xl text-gray-800">
+                          <BarChart2 className="mr-2 h-5 w-5 text-azul" />
+                          Relatório de Alocações
+                        </h3>
+                        <p className="text-gray-500">
+                          Tabela detalhada de alocações por projeto e workpackage
+                        </p>
+                      </div>
+                      {projetoAprovado && alocacoes?.submetido ? (
+                        <ToggleGroup type="single" value={viewMode} onValueChange={handleViewModeChange} className="bg-gray-50 p-1 rounded-lg">
+                          <ToggleGroupItem 
+                            value="real" 
+                            className={cn(
+                              "px-3 py-1.5 text-sm font-medium transition-all",
+                              "data-[state=on]:bg-blue-500 data-[state=on]:text-white",
+                              "data-[state=off]:text-gray-600 data-[state=off]:hover:bg-gray-100",
+                              "rounded-md"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Dados Reais
+                          </ToggleGroupItem>
+                          <ToggleGroupItem 
+                            value="submetido" 
+                            className={cn(
+                              "px-3 py-1.5 text-sm font-medium transition-all",
+                              "data-[state=on]:bg-amber-500 data-[state=on]:text-white",
+                              "data-[state=off]:text-gray-600 data-[state=off]:hover:bg-gray-100",
+                              "rounded-md"
+                            )}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Dados Submetidos
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      ) : (
+                        <Badge variant="outline" className="border-gray-200 text-gray-500">
+                          <FileText className="mr-2 h-4 w-4" />
+                          Sem dados submetidos
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
-                  <TabelaAlocacoes alocacoes={alocacoesTabela} />
+                  <TabelaAlocacoes 
+                    alocacoes={alocacoesTabela}
+                    viewMode={viewMode}
+                    ano={currentYear}
+                    onSave={() => {
+                      // This is a placeholder function since we don't need to save in this view
+                      console.log("Save triggered");
+                    }}
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -847,7 +919,7 @@ export default function PerfilUtilizador() {
               </div>
             </TabsContent>
           </Tabs>
-        </main>
+        </div>
       </div>
     );
   } catch (error) {

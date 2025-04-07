@@ -6,21 +6,27 @@ import { Decimal } from "decimal.js";
 
 /**
  * Calcula o orçamento submetido de um projeto.
- * O orçamento submetido é o valor ETI do projeto multiplicado pelo total de alocações dos recursos.
- * Pode ser filtrado por ano para obter detalhes mais específicos.
+ * Se o projeto estiver aprovado, usa os dados do snapshot.
+ * Se estiver pendente, calcula com base nas alocações dos recursos.
  */
 async function getOrcamentoSubmetido(
   db: Prisma.TransactionClient,
   projetoId: string,
   filtros?: { ano?: number }
 ) {
-  // Vai buscar o valor ETI do projeto
+  // Vai buscar o projeto com estado, valor ETI e snapshot aprovado
   const projeto = await db.projeto.findUnique({
     where: { id: projetoId },
-    select: { valor_eti: true },
+    select: { 
+      valor_eti: true,
+      estado: true,
+      aprovado: true 
+    },
   });
 
-  if (!projeto || !projeto.valor_eti) {
+  const valorETI = projeto?.valor_eti ?? new Decimal(0);
+
+  if (!projeto || !valorETI) {
     return {
       valorETI: new Decimal(0),
       totalAlocacao: new Decimal(0),
@@ -29,7 +35,50 @@ async function getOrcamentoSubmetido(
     };
   }
 
-  // Vai buscar todas as alocações de recursos do projeto
+  // Se o projeto estiver aprovado, usar dados do snapshot
+  if (projeto.estado === "APROVADO" && projeto.aprovado) {
+    const snapshot = projeto.aprovado as any;
+    const workpackages = snapshot.workpackages || [];
+    
+    // Estrutura para armazenar alocações por ano
+    const alocacoesPorAno: Record<number, Decimal> = {};
+    
+    // Processar workpackages do snapshot
+    workpackages.forEach((wp: any) => {
+      const recursos = wp.recursos || [];
+      recursos.forEach((recurso: any) => {
+        const { ano, ocupacao } = recurso;
+        if (!filtros?.ano || ano === filtros.ano) {
+          alocacoesPorAno[ano] = (alocacoesPorAno[ano] || new Decimal(0)).plus(new Decimal(ocupacao));
+        }
+      });
+    });
+
+    // Calcular total de alocações
+    const totalAlocacao = Object.values(alocacoesPorAno).reduce(
+      (sum, alocacao) => sum.plus(alocacao),
+      new Decimal(0)
+    );
+
+    // Calcular orçamento total
+    const orcamentoTotal = totalAlocacao.times(valorETI);
+
+    // Preparar detalhes por ano
+    const detalhesPorAno = Object.entries(alocacoesPorAno).map(([ano, alocacao]) => ({
+      ano: parseInt(ano),
+      totalAlocacao: alocacao,
+      orcamento: alocacao.times(valorETI),
+    }));
+
+    return {
+      valorETI,
+      totalAlocacao,
+      orcamentoTotal,
+      detalhesPorAno: detalhesPorAno.sort((a, b) => a.ano - b.ano),
+    };
+  }
+
+  // Se não estiver aprovado, manter o cálculo original baseado nas tabelas
   const alocacoes = await db.alocacaoRecurso.findMany({
     where: {
       workpackage: { projetoId },
@@ -48,7 +97,7 @@ async function getOrcamentoSubmetido(
   );
 
   // Calcula o orçamento submetido total: valor ETI * total de alocações
-  const orcamentoTotal = totalAlocacao.times(projeto.valor_eti);
+  const orcamentoTotal = totalAlocacao.times(valorETI);
 
   // Se solicitar detalhes por ano, calcula o orçamento submetido por ano
   const detalhesPorAno: { ano: number; totalAlocacao: Decimal; orcamento: Decimal }[] = [];
@@ -73,7 +122,7 @@ async function getOrcamentoSubmetido(
       detalhesPorAno.push({
         ano: anoNum,
         totalAlocacao: alocacao,
-        orcamento: alocacao.times(projeto.valor_eti),
+        orcamento: alocacao.times(valorETI),
       });
     }
 
@@ -82,7 +131,7 @@ async function getOrcamentoSubmetido(
   }
 
   return {
-    valorETI: projeto.valor_eti,
+    valorETI,
     totalAlocacao,
     orcamentoTotal,
     detalhesPorAno,

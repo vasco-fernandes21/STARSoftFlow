@@ -20,6 +20,7 @@ interface MaterialData {
   preco: number;
   quantidade: number;
   ano_utilizacao: number;
+  mes: number;
   rubrica: Rubrica;
 }
 
@@ -43,6 +44,22 @@ const rubricaOptions = [
   { value: "DESLOCACAO_ESTADIAS", label: "Deslocação e Estadias" },
   { value: "OUTROS_CUSTOS", label: "Outros Custos" },
   { value: "CUSTOS_ESTRUTURA", label: "Custos de Estrutura" },
+];
+
+// Opções para o campo de mês
+const mesesOptions = [
+  { value: "1", label: "Janeiro" },
+  { value: "2", label: "Fevereiro" },
+  { value: "3", label: "Março" },
+  { value: "4", label: "Abril" },
+  { value: "5", label: "Maio" },
+  { value: "6", label: "Junho" },
+  { value: "7", label: "Julho" },
+  { value: "8", label: "Agosto" },
+  { value: "9", label: "Setembro" },
+  { value: "10", label: "Outubro" },
+  { value: "11", label: "Novembro" },
+  { value: "12", label: "Dezembro" },
 ];
 
 export function Form({
@@ -98,15 +115,24 @@ export function Form({
   const [anoUtilizacao, setAnoUtilizacao] = useState(
     initialValues?.ano_utilizacao || new Date().getFullYear()
   );
+  const [mes, setMes] = useState(
+    initialValues?.mes || new Date().getMonth() + 1
+  );
   const [rubrica, setRubrica] = useState<Rubrica>(initialValues?.rubrica || "MATERIAIS");
 
   // Estado para o valor do ano como string (para o SelectField)
   const [anoUtilizacaoStr, setAnoUtilizacaoStr] = useState(String(anoUtilizacao));
+  const [mesStr, setMesStr] = useState(String(mes));
 
   // Sincronizar o anoUtilizacao com anoUtilizacaoStr
   useEffect(() => {
     setAnoUtilizacaoStr(String(anoUtilizacao));
   }, [anoUtilizacao]);
+
+  // Sincronizar o mes com mesStr
+  useEffect(() => {
+    setMesStr(String(mes));
+  }, [mes]);
 
   // Estado de validação
   const [erros, setErros] = useState<{
@@ -114,6 +140,7 @@ export function Form({
     preco?: string;
     quantidade?: string;
     anoUtilizacao?: string;
+    mes?: string;
   }>({});
 
   // Atualizar estados quando initialValues mudar
@@ -125,6 +152,8 @@ export function Form({
       setQuantidade(initialValues.quantidade);
       setAnoUtilizacao(initialValues.ano_utilizacao);
       setAnoUtilizacaoStr(String(initialValues.ano_utilizacao));
+      setMes(initialValues.mes || new Date().getMonth() + 1);
+      setMesStr(String(initialValues.mes || new Date().getMonth() + 1));
       setRubrica(initialValues.rubrica);
     }
   }, [initialValues]);
@@ -180,6 +209,7 @@ export function Form({
         preco,
         quantidade,
         ano_utilizacao: anoUtilizacao,
+        mes,
         rubrica,
       };
 
@@ -197,6 +227,13 @@ export function Form({
     const anoNumerico = parseInt(value, 10);
     setAnoUtilizacaoStr(value);
     setAnoUtilizacao(anoNumerico);
+  };
+
+  // Handler para alteração do mês via dropdown
+  const handleMesChange = (value: string) => {
+    const mesNumerico = parseInt(value, 10);
+    setMesStr(value);
+    setMes(mesNumerico);
   };
 
   // Identificar se estamos em modo de edição
@@ -330,6 +367,15 @@ export function Form({
                   helpText={erros.anoUtilizacao}
                 />
               )}
+
+              <SelectField
+                label="Mês"
+                value={mesStr}
+                onChange={handleMesChange}
+                options={mesesOptions}
+                required
+                helpText={erros.mes}
+              />
 
               <SelectField
                 label="Rubrica"

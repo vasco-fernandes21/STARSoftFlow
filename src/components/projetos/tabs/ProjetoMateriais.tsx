@@ -65,6 +65,16 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+// Função para obter o nome do mês
+function obterNomeMes(mes: number): string {
+  const meses = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
+  
+  return meses[mes - 1] || String(mes);
+}
+
 export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
   // Estados
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,6 +120,7 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
         ...material,
         workpackageName: wp.nome,
         workpackageId: wp.id,
+        dataFormatada: `${obterNomeMes(material.mes || 1)} ${material.ano_utilizacao}`
       }));
     });
 
@@ -120,7 +131,8 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
         (material) =>
           material.nome.toLowerCase().includes(searchLower) ||
           material.descricao?.toLowerCase().includes(searchLower) ||
-          material.workpackageName.toLowerCase().includes(searchLower)
+          material.workpackageName.toLowerCase().includes(searchLower) ||
+          material.dataFormatada.toLowerCase().includes(searchLower)
       );
     }
 
@@ -455,14 +467,14 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
             <Table className="w-full text-sm">
               <TableHeader className="sticky top-0 z-[1] bg-slate-50/80 backdrop-blur-sm">
                 <TableRow>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Workpackage</TableHead>
-                  <TableHead>Rubrica</TableHead>
+                  <TableHead className="w-10 pl-3"></TableHead>
+                  <TableHead className="text-left">Material</TableHead>
+                  <TableHead className="text-left">Workpackage</TableHead>
+                  <TableHead className="text-center">Rubrica</TableHead>
                   <TableHead className="text-right">Quantidade</TableHead>
-                  <TableHead className="text-right">Preço Unit.</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Ano</TableHead>
-                  <TableHead className="text-center">Estado</TableHead>
+                  <TableHead className="text-center">Data</TableHead>
+                  <TableHead className="text-center w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -481,7 +493,7 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                         material.estado && "opacity-70 hover:opacity-100" // Slightly dim completed items
                       )}
                     >
-                      <TableCell className="px-3 py-2">
+                      <TableCell className="w-10 px-3 py-2">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -506,13 +518,13 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                           )}
                         </Button>
                       </TableCell>
-                      <TableCell className="px-3 py-2 font-medium text-slate-700 transition-colors duration-150 group-hover:text-emerald-700">
+                      <TableCell className="px-3 py-2 text-left font-medium text-slate-700 transition-colors duration-150 group-hover:text-emerald-700">
                         {material.nome}
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
+                      <TableCell className="px-3 py-2 text-left text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
                         {material.workpackageName}
                       </TableCell>
-                      <TableCell className="px-3 py-2">
+                      <TableCell className="px-3 py-2 text-center">
                         <Badge
                           variant="outline"
                           className={`${bg} ${text} ${border} rounded px-2 py-0.5 text-xs shadow-sm`}
@@ -523,16 +535,13 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                       <TableCell className="px-3 py-2 text-right text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
                         {material.quantidade}
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-right text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
-                        {formatCurrency(Number(material.preco))}
-                      </TableCell>
                       <TableCell className="px-3 py-2 text-right font-medium text-slate-700 transition-colors duration-150 group-hover:text-emerald-700">
                         {formatCurrency(total)}
                       </TableCell>
                       <TableCell className="px-3 py-2 text-center text-slate-600 transition-colors duration-150 group-hover:text-emerald-700">
-                        {material.ano_utilizacao}
+                        {obterNomeMes(material.mes || 1)} {material.ano_utilizacao}
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-center">
+                      <TableCell className="w-10 px-3 py-2 text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button

@@ -261,7 +261,7 @@ async function main() {
       descricao: "Implementação de um Ecossistema de Inovação para a Transferência de Conhecimento na Região Centro.",
       inicio: new Date("2023-01-01"),
       fim: new Date("2025-01-31"),
-      estado: ProjetoEstado.CONCLUIDO,
+      estado: ProjetoEstado.PENDENTE,
       financiamentoId: fctId,
       valor_eti: new Decimal(4432.0),
       taxa_financiamento: new Decimal(0.85),
@@ -381,7 +381,7 @@ async function main() {
       descricao: "Desenvolvimento de tecnologia WAAM para fabrico de componentes estruturais com alta resistência à fadiga.",
       inicio: new Date("2024-11-01"),
       fim: new Date("2026-12-31"),
-      estado: ProjetoEstado.EM_DESENVOLVIMENTO,
+      estado: ProjetoEstado.PENDENTE,
       financiamentoId: horizonteEuropaId,
       valor_eti: new Decimal(4432.0),
       taxa_financiamento: new Decimal(0.85),
@@ -609,7 +609,7 @@ async function main() {
       descricao: "Desenvolvimento de tecnologias avançadas para fabricação digital e automação industrial.",
       inicio: new Date("2025-09-01"),
       fim: new Date("2028-11-30"),
-      estado: ProjetoEstado.APROVADO,
+      estado: ProjetoEstado.PENDENTE,
       financiamentoId: horizonteEuropaId,
       valor_eti: new Decimal(5500.0),
       taxa_financiamento: new Decimal(0.85),
@@ -774,6 +774,7 @@ async function main() {
           preco: new Decimal(8000.0),
           quantidade: 2,
           ano_utilizacao: 2025,
+          mes: 3, // Março
           rubrica: Rubrica.MATERIAIS,
           workpackageId: wp1Dream.id,
           estado: false
@@ -783,6 +784,7 @@ async function main() {
           preco: new Decimal(5000.0),
           quantidade: 2,
           ano_utilizacao: 2025,
+          mes: 4, // Abril
           rubrica: Rubrica.MATERIAIS,
           workpackageId: wp1Dream.id,
           estado: false
@@ -799,6 +801,7 @@ async function main() {
           preco: new Decimal(45000.0),
           quantidade: 1,
           ano_utilizacao: 2026,
+          mes: 6, // Junho
           rubrica: Rubrica.MATERIAIS,
           workpackageId: wp2Dream.id,
           estado: false
@@ -808,6 +811,7 @@ async function main() {
           preco: new Decimal(12000.0),
           quantidade: 1,
           ano_utilizacao: 2026,
+          mes: 7, // Julho
           rubrica: Rubrica.MATERIAIS,
           workpackageId: wp2Dream.id,
           estado: false
@@ -817,6 +821,7 @@ async function main() {
           preco: new Decimal(15000.0),
           quantidade: 1,
           ano_utilizacao: 2027,
+          mes: 1, // Janeiro
           rubrica: Rubrica.MATERIAIS,
           workpackageId: wp2Dream.id,
           estado: false
@@ -833,6 +838,7 @@ async function main() {
           preco: new Decimal(45000.0),
           quantidade: 1,
           ano_utilizacao: 2027,
+          mes: 5, // Maio
           rubrica: Rubrica.MATERIAIS,
           workpackageId: wp3Dream.id,
           estado: false
@@ -842,6 +848,7 @@ async function main() {
           preco: new Decimal(28000.0),
           quantidade: 1,
           ano_utilizacao: 2028,
+          mes: 9, // Setembro
           rubrica: Rubrica.MATERIAIS,
           workpackageId: wp3Dream.id,
           estado: false
@@ -858,6 +865,7 @@ async function main() {
           preco: new Decimal(5000.0),
           quantidade: 1,
           ano_utilizacao: 2028,
+          mes: 10, // Outubro
           rubrica: Rubrica.OUTROS_CUSTOS,
           workpackageId: wp4Dream.id,
           estado: false
@@ -867,6 +875,7 @@ async function main() {
           preco: new Decimal(15000.0),
           quantidade: 1,
           ano_utilizacao: 2028,
+          mes: 11, // Novembro
           rubrica: Rubrica.OUTROS_CUSTOS,
           workpackageId: wp4Dream.id,
           estado: false

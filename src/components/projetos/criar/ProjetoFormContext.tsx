@@ -40,6 +40,7 @@ export type { EntregavelState, TarefaState, MaterialState, RecursoState, Workpac
 export type ProjetoState = Omit<Projeto, "id" | "responsavel" | "responsavelId"> & {
   responsavel: ResponsavelInfo | null;
   workpackages: WorkpackageState[];
+  aprovado: boolean | null;
 };
 
 // Estado inicial mais limpo
@@ -55,6 +56,7 @@ const initialState: ProjetoState = {
   financiamentoId: null,
   responsavel: null,
   workpackages: [],
+  aprovado: null,
 };
 
 // Ações atualizadas usando os tipos do Prisma
@@ -302,6 +304,7 @@ function convertStateToCreateInput(state: ProjetoState): Prisma.ProjetoCreateInp
             preco: material.preco,
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
+            mes: material.mes,
             rubrica: material.rubrica,
           })),
         },

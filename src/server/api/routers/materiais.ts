@@ -14,6 +14,7 @@ const materialBaseSchema = z.object({
   quantidade: z.number().int().min(1, "Quantidade deve ser pelo menos 1"),
   rubrica: z.nativeEnum(Rubrica),
   ano_utilizacao: z.number().int().min(2024, "Ano de utilização inválido"),
+  mes: z.number().int().min(1).max(12).default(1),
   workpackageId: z.string().uuid("ID de workpackage inválido"),
   estado: z.boolean().default(false),
 });
@@ -49,6 +50,7 @@ export const materialRouter = createTRPCRouter({
           quantidade: input.quantidade,
           rubrica: input.rubrica,
           ano_utilizacao: input.ano_utilizacao,
+          mes: input.mes,
           workpackageId: input.workpackageId,
           estado: input.estado,
         },
@@ -101,6 +103,7 @@ export const materialRouter = createTRPCRouter({
         if (inputData.preco !== undefined) data.preco = new Prisma.Decimal(inputData.preco);
         if (inputData.quantidade !== undefined) data.quantidade = inputData.quantidade;
         if (inputData.ano_utilizacao !== undefined) data.ano_utilizacao = inputData.ano_utilizacao;
+        if (inputData.mes !== undefined) data.mes = inputData.mes;
         if (inputData.rubrica !== undefined) data.rubrica = inputData.rubrica;
         if (inputData.estado !== undefined) data.estado = inputData.estado;
 

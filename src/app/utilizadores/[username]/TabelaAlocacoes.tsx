@@ -1,469 +1,392 @@
 "use client";
 
-import * as React from "react";
+import React from "react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableFooter,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Save, Loader2, CheckCircle2, XCircle, Calendar, FileText, Briefcase, ChevronRight, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { SelectField } from "@/components/projetos/criar/components/FormFields";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// Interface para representar a resposta da API
-interface ApiWorkpackage {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  inicio: string;
-  fim: string;
-  estado: boolean;
-  alocacoes: {
-    mes: number;
-    ano: number;
-    ocupacao: string; // Note que vem como string da API
-  }[];
-}
-
-interface ApiProjeto {
-  id: string;
-  nome: string;
-  descricao: string;
-  inicio: string;
-  fim: string;
-  workpackages: ApiWorkpackage[];
-}
-
-interface ApiResponse {
-  result: {
-    data: {
-      json: ApiProjeto[];
-    };
-  };
-}
-
-// Interfaces para o componente
 interface AlocacaoOriginal {
   ano: number;
   mes: number;
   ocupacao: number;
-  workpackage: {
-    id: string;
-    nome: string;
-  };
-  projeto: {
-    id: string;
-    nome: string;
-  };
+  workpackage: { id: string; nome: string };
+  projeto: { id: string; nome: string };
 }
 
-interface TabelaAlocacoesProps {
-  alocacoes: AlocacaoOriginal[] | ApiResponse[] | ApiProjeto[];
-  ano?: number;
-  onSave?: (
-    alocacoes: { workpackageId: string; mes: number; ano: number; ocupacao: number }[]
-  ) => Promise<void>;
+interface AlocacoesData {
+  real: AlocacaoOriginal[];
+  submetido: AlocacaoOriginal[];
+  anos: number[];
 }
 
-interface WorkpackageProcessado {
-  id: string;
-  nome: string;
-  mes: number;
+interface TabelaProps {
+  alocacoes: AlocacoesData;
+  viewMode: "real" | "submetido";
   ano: number;
-  ocupacao: number;
+  onSave: (alocacoesReais: AlocacaoOriginal[]) => Promise<void> | void;
+  singleYear?: boolean;
 }
 
-interface ProjetoProcessado {
-  projetoNome: string;
-  projetoId: string;
-  workpackages: Map<string, WorkpackageProcessado>;
-  totalProposto: number;
+// Definindo uma interface para trabalhar com projetos e workpackages
+interface ProjetoInfo {
+  nome: string;
+  wps: Set<string>;
 }
 
-// Verificador de tipo para ApiResponse
-function isApiResponse(obj: any): obj is ApiResponse[] {
-  return (
-    Array.isArray(obj) &&
-    obj.length > 0 &&
-    obj[0] !== undefined &&
-    obj[0] !== null &&
-    typeof obj[0] === "object" &&
-    "result" in obj[0] &&
-    obj[0].result !== undefined &&
-    obj[0].result !== null &&
-    typeof obj[0].result === "object" &&
-    "data" in obj[0].result &&
-    obj[0].result.data !== undefined &&
-    obj[0].result.data !== null &&
-    typeof obj[0].result.data === "object" &&
-    "json" in obj[0].result.data
-  );
-}
-
-// Verificador de tipo para ApiProjeto
-function isApiProjeto(obj: any): obj is ApiProjeto[] {
-  return (
-    Array.isArray(obj) &&
-    obj.length > 0 &&
-    obj[0] !== undefined &&
-    obj[0] !== null &&
-    typeof obj[0] === "object" &&
-    "workpackages" in obj[0]
-  );
-}
-
-export function TabelaAlocacoes({ alocacoes, ano }: TabelaAlocacoesProps) {
+export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }: TabelaProps) {
+  const isSubmetido = viewMode === "submetido";
+  const [anoSelecionado, setAnoSelecionado] = React.useState(ano);
   const [mesSelecionado, setMesSelecionado] = React.useState<number | null>(null);
-  const [alocacoesEditadas, setAlocacoesEditadas] = React.useState<Map<string, number>>(new Map());
-  const [valoresEmEdicao, setValoresEmEdicao] = React.useState<Map<string, string>>(new Map());
-  const [camposComErro, setCamposComErro] = React.useState<Set<string>>(new Set());
+  const [editValues, setEditValues] = React.useState<Map<string, string>>(new Map());
+  const [loading, setLoading] = React.useState(false);
 
-  const meses = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-  ];
+  const mesesFull = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-  const mesesAbreviados = [
-    "Jan",
-    "Fev",
-    "Mar",
-    "Abr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Set",
-    "Out",
-    "Nov",
-    "Dez",
-  ];
-
-  // Normaliza as alocações para o formato interno
-  const alocacoesNormalizadas = React.useMemo(() => {
-    // Verifica se é uma resposta completa da API
-    if (isApiResponse(alocacoes)) {
-      const apiResponse = alocacoes as ApiResponse[];
-
-      if (!apiResponse || !apiResponse[0] || !apiResponse[0].result?.data?.json) {
-        return [];
-      }
-
-      const projetos = apiResponse[0].result.data.json;
-
-      // Converte para o formato usado pelo componente
-      return projetos.flatMap((projeto) =>
-        projeto.workpackages.flatMap((wp) =>
-          wp.alocacoes.map((alocacao) => ({
-            ano: alocacao.ano,
-            mes: alocacao.mes,
-            ocupacao: parseFloat(alocacao.ocupacao),
-            workpackage: {
-              id: wp.id,
-              nome: wp.nome,
-            },
-            projeto: {
-              id: projeto.id,
-              nome: projeto.nome,
-            },
-          }))
-        )
-      );
+  function getMeses() {
+    if (mesSelecionado !== null) {
+      return [mesSelecionado];
     }
-    // Verifica se é um array de projetos da API
-    else if (isApiProjeto(alocacoes)) {
-      const projetos = alocacoes as ApiProjeto[];
+    return Array.from({length:12}, (_,i)=> i+1);
+  }
 
-      // Converte para o formato usado pelo componente
-      return projetos.flatMap((projeto) =>
-        projeto.workpackages.flatMap((wp) =>
-          wp.alocacoes.map((alocacao) => ({
-            ano: alocacao.ano,
-            mes: alocacao.mes,
-            ocupacao: parseFloat(alocacao.ocupacao),
-            workpackage: {
-              id: wp.id,
-              nome: wp.nome,
-            },
-            projeto: {
-              id: projeto.id,
-              nome: projeto.nome,
-            },
-          }))
-        )
-      );
+  function getValor(wpId: string, mes: number): number {
+    if (isSubmetido) {
+      return alocacoes.submetido.find(a => a.ano===anoSelecionado && a.mes===mes && a.workpackage.id===wpId)?.ocupacao ?? 0;
     }
+    const key = `${wpId}-${mes}-${anoSelecionado}`;
+    if(editValues.has(key)){
+      const val = editValues.get(key)!;
+      // Handle empty or partial input cases
+      if (val === "" || val === "0," || val === "0") return 0;
+      return parseFloat(val.replace(",",".")) || 0;
+    }
+    return alocacoes.real.find(a => a.ano===anoSelecionado && a.mes===mes && a.workpackage.id===wpId)?.ocupacao ?? 0;
+  }
 
-    // Já está no formato correto
-    return alocacoes as AlocacaoOriginal[];
-  }, [alocacoes]);
-
-  const anos = React.useMemo(() => {
-    const anosUnicos = [...new Set(alocacoesNormalizadas.map((a) => a.ano))];
-    return anosUnicos.length > 0 ? anosUnicos.sort((a, b) => a - b) : [new Date().getFullYear()];
-  }, [alocacoesNormalizadas]);
-
-  // Determinar o ano mais recente das alocações
-  const anoMaisRecente = React.useMemo(() => {
-    return anos.length > 0 ? Math.max(...anos) : new Date().getFullYear();
-  }, [anos]);
-
-  // Inicializar com o ano mais recente ou o ano fornecido nas props
-  const [anoSelecionado, setAnoSelecionado] = React.useState(ano || anoMaisRecente);
-
-  const projetosAgrupados = React.useMemo(() => {
-    // Criamos uma estrutura para evitar duplicações
-    const grupos: Record<string, ProjetoProcessado> = {};
-
-    // Primeiro passo: agrupa por projetos
-    alocacoesNormalizadas.forEach((alocacao) => {
-      const projetoId = alocacao.projeto.id;
-      if (!grupos[projetoId]) {
-        grupos[projetoId] = {
-          projetoNome: alocacao.projeto.nome,
-          projetoId: alocacao.projeto.id,
-          workpackages: new Map(),
-          totalProposto: 0,
-        };
-      }
-
-      const wpId = alocacao.workpackage.id;
-
-      // Só adicionamos o workpackage se ainda não existir
-      if (!grupos[projetoId].workpackages.has(wpId)) {
-        grupos[projetoId].workpackages.set(wpId, {
-          id: wpId,
-          nome: alocacao.workpackage.nome,
-          mes: alocacao.mes,
-          ano: alocacao.ano,
-          ocupacao: alocacao.ocupacao,
-        });
-      }
-
-      // Verificar se alocacao.ocupacao existe antes de adicionar
-      if (typeof alocacao.ocupacao === "number") {
-        grupos[projetoId].totalProposto += alocacao.ocupacao;
-      }
-    });
-
-    return grupos;
-  }, [alocacoesNormalizadas]);
-
-  const getAlocacao = (wpId: string, mes: number, ano: number): number => {
-    const key = `${wpId}-${mes}-${ano}`;
-    if (alocacoesEditadas.has(key)) return alocacoesEditadas.get(key) || 0;
-    const alocacao = alocacoesNormalizadas.find(
-      (a) => a.workpackage.id === wpId && a.mes === mes && a.ano === ano
-    );
-    return alocacao?.ocupacao || 0;
-  };
-
-  const calcularTotalMes = (mes: number, ano: number): number => {
-    return Object.values(projetosAgrupados).reduce((total, projeto) => {
-      let projetoTotal = 0;
-      projeto.workpackages.forEach((wp) => {
-        if (wp.ano === ano && wp.mes === mes) {
-          projetoTotal += getAlocacao(wp.id, mes, ano);
-        }
+  function handleInputChange(wpId: string, mes: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    
+    // If empty, allow it (user is typing)
+    if (value === "") {
+      const key = `${wpId}-${mes}-${anoSelecionado}`;
+      setEditValues(prev => {
+        const copy = new Map(prev);
+        copy.set(key, value);
+        return copy;
       });
-      return total + projetoTotal;
-    }, 0);
-  };
-
-  const calcularTotalWP = (wpId: string): number => {
-    return getMesesVisiveis().reduce(
-      (total, mes) => total + getAlocacao(wpId, mes, anoSelecionado),
-      0
-    );
-  };
-
-  const handleAlocacaoChange = (wpId: string, mes: number, ano: number, valor: string) => {
-    let numeroValor = parseFloat(valor.replace(",", "."));
-    const key = `${wpId}-${mes}-${ano}`;
-
-    if (isNaN(numeroValor) || numeroValor < 0 || numeroValor > 1) {
-      setCamposComErro((prev) => new Set(prev).add(key));
       return;
     }
 
-    setCamposComErro((prev) => {
-      const nova = new Set(prev);
-      nova.delete(key);
-      return nova;
+    // If first character is 1, only allow "1"
+    if (value.startsWith("1")) {
+      if (value !== "1") return;
+    } 
+    // If first character is 0, enforce 0,XX format
+    else if (value.startsWith("0")) {
+      // Allow "0" or "0," while typing
+      if (value === "0" || value === "0,") {
+        // Do nothing, allow it
+      } 
+      // Check if it follows 0,XX format
+      else {
+        const match = value.match(/^0,(\d{0,2})$/);
+        if (!match) return;
+      }
+    } 
+    // If doesn't start with 0 or 1, invalid
+    else return;
+
+    const key = `${wpId}-${mes}-${anoSelecionado}`;
+    setEditValues(prev => {
+      const copy = new Map(prev);
+      copy.set(key, value);
+      return copy;
     });
+  }
 
-    numeroValor = Math.round(numeroValor * 100) / 100;
-    setAlocacoesEditadas((prev) => new Map(prev).set(key, numeroValor));
-  };
-
-  const handleInputChange = (wpId: string, mes: number, ano: number, valor: string) => {
-    const key = `${wpId}-${mes}-${ano}`;
-    if (valor === "" || /^[0-9]*[,]?[0-9]*$/.test(valor)) {
-      setValoresEmEdicao((prev) => new Map(prev).set(key, valor));
+  // Calcula total por mês para lista informada
+  function calcularTotal(arr:AlocacaoOriginal[], mes: number) {
+    // Para alocações submetidas, usamos o método antigo
+    if (arr === alocacoes.submetido) {
+      return arr.filter(a=>a.ano===anoSelecionado && a.mes===mes).reduce((s,a)=>s+a.ocupacao,0);
     }
-  };
+    
+    // Para alocações reais, calculamos com base nos valores editados
+    if (arr === alocacoes.real) {
+      // Pegar todos os workpackages disponíveis
+      const workpackages = Array.from(
+        projetos.entries()
+      ).flatMap(([_, { wps }]) => Array.from(wps));
+      
+      // Calcular a soma usando getValor para cada workpackage
+      return workpackages.reduce((sum, wpId) => {
+        return sum + getValor(wpId, mes);
+      }, 0);
+    }
+    
+    // Caso padrão (não deve acontecer)
+    return arr.filter(a=>a.ano===anoSelecionado && a.mes===mes).reduce((s,a)=>s+a.ocupacao,0);
+  }
 
-  const handleInputBlur = (wpId: string, mes: number, ano: number) => {
-    const key = `${wpId}-${mes}-${ano}`;
-    const valorEditado = valoresEmEdicao.get(key) || "0";
-    handleAlocacaoChange(wpId, mes, ano, valorEditado);
-    setValoresEmEdicao((prev) => {
-      const nova = new Map(prev);
-      nova.delete(key);
-      return nova;
+  function calcularTotalGeral(arr:AlocacaoOriginal[]){
+    return arr.filter(a=>a.ano===anoSelecionado).reduce((s,a)=>s+a.ocupacao,0);
+  }
+
+  const projetos = React.useMemo(()=>{
+    const map = new Map<string, ProjetoInfo>();
+    (isSubmetido ? alocacoes.submetido : alocacoes.real).forEach(a=>{
+      if(!map.has(a.projeto.id)){
+        map.set(a.projeto.id,{nome:a.projeto.nome,wps:new Set()});
+      }
+      const projeto = map.get(a.projeto.id);
+      if (projeto) {
+        projeto.wps.add(a.workpackage.id);
+      }
     });
-  };
+    return map;
+  },[alocacoes, anoSelecionado, isSubmetido]);
 
-  const getMesesVisiveis = () => {
-    return mesSelecionado === null
-      ? Array.from({ length: 12 }, (_, i) => i + 1)
-      : [mesSelecionado + 1];
-  };
+  // Validação — só pode salvar se todos os meses baterem
+  const podeSalvar = React.useMemo(()=>{
+    return getMeses().every(mes=> 
+        Math.abs(calcularTotal(alocacoes.real, mes) - calcularTotal(alocacoes.submetido, mes)) < 0.001
+    );
+  },[alocacoes, anoSelecionado]);
 
-  const calcularTotalWPsPorProjeto = (projeto: ProjetoProcessado): number => {
-    let total = 0;
-    projeto.workpackages.forEach((wp) => {
-      total += calcularTotalWP(wp.id);
-    });
-    return total;
-  };
-
-  const calcularTotalGeral = (): number => {
-    return Object.values(projetosAgrupados).reduce((total, projeto) => {
-      return total + calcularTotalWPsPorProjeto(projeto);
-    }, 0);
-  };
-
-  const anosOptions = anos.map((ano) => ({ value: ano.toString(), label: ano.toString() }));
-  const mesesOptions = [
-    { value: "todos", label: "Todos os meses" },
-    ...meses.map((mes, index) => ({ value: index.toString(), label: mes })),
-  ];
+  async function handleSave(){
+    if(!podeSalvar)return;
+    setLoading(true);
+    try{
+      await onSave(alocacoes.real);
+    }finally{
+      setLoading(false);
+    }
+  }
 
   return (
-    <div className="space-y-6 bg-white p-6">
-      {/* Filtros */}
-      <div className="flex flex-col items-start justify-between rounded-lg border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
-        <div className="flex items-center gap-4">
+    <Card className={cn(
+      "relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md transition-all hover:shadow-lg",
+      isSubmetido && "bg-indigo-50/5"
+    )}>
+      <CardContent className="p-0">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Badge variant={isSubmetido ? "outline" : "default"} className={cn(
+              "h-7 rounded-full px-3",
+              isSubmetido 
+                ? "border-indigo-200 bg-indigo-50 text-indigo-700" 
+                : "bg-blue-600 text-white"
+            )}>
+              {isSubmetido ? "Submetido" : "Real"}
+            </Badge>
+            <Badge variant="outline" className="h-7 rounded-full border-slate-200 px-3 text-slate-600">
+              <Calendar className="mr-1.5 h-3.5 w-3.5" /> {anoSelecionado}
+            </Badge>
+            {mesSelecionado && (
+              <Badge variant="outline" className="h-7 rounded-full border-blue-200 bg-blue-50 px-3 text-blue-700">
+                {mesesFull[mesSelecionado - 1]}
+              </Badge>
+            )}
+            {!isSubmetido && !podeSalvar && (
+              <Badge variant="destructive" className="h-7 rounded-full px-3">
+                <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
+                Totais Divergentes
+            </Badge>
+          )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {!singleYear && (
           <SelectField
-            label="Ano"
+                label=""
             value={anoSelecionado.toString()}
-            onChange={(value) => setAnoSelecionado(Number(value))}
-            options={anosOptions}
-            className="w-[120px] rounded-md border-gray-200 shadow-sm focus:ring-2 focus:ring-[#2C5697]"
-          />
+                onChange={v=>setAnoSelecionado(parseInt(v))}
+                options={(alocacoes.anos ?? [ano]).map(a=>({label:`${a}`,value:`${a}`}))}
+                className="w-[100px]"
+              />
+            )}
+            
           <SelectField
-            label="Mês"
-            value={mesSelecionado !== null ? mesSelecionado.toString() : "todos"}
-            onChange={(value) => setMesSelecionado(value === "todos" ? null : Number(value))}
-            options={mesesOptions}
-            className="w-[180px] rounded-md border-gray-200 shadow-sm focus:ring-2 focus:ring-[#2C5697]"
-          />
+              label=""
+              value={mesSelecionado?.toString() ?? "todos"}
+              onChange={v => setMesSelecionado(v === "todos" ? null : parseInt(v))}
+              options={[
+                { label: "Todos os meses", value: "todos" },
+                ...mesesFull.map((mes, index) => ({
+                  label: mes,
+                  value: (index + 1).toString()
+                }))
+              ]}
+              className="w-[160px]"
+            />
+            
+            {!isSubmetido && (
+              <Button 
+                onClick={handleSave} 
+                disabled={!podeSalvar || loading}
+                className={cn(
+                  "h-9 gap-2 rounded-full transition-all duration-200",
+                  podeSalvar 
+                    ? "bg-blue-600 text-white hover:bg-blue-700" 
+                    : "bg-slate-100 text-slate-400"
+                )}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                <span>Guardar</span>
+              </Button>
+            )}
+          </div>
         </div>
-        {mesSelecionado !== null && (
-          <Badge className="mt-2 rounded-md bg-[#2C5697] px-3 py-1 text-white shadow-sm sm:mt-0">
-            <Calendar className="mr-2 h-4 w-4" />
-            {meses[mesSelecionado]} {anoSelecionado}
-          </Badge>
-        )}
-      </div>
 
-      {/* Tabela */}
-      <div className="overflow-hidden rounded-lg border border-gray-100 shadow-sm">
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="overflow-auto">
+          <Table className={cn(
+            "border-separate border-spacing-y-0.5",
+            mesSelecionado && "table-fixed"
+          )}>
             <TableHeader>
-              <TableRow className="border-b border-gray-100 bg-gray-50">
-                <TableHead className="sticky left-0 z-10 w-[300px] bg-gray-50 py-3 font-semibold text-gray-700">
+              <TableRow className="border-b-0">
+                <TableHead className={cn(
+                  "bg-white/95 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500",
+                  mesSelecionado ? "w-[60%]" : "w-[200px]"
+                )}>
                   Projeto / Workpackage
                 </TableHead>
-                {getMesesVisiveis().map((mes) => (
+                {getMeses().map((mes) => (
                   <TableHead
                     key={mes}
-                    className="w-[90px] py-3 text-center text-sm font-semibold text-gray-600"
+                    className={cn(
+                      "sticky top-0 z-10 bg-white/95 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500",
+                      mes % 2 === 0 ? "bg-slate-50/50" : "",
+                      mesSelecionado && "w-[40%]"
+                    )}
                   >
-                    {mesesAbreviados[mes - 1]}
+                    {mesSelecionado ? (
+                      <span className="font-medium">Alocação</span>
+                    ) : (
+                      <span className="font-medium">{mesesFull[mes-1]?.slice(0,3) ?? ''}</span>
+                    )}
                   </TableHead>
                 ))}
-                <TableHead className="w-[100px] py-3 text-center font-semibold text-[#2C5697]">
-                  Total
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.values(projetosAgrupados).map((projeto) => (
-                <React.Fragment key={projeto.projetoId}>
-                  <TableRow className="border-b border-gray-100 bg-gray-50">
+              {Array.from(projetos.entries()).map(([projetoId, { nome: projetoNome, wps }]) => (
+                <React.Fragment key={projetoId}>
+                  {/* Project Row */}
+                  <TableRow className="group border-t border-slate-100 first:border-t-0">
                     <TableCell
-                      colSpan={getMesesVisiveis().length + 2}
-                      className="sticky left-0 bg-gray-50 py-2"
+                      colSpan={mesSelecionado ? 2 : 13}
+                      className={cn(
+                        "bg-slate-50/80 px-6 py-2.5",
+                        isSubmetido ? "bg-indigo-50/50" : "bg-blue-50/50"
+                      )}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-800">{projeto.projetoNome}</span>
-                        <Badge className="bg-gray-200 text-xs text-gray-600">
-                          {projeto.workpackages.size} WPs
-                        </Badge>
+                        <div className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-lg text-xs font-medium shadow-sm",
+                          isSubmetido 
+                            ? "bg-indigo-100 text-indigo-700" 
+                            : "bg-blue-100 text-blue-700"
+                        )}>
+                          {projetoNome.substring(0, 2).toUpperCase()}
+                        </div>
+                        <span className="font-medium text-slate-700">{projetoNome}</span>
                       </div>
                     </TableCell>
                   </TableRow>
-                  {Array.from(projeto.workpackages.values()).map((wp) => {
-                    const totalAlocado = calcularTotalWP(wp.id);
+
+                  {/* Workpackage Rows */}
+                  {Array.from(wps).map((wpId) => {
+                    const wp = (isSubmetido ? alocacoes.submetido : alocacoes.real).find(
+                      (a) => a.workpackage.id === wpId
+                    )?.workpackage;
+
+                    if (!wp) return null;
+
                     return (
                       <TableRow
-                        key={wp.id}
-                        className="transition-colors duration-150 hover:bg-gray-50"
+                        key={`${projetoId}-${wpId}`} 
+                        className={cn(
+                          "group transition-all duration-150 ease-in-out hover:bg-slate-50/70",
+                          "border-b-0"
+                        )}
                       >
-                        <TableCell className="sticky left-0 z-10 bg-white py-2 pl-6 group-hover:bg-white">
-                          <span className="text-gray-600">{wp.nome}</span>
+                        <TableCell className={cn(
+                          "px-6 py-2.5 align-middle text-sm",
+                          mesSelecionado && "max-w-0"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              isSubmetido ? "bg-indigo-400" : "bg-blue-400"
+                            )} />
+                            <span className={cn(
+                              "text-slate-600",
+                              mesSelecionado && "line-clamp-1"
+                            )}>{wp.nome}</span>
+                          </div>
                         </TableCell>
-                        {getMesesVisiveis().map((mes) => {
-                          const alocacao = getAlocacao(wp.id, mes, anoSelecionado);
-                          const key = `${wp.id}-${mes}-${anoSelecionado}`;
-                          const valorEmEdicao = valoresEmEdicao.get(key);
+                        {getMeses().map((mes) => {
+                          const valor = getValor(wpId, mes);
+                          const isEditing = editValues.has(`${wpId}-${mes}-${anoSelecionado}`);
+                          
                           return (
-                            <TableCell key={mes} className="py-2 text-center">
-                              <Input
-                                type="text"
-                                value={
-                                  valorEmEdicao !== undefined
-                                    ? valorEmEdicao
-                                    : alocacao.toFixed(2).replace(".", ",")
-                                }
-                                onChange={(e) =>
-                                  handleInputChange(wp.id, mes, anoSelecionado, e.target.value)
-                                }
-                                onBlur={() => handleInputBlur(wp.id, mes, anoSelecionado)}
-                                className={cn(
-                                  "mx-auto h-8 w-16 rounded-md border text-center text-sm shadow-sm",
-                                  camposComErro.has(key)
-                                    ? "border-red-300 text-red-600 focus:ring-red-500"
-                                    : alocacao > 0
-                                      ? "border-[#2C5697] text-[#2C5697] focus:ring-[#2C5697]"
-                                      : "border-gray-200 text-gray-500 focus:ring-[#2C5697]"
-                                )}
-                                placeholder="0,00"
-                              />
+                            <TableCell 
+                              key={mes} 
+                                  className={cn(
+                                "px-3 py-2.5 text-center align-middle",
+                                mes % 2 === 0 ? "bg-slate-50/30" : "",
+                                mesSelecionado && "w-[40%]"
+                              )}
+                            >
+                              {isSubmetido ? (
+                                <span className={cn(
+                                  "text-sm",
+                                  valor > 0 ? "font-medium text-indigo-700" : "text-slate-400"
+                                )}>
+                                  {valor.toFixed(2)}
+                                </span>
+                              ) : (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Input
+                                        type="text"
+                                        value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) : valor.toFixed(2).replace(".", ",")}
+                                        onChange={(e) => handleInputChange(wpId, mes, e)}
+                                        placeholder="0,00"
+                                        className={cn(
+                                          "h-8 text-center transition-all duration-200",
+                                          isEditing 
+                                            ? "border-blue-200 bg-blue-50/50 shadow-sm" 
+                                            : "border-transparent bg-transparent hover:border-slate-200 hover:bg-white",
+                                          valor > 0 && "text-blue-700",
+                                          mesSelecionado && "text-lg"
+                                        )}
+                                      />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                      Valor em percentagem (0-100%)
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                             </TableCell>
                           );
                         })}
-                        <TableCell className="py-2 text-center font-semibold text-[#2C5697]">
-                          {totalAlocado.toFixed(2).replace(".", ",")}
-                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -471,68 +394,76 @@ export function TabelaAlocacoes({ alocacoes, ano }: TabelaAlocacoesProps) {
               ))}
             </TableBody>
             <TableFooter>
-              <TableRow className="border-t border-gray-100 bg-gray-50">
-                <TableCell className="sticky left-0 z-10 bg-gray-50 py-3 font-semibold text-gray-700">
-                  <div className="flex items-center gap-2">
-                    <ChevronRight className="h-4 w-4 text-[#2C5697]" />
-                    Total Alocado
-                  </div>
+              <TableRow className="border-t border-slate-200">
+                <TableCell className="bg-slate-50/80 px-6 py-3 text-sm font-medium text-slate-900">
+                  Total por Mês
                 </TableCell>
-                {getMesesVisiveis().map((mes) => (
-                  <TableCell key={mes} className="py-3 text-center font-semibold text-[#2C5697]">
-                    {calcularTotalMes(mes, anoSelecionado).toFixed(2).replace(".", ",")}
-                  </TableCell>
-                ))}
-                <TableCell className="py-3 text-center font-semibold text-[#2C5697]">
-                  {calcularTotalGeral().toFixed(2).replace(".", ",")}
-                </TableCell>
-              </TableRow>
-              <TableRow className="bg-[#2C5697] text-white">
-                <TableCell className="sticky left-0 z-10 bg-[#2C5697] py-3 font-semibold">
-                  <div className="flex items-center gap-2">
-                    <ChevronRight className="h-4 w-4" />
-                    Total Proposto
-                  </div>
-                </TableCell>
-                {getMesesVisiveis().map((mes) => {
-                  const totalProposto = Object.values(projetosAgrupados).reduce(
-                    (total, projeto) => {
-                      let mesTotal = 0;
-                      projeto.workpackages.forEach((wp) => {
-                        if (wp.ano === anoSelecionado && wp.mes === mes) {
-                          mesTotal += wp.ocupacao;
-                        }
-                      });
-                      return total + mesTotal;
-                    },
-                    0
-                  );
+                {getMeses().map((mes) => {
+                  const totalReal = calcularTotal(alocacoes.real, mes);
+                  const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
+                  const isDifferent = Math.abs(totalReal - totalSubmetido) >= 0.001;
+
                   return (
-                    <TableCell key={mes} className="py-3 text-center font-semibold">
-                      {totalProposto.toFixed(2).replace(".", ",")}
-                    </TableCell>
+                    <TableCell
+                      key={mes}
+                      className={cn(
+                        "bg-slate-50/80 px-3 py-3 text-center text-sm font-medium",
+                        isDifferent && !isSubmetido && "bg-red-50 text-red-600",
+                        mesSelecionado && "text-lg"
+                      )}
+                    >
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>{isSubmetido ? totalSubmetido.toFixed(2) : totalReal.toFixed(2)}</span>
+                          </TooltipTrigger>
+                          {isDifferent && !isSubmetido && (
+                            <TooltipContent>
+                              <p className="text-xs">
+                                Submetido: {totalSubmetido.toFixed(2)}
+                                <br />
+                                Real: {totalReal.toFixed(2)}
+                              </p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                  </TableCell>
                   );
                 })}
-                <TableCell className="py-3 text-center font-semibold">
-                  {Object.values(projetosAgrupados)
-                    .reduce((total, projeto) => total + projeto.totalProposto, 0)
-                    .toFixed(2)
-                    .replace(".", ",")}
-                </TableCell>
               </TableRow>
+              
+              {!isSubmetido && (
+                <TableRow className="border-t border-slate-200/50">
+                  <TableCell className="bg-slate-50/80 px-6 py-3 text-sm font-medium text-slate-600">
+                      Total Submetido
+                  </TableCell>
+                  {getMeses().map((mes) => {
+                    const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
+                    const totalReal = calcularTotal(alocacoes.real, mes);
+                    const isDifferent = Math.abs(totalReal - totalSubmetido) >= 0.001;
+
+                    return (
+                      <TableCell
+                        key={mes}
+                        className={cn(
+                          "bg-slate-50/80 px-3 py-3 text-center text-sm",
+                          isDifferent 
+                            ? "font-medium text-indigo-600" 
+                            : "text-slate-500",
+                          mesSelecionado && "text-lg"
+                        )}
+                      >
+                        {totalSubmetido.toFixed(2)}
+                    </TableCell>
+                    );
+                  })}
+                </TableRow>
+              )}
             </TableFooter>
           </Table>
         </div>
-      </div>
-
-      {/* Estado vazio */}
-      {Object.keys(projetosAgrupados).length === 0 && (
-        <div className="rounded-lg border border-gray-100 bg-white py-12 text-center shadow-sm">
-          <Calendar className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-          <h3 className="text-lg font-semibold text-gray-700">Sem alocações</h3>
-          <p className="text-gray-500">Nenhuma alocação registrada para exibir.</p>
-        </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }

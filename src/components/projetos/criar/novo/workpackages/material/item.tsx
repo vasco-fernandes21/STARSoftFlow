@@ -27,6 +27,7 @@ interface Material {
   preco: number;
   quantidade: number;
   ano_utilizacao: number;
+  mes: number;
   rubrica: Rubrica;
   workpackageId?: string;
   estado?: boolean;
@@ -43,6 +44,7 @@ interface MaterialItemProps {
       preco: number;
       quantidade: number;
       ano_utilizacao: number;
+      mes: number;
       rubrica: Rubrica;
     }
   ) => void;
@@ -76,6 +78,16 @@ function obterNomeRubrica(rubrica: Rubrica): string {
   };
 
   return rubricas[rubrica] || rubrica;
+}
+
+// Função para obter o nome do mês
+function obterNomeMes(mes: number): string {
+  const meses = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
+  
+  return meses[mes - 1] || String(mes);
 }
 
 export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado }: MaterialItemProps) {
@@ -208,6 +220,7 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado }: M
             preco: localMaterial.preco,
             quantidade: localMaterial.quantidade,
             ano_utilizacao: localMaterial.ano_utilizacao,
+            mes: localMaterial.mes || 1,
             rubrica: localMaterial.rubrica,
           }}
           onSubmit={handleSubmit}
@@ -268,7 +281,7 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado }: M
 
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Calendar className="h-3 w-3" />
-                  <span>{localMaterial.ano_utilizacao}</span>
+                  <span>{obterNomeMes(localMaterial.mes || 1)} {localMaterial.ano_utilizacao}</span>
                 </div>
 
                 <div className="flex items-center gap-1 text-xs font-medium text-green-600">
@@ -368,7 +381,9 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado }: M
               <div className="flex flex-wrap gap-3">
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5 text-azul" />
-                  <span className="text-sm">Ano de utilização: {localMaterial.ano_utilizacao}</span>
+                  <span className="text-sm">
+                    Data: {obterNomeMes(localMaterial.mes || 1)} / {localMaterial.ano_utilizacao}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-1">

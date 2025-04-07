@@ -279,6 +279,7 @@ function ProjetoFormContent() {
         quantidade: Number(material.quantidade || 0), // handle potential undefined
         rubrica: material.rubrica || "MATERIAIS",
         ano_utilizacao: Number(material.ano_utilizacao || new Date().getFullYear()), // handle potential undefined
+        mes: Number(material.mes || new Date().getMonth() + 1), // handle potential undefined
         descricao: material.descricao === undefined ? null : material.descricao,
         estado: material.estado || false,
       };
@@ -291,6 +292,7 @@ function ProjetoFormContent() {
         ...(data.preco !== undefined && { preco: new Decimal(data.preco.toString()) }),
         ...(data.quantidade !== undefined && { quantidade: Number(data.quantidade) }),
         ...(data.ano_utilizacao !== undefined && { ano_utilizacao: Number(data.ano_utilizacao) }),
+        ...(data.mes !== undefined && { mes: Number(data.mes) }),
         ...(data.descricao !== undefined && {
           descricao: data.descricao === undefined ? null : data.descricao,
         }),
@@ -480,6 +482,7 @@ function ProjetoFormContent() {
         taxa_financiamento: Number(state.taxa_financiamento),
         valor_eti: Number(state.valor_eti),
         financiamentoId: state.financiamentoId ? Number(state.financiamentoId) : undefined,
+        ...(rascunhoId && { rascunhoId }),
 
         workpackages: state.workpackages.map((wp) => ({
           nome: wp.nome,
@@ -508,6 +511,7 @@ function ProjetoFormContent() {
             quantidade: Number(m.quantidade),
             rubrica: m.rubrica || Rubrica.MATERIAIS,
             ano_utilizacao: Number(m.ano_utilizacao),
+            mes: Number(m.mes || 1),
           })),
 
           recursos: wp.recursos.map((r) => ({

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { ProjetoEstado, Rubrica } from "@prisma/client";
-import type { Prisma, Rascunho } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { handlePrismaError } from "../utils";
 import { paginationSchema } from "../schemas/common";
 import { Decimal } from "decimal.js";
@@ -92,6 +92,7 @@ export const createProjetoCompletoSchema = z.object({
   overhead: z.number().min(0).max(100).default(0),
   taxa_financiamento: z.number().min(0).max(100).default(0),
   valor_eti: z.number().min(0).default(0),
+  rascunhoId: z.string().optional(), 
 
   // Workpackages e seus sub-dados
   workpackages: z
@@ -656,6 +657,7 @@ export const projetoRouter = createTRPCRouter({
         overhead: z.number().min(0).max(100).default(0),
         taxa_financiamento: z.number().min(0).max(100).default(0),
         valor_eti: z.number().min(0).default(0),
+        rascunhoId: z.string().optional(), // Novo campo opcional para ID do rascunho
         workpackages: z
           .array(
             z.object({
@@ -811,97 +813,124 @@ export const projetoRouter = createTRPCRouter({
           });
         }
 
-        const projeto = await ctx.db.projeto.create({
-          data: {
-            nome: input.nome,
-            descricao: input.descricao,
-            inicio: input.inicio,
-            fim: input.fim,
-            estado: input.estado,
-            overhead: input.overhead,
-            taxa_financiamento: input.taxa_financiamento,
-            valor_eti: input.valor_eti,
-            // Usar a sintaxe de relacionamento do Prisma para o responsável
-            responsavel: {
-              connect: {
-                id: targetUserId,
+        // Usar transação para garantir atomicidade das operações
+        const result = await ctx.db.$transaction(async (tx) => {
+          // Se tiver rascunhoId, verificar se existe e pertence ao utilizador
+          if (input.rascunhoId) {
+            const rascunho = await tx.rascunho.findFirst({
+              where: {
+                id: input.rascunhoId,
+                userId: ctx.session.user.id,
+              },
+            });
+
+            if (!rascunho) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Rascunho não encontrado",
+              });
+            }
+
+            // Apagar o rascunho
+            await tx.rascunho.delete({
+              where: {
+                id: input.rascunhoId,
+              },
+            });
+          }
+
+          // Criar o projeto
+          const projeto = await tx.projeto.create({
+            data: {
+              nome: input.nome,
+              descricao: input.descricao,
+              inicio: input.inicio,
+              fim: input.fim,
+              estado: input.estado,
+              overhead: input.overhead,
+              taxa_financiamento: input.taxa_financiamento,
+              valor_eti: input.valor_eti,
+              // Usar a sintaxe de relacionamento do Prisma para o responsável
+              responsavel: {
+                connect: {
+                  id: targetUserId,
+                },
+              },
+              ...(input.financiamentoId
+                ? {
+                    financiamento: {
+                      connect: {
+                        id: input.financiamentoId,
+                      },
+                    },
+                  }
+                : {}),
+              workpackages: {
+                create: input.workpackages.map((wp) => ({
+                  nome: wp.nome,
+                  descricao: wp.descricao,
+                  inicio: wp.inicio,
+                  fim: wp.fim,
+                  estado: wp.estado,
+                  tarefas: {
+                    create: wp.tarefas.map((t) => ({
+                      nome: t.nome,
+                      descricao: t.descricao,
+                      inicio: t.inicio,
+                      fim: t.fim,
+                      estado: t.estado,
+                      entregaveis: {
+                        create: t.entregaveis.map((e) => ({
+                          nome: e.nome,
+                          descricao: e.descricao,
+                          data: e.data,
+                        })),
+                      },
+                    })),
+                  },
+                  materiais: {
+                    create: wp.materiais.map((m) => ({
+                      nome: m.nome,
+                      preco: m.preco,
+                      quantidade: m.quantidade,
+                      rubrica: m.rubrica,
+                      ano_utilizacao: m.ano_utilizacao,
+                    })),
+                  },
+                })),
               },
             },
-            ...(input.financiamentoId
-              ? {
-                  financiamento: {
-                    connect: {
-                      id: input.financiamentoId,
+            include: {
+              financiamento: true,
+              responsavel: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              workpackages: {
+                include: {
+                  tarefas: {
+                    include: {
+                      entregaveis: true,
                     },
                   },
-                }
-              : {}),
-            workpackages: {
-              create: input.workpackages.map((wp) => ({
-                nome: wp.nome,
-                descricao: wp.descricao,
-                inicio: wp.inicio,
-                fim: wp.fim,
-                estado: wp.estado,
-                tarefas: {
-                  create: wp.tarefas.map((t) => ({
-                    nome: t.nome,
-                    descricao: t.descricao,
-                    inicio: t.inicio,
-                    fim: t.fim,
-                    estado: t.estado,
-                    entregaveis: {
-                      create: t.entregaveis.map((e) => ({
-                        nome: e.nome,
-                        descricao: e.descricao,
-                        data: e.data,
-                      })),
-                    },
-                  })),
+                  materiais: true,
                 },
-                materiais: {
-                  create: wp.materiais.map((m) => ({
-                    nome: m.nome,
-                    preco: m.preco,
-                    quantidade: m.quantidade,
-                    rubrica: m.rubrica,
-                    ano_utilizacao: m.ano_utilizacao,
-                  })),
-                },
-              })),
-            },
-          },
-          include: {
-            financiamento: true,
-            responsavel: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
               },
             },
-            workpackages: {
-              include: {
-                tarefas: {
-                  include: {
-                    entregaveis: true,
-                  },
-                },
-                materiais: true,
-              },
-            },
-          },
-        });
+          });
 
-        for (const wpInput of input.workpackages) {
-          if (!wpInput.recursos || wpInput.recursos.length === 0) continue;
+          // Criar alocações de recursos
+          for (const wpInput of input.workpackages) {
+            if (!wpInput.recursos || wpInput.recursos.length === 0) continue;
 
-          const workpackage = projeto.workpackages.find((w) => w.nome === wpInput.nome);
-          if (!workpackage) continue;
+            const workpackage = projeto.workpackages.find((w) => w.nome === wpInput.nome);
+            if (!workpackage) continue;
 
-          for (const recurso of wpInput.recursos) {
-            try {
-              await ctx.db.alocacaoRecurso.create({
+            for (const recurso of wpInput.recursos) {
+              await tx.alocacaoRecurso.create({
                 data: {
                   workpackageId: workpackage.id,
                   userId: recurso.userId,
@@ -910,15 +939,15 @@ export const projetoRouter = createTRPCRouter({
                   ocupacao: new Decimal(recurso.ocupacao),
                 },
               });
-            } catch (error) {
-              console.error(`Erro ao criar alocação: ${error}`);
             }
           }
-        }
+
+          return { projeto };
+        });
 
         return {
           success: true,
-          data: projeto,
+          data: result.projeto,
         };
       } catch (error) {
         console.error("Erro ao criar projeto completo:", error);
@@ -935,12 +964,11 @@ export const projetoRouter = createTRPCRouter({
       z.object({
         id: z.string().uuid("ID do projeto inválido"),
         aprovar: z.boolean(),
-        comentario: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const { id, aprovar, comentario } = input;
+        const { id } = input;
         
         // Verificar se o projeto existe
         const projeto = await ctx.db.projeto.findUnique({
@@ -991,12 +1019,87 @@ export const projetoRouter = createTRPCRouter({
         }
 
         // Se for para aprovar, atualiza o estado
-        if (aprovar) {
+        if (input.aprovar) {
+          // Buscar o projeto completo com todas as relações
+          const projetoCompleto = await ctx.db.projeto.findUnique({
+            where: { id },
+            include: {
+              financiamento: true,
+              responsavel: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              workpackages: {
+                include: {
+                  tarefas: {
+                    include: {
+                      entregaveis: true,
+                    },
+                  },
+                  materiais: true,
+                  recursos: {
+                    include: {
+                      user: {
+                        select: {
+                          id: true,
+                          name: true,
+                          salario: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!projetoCompleto) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Projeto não encontrado com todas as relações",
+            });
+          }
+
+          // Atualizar o projeto com o novo estado e guardar o snapshot
           const projetoAtualizado = await ctx.db.projeto.update({
             where: { id },
             data: { 
               estado: ProjetoEstado.APROVADO,
-              // Se houvesse um campo para comentários, poderia adicionar aqui
+              aprovado: projetoCompleto, // Salvamos o estado completo do projeto
+            } as Prisma.ProjetoUpdateInput,
+            include: {
+              financiamento: true,
+              responsavel: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              workpackages: {
+                include: {
+                  tarefas: {
+                    include: {
+                      entregaveis: true,
+                    },
+                  },
+                  materiais: true,
+                  recursos: {
+                    include: {
+                      user: {
+                        select: {
+                          id: true,
+                          name: true,
+                          salario: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
           });
 

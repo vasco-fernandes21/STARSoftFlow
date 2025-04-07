@@ -355,100 +355,6 @@ export const utilizadorRouter = createTRPCRouter({
       }
     }),
 
-  getProjetosWithUser: protectedProcedure
-    .input(z.string())
-    .query(async ({ ctx, input: userId }) => {
-      try {
-        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
-          where: {
-            userId: userId,
-          },
-          select: {
-            mes: true,
-            ano: true,
-            ocupacao: true,
-            workpackageId: true,
-            userId: true,
-          },
-        });
-
-        // Extrair IDs de workpackages únicos
-        const workpackageIds = [...new Set(alocacoes.map((w) => w.workpackageId))];
-
-        // Buscar workpackages com seus projetos
-        const workpackages = await ctx.db.workpackage.findMany({
-          where: {
-            id: { in: workpackageIds },
-          },
-          select: {
-            id: true,
-            nome: true,
-            descricao: true,
-            inicio: true,
-            fim: true,
-            estado: true,
-            projetoId: true,
-            projeto: {
-              select: {
-                id: true,
-                nome: true,
-                descricao: true,
-                inicio: true,
-                fim: true,
-              },
-            },
-          },
-        });
-
-        // Criar mapa de alocações por workpackage
-        const alocacoesPorWP = new Map();
-        alocacoes.forEach((alocacao) => {
-          if (!alocacoesPorWP.has(alocacao.workpackageId)) {
-            alocacoesPorWP.set(alocacao.workpackageId, []);
-          }
-          alocacoesPorWP.get(alocacao.workpackageId).push({
-            mes: alocacao.mes,
-            ano: alocacao.ano,
-            ocupacao: alocacao.ocupacao,
-          });
-        });
-
-        // Agrupar workpackages por projeto
-        const projetoMap = new Map();
-        workpackages.forEach((wp) => {
-          if (!projetoMap.has(wp.projeto.id)) {
-            projetoMap.set(wp.projeto.id, {
-              id: wp.projeto.id,
-              nome: wp.projeto.nome,
-              descricao: wp.projeto.descricao,
-              inicio: wp.projeto.inicio,
-              fim: wp.projeto.fim,
-              workpackages: [],
-            });
-          }
-
-          projetoMap.get(wp.projeto.id).workpackages.push({
-            id: wp.id,
-            nome: wp.nome,
-            descricao: wp.descricao,
-            inicio: wp.inicio,
-            fim: wp.fim,
-            estado: wp.estado,
-            alocacoes: alocacoesPorWP.get(wp.id) || [],
-          });
-        });
-
-        // Converter o Map para array e ordenar por data de início do projeto
-        const projetos = Array.from(projetoMap.values()).sort(
-          (a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime()
-        );
-
-        return projetos;
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-
   // Obter utilizador por ID
   findById: protectedProcedure.input(z.string()).query(async ({ ctx, input: id }) => {
     try {
@@ -784,148 +690,170 @@ export const utilizadorRouter = createTRPCRouter({
       }
     }),
 
-  // Obter ocupação por projeto com workpackages
-  getOcupacaoPorProjeto: protectedProcedure
-    .input(
-      z.object({
-        userId: z.string(),
-        dataInicio: z.date(),
-        dataFim: z.date(),
-      })
-    )
+  // Nova função unificada que combina alocações reais e submetidas
+  getAlocacoes: protectedProcedure
+    .input(z.object({
+      userId: z.string(),
+      ano: z.number().optional(),
+    }))
     .query(async ({ ctx, input }) => {
       try {
-        const { userId, dataInicio, dataFim } = input;
+        // Interface para snapshot aprovado
+        interface ApprovedSnapshot {
+          workpackages: Array<{
+            id: string;
+            nome: string;
+            recursos: Array<{
+              userId: string;
+              mes: number;
+              ano: number;
+              ocupacao: number;
+            }>;
+          }>;
+        }
 
-        // Converter datas para ano/mês
-        const anoInicio = dataInicio.getFullYear();
-        const mesInicio = dataInicio.getMonth() + 1;
-        const anoFim = dataFim.getFullYear();
-        const mesFim = dataFim.getMonth() + 1;
-
-        // Buscar todas as alocações no período
-        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+        // 1. Buscar alocações reais da tabela (apenas de projetos aprovados/em desenvolvimento/concluídos)
+        const alocacoesReais = await ctx.db.alocacaoRecurso.findMany({
           where: {
-            userId: userId,
-            OR: [
-              // Alocações dentro do mesmo ano
-              {
-                AND: [
-                  { ano: anoInicio },
-                  { mes: { gte: mesInicio } },
-                  { ano: anoFim },
-                  { mes: { lte: mesFim } },
-                ],
-              },
-              // Alocações em anos diferentes
-              {
-                AND: [{ ano: { gt: anoInicio, lt: anoFim } }],
-              },
-              // Alocações no ano inicial após o mês inicial
-              {
-                AND: [{ ano: anoInicio }, { mes: { gte: mesInicio } }],
-              },
-              // Alocações no ano final antes do mês final
-              {
-                AND: [{ ano: anoFim }, { mes: { lte: mesFim } }],
-              },
-            ],
+            userId: input.userId,
+            ...(input.ano ? { ano: input.ano } : {}),
+            workpackage: {
+              projeto: {
+                estado: {
+                  in: ["APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"]
+                }
+              }
+            }
           },
           select: {
             mes: true,
             ano: true,
             ocupacao: true,
             workpackageId: true,
-          },
-        });
-
-        // Extrair workpackageIds das alocações
-        const workpackageIds = [...new Set(alocacoes.map((a) => a.workpackageId))];
-
-        // Buscar workpackages com seus projetos
-        const workpackages = await ctx.db.workpackage.findMany({
-          where: {
-            id: { in: workpackageIds },
-          },
-          select: {
-            id: true,
-            nome: true,
-            descricao: true,
-            inicio: true,
-            fim: true,
-            projetoId: true,
-            projeto: {
+            workpackage: {
               select: {
                 id: true,
                 nome: true,
-                descricao: true,
-                inicio: true,
-                fim: true,
+                projetoId: true,
+                projeto: {
+                  select: {
+                    id: true,
+                    nome: true,
+                    estado: true,
+                  },
+                },
               },
             },
           },
         });
 
-        // Agrupar alocações por workpackage
-        const alocacoesPorWorkpackage = new Map();
-        alocacoes.forEach((a) => {
-          if (!alocacoesPorWorkpackage.has(a.workpackageId)) {
-            alocacoesPorWorkpackage.set(a.workpackageId, []);
-          }
-          alocacoesPorWorkpackage.get(a.workpackageId).push(a);
+        // 2. Buscar projetos aprovados com snapshots
+        const projetosAprovados = await ctx.db.projeto.findMany({
+          where: {
+            estado: {
+              in: ["APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"]
+            },
+            workpackages: {
+              some: {
+                recursos: {
+                  some: {
+                    userId: input.userId,
+                  },
+                },
+              },
+            },
+          },
+          select: {
+            id: true,
+            nome: true,
+            aprovado: true,
+          },
         });
 
-        // Agrupar workpackages por projeto
-        const projetoMap = new Map();
+        // 3. Processar alocações reais mantendo 2 casas decimais
+        const realData = alocacoesReais.map(alocacao => ({
+          workpackageId: alocacao.workpackage.id,
+          workpackageNome: alocacao.workpackage.nome,
+          projetoId: alocacao.workpackage.projeto.id,
+          projetoNome: alocacao.workpackage.projeto.nome,
+          projetoEstado: alocacao.workpackage.projeto.estado,
+          mes: alocacao.mes,
+          ano: alocacao.ano,
+          ocupacao: Number(alocacao.ocupacao.toFixed(2)),
+        }));
 
-        for (const wp of workpackages) {
-          if (!projetoMap.has(wp.projeto.id)) {
-            projetoMap.set(wp.projeto.id, {
-              id: wp.projeto.id,
-              nome: wp.projeto.nome,
-              descricao: wp.projeto.descricao,
-              inicio: wp.projeto.inicio,
-              fim: wp.projeto.fim,
-              workpackages: [],
-              ocupacaoMedia: 0,
+        // Set para armazenar anos únicos
+        const anosSet = new Set<number>();
+
+        // 4. Processar alocações submetidas dos snapshots mantendo 2 casas decimais
+        const submetidoData = projetosAprovados.flatMap(projeto => {
+          if (!projeto.aprovado) return [];
+
+          try {
+            const snapshotAprovado = projeto.aprovado as unknown as ApprovedSnapshot;
+            
+            // Agrupar alocações por workpackage
+            const alocacoesPorMes = new Map<string, {
+              workpackageId: string;
+              workpackageNome: string;
+              projetoId: string;
+              projetoNome: string;
+              mes: number;
+              ano: number;
+              ocupacao: number;
+            }>();
+
+            snapshotAprovado.workpackages.forEach(wp => {
+              if (!wp.recursos) return;
+
+              wp.recursos
+                .filter(r => r.userId === input.userId)
+                .filter(r => !input.ano || r.ano === input.ano)
+                .forEach(recurso => {
+                  const key = `${recurso.mes}-${recurso.ano}-${wp.id}`;
+                  
+                  // Adicionar ano ao Set
+                  anosSet.add(recurso.ano);
+                  
+                  // Se já existe uma alocação para este mês/ano/workpackage, somamos
+                  if (alocacoesPorMes.has(key)) {
+                    const existing = alocacoesPorMes.get(key)!;
+                    existing.ocupacao = Number((existing.ocupacao + Number(recurso.ocupacao)).toFixed(2));
+                  } else {
+                    alocacoesPorMes.set(key, {
+                      workpackageId: wp.id,
+                      workpackageNome: wp.nome,
+                      projetoId: projeto.id,
+                      projetoNome: projeto.nome,
+                      mes: recurso.mes,
+                      ano: recurso.ano,
+                      ocupacao: Number(Number(recurso.ocupacao).toFixed(2)),
+                    });
+                  }
+                });
             });
+
+            return Array.from(alocacoesPorMes.values());
+          } catch (error) {
+            console.error(`Erro ao processar snapshot do projeto ${projeto.id}:`, error);
+            return [];
           }
-
-          const wpAlocacoes = alocacoesPorWorkpackage.get(wp.id) || [];
-          const ocupacoes = wpAlocacoes.map((a: any) => Number(a.ocupacao));
-          const ocupacaoMedia =
-            ocupacoes.length > 0
-              ? ocupacoes.reduce((sum: number, val: number) => sum + val, 0) / ocupacoes.length
-              : 0;
-
-          projetoMap.get(wp.projeto.id).workpackages.push({
-            id: wp.id,
-            nome: wp.nome,
-            descricao: wp.descricao,
-            inicio: wp.inicio,
-            fim: wp.fim,
-            alocacoes: wpAlocacoes,
-            ocupacaoMedia,
-          });
-        }
-
-        // Calcular ocupação média para cada projeto
-        const projetosProcessados = Array.from(projetoMap.values()).map((projeto) => {
-          const ocupacoesWP = projeto.workpackages.map((wp: any) => wp.ocupacaoMedia);
-          const ocupacaoMediaProjeto =
-            ocupacoesWP.length > 0
-              ? ocupacoesWP.reduce((sum: number, val: number) => sum + val, 0) / ocupacoesWP.length
-              : 0;
-
-          return {
-            ...projeto,
-            ocupacaoMedia: ocupacaoMediaProjeto,
-          };
         });
 
-        return projetosProcessados;
+        // Converter Set para array e ordenar
+        const anosAlocados = Array.from(anosSet).sort((a, b) => b - a);
+
+        return {
+          real: realData,
+          submetido: submetidoData,
+          anos: anosAlocados,
+        };
       } catch (error) {
-        return handlePrismaError(error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao buscar alocações",
+          cause: error,
+        });
       }
     }),
 

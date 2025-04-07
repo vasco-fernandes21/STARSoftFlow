@@ -45,7 +45,7 @@ model Projeto {
     descricao       String?       @db.Text
     inicio          DateTime?     @db.Date
     fim             DateTime?     @db.Date
-    estado          ProjetoEstado @default(RASCUNHO)
+    estado          ProjetoEstado @default(PENDENTE)
     
     overhead           Decimal?   @default(0) @db.Decimal(5, 2)
     taxa_financiamento Decimal?   @default(0) @db.Decimal(5, 2)
@@ -59,6 +59,9 @@ model Projeto {
     // Relações
     financiamento   Financiamento? @relation(fields: [financiamentoId], references: [id])
     workpackages    Workpackage[]
+
+    // Estado submetido
+    aprovado         Json?  @db.JsonB //Vai guardar a estrutura toda do projeto no momento em que é submetido
 
     @@map("Projetos")
 }
@@ -131,6 +134,7 @@ model Material {
     descricao     String?     @db.Text
     preco         Decimal     @db.Decimal(10, 2)
     ano_utilizacao Int         @db.Integer
+    mes           Int         @default(1) @db.Integer 
     quantidade    Int
     rubrica       Rubrica     @default(MATERIAIS)  
     workpackageId String?     @map("workpackage_id") @db.Uuid
