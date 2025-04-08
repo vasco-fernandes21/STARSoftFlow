@@ -116,6 +116,14 @@ const alocacaoValidationSchema = z.object({
   ignorarAlocacaoAtual: z.boolean().optional().default(false),
 });
 
+// Schema para validação da configuração mensal
+const configuracaoMensalSchema = z.object({
+  mes: z.number().int().min(1).max(12),
+  ano: z.number().int().min(2000),
+  diasUteis: z.number().int().min(0).max(31),
+  horasPotenciais: z.number().min(0).max(1000),
+});
+
 // Tipos inferidos dos schemas
 export type CreateUtilizadorInput = z.infer<typeof createUtilizadorSchema>;
 export type UpdateUtilizadorInput = z.infer<typeof updateUtilizadorSchema>;
@@ -124,6 +132,7 @@ export type UtilizadorFilterInput = z.infer<typeof utilizadorFilterSchema>;
 export type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type PrimeiroAcessoInput = z.infer<typeof primeiroAcessoSchema>;
+export type ConfiguracaoMensalInput = z.infer<typeof configuracaoMensalSchema>;
 
 // Exportar os schemas para uso em validações
 export {
@@ -698,7 +707,7 @@ export const utilizadorRouter = createTRPCRouter({
     }))
     .query(async ({ ctx, input }) => {
       try {
-        // Interface para snapshot aprovado
+        // Interface for snapshot
         interface ApprovedSnapshot {
           workpackages: Array<{
             id: string;
@@ -712,18 +721,14 @@ export const utilizadorRouter = createTRPCRouter({
           }>;
         }
 
-        // 1. Buscar alocações reais da tabela (apenas de projetos aprovados/em desenvolvimento/concluídos)
+        // Debug log
+        console.log("Getting allocations for user:", input.userId, "year:", input.ano);
+
+        // 1. Get all allocations without state filter first
         const alocacoesReais = await ctx.db.alocacaoRecurso.findMany({
           where: {
             userId: input.userId,
             ...(input.ano ? { ano: input.ano } : {}),
-            workpackage: {
-              projeto: {
-                estado: {
-                  in: ["APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"]
-                }
-              }
-            }
           },
           select: {
             mes: true,
@@ -747,12 +752,12 @@ export const utilizadorRouter = createTRPCRouter({
           },
         });
 
-        // 2. Buscar projetos aprovados com snapshots
-        const projetosAprovados = await ctx.db.projeto.findMany({
+        // Debug log
+        console.log("Found real allocations:", alocacoesReais.length);
+
+        // 2. Get all projects with snapshots (no state filter initially)
+        const projetosComSnapshot = await ctx.db.projeto.findMany({
           where: {
-            estado: {
-              in: ["APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"]
-            },
             workpackages: {
               some: {
                 recursos: {
@@ -762,42 +767,57 @@ export const utilizadorRouter = createTRPCRouter({
                 },
               },
             },
+            aprovado: {
+              not: {
+                equals: null
+              },
+            },
           },
           select: {
             id: true,
             nome: true,
+            estado: true,
             aprovado: true,
           },
         });
 
-        // 3. Processar alocações reais mantendo 2 casas decimais
-        const realData = alocacoesReais.map(alocacao => ({
-          workpackageId: alocacao.workpackage.id,
-          workpackageNome: alocacao.workpackage.nome,
-          projetoId: alocacao.workpackage.projeto.id,
-          projetoNome: alocacao.workpackage.projeto.nome,
-          projetoEstado: alocacao.workpackage.projeto.estado,
-          mes: alocacao.mes,
-          ano: alocacao.ano,
-          ocupacao: Number(alocacao.ocupacao.toFixed(2)),
-        }));
+        // Debug log
+        console.log("Found projects with snapshots:", projetosComSnapshot.length);
 
-        // Set para armazenar anos únicos
+        // Set for unique years
         const anosSet = new Set<number>();
 
-        // 4. Processar alocações submetidas dos snapshots mantendo 2 casas decimais
-        const submetidoData = projetosAprovados.flatMap(projeto => {
+        // 3. Process real allocations
+        const realData = alocacoesReais.map(alocacao => {
+          // Add year to set
+          anosSet.add(alocacao.ano);
+          
+          return {
+            workpackageId: alocacao.workpackage.id,
+            workpackageNome: alocacao.workpackage.nome,
+            projetoId: alocacao.workpackage.projeto.id,
+            projetoNome: alocacao.workpackage.projeto.nome,
+            projetoEstado: alocacao.workpackage.projeto.estado,
+            mes: alocacao.mes,
+            ano: alocacao.ano,
+            ocupacao: Number(alocacao.ocupacao.toFixed(3)),
+          };
+        });
+
+        // 4. Process submitted allocations from snapshots
+        const submetidoData = projetosComSnapshot.flatMap(projeto => {
           if (!projeto.aprovado) return [];
 
           try {
             const snapshotAprovado = projeto.aprovado as unknown as ApprovedSnapshot;
             
-            // Agrupar alocações por workpackage
+            // Group allocations by workpackage
             const alocacoesPorMes = new Map<string, {
               workpackageId: string;
               workpackageNome: string;
               projetoId: string;
               projetoNome: string;
+              projetoEstado: string;
               mes: number;
               ano: number;
               ocupacao: number;
@@ -812,22 +832,22 @@ export const utilizadorRouter = createTRPCRouter({
                 .forEach(recurso => {
                   const key = `${recurso.mes}-${recurso.ano}-${wp.id}`;
                   
-                  // Adicionar ano ao Set
+                  // Add year to set
                   anosSet.add(recurso.ano);
                   
-                  // Se já existe uma alocação para este mês/ano/workpackage, somamos
                   if (alocacoesPorMes.has(key)) {
                     const existing = alocacoesPorMes.get(key)!;
-                    existing.ocupacao = Number((existing.ocupacao + Number(recurso.ocupacao)).toFixed(2));
+                    existing.ocupacao = Number((existing.ocupacao + Number(recurso.ocupacao)).toFixed(3));
                   } else {
                     alocacoesPorMes.set(key, {
                       workpackageId: wp.id,
                       workpackageNome: wp.nome,
                       projetoId: projeto.id,
                       projetoNome: projeto.nome,
+                      projetoEstado: projeto.estado,
                       mes: recurso.mes,
                       ano: recurso.ano,
-                      ocupacao: Number(Number(recurso.ocupacao).toFixed(2)),
+                      ocupacao: Number(Number(recurso.ocupacao).toFixed(3)),
                     });
                   }
                 });
@@ -835,12 +855,19 @@ export const utilizadorRouter = createTRPCRouter({
 
             return Array.from(alocacoesPorMes.values());
           } catch (error) {
-            console.error(`Erro ao processar snapshot do projeto ${projeto.id}:`, error);
+            console.error(`Error processing snapshot for project ${projeto.id}:`, error);
             return [];
           }
         });
 
-        // Converter Set para array e ordenar
+        // Debug log final results
+        console.log("Final results:", {
+          realCount: realData.length,
+          submittedCount: submetidoData.length,
+          uniqueYears: Array.from(anosSet),
+        });
+
+        // Convert Set to array and sort
         const anosAlocados = Array.from(anosSet).sort((a, b) => b - a);
 
         return {
@@ -849,9 +876,10 @@ export const utilizadorRouter = createTRPCRouter({
           anos: anosAlocados,
         };
       } catch (error) {
+        console.error("Error in getAlocacoes:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao buscar alocações",
+          message: "Error fetching allocations",
           cause: error,
         });
       }
@@ -921,4 +949,311 @@ export const utilizadorRouter = createTRPCRouter({
       });
     }
   }),
+
+  // Obter configuração mensal
+  getConfiguracaoMensal: protectedProcedure
+    .input(
+      z.object({
+        mes: z.number().int().min(1).max(12),
+        ano: z.number().int().min(2000),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const configuracao = await ctx.db.configuracaoMensal.findFirst({
+          where: {
+            mes: input.mes,
+            ano: input.ano,
+          },
+        });
+
+        return configuracao;
+      } catch (error) {
+        console.error("Erro ao obter configuração mensal:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter configuração mensal",
+          cause: error,
+        });
+      }
+    }),
+
+  // Listar todas as configurações mensais
+  listarConfiguracoesMensais: protectedProcedure
+    .input(
+      z.object({
+        ano: z.number().int().min(2000).optional(),
+        limit: z.number().min(1).max(100).optional().default(50),
+        cursor: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const { ano, limit, cursor } = input;
+
+        const where = ano ? { ano } : undefined;
+
+        const items = await ctx.db.configuracaoMensal.findMany({
+          where,
+          take: limit + 1,
+          cursor: cursor ? { id: cursor } : undefined,
+          orderBy: [
+            { ano: "desc" },
+            { mes: "asc" }
+          ],
+        });
+
+        let nextCursor: typeof cursor | undefined = undefined;
+        if (items.length > limit) {
+          const nextItem = items.pop();
+          nextCursor = nextItem?.id;
+        }
+
+        return {
+          items,
+          nextCursor,
+        };
+      } catch (error) {
+        console.error("Erro ao listar configurações mensais:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao listar configurações mensais",
+          cause: error,
+        });
+      }
+    }),
+
+  // Criar ou atualizar configuração mensal
+  upsertConfiguracaoMensal: protectedProcedure
+    .input(configuracaoMensalSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Verificar permissão (apenas admin ou gestor podem criar/atualizar)
+        const user = ctx.session?.user as UserWithPermissao | undefined;
+        if (!user || (user.permissao !== Permissao.ADMIN && user.permissao !== Permissao.GESTOR)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Não tem permissões para criar ou atualizar configurações mensais",
+          });
+        }
+
+        const { mes, ano, diasUteis, horasPotenciais } = input;
+
+        // Converter o valor numérico para Decimal
+        const horasPotenciaisDecimal = new Decimal(horasPotenciais);
+
+        // Verificar se já existe uma configuração para este mês/ano
+        const existente = await ctx.db.configuracaoMensal.findFirst({
+          where: {
+            mes,
+            ano,
+          },
+        });
+
+        let configuracao;
+
+        if (existente) {
+          // Atualizar
+          configuracao = await ctx.db.configuracaoMensal.update({
+            where: {
+              id: existente.id,
+            },
+            data: {
+              diasUteis,
+              horasPotenciais: horasPotenciaisDecimal,
+            },
+          });
+        } else {
+          // Criar
+          configuracao = await ctx.db.configuracaoMensal.create({
+            data: {
+              mes,
+              ano,
+              diasUteis,
+              horasPotenciais: horasPotenciaisDecimal,
+            },
+          });
+        }
+
+        return configuracao;
+      } catch (error) {
+        console.error("Erro ao criar/atualizar configuração mensal:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao criar/atualizar configuração mensal",
+          cause: error,
+        });
+      }
+    }),
+
+  // Modificar o método getRelatorioMensal para criar uma configuração padrão se não existir
+  getRelatorioMensal: protectedProcedure
+    .input(
+      z.object({
+        username: z.string(),
+        mes: z.number().min(1).max(12),
+        ano: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Buscar utilizador
+      const utilizador = await ctx.db.user.findUnique({
+        where: { username: input.username },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          atividade: true,
+        },
+      });
+
+      if (!utilizador) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Utilizador não encontrado",
+        });
+      }
+
+      // Calcular datas do mês
+      const dataInicio = new Date(input.ano, input.mes - 1, 1);
+      const dataFim = new Date(input.ano, input.mes, 0);
+
+      // Buscar configuração mensal
+      let configuracaoMensal = await ctx.db.configuracaoMensal.findFirst({
+        where: {
+          mes: input.mes,
+          ano: input.ano,
+        },
+        select: {
+          diasUteis: true,
+          horasPotenciais: true,
+        },
+      });
+
+      // Se não existir configuração, criar uma padrão
+      if (!configuracaoMensal) {
+        // Calcular dias úteis (simplificado - assumimos 20 dias úteis por mês)
+        const diasUteis = 20;
+        
+        // Calcular horas potenciais (8 horas por dia útil)
+        const horasPotenciais = new Decimal(diasUteis * 8);
+
+        configuracaoMensal = {
+          diasUteis,
+          horasPotenciais,
+        };
+
+        // Criar configuração na base de dados se o utilizador for admin ou gestor
+        const user = ctx.session?.user as UserWithPermissao | undefined;
+        if (user && (user.permissao === Permissao.ADMIN || user.permissao === Permissao.GESTOR)) {
+          await ctx.db.configuracaoMensal.create({
+            data: {
+              mes: input.mes,
+              ano: input.ano,
+              diasUteis,
+              horasPotenciais,
+            },
+          });
+        }
+      }
+
+      // Buscar alocações do utilizador
+      const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+        where: {
+          userId: utilizador.id,
+          mes: input.mes,
+          ano: input.ano,
+        },
+        select: {
+          workpackageId: true,
+          ocupacao: true,
+          workpackage: {
+            select: {
+              nome: true,
+              projeto: {
+                select: {
+                  id: true,
+                  nome: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Formatar alocações
+      const alocacoesFormatadas = alocacoes.map((alocacao) => ({
+        workpackageId: alocacao.workpackageId,
+        workpackageNome: alocacao.workpackage.nome,
+        projetoId: alocacao.workpackage.projeto.id,
+        projetoNome: alocacao.workpackage.projeto.nome,
+        ocupacao: Number(alocacao.ocupacao),
+      }));
+
+      // Buscar tarefas do mês
+      const tarefas = await ctx.db.tarefa.findMany({
+        where: {
+          workpackage: {
+            recursos: {
+              some: {
+                userId: utilizador.id,
+                mes: input.mes,
+                ano: input.ano,
+              },
+            },
+          },
+          inicio: {
+            gte: dataInicio,
+            lte: dataFim,
+          },
+        },
+        select: {
+          id: true,
+          nome: true,
+          descricao: true,
+          inicio: true,
+          estado: true,
+        },
+      });
+
+      // Buscar atividades do mês (simulado, pois não existe no schema)
+      // Em um sistema real, isso viria de uma tabela de atividades
+      const atividades: Array<{
+        id: string;
+        descricao: string;
+        data: Date;
+        tipo: "tarefa" | "projeto" | "reunião";
+        duracao: number;
+      }> = [];
+
+      // Calcular estatísticas
+      const tarefasCompletadas = tarefas.filter((t) => t.estado).length;
+      const tarefasPendentes = tarefas.filter((t) => !t.estado).length;
+      const horasTrabalhadas = alocacoes.reduce((acc, a) => acc + Number(a.ocupacao) * Number(configuracaoMensal.horasPotenciais), 0);
+      const produtividade = tarefas.length > 0 ? Math.round((tarefasCompletadas / tarefas.length) * 100) : 0;
+
+      return {
+        utilizador: {
+          id: utilizador.id,
+          nome: utilizador.name || "Utilizador sem nome",
+          email: utilizador.email || "utilizador@exemplo.com",
+          cargo: utilizador.atividade || "Cargo não definido",
+        },
+        configuracaoMensal: {
+          diasUteis: configuracaoMensal.diasUteis,
+          horasPotenciais: Number(configuracaoMensal.horasPotenciais),
+        },
+        alocacoes: alocacoesFormatadas,
+        estatisticas: {
+          tarefasCompletadas,
+          tarefasPendentes,
+          horasTrabalhadas,
+          produtividade,
+        },
+        atividades: atividades.map((a) => ({
+          ...a,
+          data: a.data.toISOString(),
+        })),
+      };
+    }),
 });

@@ -485,4 +485,55 @@ export const workpackageRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Obter alocações de um utilizador para um mês/ano específico
+  getAlocacoesByUserMesAno: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        mes: z.number().int().min(1).max(12),
+        ano: z.number().int().min(2000),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const { userId, mes, ano } = input;
+
+        // Verificar se o utilizador existe
+        const user = await ctx.db.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        // Buscar todas as alocações do utilizador para o mês/ano
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId,
+            mes,
+            ano,
+          },
+          include: {
+            workpackage: {
+              include: {
+                projeto: true,
+              },
+            },
+          },
+        });
+
+        return alocacoes;
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao buscar alocações",
+          cause: error,
+        });
+      }
+    }),
 });

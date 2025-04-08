@@ -118,21 +118,6 @@ export function TabelaDados<TData>({
   useEffect(() => {
     const updateItemsPerPage = () => {
       const calculated = calculateItemsPerPage();
-
-      if (tableContainerRef.current) {
-        console.log(`Altura do container: ${tableContainerRef.current.clientHeight}px`);
-        console.log(
-          `Altura disponível calculada: ${tableContainerRef.current.clientHeight - 70}px`
-        );
-        console.log(
-          `Linhas calculadas (antes): ${Math.floor((tableContainerRef.current.clientHeight - 80) / 44)}`
-        );
-        console.log(
-          `Linhas calculadas (após ajuste): ${Math.floor((tableContainerRef.current.clientHeight - 70 + 5) / 44)}`
-        );
-        console.log(`Itens por página definido: ${calculated}`);
-      }
-
       setDynamicItemsPerPage((prev) => (prev !== calculated ? calculated : prev));
     };
 

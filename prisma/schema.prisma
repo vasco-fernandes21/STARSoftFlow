@@ -1,275 +1,246 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-}
-
-enum ProjetoEstado {
-    RASCUNHO
-    PENDENTE
-    APROVADO
-    EM_DESENVOLVIMENTO
-    CONCLUIDO
-}
-
-enum Permissao {
-    ADMIN
-    GESTOR
-    COMUM
-}
-
-enum Regime {
-    PARCIAL
-    INTEGRAL
-}
-
-// Novo enum para Rubrica
-enum Rubrica {
-    MATERIAIS
-    SERVICOS_TERCEIROS
-    OUTROS_SERVICOS
-    DESLOCACAO_ESTADIAS
-    OUTROS_CUSTOS
-    CUSTOS_ESTRUTURA
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Projeto {
-    id              String        @id @default(uuid()) @db.Uuid 
-    nome            String        @db.VarChar(255)
-    descricao       String?       @db.Text
-    inicio          DateTime?     @db.Date
-    fim             DateTime?     @db.Date
-    estado          ProjetoEstado @default(PENDENTE)
-    
-    overhead           Decimal?   @default(0) @db.Decimal(5, 2)
-    taxa_financiamento Decimal?   @default(0) @db.Decimal(5, 2)
-    valor_eti          Decimal?   @default(0) @db.Decimal(10, 2)
-    financiamentoId Int?          @map("financiamento_id")
-    
-    // Nova relação com utilizador responsável
-    responsavelId   String?      @map("responsavel_id")
-    responsavel     User?        @relation("ProjetosResponsavel", fields: [responsavelId], references: [id])
-    
-    // Relações
-    financiamento   Financiamento? @relation(fields: [financiamentoId], references: [id])
-    workpackages    Workpackage[]
+  id                 String         @id @default(uuid()) @db.Uuid
+  nome               String         @db.VarChar(255)
+  descricao          String?
+  inicio             DateTime?      @db.Date
+  fim                DateTime?      @db.Date
+  estado             ProjetoEstado  @default(PENDENTE)
+  overhead           Decimal?       @default(0) @db.Decimal(5, 2)
+  taxa_financiamento Decimal?       @default(0) @db.Decimal(5, 2)
+  valor_eti          Decimal?       @default(0) @db.Decimal(10, 2)
+  financiamentoId    Int?           @map("financiamento_id")
+  responsavelId      String?        @map("responsavel_id")
+  aprovado           Json?
+  financiamento      Financiamento? @relation(fields: [financiamentoId], references: [id])
+  responsavel        User?          @relation("ProjetosResponsavel", fields: [responsavelId], references: [id])
+  workpackages       Workpackage[]
 
-    // Estado submetido
-    aprovado         Json?  @db.JsonB //Vai guardar a estrutura toda do projeto no momento em que é submetido
-
-    @@map("Projetos")
+  @@map("Projetos")
 }
 
 model Financiamento {
-    id                 Int       @id @default(autoincrement())
-    nome               String    @unique @db.VarChar(255)
-    overhead           Decimal   @db.Decimal(5, 2)
-    taxa_financiamento Decimal   @db.Decimal(5, 2)
-    valor_eti          Decimal   @db.Decimal(10, 2)
-    
-    // Relações
-    projetos           Projeto[]
+  id                 Int       @id @default(autoincrement())
+  nome               String    @unique @db.VarChar(255)
+  overhead           Decimal   @db.Decimal(5, 2)
+  taxa_financiamento Decimal   @db.Decimal(5, 2)
+  valor_eti          Decimal   @db.Decimal(10, 2)
+  projetos           Projeto[]
 
-    @@map("Financiamentos")
+  @@map("Financiamentos")
 }
 
 model Workpackage {
-    id         String    @id @default(uuid()) @db.Uuid
-    projetoId  String    @map("projeto_id") @db.Uuid
-    nome       String    @db.VarChar(255)
-    descricao  String?   @db.Text
-    inicio     DateTime? @db.Date
-    fim        DateTime? @db.Date
-    estado     Boolean   @default(false)
-    
-    // Relações
-    projeto    Projeto   @relation(fields: [projetoId], references: [id])
-    tarefas    Tarefa[]
-    materiais  Material[]
-    recursos   AlocacaoRecurso[]
+  id        String            @id @default(uuid()) @db.Uuid
+  projetoId String            @map("projeto_id") @db.Uuid
+  nome      String            @db.VarChar(255)
+  descricao String?
+  inicio    DateTime?         @db.Date
+  fim       DateTime?         @db.Date
+  estado    Boolean           @default(false)
+  materiais Material[]
+  tarefas   Tarefa[]
+  projeto   Projeto           @relation(fields: [projetoId], references: [id])
+  recursos  AlocacaoRecurso[]
 
-    @@map("Workpackages")
+  @@map("Workpackages")
 }
 
 model Tarefa {
-    id             String      @id @default(uuid()) @db.Uuid
-    workpackageId  String      @map("workpackage_id") @db.Uuid
-    nome           String      @db.VarChar(255)
-    descricao      String?     @db.Text
-    inicio         DateTime?   @db.Date
-    fim            DateTime?   @db.Date
-    estado         Boolean     @default(false)
-    
-    // Relações
-    workpackage    Workpackage @relation(fields: [workpackageId], references: [id])
-    entregaveis    Entregavel[]
+  id            String       @id @default(uuid()) @db.Uuid
+  workpackageId String       @map("workpackage_id") @db.Uuid
+  nome          String       @db.VarChar(255)
+  descricao     String?
+  inicio        DateTime?    @db.Date
+  fim           DateTime?    @db.Date
+  estado        Boolean      @default(false)
+  entregaveis   Entregavel[]
+  workpackage   Workpackage  @relation(fields: [workpackageId], references: [id])
 
-    @@map("Tarefas")
+  @@map("Tarefas")
 }
 
 model Entregavel {
-    id          String    @id @default(uuid()) @db.Uuid
-    tarefaId    String    @map("tarefa_id") @db.Uuid
-    nome        String    @db.VarChar(255)
-    descricao   String?   @db.Text
-    data        DateTime? @db.Date
-    anexo       String?   @db.Text
-    estado      Boolean   @default(false)
-    
-    // Relação com Tarefa
-    tarefa      Tarefa    @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  id        String    @id @default(uuid()) @db.Uuid
+  tarefaId  String    @map("tarefa_id") @db.Uuid
+  nome      String    @db.VarChar(255)
+  descricao String?
+  data      DateTime? @db.Date
+  anexo     String?
+  estado    Boolean   @default(false)
+  tarefa    Tarefa    @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
 
-    @@map("Entregaveis")
+  @@map("Entregaveis")
 }
 
 model Material {
-    id            Int         @id @default(autoincrement())
-    nome          String      @db.VarChar(255)
-    descricao     String?     @db.Text
-    preco         Decimal     @db.Decimal(10, 2)
-    ano_utilizacao Int         @db.Integer
-    mes           Int         @default(1) @db.Integer 
-    quantidade    Int
-    rubrica       Rubrica     @default(MATERIAIS)  
-    workpackageId String?     @map("workpackage_id") @db.Uuid
-    estado        Boolean     @default(false)
-    
-    // Relação direta com Workpackage
-    workpackage   Workpackage? @relation(fields: [workpackageId], references: [id])
+  id             Int          @id @default(autoincrement())
+  nome           String       @db.VarChar(255)
+  preco          Decimal      @db.Decimal(10, 2)
+  ano_utilizacao Int
+  quantidade     Int
+  rubrica        Rubrica      @default(MATERIAIS)
+  workpackageId  String?      @map("workpackage_id") @db.Uuid
+  descricao      String?
+  estado         Boolean      @default(false)
+  mes            Int          @default(1)
+  workpackage    Workpackage? @relation(fields: [workpackageId], references: [id])
 
-    @@map("Materiais")
+  @@map("Materiais")
 }
 
-// Modelo de User para NextAuth
 model User {
-    id            String    @id @default(cuid())
-    name          String?   @db.VarChar(255)
-    email         String?   @unique @db.VarChar(255)
-    emailVerified DateTime?
-    foto          String?   @db.Text
-    
-    // Campos específicos da aplicação
-    atividade     String?   @db.VarChar(255)
-    contratacao   DateTime? @db.Date
-    username      String?   @unique @db.VarChar(255)
-    permissao     Permissao @default(COMUM)
-    regime        Regime    @default(INTEGRAL)
-    informacoes   String?   @db.Text
-    salario     Decimal?  @default(0) @db.Decimal(10, 2)
+  id                  String            @id @default(cuid())
+  name                String?           @db.VarChar(255)
+  email               String?           @unique @db.VarChar(255)
+  emailVerified       DateTime?
+  foto                String?
+  atividade           String?           @db.VarChar(255)
+  contratacao         DateTime?         @db.Date
+  username            String?           @unique @db.VarChar(255)
+  permissao           Permissao         @default(COMUM)
+  regime              Regime            @default(INTEGRAL)
+  informacoes         String?
+  salario             Decimal?          @default(0) @db.Decimal(10, 2)
+  projetosResponsavel Projeto[]         @relation("ProjetosResponsavel")
+  accounts            Account[]
+  workpackages        AlocacaoRecurso[]
+  password            Password?
+  projetoRascunhos    Rascunho[]
+  sessions            Session[]
 
-    // Relações NextAuth
-    accounts      Account[]
-    sessions      Session[]
-    
-    // Relações da aplicação
-    workpackages  AlocacaoRecurso[]
-    password      Password?
-    projetoRascunhos Rascunho[]
-    
-    // Nova relação inversa
-    projetosResponsavel Projeto[] @relation("ProjetosResponsavel")
-
-    @@map("users")
+  @@map("users")
 }
 
+model ConfiguracaoMensal {
+  id              String   @id @default(uuid()) @db.Uuid
+  mes             Int
+  ano             Int
+  diasUteis       Int
+  horasPotenciais Decimal  @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([mes, ano])
+  @@map("configuracoes_mensais")
+}
 
 model AlocacaoRecurso {
-    workpackageId  String   @map("workpackage_id") @db.Uuid
-    userId         String   @map("user_id")
-    mes            Int      @db.Integer
-    ano            Int      @db.Integer
-    ocupacao       Decimal  @db.Decimal(4, 3)
-    
-    // Relações
-    workpackage    Workpackage @relation(fields: [workpackageId], references: [id])
-    user           User        @relation(fields: [userId], references: [id])
+  workpackageId String      @map("workpackage_id") @db.Uuid
+  userId        String      @map("user_id")
+  mes           Int
+  ano           Int
+  ocupacao      Decimal     @db.Decimal(4, 3)
+  user          User        @relation(fields: [userId], references: [id])
+  workpackage   Workpackage @relation(fields: [workpackageId], references: [id])
 
-    // Chave primária composta
-    @@id([workpackageId, userId, mes, ano])
-    
-    // Índices para melhor performance
-    @@index([userId, ano, mes])
-    @@index([workpackageId, ano, mes])
-
-    @@map("alocacoes_recursos")
+  @@id([workpackageId, userId, mes, ano])
+  @@index([userId, ano, mes])
+  @@index([workpackageId, ano, mes])
+  @@map("alocacoes_recursos")
 }
 
-// Modelos NextAuth padrão
 model Account {
-    id                 String  @id @default(cuid())
-    userId             String
-    type               String
-    provider           String
-    providerAccountId  String
-    refresh_token      String? @db.Text
-    access_token       String? @db.Text
-    expires_at         Int?
-    token_type         String?
-    scope              String?
-    id_token           String? @db.Text
-    session_state      String?
-    
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([provider, providerAccountId])
-    @@map("accounts")
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
 }
 
 model Session {
-    id           String   @id @default(cuid())
-    sessionToken String   @unique
-    userId       String
-    expires      DateTime
-    
-    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@map("sessions")
+  @@map("sessions")
 }
 
 model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
-    @@unique([identifier, token])
-    @@map("verificationtokens")
+  @@unique([identifier, token])
+  @@map("verificationtokens")
 }
 
 model PasswordReset {
-    id        String   @id @default(cuid())
-    email     String
-    token     String   @unique
-    expires   DateTime
-    createdAt DateTime @default(now())
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
 
-    @@map("password_resets")
+  @@map("password_resets")
 }
 
 model Password {
-    id        String   @id @default(cuid())
-    hash      String   @db.Text
-    userId    String   @unique
-    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  hash   String
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@map("passwords")
+  @@map("passwords")
 }
 
 model Rascunho {
-    id          String   @id @default(uuid()) @db.Uuid
-    userId      String   
-    titulo      String   @db.VarChar(255)
-    conteudo    Json     // Armazena todo o estado do formulário
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-    
-    // Relação com User
-    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String
+  titulo    String   @db.VarChar(255)
+  conteudo  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@map("rascunhos")
+  @@map("rascunhos")
+}
+
+enum ProjetoEstado {
+  RASCUNHO
+  PENDENTE
+  APROVADO
+  EM_DESENVOLVIMENTO
+  CONCLUIDO
+}
+
+enum Permissao {
+  ADMIN
+  GESTOR
+  COMUM
+}
+
+enum Regime {
+  PARCIAL
+  INTEGRAL
+}
+
+enum Rubrica {
+  MATERIAIS
+  SERVICOS_TERCEIROS
+  OUTROS_SERVICOS
+  DESLOCACAO_ESTADIAS
+  OUTROS_CUSTOS
+  CUSTOS_ESTRUTURA
 }
