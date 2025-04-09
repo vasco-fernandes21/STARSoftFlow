@@ -1,6 +1,6 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Permissao, Regime } from "@prisma/client";
+import { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { sendPrimeiroAcessoEmail } from "@/emails/utils/email";
@@ -148,6 +148,14 @@ type UserWithPermissao = {
   id: string;
   // Outras propriedades do utilizador
 } & Record<string, any>;
+
+// Estados válidos para projetos
+const validProjectStates = Object.values(ProjetoEstado).filter(
+  (estado): estado is ProjetoEstado => 
+    estado === ProjetoEstado.APROVADO ||
+    estado === ProjetoEstado.EM_DESENVOLVIMENTO ||
+    estado === ProjetoEstado.CONCLUIDO
+);
 
 // Router
 export const utilizadorRouter = createTRPCRouter({
@@ -724,11 +732,18 @@ export const utilizadorRouter = createTRPCRouter({
         // Debug log
         console.log("Getting allocations for user:", input.userId, "year:", input.ano);
 
-        // 1. Get all allocations without state filter first
+        // 1. Get allocations filtering by project state
         const alocacoesReais = await ctx.db.alocacaoRecurso.findMany({
           where: {
             userId: input.userId,
             ...(input.ano ? { ano: input.ano } : {}),
+            workpackage: {
+              projeto: {
+                estado: {
+                  in: validProjectStates
+                }
+              }
+            }
           },
           select: {
             mes: true,
@@ -755,9 +770,12 @@ export const utilizadorRouter = createTRPCRouter({
         // Debug log
         console.log("Found real allocations:", alocacoesReais.length);
 
-        // 2. Get all projects with snapshots (no state filter initially)
+        // 2. Get all projects with snapshots (filtered by state)
         const projetosComSnapshot = await ctx.db.projeto.findMany({
           where: {
+            estado: {
+              in: validProjectStates
+            },
             workpackages: {
               some: {
                 recursos: {
@@ -797,7 +815,7 @@ export const utilizadorRouter = createTRPCRouter({
             workpackageNome: alocacao.workpackage.nome,
             projetoId: alocacao.workpackage.projeto.id,
             projetoNome: alocacao.workpackage.projeto.nome,
-            projetoEstado: alocacao.workpackage.projeto.estado,
+            projetoEstado: alocacao.workpackage.projeto.estado as ProjetoEstado,
             mes: alocacao.mes,
             ano: alocacao.ano,
             ocupacao: Number(alocacao.ocupacao.toFixed(3)),
@@ -806,7 +824,8 @@ export const utilizadorRouter = createTRPCRouter({
 
         // 4. Process submitted allocations from snapshots
         const submetidoData = projetosComSnapshot.flatMap(projeto => {
-          if (!projeto.aprovado) return [];
+          // Garantir que estamos processando apenas projetos nos estados válidos
+          if (!projeto.aprovado || !validProjectStates.includes(projeto.estado as typeof validProjectStates[number])) return [];
 
           try {
             const snapshotAprovado = projeto.aprovado as unknown as ApprovedSnapshot;
@@ -817,7 +836,7 @@ export const utilizadorRouter = createTRPCRouter({
               workpackageNome: string;
               projetoId: string;
               projetoNome: string;
-              projetoEstado: string;
+              projetoEstado: typeof validProjectStates[number];
               mes: number;
               ano: number;
               ocupacao: number;
@@ -844,7 +863,7 @@ export const utilizadorRouter = createTRPCRouter({
                       workpackageNome: wp.nome,
                       projetoId: projeto.id,
                       projetoNome: projeto.nome,
-                      projetoEstado: projeto.estado,
+                      projetoEstado: projeto.estado as typeof validProjectStates[number],
                       mes: recurso.mes,
                       ano: recurso.ano,
                       ocupacao: Number(Number(recurso.ocupacao).toFixed(3)),

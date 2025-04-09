@@ -134,7 +134,7 @@ function DefinirPasswordContent() {
             className="w-full max-w-md"
           >
             <Image
-              src="/star-institute-logo.png"
+              src="/logos/star-institute-logo.png"
               alt="STAR Institute"
               width={280}
               height={80}
@@ -168,7 +168,7 @@ function DefinirPasswordContent() {
           {/* Logo for mobile only */}
           <div className="mb-12 flex justify-center lg:hidden">
             <Image
-              src="/star-institute-logo.png"
+              src="/logos/star-institute-logo.png"
               alt="STAR Institute"
               width={180}
               height={48}

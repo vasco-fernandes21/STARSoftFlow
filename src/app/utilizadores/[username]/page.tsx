@@ -61,7 +61,7 @@ interface AlocacaoAPI {
   workpackageNome: string;
   projetoId: string;
   projetoNome: string;
-  projetoEstado?: ProjetoEstado;
+  projetoEstado: ProjetoEstado;
   mes: number;
   ano: number;
   ocupacao: number;
@@ -189,7 +189,7 @@ export default function PerfilUtilizador() {
       projeto: {
         id: alocacao.projetoId,
         nome: alocacao.projetoNome,
-        estado: alocacao.projetoEstado || "RASCUNHO",
+        estado: alocacao.projetoEstado,
       },
       mes: alocacao.mes,
       ano: alocacao.ano,
@@ -198,8 +198,8 @@ export default function PerfilUtilizador() {
 
     return {
       real: transformarAlocacoes(alocacoes.real),
-      submetido: transformarAlocacoes(alocacoes.submetido),
-      anos: alocacoes.anos ?? [currentYear]
+      submetido: transformarAlocoes(alocacoes.submetido),
+      anos: alocacoes.anos,
     };
   }, [alocacoes, currentYear]);
 
@@ -465,7 +465,7 @@ export default function PerfilUtilizador() {
                       <Send className="mr-2 h-4 w-4" /> Contactar
                     </Button>
                     <Button variant="outline" className="border-gray-200">
-                      <FileText className="mr-2 h-4 w-4" /> Ver CV
+                      <FileText className="mr-2 h-4 w-4" /> Gerar Relatório
                     </Button>
                   </div>
                 </div>

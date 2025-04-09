@@ -181,7 +181,7 @@ export const AppSidebar = () => {
             )}
           >
             <Image
-              src="/star-institute-logo.png"
+              src="/logos/star-institute-logo.png"
               alt="STAR Institute"
               width={160}
               height={40}

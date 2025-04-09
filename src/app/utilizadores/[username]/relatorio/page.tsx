@@ -228,8 +228,8 @@ export default function RelatorioPage() {
   }
 
   return (
-    <div className="h-auto bg-[#F9FAFB] p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="h-auto bg-[#F7F9FC] p-8">
+      <div className="max-w-8xl mx-auto space-y-6">
         {/* Header com título e seletor de data */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
           <div>
@@ -245,27 +245,23 @@ export default function RelatorioPage() {
           <DateSelector />
         </div>
 
-        {/* Stats Grid em linha separada */}
-        <div className="-mx-3">
-          <StatsGrid stats={stats} className="lg:grid-cols-4" />
-        </div>
+        {/* Stats Grid */}
+        <StatsGrid stats={stats} className="lg:grid-cols-4" />
 
         {/* Allocations Table com UI moderna */}
-        <Card className="shadow-sm overflow-hidden border-none">
-          <CardContent className="p-0">
-            <div className="p-6 border-b border-gray-100 flex flex-row items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Distribuição de Horas
-              </h2>
-              {isLoading && <p className="text-sm text-gray-500 animate-pulse">A carregar dados...</p>}
-            </div>
-            <AlocacoesTable
-              alocacoes={alocacoesFormatadas}
-              isLoading={isLoading}
-              horasPotenciais={horasPotenciais}
-            />
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
+          <div className="p-4 border-b border-gray-100 flex flex-row items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Distribuição de Horas
+            </h2>
+            {isLoading && <p className="text-sm text-gray-500 animate-pulse">A carregar dados...</p>}
+          </div>
+          <AlocacoesTable
+            alocacoes={alocacoesFormatadas}
+            isLoading={isLoading}
+            horasPotenciais={horasPotenciais}
+          />
+        </div>
       </div>
     </div>
   );
