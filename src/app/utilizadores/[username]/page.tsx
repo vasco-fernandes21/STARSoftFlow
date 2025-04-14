@@ -198,7 +198,7 @@ export default function PerfilUtilizador() {
 
     return {
       real: transformarAlocacoes(alocacoes.real),
-      submetido: transformarAlocoes(alocacoes.submetido),
+      submetido: transformarAlocacoes(alocacoes.submetido),
       anos: alocacoes.anos,
     };
   }, [alocacoes, currentYear]);

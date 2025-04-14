@@ -87,7 +87,7 @@ export default function LoginPage() {
             className="w-full max-w-md"
           >
             <Image
-              src="/logos/star-institute-logo.png"
+              src="/star-institute-logo.png"
               alt="STAR Institute"
               width={280}
               height={80}
@@ -125,7 +125,7 @@ export default function LoginPage() {
           {/* Logo for mobile only */}
           <div className="mb-12 flex justify-center lg:hidden">
             <Image
-              src="/logos/star-institute-logo.png"
+              src="/star-institute-logo.png"
               alt="STAR Institute"
               width={180}
               height={48}

@@ -10,6 +10,10 @@ import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
 import { format } from "date-fns";
 import { Decimal } from "decimal.js";
+import puppeteer from "puppeteer";
+import { RelatorioTemplate } from "@/app/utilizadores/[username]/relatorio/templates/relatorio-template";
+import http from "http";
+import net from "net";
 
 // Schemas base
 const emailSchema = z.string({ required_error: "Email é obrigatório" }).email("Email inválido");
@@ -1274,5 +1278,86 @@ export const utilizadorRouter = createTRPCRouter({
           data: a.data.toISOString(),
         })),
       };
+    }),
+
+  // Gerar PDF do relatório
+  gerarRelatorioPDF: protectedProcedure
+    .input(z.object({
+      username: z.string(),
+      mes: z.number().min(1).max(12),
+      ano: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Reutilizar a lógica do getRelatorioMensal para obter os dados completos
+        const dadosRelatorio = await utilizadorRouter.createCaller(ctx).getRelatorioMensal({
+          username: input.username,
+          mes: input.mes,
+          ano: input.ano
+        });
+
+        // Gerar HTML do relatório
+        const html = await RelatorioTemplate({
+          data: dadosRelatorio,
+          periodo: { mes: input.mes, ano: input.ano },
+        });
+
+        // Iniciar o browser
+        const browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+
+        // Criar nova página
+        const page = await browser.newPage();
+
+        // Criar um servidor HTTP temporário para servir o HTML
+        const server = await new Promise<http.Server>((resolve) => {
+          const srv = http.createServer((req, res) => {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(html);
+          });
+          srv.listen(0, '127.0.0.1', () => resolve(srv));
+        });
+
+        // Obter a porta do servidor
+        const port = (server.address() as net.AddressInfo).port;
+
+        try {
+          // Navegar para a página temporária
+          await page.goto(`http://127.0.0.1:${port}`, {
+            waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
+            timeout: 30000
+          });
+
+          // Gerar PDF
+          const pdf = await page.pdf({
+            format: "A4",
+            printBackground: true,
+            margin: {
+              top: "40px",
+              right: "40px",
+              bottom: "40px",
+              left: "40px",
+            },
+          });
+
+          return {
+            pdf: Buffer.from(pdf).toString("base64"),
+            filename: `relatorio_${input.username}_${input.mes}_${input.ano}.pdf`,
+          };
+        } finally {
+          // Fechar o browser e o servidor
+          await browser.close();
+          server.close();
+        }
+      } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao gerar PDF do relatório",
+          cause: error,
+        });
+      }
     }),
 });

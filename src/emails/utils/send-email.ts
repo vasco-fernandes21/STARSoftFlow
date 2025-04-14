@@ -208,7 +208,7 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     console.log("═════════════════════════════════════════════════════\n");
 
     // Atualizar o HTML para usar uma URL baseada no NEXT_PUBLIC_APP_URL
-    const logoUrl = `${env.NEXT_PUBLIC_APP_URL}/logos/star-institute-logo.png`;
+    const logoUrl = `${env.NEXT_PUBLIC_APP_URL}/star-institute-logo.png`;
     const updatedHtml = html.replace("{{logoUrl}}", logoUrl);
 
     // Determinar o email de origem correto
