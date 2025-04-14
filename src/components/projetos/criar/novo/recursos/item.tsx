@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
-import { Decimal } from "decimal.js";
+import type { Decimal } from "decimal.js";
 import { Form } from "./form";
 
 interface User {
@@ -50,7 +50,7 @@ export function Item({
   workpackageId,
   utilizadores = [],
 }: ItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, /* setIsEditing */] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
 
@@ -110,40 +110,6 @@ export function Item({
       e.preventDefault();
       return;
     }
-  };
-
-  // Função para converter valor para número
-  const parseValorOcupacao = (valor: string): number => {
-    const valorNormalizado = valor.replace(",", ".");
-    const num = parseFloat(valorNormalizado);
-    if (isNaN(num)) return 0;
-    if (num > 1) return 1;
-    if (num < 0) return 0;
-    return num;
-  };
-
-  // Função para salvar edição
-  const handleSaveEdit = () => {
-    const novasAlocacoes = alocacoes.map((alocacao) => {
-      const chave = `${alocacao.ano}-${alocacao.mes}`;
-      const valor = editValues[chave];
-      if (!valor) return alocacao;
-
-      const ocupacao = parseValorOcupacao(valor);
-      return {
-        ...alocacao,
-        ocupacao: new Decimal(ocupacao),
-      };
-    });
-
-    onUpdateAlocacao(user.id, novasAlocacoes);
-    setIsEditing(false);
-  };
-
-  // Função para cancelar edição
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditValues({});
   };
 
   // Função para abrir o formulário completo

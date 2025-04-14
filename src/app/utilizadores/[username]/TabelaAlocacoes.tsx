@@ -1,25 +1,28 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Save, Loader2, CheckCircle2, XCircle, Calendar, FileText, Briefcase, ChevronRight, AlertCircle } from "lucide-react";
+import { Save, Loader2, Calendar, FileText, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "@/components/ui/card";
 import { SelectField } from "@/components/projetos/criar/components/FormFields";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { api } from "@/trpc/react";
+import { ProjetoEstado } from "@prisma/client";
+import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'next/navigation';
 
 interface AlocacaoOriginal {
   ano: number;
   mes: number;
   ocupacao: number;
   workpackage: { id: string; nome: string };
-  projeto: { id: string; nome: string };
+  projeto: { id: string; nome: string; estado?: ProjetoEstado };
 }
 
 interface AlocacoesData {
@@ -36,9 +39,10 @@ interface TabelaProps {
   singleYear?: boolean;
 }
 
-// Definindo uma interface para trabalhar com projetos e workpackages
-interface ProjetoInfo {
+interface Projeto {
+  id: string;
   nome: string;
+  estado?: ProjetoEstado;
   wps: Set<string>;
 }
 
@@ -51,26 +55,92 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
 
   const mesesFull = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-  function getMeses() {
+  // Adicionar estado para exportar PDF
+  const [isGeneratingPDF, setIsGeneratingPDF] = React.useState(false);
+
+  // Importar API para gerar PDF
+  const { mutate: gerarPDF } = api.utilizador.gerarRelatorioPDF.useMutation({
+    onSuccess: (data: { pdf: string; filename: string }) => {
+      // Converter o Base64 para Blob
+      const byteCharacters = atob(data.pdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+
+      // Criar URL e fazer download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setIsGeneratingPDF(false);
+    },
+    onError: (error) => {
+      console.error("Erro ao gerar PDF:", error);
+      alert("Erro ao gerar PDF. Por favor, tente novamente.");
+      setIsGeneratingPDF(false);
+    }
+  });
+
+  // Obter username dos parâmetros da rota
+  const params = useParams();
+  const username = params?.username as string;
+
+  // Função para exportar PDF
+  const handleExportPDF = () => {
+    if (mesSelecionado) {
+      setIsGeneratingPDF(true);
+      if (!username || username === 'unknown') {
+        alert('Erro: Username não encontrado na URL. Certifique-se de estar na página correta do utilizador.');
+        setIsGeneratingPDF(false);
+        return;
+      }
+      gerarPDF({
+        username,
+        mes: mesSelecionado,
+        ano: anoSelecionado
+      });
+    } else {
+      alert('Por favor, selecione um mês para exportar o relatório.');
+    }
+  };
+
+  const getMeses = React.useCallback(() => {
     if (mesSelecionado !== null) {
       return [mesSelecionado];
     }
     return Array.from({length:12}, (_,i)=> i+1);
-  }
+  }, [mesSelecionado]);
 
-  function getValor(wpId: string, mes: number): number {
-    if (isSubmetido) {
-      return alocacoes.submetido.find(a => a.ano===anoSelecionado && a.mes===mes && a.workpackage.id===wpId)?.ocupacao ?? 0;
-    }
-    const key = `${wpId}-${mes}-${anoSelecionado}`;
-    if(editValues.has(key)){
-      const val = editValues.get(key)!;
-      // Handle empty or partial input cases
-      if (val === "" || val === "0," || val === "0") return 0;
-      return parseFloat(val.replace(",",".")) || 0;
-    }
-    return alocacoes.real.find(a => a.ano===anoSelecionado && a.mes===mes && a.workpackage.id===wpId)?.ocupacao ?? 0;
-  }
+  const projetos = useMemo(() => {
+    const projetosMap = new Map<string, Projeto>();
+    [...alocacoes.real, ...alocacoes.submetido].forEach(a => {
+      if (!projetosMap.has(a.projeto.id)) {
+        projetosMap.set(a.projeto.id, {
+          id: a.projeto.id,
+          nome: a.projeto.nome,
+          estado: a.projeto.estado,
+          wps: new Set()
+        });
+      }
+      const projeto = projetosMap.get(a.projeto.id);
+      if (projeto) {
+        projeto.wps.add(a.workpackage.id);
+      }
+    });
+    return Array.from(projetosMap.values());
+  }, [alocacoes.real, alocacoes.submetido]);
+
+  const getValor = useCallback((wpId: string, mes: number) => {
+    const alocacao = alocacoes.real.find(a => a.workpackage.id === wpId && a.mes === mes && a.ano === anoSelecionado);
+    return alocacao ? alocacao.ocupacao : 0;
+  }, [alocacoes.real, anoSelecionado]);
 
   function handleInputChange(wpId: string, mes: number, e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
@@ -113,54 +183,16 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
     });
   }
 
-  // Calcula total por mês para lista informada
-  function calcularTotal(arr:AlocacaoOriginal[], mes: number) {
-    // Para alocações submetidas, usamos o método antigo
-    if (arr === alocacoes.submetido) {
-      return arr.filter(a=>a.ano===anoSelecionado && a.mes===mes).reduce((s,a)=>s+a.ocupacao,0);
-    }
-    
-    // Para alocações reais, calculamos com base nos valores editados
-    if (arr === alocacoes.real) {
-      // Pegar todos os workpackages disponíveis
-      const workpackages = Array.from(
-        projetos.entries()
-      ).flatMap(([_, { wps }]) => Array.from(wps));
-      
-      // Calcular a soma usando getValor para cada workpackage
-      return workpackages.reduce((sum, wpId) => {
-        return sum + getValor(wpId, mes);
-      }, 0);
-    }
-    
-    // Caso padrão (não deve acontecer)
-    return arr.filter(a=>a.ano===anoSelecionado && a.mes===mes).reduce((s,a)=>s+a.ocupacao,0);
-  }
-
-  function calcularTotalGeral(arr:AlocacaoOriginal[]){
-    return arr.filter(a=>a.ano===anoSelecionado).reduce((s,a)=>s+a.ocupacao,0);
-  }
-
-  const projetos = React.useMemo(()=>{
-    const map = new Map<string, ProjetoInfo>();
-    (isSubmetido ? alocacoes.submetido : alocacoes.real).forEach(a=>{
-      if(!map.has(a.projeto.id)){
-        map.set(a.projeto.id,{nome:a.projeto.nome,wps:new Set()});
-      }
-      const projeto = map.get(a.projeto.id);
-      if (projeto) {
-        projeto.wps.add(a.workpackage.id);
-      }
-    });
-    return map;
-  },[alocacoes, anoSelecionado, isSubmetido]);
+  const calcularTotal = useCallback((arr: AlocacaoOriginal[], mes: number) => {
+    return arr.filter(a => a.ano === anoSelecionado && a.mes === mes).reduce((s, a) => s + a.ocupacao, 0);
+  }, [anoSelecionado]);
 
   // Validação — só pode salvar se todos os meses baterem
-  const podeSalvar = React.useMemo(()=>{
-    return getMeses().every(mes=> 
-        Math.abs(calcularTotal(alocacoes.real, mes) - calcularTotal(alocacoes.submetido, mes)) < 0.001
+  const podeSalvar = React.useMemo(() => {
+    return getMeses().every(mes => 
+      Math.abs(calcularTotal(alocacoes.real, mes) - calcularTotal(alocacoes.submetido, mes)) < 0.001
     );
-  },[alocacoes, anoSelecionado]);
+  }, [alocacoes, getMeses, calcularTotal]);
 
   async function handleSave(){
     if(!podeSalvar)return;
@@ -178,44 +210,44 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
       isSubmetido && "bg-indigo-50/5"
     )}>
       <CardContent className="p-0">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
+          <div className="flex items-center gap-2">
             <Badge variant={isSubmetido ? "outline" : "default"} className={cn(
-              "h-7 rounded-full px-3",
+              "h-6 rounded-full px-2 text-xs",
               isSubmetido 
                 ? "border-indigo-200 bg-indigo-50 text-indigo-700" 
                 : "bg-blue-600 text-white"
             )}>
               {isSubmetido ? "Submetido" : "Real"}
             </Badge>
-            <Badge variant="outline" className="h-7 rounded-full border-slate-200 px-3 text-slate-600">
-              <Calendar className="mr-1.5 h-3.5 w-3.5" /> {anoSelecionado}
+            <Badge variant="outline" className="h-6 rounded-full border-slate-200 px-2 text-xs text-slate-600">
+              <Calendar className="mr-1 h-3 w-3" /> {anoSelecionado}
             </Badge>
             {mesSelecionado && (
-              <Badge variant="outline" className="h-7 rounded-full border-blue-200 bg-blue-50 px-3 text-blue-700">
+              <Badge variant="outline" className="h-6 rounded-full border-blue-200 bg-blue-50 px-2 text-xs text-blue-700">
                 {mesesFull[mesSelecionado - 1]}
               </Badge>
             )}
             {!isSubmetido && !podeSalvar && (
-              <Badge variant="destructive" className="h-7 rounded-full px-3">
-                <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
+              <Badge variant="destructive" className="h-6 rounded-full px-2 text-xs">
+                <AlertCircle className="mr-1 h-3 w-3" />
                 Totais Divergentes
-            </Badge>
-          )}
+              </Badge>
+            )}
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {!singleYear && (
-          <SelectField
+              <SelectField
                 label=""
-            value={anoSelecionado.toString()}
+                value={anoSelecionado.toString()}
                 onChange={v=>setAnoSelecionado(parseInt(v))}
                 options={(alocacoes.anos ?? [ano]).map(a=>({label:`${a}`,value:`${a}`}))}
-                className="w-[100px]"
+                className="w-[90px] text-sm"
               />
             )}
             
-          <SelectField
+            <SelectField
               label=""
               value={mesSelecionado?.toString() ?? "todos"}
               onChange={v => setMesSelecionado(v === "todos" ? null : parseInt(v))}
@@ -226,7 +258,7 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                   value: (index + 1).toString()
                 }))
               ]}
-              className="w-[160px]"
+              className="w-[140px] text-sm"
             />
             
             {!isSubmetido && (
@@ -234,18 +266,33 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                 onClick={handleSave} 
                 disabled={!podeSalvar || loading}
                 className={cn(
-                  "h-9 gap-2 rounded-full transition-all duration-200",
+                  "h-7 gap-1.5 rounded-full px-3 text-sm transition-all duration-200",
                   podeSalvar 
                     ? "bg-blue-600 text-white hover:bg-blue-700" 
                     : "bg-slate-100 text-slate-400"
                 )}
               >
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Save className="h-4 w-4" />
+                  <Save className="h-3.5 w-3.5" />
                 )}
                 <span>Guardar</span>
+              </Button>
+            )}
+            
+            {mesSelecionado && (
+              <Button 
+                onClick={handleExportPDF} 
+                disabled={isGeneratingPDF}
+                className="h-7 gap-1.5 rounded-full px-3 text-sm transition-all duration-200 bg-azul text-white hover:bg-azul/90"
+              >
+                {isGeneratingPDF ? (
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                <span>Exportar PDF</span>
               </Button>
             )}
           </div>
@@ -253,14 +300,14 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
 
         <div className="overflow-auto">
           <Table className={cn(
-            "border-separate border-spacing-y-0.5",
+            "border-separate border-spacing-y-0",
             mesSelecionado && "table-fixed"
           )}>
             <TableHeader>
               <TableRow className="border-b-0">
                 <TableHead className={cn(
-                  "bg-white/95 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500",
-                  mesSelecionado ? "w-[60%]" : "w-[200px]"
+                  "bg-white/95 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500",
+                  mesSelecionado ? "w-[60%]" : "w-[180px]"
                 )}>
                   Projeto / Workpackage
                 </TableHead>
@@ -268,7 +315,7 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                   <TableHead
                     key={mes}
                     className={cn(
-                      "sticky top-0 z-10 bg-white/95 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500",
+                      "sticky top-0 z-10 bg-white/95 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500",
                       mes % 2 === 0 ? "bg-slate-50/50" : "",
                       mesSelecionado && "w-[40%]"
                     )}
@@ -283,33 +330,31 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Array.from(projetos.entries()).map(([projetoId, { nome: projetoNome, wps }]) => (
-                <React.Fragment key={projetoId}>
-                  {/* Project Row */}
+              {projetos.map((projeto) => (
+                <React.Fragment key={projeto.id}>
                   <TableRow className="group border-t border-slate-100 first:border-t-0">
                     <TableCell
                       colSpan={mesSelecionado ? 2 : 13}
                       className={cn(
-                        "bg-slate-50/80 px-6 py-2.5",
+                        "bg-slate-50/80 px-4 py-1.5",
                         isSubmetido ? "bg-indigo-50/50" : "bg-blue-50/50"
                       )}
                     >
                       <div className="flex items-center gap-2">
                         <div className={cn(
-                          "flex h-7 w-7 items-center justify-center rounded-lg text-xs font-medium shadow-sm",
+                          "flex h-6 w-6 items-center justify-center rounded-lg text-xs font-medium shadow-sm",
                           isSubmetido 
                             ? "bg-indigo-100 text-indigo-700" 
                             : "bg-blue-100 text-blue-700"
                         )}>
-                          {projetoNome.substring(0, 2).toUpperCase()}
+                          {projeto.nome.substring(0, 2).toUpperCase()}
                         </div>
-                        <span className="font-medium text-slate-700">{projetoNome}</span>
+                        <span className="font-medium text-sm text-slate-700">{projeto.nome}</span>
                       </div>
                     </TableCell>
                   </TableRow>
 
-                  {/* Workpackage Rows */}
-                  {Array.from(wps).map((wpId) => {
+                  {Array.from(projeto.wps).map((wpId) => {
                     const wp = (isSubmetido ? alocacoes.submetido : alocacoes.real).find(
                       (a) => a.workpackage.id === wpId
                     )?.workpackage;
@@ -318,19 +363,16 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
 
                     return (
                       <TableRow
-                        key={`${projetoId}-${wpId}`} 
-                        className={cn(
-                          "group transition-all duration-150 ease-in-out hover:bg-slate-50/70",
-                          "border-b-0"
-                        )}
+                        key={`${projeto.id}-${wpId}`} 
+                        className="group transition-all duration-150 ease-in-out hover:bg-slate-50/70"
                       >
                         <TableCell className={cn(
-                          "px-6 py-2.5 align-middle text-sm",
+                          "px-4 py-1.5 align-middle text-xs",
                           mesSelecionado && "max-w-0"
                         )}>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <div className={cn(
-                              "h-1.5 w-1.5 rounded-full",
+                              "h-1 w-1 rounded-full",
                               isSubmetido ? "bg-indigo-400" : "bg-blue-400"
                             )} />
                             <span className={cn(
@@ -341,48 +383,40 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                         </TableCell>
                         {getMeses().map((mes) => {
                           const valor = getValor(wpId, mes);
+                          const valorNum = typeof valor === 'number' ? valor : 0;
                           const isEditing = editValues.has(`${wpId}-${mes}-${anoSelecionado}`);
                           
                           return (
                             <TableCell 
                               key={mes} 
-                                  className={cn(
-                                "px-3 py-2.5 text-center align-middle",
+                              className={cn(
+                                "px-2 py-1.5 text-center align-middle",
                                 mes % 2 === 0 ? "bg-slate-50/30" : "",
                                 mesSelecionado && "w-[40%]"
                               )}
                             >
                               {isSubmetido ? (
                                 <span className={cn(
-                                  "text-sm",
-                                  valor > 0 ? "font-medium text-indigo-700" : "text-slate-400"
+                                  "text-xs",
+                                  valorNum > 0 ? "font-medium text-indigo-700" : "text-slate-400"
                                 )}>
-                                  {valor.toFixed(2)}
+                                  {valorNum.toFixed(2)}
                                 </span>
                               ) : (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Input
-                                        type="text"
-                                        value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) : valor.toFixed(2).replace(".", ",")}
-                                        onChange={(e) => handleInputChange(wpId, mes, e)}
-                                        placeholder="0,00"
-                                        className={cn(
-                                          "h-8 text-center transition-all duration-200",
-                                          isEditing 
-                                            ? "border-blue-200 bg-blue-50/50 shadow-sm" 
-                                            : "border-transparent bg-transparent hover:border-slate-200 hover:bg-white",
-                                          valor > 0 && "text-blue-700",
-                                          mesSelecionado && "text-lg"
-                                        )}
-                                      />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="text-xs">
-                                      Valor em percentagem (0-100%)
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <Input
+                                  type="text"
+                                  value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) : valorNum.toFixed(2).replace(".", ",")}
+                                  onChange={(e) => handleInputChange(wpId, mes, e)}
+                                  placeholder="0,00"
+                                  className={cn(
+                                    "h-6 text-center text-xs transition-all duration-200",
+                                    isEditing 
+                                      ? "border-blue-200 bg-blue-50/50 shadow-sm" 
+                                      : "border-transparent bg-transparent hover:border-slate-200 hover:bg-white",
+                                    valorNum > 0 && "text-blue-700",
+                                    mesSelecionado && "text-sm"
+                                  )}
+                                />
                               )}
                             </TableCell>
                           );
@@ -395,7 +429,7 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
             </TableBody>
             <TableFooter>
               <TableRow className="border-t border-slate-200">
-                <TableCell className="bg-slate-50/80 px-6 py-3 text-sm font-medium text-slate-900">
+                <TableCell className="bg-slate-50/80 px-4 py-2 text-xs font-medium text-slate-900">
                   Total por Mês
                 </TableCell>
                 {getMeses().map((mes) => {
@@ -407,36 +441,21 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                     <TableCell
                       key={mes}
                       className={cn(
-                        "bg-slate-50/80 px-3 py-3 text-center text-sm font-medium",
+                        "bg-slate-50/80 px-2 py-2 text-center text-xs font-medium",
                         isDifferent && !isSubmetido && "bg-red-50 text-red-600",
-                        mesSelecionado && "text-lg"
+                        mesSelecionado && "text-sm"
                       )}
                     >
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>{isSubmetido ? totalSubmetido.toFixed(2) : totalReal.toFixed(2)}</span>
-                          </TooltipTrigger>
-                          {isDifferent && !isSubmetido && (
-                            <TooltipContent>
-                              <p className="text-xs">
-                                Submetido: {totalSubmetido.toFixed(2)}
-                                <br />
-                                Real: {totalReal.toFixed(2)}
-                              </p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                  </TableCell>
+                      {isSubmetido ? totalSubmetido.toFixed(2) : totalReal.toFixed(2)}
+                    </TableCell>
                   );
                 })}
               </TableRow>
               
               {!isSubmetido && (
                 <TableRow className="border-t border-slate-200/50">
-                  <TableCell className="bg-slate-50/80 px-6 py-3 text-sm font-medium text-slate-600">
-                      Total Submetido
+                  <TableCell className="bg-slate-50/80 px-4 py-2 text-xs font-medium text-slate-600">
+                    Total Submetido
                   </TableCell>
                   {getMeses().map((mes) => {
                     const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
@@ -447,15 +466,15 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                       <TableCell
                         key={mes}
                         className={cn(
-                          "bg-slate-50/80 px-3 py-3 text-center text-sm",
+                          "bg-slate-50/80 px-2 py-2 text-center text-xs",
                           isDifferent 
                             ? "font-medium text-indigo-600" 
                             : "text-slate-500",
-                          mesSelecionado && "text-lg"
+                          mesSelecionado && "text-sm"
                         )}
                       >
                         {totalSubmetido.toFixed(2)}
-                    </TableCell>
+                      </TableCell>
                     );
                   })}
                 </TableRow>

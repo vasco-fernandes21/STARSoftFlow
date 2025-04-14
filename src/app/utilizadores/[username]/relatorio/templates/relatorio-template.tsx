@@ -114,9 +114,10 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 print-color-adjust: exact !important;
             }
             
-            body {
+            html, body {
                 margin: 0;
                 padding: 0;
+                width: 100%;
                 background-color: white;
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 font-size: 11pt;
@@ -125,11 +126,10 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
             }
             
             .page {
-                width: 100%;
-                max-width: 210mm;
+                width: 210mm;
                 min-height: 297mm;
                 padding: 0;
-                margin: 0 auto;
+                margin: 0;
                 overflow: hidden;
                 position: relative;
                 background-color: white;
@@ -137,14 +137,18 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
             }
             
             @media print {
-                body {
+                html, body {
                     width: 210mm;
                     height: 297mm;
+                    margin: 0;
+                    padding: 0;
                 }
                 .page {
                     width: 210mm;
                     min-height: 297mm;
                     margin: 0;
+                    padding: 0;
+                    border: none;
                 }
             }
             
@@ -152,84 +156,99 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 width: 100%;
                 background: linear-gradient(90deg, #003366 0%, #004080 100%);
                 color: white;
-                padding: 1.5rem;
+                padding: 6mm 8mm;
+                display: flex;
+                align-items: center;
+                height: 32mm;
+                border-bottom: 0.5mm solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
                 position: relative;
+            }
+            
+            .header::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: -2mm; /* Estende um pouco mais à direita */
+                width: 2mm;
+                height: 100%;
+                background: linear-gradient(90deg, #003366 0%, #004080 100%);
             }
             
             .header-content {
                 display: flex;
                 justify-content: space-between;
-                align-items: flex-start;
-                max-width: 100%;
+                align-items: center;
+                width: 100%;
             }
             
             .logo {
-                height: 2.5rem;
+                height: 13mm;
                 width: auto;
-            }
-            
-            @media print {
-                .logo {
-                    width: 50mm;
-                    height: auto;
-                }
-                .header {
-                    height: 60mm;
-                    padding: 15mm;
-                }
             }
             
             .header-text {
                 text-align: right;
+                padding-left: 4mm;
             }
             
             .title {
-                font-size: 20pt;
+                font-size: 16pt;
                 font-weight: 600;
-                margin-bottom: 3mm;
+                margin-bottom: 2mm;
+                letter-spacing: 0.025em;
             }
             
             .subtitle {
-                font-size: 14pt;
+                font-size: 12pt;
                 margin-bottom: 2mm;
+                opacity: 0.9;
             }
             
             .period {
-                font-size: 12pt;
-                padding: 1.5mm 3mm;
-                background-color: rgba(255, 255, 255, 0.1);
-                border-radius: 1.5mm;
+                font-size: 10pt;
+                padding: 1mm 3mm;
+                background-color: rgba(255, 255, 255, 0.15);
+                border-radius: 2mm;
                 display: inline-block;
             }
             
             .content {
-                padding: 10mm 5mm;
+                padding: 10mm 10mm;
+                position: relative;
+                z-index: 10;
+                min-height: calc(297mm - 32mm - 85mm); /* A4 height - header - (footer + signature) space */
+                display: flex;
+                flex-direction: column;
+                background-color: white;
             }
             
             .info-grid {
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
-                gap: 5mm;
-                margin-bottom: 10mm;
+                gap: 4mm;
+                margin-bottom: 6mm;
             }
             
             .info-card {
-                background-color: #f8fafc;
-                border: 0.5mm solid #e2e8f0;
-                border-radius: 2mm;
-                padding: 5mm;
+                background-color: #ffffff;
+                border: 0.25mm solid #e2e8f0;
+                border-radius: 3mm;
+                padding: 3mm;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             }
             
             .info-label {
-                font-size: 9pt;
+                font-size: 8pt;
                 color: #4a5568;
                 text-transform: uppercase;
                 letter-spacing: 0.5pt;
-                margin-bottom: 2mm;
+                margin-bottom: 1mm;
+                font-weight: 500;
             }
             
             .info-value {
-                font-size: 16pt;
+                font-size: 12pt;
                 font-weight: 600;
                 color: #003366;
             }
@@ -238,15 +257,28 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 font-size: 14pt;
                 font-weight: 600;
                 color: #1a202c;
-                margin-bottom: 5mm;
+                margin-bottom: 8mm;
                 padding-bottom: 2mm;
                 border-bottom: 0.5mm solid #003366;
+                position: relative;
+            }
+            
+            .section-title::after {
+                content: '';
+                position: absolute;
+                bottom: -0.5mm;
+                left: 0;
+                width: 30mm;
+                height: 1mm;
+                background-color: #00796b;
+                border-radius: 1mm;
             }
             
             table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-bottom: 10mm;
+                margin-bottom: 0; /* Removido margin-bottom da tabela */
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             }
             
             th {
@@ -254,16 +286,18 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 color: white;
                 font-weight: 600;
                 text-align: left;
-                padding: 3mm;
-                font-size: 10pt;
+                padding: 2mm 3mm;
+                font-size: 9pt;
                 text-transform: uppercase;
                 letter-spacing: 0.5pt;
+                border-bottom: 0.25mm solid #002244;
             }
             
             td {
-                padding: 3mm;
+                padding: 2mm 3mm;
                 border-bottom: 0.25mm solid #e2e8f0;
-                font-size: 10pt;
+                font-size: 9pt;
+                vertical-align: middle;
             }
             
             .projeto-row {
@@ -272,11 +306,11 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
             
             .projeto-row td:first-child {
                 font-weight: 600;
-                border-left: 1mm solid #003366;
+                border-left: 0.5mm solid #003366;
             }
             
             .workpackage-row td:first-child {
-                padding-left: 8mm;
+                padding-left: 6mm;
                 color: #4a5568;
             }
             
@@ -286,49 +320,67 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 font-weight: 600;
             }
             
-            .progress-container {
-                margin-top: 2mm;
-            }
-            
-            .progress-bar {
-                width: 100%;
-                height: 2mm;
-                background-color: rgba(0, 51, 102, 0.1);
-                border-radius: 1mm;
-                overflow: hidden;
-            }
-            
-            .progress-fill {
-                height: 100%;
-                background-color: #00796b;
-                border-radius: 1mm;
-                transition: width 0.3s ease;
-            }
-            
             .signature-section {
-                margin-top: 20mm;
+                position: fixed;
+                bottom: 50mm; /* Posicionado acima do footer que tem 45mm */
+                left: 0;
+                right: 0;
                 text-align: center;
                 width: 100%;
                 display: flex;
-                flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                padding: 0 20mm;
+                z-index: 90;
+                background-color: white;
+                padding: 5mm 0;
             }
             
-            .signature-line {
-                width: 60mm;
-                margin: 5mm auto 0;
-                border-top: 0.25mm solid #4a5568;
+            .signature-container {
+                display: flex;
+                align-items: flex-end;
+                gap: 3mm;
             }
             
             .signature-label {
                 color: #4a5568;
                 font-size: 9pt;
-                margin-bottom: 6rem;
-                padding-bottom: 0;
-                text-align: center;
-                width: 100%;
+                text-align: right;
+                font-weight: 500;
+                margin-right: 5mm;
+                line-height: 1.2;
+                padding-bottom: 1mm;
+            }
+            
+            .signature-line {
+                width: 60mm;
+                border-top: 0.5mm solid #4a5568;
+            }
+            
+            .watermark {
+                position: absolute;
+                bottom: 10mm;
+                right: 10mm;
+                opacity: 0.7;
+                z-index: 5;
+            }
+            
+            .watermark img {
+                width: 40mm;
+                height: auto;
+                opacity: 0.15;
+            }
+            
+            .info-card:hover {
+                transform: translateY(-1mm);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+            
+            tr:last-child td {
+                border-bottom: none;
+            }
+            
+            .workpackage-row:hover {
+                background-color: #f1f5f9;
             }
             
             .footer {
@@ -336,29 +388,38 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 bottom: 0;
                 left: 0;
                 right: 0;
-                padding: 10mm 20mm;
+                padding: 5mm 10mm;
+                z-index: 5;
+                height: 45mm; /* Altura fixa para o footer */
+                background-color: white;
             }
             
             .logos-container {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                margin-bottom: 5mm;
-                padding: 5mm;
-                background-color: white;
+                padding: 3mm;
+                margin-bottom: 6mm;
+                background-color: rgba(255, 255, 255, 0.95);
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 100;
             }
             
             .logos-container img {
-                height: 15mm;
+                height: 12mm;
                 width: auto;
                 object-fit: contain;
+                opacity: 0.90;
             }
             
             .footer-text {
                 text-align: center;
                 color: #4a5568;
                 font-size: 8pt;
-                padding-top: 5mm;
+                padding-top: 3mm;
                 border-top: 0.25mm solid #e2e8f0;
             }
         </style>
@@ -366,8 +427,8 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
     <body>
         <div class="page">
             <header class="header">
-                <div class="header-content" style="display: flex; align-items: center;">
-                    <img src="${starLogo}" alt="STAR Institute" class="logo" />
+                <div class="header-content">
+                    <img src="${starLogo}" style={{ width: '35mm', height: 'auto' }} alt="STAR Institute" class="logo" />
                     <div class="header-text">
                         <h1 class="title">Relatório de Horas</h1>
                         <p class="subtitle">${data.utilizador.nome}</p>
@@ -402,35 +463,21 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                     <thead>
                         <tr>
                             <th style="width: 45%">Projeto / Workpackage</th>
-                            <th style="width: 30%">Ocupação (%)</th>
-                            <th style="width: 25%; text-align: right">Horas</th>
+                            <th style="width: 25%">Ocupação (%)</th>
+                            <th style="width: 30%; text-align: right">Horas</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${Object.values(projetosAgrupados).map((projeto) => `
                             <tr class="projeto-row">
                                 <td>${projeto.nome}</td>
-                                <td>
-                                    ${formatNumber(projeto.totalOcupacao)}%
-                                    <div class="progress-container">
-                                        <div class="progress-bar">
-                                            <div class="progress-fill" style="width: ${projeto.totalOcupacao}%"></div>
-                                        </div>
-                                    </div>
-                                </td>
+                                <td>${formatNumber(projeto.totalOcupacao)}%</td>
                                 <td style="text-align: right">${formatNumber(projeto.totalHoras)}h</td>
                             </tr>
                             ${projeto.workpackages.map(wp => `
                                 <tr class="workpackage-row">
                                     <td>${wp.nome}</td>
-                                    <td>
-                                        ${formatNumber(wp.ocupacao)}%
-                                        <div class="progress-container">
-                                            <div class="progress-bar">
-                                                <div class="progress-fill" style="width: ${wp.ocupacao}%"></div>
-                                            </div>
-                                        </div>
-                                    </td>
+                                    <td>${formatNumber(wp.ocupacao)}%</td>
                                     <td style="text-align: right">${formatNumber(wp.horas)}h</td>
                                 </tr>
                             `).join('')}
@@ -438,33 +485,25 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                         
                         <tr class="total-row">
                             <td>TOTAL GLOBAL</td>
-                            <td>
-                                ${formatNumber(totalGlobalOcupacao)}%
-                                <div class="progress-container">
-                                    <div class="progress-bar" style="background-color: rgba(255, 255, 255, 0.2)">
-                                        <div class="progress-fill" style="background-color: white; width: ${totalGlobalOcupacao}%"></div>
-                                    </div>
-                                </div>
-                            </td>
+                            <td>${formatNumber(totalGlobalOcupacao)}%</td>
                             <td style="text-align: right">${formatNumber(totalGlobalHoras)}h</td>
                         </tr>
                     </tbody>
                 </table>
                 
                 <div class="signature-section">
-                    <div class="signature-label" style="margin-bottom: 6rem margin-left: 1rem">Rubrica do(a) Técnico(a)</div>
-                    <div class="signature-line"></div>
+                    <div class="signature-container">
+                        <div class="signature-label">Rubrica do(a) Técnico(a):</div>
+                        <div class="signature-line"></div>
+                    </div>
                 </div>
             </main>
             
             <footer class="footer">
                 <div class="logos-container">
                     <img src="${barraLogos}" alt="Logos Institucionais" />
-                    <img src="${mianiLogo}" alt="" />
+                    <img src="${mianiLogo}" alt="Miani Logo" />
                 </div>
-                <p class="footer-text">
-                    Documento gerado automaticamente a ${format(new Date(), "dd/MM/yyyy")}
-                </p>
             </footer>
         </div>
     </body>

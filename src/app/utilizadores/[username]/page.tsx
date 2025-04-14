@@ -23,7 +23,6 @@ import {
   Activity,
   Send,
   MapPin,
-  Share2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -36,7 +35,6 @@ import { cn } from "@/lib/utils";
 import { AlocacoesDetalhadas } from "./AlocacoesDetalhadas";
 import { TabelaAlocacoes } from "./TabelaAlocacoes";
 import { z } from "zod";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "sonner";
 import type { ViewMode } from "@/types/projeto";
 
@@ -223,15 +221,6 @@ export default function PerfilUtilizador() {
     [alocacoes?.real]
   );
 
-  // Handler para mudança de modo de visualização
-  const handleViewModeChange = (mode: ViewMode) => {
-    if (mode === 'submetido' && !projetoAprovado) {
-      toast.warning("Não existem dados submetidos para visualizar.");
-      return;
-    }
-    setViewMode(mode);
-  };
-
   // Estado de carregamento geral
   const isLoading = isLoadingUtilizador || isLoadingAlocacoes;
 
@@ -285,12 +274,6 @@ export default function PerfilUtilizador() {
     });
 
     return candidato;
-  }, [alocacoes?.real]);
-
-  // Encontrar o projeto aprovado e seus dados
-  const projetoAprovado = useMemo(() => {
-    const aprovados = alocacoes?.real?.filter(p => p.projetoEstado === "APROVADO") ?? [];
-    return aprovados.length > 0;
   }, [alocacoes?.real]);
 
   // Resetar para modo real quando não houver dados submetidos
@@ -463,9 +446,6 @@ export default function PerfilUtilizador() {
                   <div className="flex justify-center gap-3 sm:justify-start">
                     <Button className="bg-azul text-white hover:bg-azul/90">
                       <Send className="mr-2 h-4 w-4" /> Contactar
-                    </Button>
-                    <Button variant="outline" className="border-gray-200">
-                      <FileText className="mr-2 h-4 w-4" /> Gerar Relatório
                     </Button>
                   </div>
                 </div>
@@ -797,53 +777,6 @@ export default function PerfilUtilizador() {
 
                 {/* Tabela de Alocações */}
                 <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-md">
-                  <div className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="mb-1 flex items-center text-xl text-gray-800">
-                          <BarChart2 className="mr-2 h-5 w-5 text-azul" />
-                          Relatório de Alocações
-                        </h3>
-                        <p className="text-gray-500">
-                          Tabela detalhada de alocações por projeto e workpackage
-                        </p>
-                      </div>
-                      {projetoAprovado && alocacoes?.submetido ? (
-                        <ToggleGroup type="single" value={viewMode} onValueChange={handleViewModeChange} className="bg-gray-50 p-1 rounded-lg">
-                          <ToggleGroupItem 
-                            value="real" 
-                            className={cn(
-                              "px-3 py-1.5 text-sm font-medium transition-all",
-                              "data-[state=on]:bg-blue-500 data-[state=on]:text-white",
-                              "data-[state=off]:text-gray-600 data-[state=off]:hover:bg-gray-100",
-                              "rounded-md"
-                            )}
-                          >
-                            <Calendar className="mr-2 h-4 w-4" />
-                            Dados Reais
-                          </ToggleGroupItem>
-                          <ToggleGroupItem 
-                            value="submetido" 
-                            className={cn(
-                              "px-3 py-1.5 text-sm font-medium transition-all",
-                              "data-[state=on]:bg-amber-500 data-[state=on]:text-white",
-                              "data-[state=off]:text-gray-600 data-[state=off]:hover:bg-gray-100",
-                              "rounded-md"
-                            )}
-                          >
-                            <FileText className="mr-2 h-4 w-4" />
-                            Dados Submetidos
-                          </ToggleGroupItem>
-                        </ToggleGroup>
-                      ) : (
-                        <Badge variant="outline" className="border-gray-200 text-gray-500">
-                          <FileText className="mr-2 h-4 w-4" />
-                          Sem dados submetidos
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
                   <TabelaAlocacoes 
                     alocacoes={alocacoesTabela}
                     viewMode={viewMode}

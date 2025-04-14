@@ -13,7 +13,7 @@ import { Decimal } from "decimal.js";
 import puppeteer from "puppeteer";
 import { RelatorioTemplate } from "@/app/utilizadores/[username]/relatorio/templates/relatorio-template";
 import http from "http";
-import net from "net";
+import type net from "net";
 
 // Schemas base
 const emailSchema = z.string({ required_error: "Email é obrigatório" }).email("Email inválido");
@@ -1186,6 +1186,13 @@ export const utilizadorRouter = createTRPCRouter({
           userId: utilizador.id,
           mes: input.mes,
           ano: input.ano,
+          workpackage: {
+            projeto: {
+              estado: {
+                in: ['APROVADO', 'EM_DESENVOLVIMENTO', 'CONCLUIDO']
+              }
+            }
+          }
         },
         select: {
           workpackageId: true,
@@ -1197,11 +1204,13 @@ export const utilizadorRouter = createTRPCRouter({
                 select: {
                   id: true,
                   nome: true,
+                  estado: true,
                 },
               },
             },
           },
         },
+        distinct: ['workpackageId'], // Evitar duplicatas
       });
 
       // Formatar alocações
@@ -1210,6 +1219,7 @@ export const utilizadorRouter = createTRPCRouter({
         workpackageNome: alocacao.workpackage.nome,
         projetoId: alocacao.workpackage.projeto.id,
         projetoNome: alocacao.workpackage.projeto.nome,
+        projetoEstado: alocacao.workpackage.projeto.estado,
         ocupacao: Number(alocacao.ocupacao),
       }));
 
@@ -1330,16 +1340,33 @@ export const utilizadorRouter = createTRPCRouter({
             timeout: 30000
           });
 
-          // Gerar PDF
+          // Definir viewport exato para A4 (210 × 297 mm)
+          // Conversão exata: 210mm = 8.27" | 297mm = 11.69"
+          // A 96 DPI: 8.27" * 96 = 793.92px | 11.69" * 96 = 1122.24px
+          await page.setViewport({
+            width: 794, // 210mm em pixels a 96 DPI
+            height: 1122, // 297mm em pixels a 96 DPI
+            deviceScaleFactor: 1.0, // Escala nativa para evitar distorções
+          });
+          
+          // Aguardar para garantir que todos os recursos e estilos sejam carregados
+          await page.evaluateHandle('document.fonts.ready');
+          // Esperar um tempo para garantir que tudo seja carregado corretamente
+          await new Promise(resolve => setTimeout(resolve, 1500));
+
+          // Gerar PDF com tamanho exato A4
           const pdf = await page.pdf({
-            format: "A4",
+            width: '210mm',
+            height: '297mm',
             printBackground: true,
+            preferCSSPageSize: true,
             margin: {
-              top: "40px",
-              right: "40px",
-              bottom: "40px",
-              left: "40px",
+              top: "0mm",
+              right: "0mm",
+              bottom: "0mm",
+              left: "0mm",
             },
+            scale: 1.0,
           });
 
           return {
