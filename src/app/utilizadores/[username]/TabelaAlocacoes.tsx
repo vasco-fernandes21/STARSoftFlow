@@ -1,21 +1,50 @@
 "use client";
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Save, Loader2, Calendar, FileText, AlertCircle } from "lucide-react";
+import { 
+  Save, 
+  Loader2, 
+  Calendar, 
+  FileText, 
+  AlertCircle, 
+  Eye, 
+  EyeOff, 
+  CheckCircle2, 
+  Clock, 
+  RefreshCw, 
+  ChevronDown
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SelectField } from "@/components/projetos/criar/components/FormFields";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
 import { api } from "@/trpc/react";
 import { ProjetoEstado } from "@prisma/client";
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AlocacaoOriginal {
   ano: number;
@@ -46,19 +75,81 @@ interface Projeto {
   wps: Set<string>;
 }
 
-export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }: TabelaProps) {
+// Novo hook para buscar alocações diretamente da API
+export function useAlocacoes(username: string, ano?: number) {
+  const query = api.utilizador.getAlocacoes.useQuery({ 
+    userId: username,
+    ano
+  }, {
+    refetchOnWindowFocus: false,
+    // Não vamos processar caso não tenhamos dados
+    enabled: !!username
+  });
+
+  // Transformar os dados para o formato esperado pelo componente
+  const data = React.useMemo(() => {
+    if (!query.data) return undefined;
+
+    // Mapear os dados para o formato AlocacoesData
+    return {
+      real: query.data.real.map(item => ({
+        ano: item.ano,
+        mes: item.mes,
+        ocupacao: item.ocupacao,
+        workpackage: { 
+          id: item.workpackageId, 
+          nome: item.workpackageNome 
+        },
+        projeto: { 
+          id: item.projetoId, 
+          nome: item.projetoNome,
+          estado: item.projetoEstado
+        }
+      })),
+      submetido: query.data.submetido.map(item => ({
+        ano: item.ano,
+        mes: item.mes,
+        ocupacao: item.ocupacao,
+        workpackage: { 
+          id: item.workpackageId, 
+          nome: item.workpackageNome 
+        },
+        projeto: { 
+          id: item.projetoId, 
+          nome: item.projetoNome,
+          estado: item.projetoEstado
+        }
+      })),
+      anos: query.data.anos
+    };
+  }, [query.data]);
+
+  return { ...query, data };
+}
+
+export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialViewMode, ano, onSave, singleYear }: TabelaProps) {
+  // Estado local para viewMode, permitindo alternar entre visões dentro do componente
+  const [viewMode, setViewMode] = useState<"real" | "submetido">(initialViewMode);
   const isSubmetido = viewMode === "submetido";
-  const [anoSelecionado, setAnoSelecionado] = React.useState(ano);
-  const [mesSelecionado, setMesSelecionado] = React.useState<number | null>(null);
-  const [editValues, setEditValues] = React.useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = React.useState(false);
+  
+  const [anoSelecionado, setAnoSelecionado] = useState(ano);
+  const [mesSelecionado, setMesSelecionado] = useState<number | null>(null);
+  const [editValues, setEditValues] = useState<Map<string, string>>(new Map());
+  const [loading, setLoading] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [modoComparacao, setModoComparacao] = useState(false);
 
+  // Constantes
   const mesesFull = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  
+  // Usar alocacoes das props
+  const alocacoes = propAlocacoes;
 
-  // Adicionar estado para exportar PDF
-  const [isGeneratingPDF, setIsGeneratingPDF] = React.useState(false);
+  // Parâmetros da URL
+  const params = useParams();
+  const username = params?.username as string;
 
-  // Importar API para gerar PDF
+  // API para gerar PDF
   const { mutate: gerarPDF } = api.utilizador.gerarRelatorioPDF.useMutation({
     onSuccess: (data: { pdf: string; filename: string }) => {
       // Converter o Base64 para Blob
@@ -88,10 +179,6 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
     }
   });
 
-  // Obter username dos parâmetros da rota
-  const params = useParams();
-  const username = params?.username as string;
-
   // Função para exportar PDF
   const handleExportPDF = () => {
     if (mesSelecionado) {
@@ -111,13 +198,14 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
     }
   };
 
-  const getMeses = React.useCallback(() => {
+  const getMeses = useCallback(() => {
     if (mesSelecionado !== null) {
       return [mesSelecionado];
     }
     return Array.from({length:12}, (_,i)=> i+1);
   }, [mesSelecionado]);
 
+  // Memo para obter projetos
   const projetos = useMemo(() => {
     const projetosMap = new Map<string, Projeto>();
     [...alocacoes.real, ...alocacoes.submetido].forEach(a => {
@@ -137,10 +225,30 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
     return Array.from(projetosMap.values());
   }, [alocacoes.real, alocacoes.submetido]);
 
-  const getValor = useCallback((wpId: string, mes: number) => {
-    const alocacao = alocacoes.real.find(a => a.workpackage.id === wpId && a.mes === mes && a.ano === anoSelecionado);
+  // Função para obter valor real de alocação
+  const getValorReal = useCallback((wpId: string, mes: number) => {
+    const alocacao = alocacoes.real.find(a => 
+      a.workpackage.id === wpId && 
+      a.mes === mes && 
+      a.ano === anoSelecionado
+    );
     return alocacao ? alocacao.ocupacao : 0;
   }, [alocacoes.real, anoSelecionado]);
+
+  // Função para obter valor submetido de alocação
+  const getValorSubmetido = useCallback((wpId: string, mes: number) => {
+    const alocacao = alocacoes.submetido.find(a => 
+      a.workpackage.id === wpId && 
+      a.mes === mes && 
+      a.ano === anoSelecionado
+    );
+    return alocacao ? alocacao.ocupacao : 0;
+  }, [alocacoes.submetido, anoSelecionado]);
+
+  // Função para obter valor com base no modo de visualização
+  const getValor = useCallback((wpId: string, mes: number) => {
+    return isSubmetido ? getValorSubmetido(wpId, mes) : getValorReal(wpId, mes);
+  }, [isSubmetido, getValorReal, getValorSubmetido]);
 
   function handleInputChange(wpId: string, mes: number, e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
@@ -184,18 +292,46 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
   }
 
   const calcularTotal = useCallback((arr: AlocacaoOriginal[], mes: number) => {
-    return arr.filter(a => a.ano === anoSelecionado && a.mes === mes).reduce((s, a) => s + a.ocupacao, 0);
-  }, [anoSelecionado]);
+    const valoresFixos = arr
+      .filter(a => a.ano === anoSelecionado && a.mes === mes)
+      .reduce((s, a) => s + a.ocupacao, 0);
+      
+    // Se estamos calculando valores submetidos, retornar diretamente o valor fixo
+    if (arr === alocacoes.submetido) {
+      return valoresFixos;
+    }
+    
+    // Se estamos editando valores reais, incluir os valores editados no cálculo total
+    let total = valoresFixos;
+    
+    // Substituir valores editados
+    arr.forEach(a => {
+      if (a.ano === anoSelecionado && a.mes === mes) {
+        const key = `${a.workpackage.id}-${mes}-${anoSelecionado}`;
+        if (editValues.has(key)) {
+          // Subtrair o valor original
+          total -= a.ocupacao;
+          
+          // Adicionar o valor editado (convertendo a string para número)
+          const editedValue = editValues.get(key) || "";
+          const numValue = parseFloat(editedValue.replace(',', '.')) || 0;
+          total += numValue;
+        }
+      }
+    });
+    
+    return total;
+  }, [anoSelecionado, editValues, alocacoes.submetido]);
 
   // Validação — só pode salvar se todos os meses baterem
-  const podeSalvar = React.useMemo(() => {
+  const podeSalvar = useMemo(() => {
     return getMeses().every(mes => 
       Math.abs(calcularTotal(alocacoes.real, mes) - calcularTotal(alocacoes.submetido, mes)) < 0.001
     );
   }, [alocacoes, getMeses, calcularTotal]);
 
   async function handleSave(){
-    if(!podeSalvar)return;
+    if(!podeSalvar) return;
     setLoading(true);
     try{
       await onSave(alocacoes.real);
@@ -204,109 +340,204 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
     }
   }
 
+  // Função para obter a diferença entre real e submetido
+  const getDiferenca = useCallback((wpId: string, mes: number) => {
+    const real = getValorReal(wpId, mes);
+    const submetido = getValorSubmetido(wpId, mes);
+    return real - submetido;
+  }, [getValorReal, getValorSubmetido]);
+
   return (
-    <Card className={cn(
-      "relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md transition-all hover:shadow-lg",
-      isSubmetido && "bg-indigo-50/5"
-    )}>
+    <Card className="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md transition-all hover:shadow-lg">
+      <CardHeader className="px-5 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Alocação de Horas</h3>
+            <p className="text-sm text-slate-500">Gestão de alocações por projeto e workpackage</p>
+          </div>
+          
+          <Tabs 
+            defaultValue={viewMode} 
+            className="w-full sm:w-auto" 
+            onValueChange={(v) => setViewMode(v as "real" | "submetido")}
+          >
+            <TabsList className="grid w-full grid-cols-2 bg-slate-100 rounded-full p-1 h-9">
+              <TabsTrigger 
+                value="real" 
+                className={cn(
+                  "rounded-full text-xs font-medium transition-all duration-200 px-4",
+                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white"
+                )}
+              >
+                <Clock className="h-3.5 w-3.5 mr-1.5" />
+                Horas Reais
+              </TabsTrigger>
+              <TabsTrigger 
+                value="submetido" 
+                className={cn(
+                  "rounded-full text-xs font-medium transition-all duration-200 px-4",
+                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
+                )}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                Horas Submetidas
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </CardHeader>
+      
       <CardContent className="p-0">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <Badge variant={isSubmetido ? "outline" : "default"} className={cn(
-              "h-6 rounded-full px-2 text-xs",
-              isSubmetido 
-                ? "border-indigo-200 bg-indigo-50 text-indigo-700" 
-                : "bg-blue-600 text-white"
-            )}>
-              {isSubmetido ? "Submetido" : "Real"}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3 bg-gradient-to-r from-white to-slate-50/50">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="h-7 rounded-full border-slate-200 px-3 text-sm text-slate-600 bg-white shadow-sm">
+              <Calendar className="mr-1.5 h-3.5 w-3.5 text-slate-500" /> 
+              {anoSelecionado}
             </Badge>
-            <Badge variant="outline" className="h-6 rounded-full border-slate-200 px-2 text-xs text-slate-600">
-              <Calendar className="mr-1 h-3 w-3" /> {anoSelecionado}
-            </Badge>
+            
             {mesSelecionado && (
-              <Badge variant="outline" className="h-6 rounded-full border-blue-200 bg-blue-50 px-2 text-xs text-blue-700">
+              <Badge variant="outline" className="h-7 rounded-full border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 shadow-sm">
                 {mesesFull[mesSelecionado - 1]}
               </Badge>
             )}
+            
             {!isSubmetido && !podeSalvar && (
-              <Badge variant="destructive" className="h-6 rounded-full px-2 text-xs">
-                <AlertCircle className="mr-1 h-3 w-3" />
-                Totais Divergentes
+              <Badge variant="destructive" className="h-7 rounded-full px-3 text-sm animate-pulse shadow-sm">
+                <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
+                <span>Totais Divergentes</span>
               </Badge>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
-            {!singleYear && (
-              <SelectField
-                label=""
-                value={anoSelecionado.toString()}
-                onChange={v=>setAnoSelecionado(parseInt(v))}
-                options={(alocacoes.anos ?? [ano]).map(a=>({label:`${a}`,value:`${a}`}))}
-                className="w-[90px] text-sm"
-              />
-            )}
-            
-            <SelectField
-              label=""
-              value={mesSelecionado?.toString() ?? "todos"}
-              onChange={v => setMesSelecionado(v === "todos" ? null : parseInt(v))}
-              options={[
-                { label: "Todos os meses", value: "todos" },
-                ...mesesFull.map((mes, index) => ({
-                  label: mes,
-                  value: (index + 1).toString()
-                }))
-              ]}
-              className="w-[140px] text-sm"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Dropdown para seleção de filtros */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-1 text-sm rounded-full shadow-sm transition-all hover:bg-slate-100">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Filtros</span>
+                  <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 rounded-xl p-2 border-slate-200 shadow-lg">
+                <div className="p-2 space-y-3">
+                  {!singleYear && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-600">Ano</label>
+                      <SelectField
+                        label=""
+                        value={anoSelecionado.toString()}
+                        onChange={v => setAnoSelecionado(parseInt(v))}
+                        options={(alocacoes.anos ?? [ano]).map(a => ({ label: `${a}`, value: `${a}` }))}
+                        className="w-full text-sm"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Mês</label>
+                    <SelectField
+                      label=""
+                      value={mesSelecionado?.toString() ?? "todos"}
+                      onChange={v => setMesSelecionado(v === "todos" ? null : parseInt(v))}
+                      options={[
+                        { label: "Todos os meses", value: "todos" },
+                        ...mesesFull.map((mes, index) => ({
+                          label: mes,
+                          value: (index + 1).toString()
+                        }))
+                      ]}
+                      className="w-full text-sm"
+                    />
+                  </div>
+                  
+                  <div className="pt-2 flex items-center">
+                    <Button 
+                      variant={modoComparacao ? "default" : "outline"}
+                      size="sm" 
+                      className={cn(
+                        "w-full text-sm h-9 rounded-full transition-all",
+                        modoComparacao ? "bg-blue-600 hover:bg-blue-700" : ""
+                      )}
+                      onClick={() => setModoComparacao(!modoComparacao)}
+                    >
+                      {modoComparacao ? (
+                        <>
+                          <EyeOff className="h-3.5 w-3.5 mr-1.5" />
+                          <span>Ocultar Comparação</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
+                          <span>Ver Comparação</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             {!isSubmetido && (
-              <Button 
-                onClick={handleSave} 
-                disabled={!podeSalvar || loading}
-                className={cn(
-                  "h-7 gap-1.5 rounded-full px-3 text-sm transition-all duration-200",
-                  podeSalvar 
-                    ? "bg-blue-600 text-white hover:bg-blue-700" 
-                    : "bg-slate-100 text-slate-400"
-                )}
-              >
-                {loading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                <span>Guardar</span>
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button 
+                        onClick={handleSave} 
+                        disabled={!podeSalvar || loading}
+                        className={cn(
+                          "h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300",
+                          podeSalvar 
+                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-md hover:from-blue-600 hover:to-blue-700" 
+                            : "bg-slate-100 text-slate-400"
+                        )}
+                      >
+                        {loading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Save className="h-3.5 w-3.5" />
+                        )}
+                        <span>Guardar Alterações</span>
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-slate-800 text-white p-2 rounded-lg text-xs">
+                    {podeSalvar 
+                      ? "Guardar alterações nas alocações" 
+                      : "As alocações devem totalizar os mesmos valores dos submetidos para guardar"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             
             {mesSelecionado && (
               <Button 
                 onClick={handleExportPDF} 
                 disabled={isGeneratingPDF}
-                className="h-7 gap-1.5 rounded-full px-3 text-sm transition-all duration-200 bg-azul text-white hover:bg-azul/90"
+                className="h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-md hover:from-blue-700 hover:to-blue-800"
               >
                 {isGeneratingPDF ? (
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                 ) : (
                   <FileText className="h-3.5 w-3.5" />
                 )}
-                <span>Exportar PDF</span>
+                <span>Exportar Relatório</span>
               </Button>
             )}
           </div>
         </div>
 
-        <div className="overflow-auto">
+        <div className="overflow-auto p-0 m-0">
           <Table className={cn(
             "border-separate border-spacing-y-0",
-            mesSelecionado && "table-fixed"
+            mesSelecionado && "table-fixed",
+            "animate-in fade-in duration-300"
           )}>
             <TableHeader>
               <TableRow className="border-b-0">
                 <TableHead className={cn(
-                  "bg-white/95 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500",
+                  "bg-white/95 px-4 py-3 text-sm font-semibold uppercase tracking-wider text-slate-500 sticky left-0 z-20",
                   mesSelecionado ? "w-[60%]" : "w-[180px]"
                 )}>
                   Projeto / Workpackage
@@ -315,7 +546,7 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                   <TableHead
                     key={mes}
                     className={cn(
-                      "sticky top-0 z-10 bg-white/95 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500",
+                      "sticky top-0 z-10 bg-white/95 px-2 py-3 text-center text-sm font-semibold uppercase tracking-wider text-slate-500",
                       mes % 2 === 0 ? "bg-slate-50/50" : "",
                       mesSelecionado && "w-[40%]"
                     )}
@@ -336,20 +567,23 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                     <TableCell
                       colSpan={mesSelecionado ? 2 : 13}
                       className={cn(
-                        "bg-slate-50/80 px-4 py-1.5",
-                        isSubmetido ? "bg-indigo-50/50" : "bg-blue-50/50"
+                        "sticky left-0 z-10 border-y border-slate-200/70",
+                        isSubmetido 
+                          ? "bg-gradient-to-r from-indigo-50/90 to-indigo-50/70 text-indigo-900" 
+                          : "bg-gradient-to-r from-blue-50/90 to-blue-50/70 text-blue-900",
+                        "transition-colors duration-200"
                       )}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 py-0.5">
                         <div className={cn(
-                          "flex h-6 w-6 items-center justify-center rounded-lg text-xs font-medium shadow-sm",
+                          "flex h-7 w-7 items-center justify-center rounded-lg text-xs font-medium shadow-sm",
                           isSubmetido 
                             ? "bg-indigo-100 text-indigo-700" 
                             : "bg-blue-100 text-blue-700"
                         )}>
                           {projeto.nome.substring(0, 2).toUpperCase()}
                         </div>
-                        <span className="font-medium text-sm text-slate-700">{projeto.nome}</span>
+                        <span className="font-medium text-sm">{projeto.nome}</span>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -364,19 +598,19 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                     return (
                       <TableRow
                         key={`${projeto.id}-${wpId}`} 
-                        className="group transition-all duration-150 ease-in-out hover:bg-slate-50/70"
+                        className="group transition-all duration-200 ease-in-out hover:bg-slate-50/70"
                       >
                         <TableCell className={cn(
-                          "px-4 py-1.5 align-middle text-xs",
+                          "px-4 py-2 align-middle text-sm sticky left-0 bg-white z-10 group-hover:bg-slate-50/70 transition-colors duration-200",
                           mesSelecionado && "max-w-0"
                         )}>
                           <div className="flex items-center gap-1.5">
                             <div className={cn(
-                              "h-1 w-1 rounded-full",
-                              isSubmetido ? "bg-indigo-400" : "bg-blue-400"
+                              "h-1.5 w-1.5 rounded-full transition-colors duration-200",
+                              isSubmetido ? "bg-indigo-400 group-hover:bg-indigo-500" : "bg-blue-400 group-hover:bg-blue-500"
                             )} />
                             <span className={cn(
-                              "text-slate-600",
+                              "text-sm transition-colors duration-200 group-hover:text-slate-800",
                               mesSelecionado && "line-clamp-1"
                             )}>{wp.nome}</span>
                           </div>
@@ -385,39 +619,55 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                           const valor = getValor(wpId, mes);
                           const valorNum = typeof valor === 'number' ? valor : 0;
                           const isEditing = editValues.has(`${wpId}-${mes}-${anoSelecionado}`);
+                          const diferenca = getDiferenca(wpId, mes);
+                          const temDiferenca = Math.abs(diferenca) >= 0.01;
                           
                           return (
                             <TableCell 
                               key={mes} 
                               className={cn(
-                                "px-2 py-1.5 text-center align-middle",
+                                "px-2 py-2 text-center align-middle transition-all duration-200",
                                 mes % 2 === 0 ? "bg-slate-50/30" : "",
-                                mesSelecionado && "w-[40%]"
+                                mesSelecionado && "w-[40%]",
+                                !isSubmetido && temDiferenca && "bg-yellow-50/50"
                               )}
                             >
-                              {isSubmetido ? (
-                                <span className={cn(
-                                  "text-xs",
-                                  valorNum > 0 ? "font-medium text-indigo-700" : "text-slate-400"
-                                )}>
-                                  {valorNum.toFixed(2)}
-                                </span>
-                              ) : (
-                                <Input
-                                  type="text"
-                                  value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) : valorNum.toFixed(2).replace(".", ",")}
-                                  onChange={(e) => handleInputChange(wpId, mes, e)}
-                                  placeholder="0,00"
-                                  className={cn(
-                                    "h-6 text-center text-xs transition-all duration-200",
-                                    isEditing 
-                                      ? "border-blue-200 bg-blue-50/50 shadow-sm" 
-                                      : "border-transparent bg-transparent hover:border-slate-200 hover:bg-white",
-                                    valorNum > 0 && "text-blue-700",
-                                    mesSelecionado && "text-sm"
-                                  )}
-                                />
-                              )}
+                              <div className="flex flex-col items-center">
+                                {isSubmetido ? (
+                                  <span className={cn(
+                                    "text-sm",
+                                    valorNum > 0 ? "font-medium text-indigo-700" : "text-slate-400"
+                                  )}>
+                                    {valorNum.toFixed(2)}
+                                  </span>
+                                ) : (
+                                  <Input
+                                    type="text"
+                                    value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) : valorNum.toFixed(2).replace(".", ",")}
+                                    onChange={(e) => handleInputChange(wpId, mes, e)}
+                                    placeholder="0,00"
+                                    className={cn(
+                                      "h-8 text-center text-sm transition-all duration-200 focus:ring-2 focus:ring-offset-1",
+                                      isEditing 
+                                        ? "border-blue-300 bg-blue-50/60 shadow-sm ring-blue-200" 
+                                        : "border-transparent bg-transparent hover:border-slate-200 hover:bg-white",
+                                      valorNum > 0 && "text-blue-700 font-medium",
+                                      mesSelecionado && "text-base",
+                                      temDiferenca && "border-yellow-300"
+                                    )}
+                                  />
+                                )}
+                                
+                                {/* Modo comparação mostra a diferença */}
+                                {modoComparacao && temDiferenca && (
+                                  <div className={cn(
+                                    "text-xs mt-1",
+                                    diferenca > 0 ? "text-green-600" : "text-red-600"
+                                  )}>
+                                    {diferenca > 0 ? "+" : ""}{diferenca.toFixed(2)}
+                                  </div>
+                                )}
+                              </div>
                             </TableCell>
                           );
                         })}
@@ -429,7 +679,7 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
             </TableBody>
             <TableFooter>
               <TableRow className="border-t border-slate-200">
-                <TableCell className="bg-slate-50/80 px-4 py-2 text-xs font-medium text-slate-900">
+                <TableCell className="bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-900 sticky left-0 z-10">
                   Total por Mês
                 </TableCell>
                 {getMeses().map((mes) => {
@@ -441,12 +691,45 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                     <TableCell
                       key={mes}
                       className={cn(
-                        "bg-slate-50/80 px-2 py-2 text-center text-xs font-medium",
-                        isDifferent && !isSubmetido && "bg-red-50 text-red-600",
-                        mesSelecionado && "text-sm"
+                        "bg-slate-50/80 px-2 py-3 text-center text-sm font-medium",
+                        isDifferent && !isSubmetido ? "bg-yellow-50 text-yellow-700 border-b-2 border-yellow-300" : "",
+                        !isDifferent && !isSubmetido ? "bg-green-50/40 text-green-700 border-b-2 border-green-300" : "",
+                        mesSelecionado && "text-base"
                       )}
                     >
-                      {isSubmetido ? totalSubmetido.toFixed(2) : totalReal.toFixed(2)}
+                      <div className="flex flex-col items-center">
+                        <span>{isSubmetido ? totalSubmetido.toFixed(2) : totalReal.toFixed(2)}</span>
+                        
+                        {/* Indicador visual de status para cada mês */}
+                        {!isSubmetido && (
+                          <div className="flex items-center mt-1 gap-1">
+                            {isDifferent ? (
+                              <span className="text-xs text-yellow-600 flex items-center">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Divergente
+                              </span>
+                            ) : (
+                              <span className="text-xs text-green-600 flex items-center">
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Correto
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Modo comparação para totais */}
+                        {modoComparacao && isDifferent && (
+                          <div className={cn(
+                            "text-xs mt-1",
+                            (totalReal > totalSubmetido) ? "text-green-600" : "text-red-600"
+                          )}>
+                            {isSubmetido 
+                              ? "Ver alocações reais"
+                              : (totalReal > totalSubmetido ? "+" : "") + (totalReal - totalSubmetido).toFixed(2)
+                            }
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                   );
                 })}
@@ -454,7 +737,7 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
               
               {!isSubmetido && (
                 <TableRow className="border-t border-slate-200/50">
-                  <TableCell className="bg-slate-50/80 px-4 py-2 text-xs font-medium text-slate-600">
+                  <TableCell className="bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-600 sticky left-0 z-10">
                     Total Submetido
                   </TableCell>
                   {getMeses().map((mes) => {
@@ -466,14 +749,19 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
                       <TableCell
                         key={mes}
                         className={cn(
-                          "bg-slate-50/80 px-2 py-2 text-center text-xs",
+                          "bg-slate-50/80 px-2 py-3 text-center text-sm",
                           isDifferent 
-                            ? "font-medium text-indigo-600" 
+                            ? "font-medium text-indigo-600 bg-indigo-50/40" 
                             : "text-slate-500",
-                          mesSelecionado && "text-sm"
+                          mesSelecionado && "text-base"
                         )}
                       >
-                        {totalSubmetido.toFixed(2)}
+                        <div className="flex flex-col items-center">
+                          <span>{totalSubmetido.toFixed(2)}</span>
+                          {isDifferent && modoComparacao && (
+                            <div className="text-xs mt-1 text-indigo-500">Objetivo</div>
+                          )}
+                        </div>
                       </TableCell>
                     );
                   })}
@@ -482,7 +770,76 @@ export function TabelaAlocacoes({ alocacoes, viewMode, ano, onSave, singleYear }
             </TableFooter>
           </Table>
         </div>
+        
+        {/* Legenda */}
+        <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
+          <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+            <div className="flex items-center">
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700 mr-1.5">
+                <Clock className="h-3 w-3" />
+              </div>
+              <span>Alocações Reais</span>
+            </div>
+            <div className="flex items-center">
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 mr-1.5">
+                <CheckCircle2 className="h-3 w-3" />
+              </div>
+              <span>Alocações Submetidas</span>
+            </div>
+            {modoComparacao && (
+              <div className="flex items-center">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-100 text-yellow-700 mr-1.5">
+                  <AlertCircle className="h-3 w-3" />
+                </div>
+                <span>Diferenças Destacadas</span>
+              </div>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Componente de página que implementa a TabelaAlocacoes com obtenção direta de dados da API
+export function AlocacoesPage() {
+  const params = useParams();
+  const username = params?.username as string;
+  const currentYear = new Date().getFullYear();
+  
+  const [viewMode, setViewMode] = useState<"real" | "submetido">("real");
+  const [ano, setAno] = useState(currentYear);
+  
+  // Obter alocações da API
+  const { data, isLoading, error, refetch } = useAlocacoes(username, ano);
+  
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+    </div>;
+  }
+  
+  if (error || !data) {
+    return <div className="flex flex-col items-center justify-center h-64 text-red-600">
+      <AlertCircle className="h-8 w-8 mb-2" />
+      <p>Erro ao carregar dados. Por favor, tente novamente.</p>
+    </div>;
+  }
+  
+  const handleSave = async (alocacoesReais: AlocacaoOriginal[]) => {
+    // Implementar lógica de salvamento
+    console.log("Salvando alocações:", alocacoesReais);
+    // Após salvar, recarregar os dados
+    await refetch();
+  };
+  
+  return (
+    <TabelaAlocacoes
+      alocacoes={data}
+      viewMode={viewMode}
+      ano={ano}
+      onSave={handleSave}
+      singleYear={false}
+    />
   );
 }

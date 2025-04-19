@@ -156,61 +156,120 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 width: 100%;
                 background: linear-gradient(90deg, #003366 0%, #004080 100%);
                 color: white;
-                padding: 6mm 8mm;
-                display: flex;
-                align-items: center;
                 height: 32mm;
-                border-bottom: 0.5mm solid rgba(255, 255, 255, 0.1);
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
                 position: relative;
+                overflow: hidden;
+                display: grid;
+                grid-template-columns: auto 1fr;
             }
             
-            .header::after {
+            .header::before {
                 content: '';
                 position: absolute;
                 top: 0;
-                right: -2mm; /* Estende um pouco mais à direita */
-                width: 2mm;
-                height: 100%;
-                background: linear-gradient(90deg, #003366 0%, #004080 100%);
+                right: 0;
+                bottom: 0;
+                width: 50%;
+                background: radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+                z-index: 1;
             }
             
-            .header-content {
+            .logo-container {
+                padding: 5mm 6mm;
                 display: flex;
-                justify-content: space-between;
-                align-items: center;
-                width: 100%;
+                flex-direction: column;
+                justify-content: center;
+                align-items: flex-start;
+                position: relative;
+                z-index: 2;
+                border-right: 0.25mm solid rgba(255, 255, 255, 0.15);
             }
             
             .logo {
-                height: 13mm;
+                height: 10mm;
                 width: auto;
+                filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.2));
             }
             
-            .header-text {
-                text-align: right;
-                padding-left: 4mm;
+            .header-content {
+                padding: 5mm 8mm;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                position: relative;
+                z-index: 2;
+            }
+            
+            .header-title-area {
+                margin-bottom: 2mm;
             }
             
             .title {
-                font-size: 16pt;
-                font-weight: 600;
-                margin-bottom: 2mm;
-                letter-spacing: 0.025em;
+                font-size: 15pt;
+                font-weight: 700;
+                letter-spacing: 0.03em;
+                margin-bottom: 1mm;
+                display: flex;
+                align-items: center;
+            }
+            
+            .title::after {
+                content: '';
+                display: inline-block;
+                width: 3mm;
+                height: 3mm;
+                background-color: rgba(255, 255, 255, 0.4);
+                border-radius: 50%;
+                margin-left: 3mm;
             }
             
             .subtitle {
-                font-size: 12pt;
-                margin-bottom: 2mm;
-                opacity: 0.9;
+                font-size: 10pt;
+                font-weight: 400;
+                opacity: 0.85;
+                display: flex;
+                align-items: center;
+                gap: 5mm;
+            }
+            
+            .header-meta {
+                display: flex;
+                align-items: center;
+                gap: 6mm;
+                margin-top: 1mm;
             }
             
             .period {
-                font-size: 10pt;
+                display: flex;
+                align-items: center;
+                font-size: 9pt;
+                background: rgba(255, 255, 255, 0.12);
                 padding: 1mm 3mm;
-                background-color: rgba(255, 255, 255, 0.15);
-                border-radius: 2mm;
+                border-radius: 3mm;
+                font-weight: 500;
+            }
+            
+            .period::before {
+                content: '';
                 display: inline-block;
+                width: 2mm;
+                height: 2mm;
+                background-color: rgba(255, 255, 255, 0.6);
+                border-radius: 50%;
+                margin-right: 2mm;
+            }
+            
+            .meta-divider {
+                height: 4mm;
+                width: 0.25mm;
+                background-color: rgba(255, 255, 255, 0.2);
+            }
+            
+            .doc-type {
+                font-size: 9pt;
+                opacity: 0.75;
+                letter-spacing: 0.02em;
+                text-transform: uppercase;
             }
             
             .content {
@@ -370,17 +429,8 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 opacity: 0.15;
             }
             
-            .info-card:hover {
-                transform: translateY(-1mm);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            }
-            
             tr:last-child td {
                 border-bottom: none;
-            }
-            
-            .workpackage-row:hover {
-                background-color: #f1f5f9;
             }
             
             .footer {
@@ -427,12 +477,18 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
     <body>
         <div class="page">
             <header class="header">
+                <div class="logo-container">
+                    <img src="${starLogo}" alt="STAR Institute" class="logo" />
+                </div>
                 <div class="header-content">
-                    <img src="${starLogo}" style={{ width: '35mm', height: 'auto' }} alt="STAR Institute" class="logo" />
-                    <div class="header-text">
+                    <div class="header-title-area">
                         <h1 class="title">Relatório de Horas</h1>
                         <p class="subtitle">${data.utilizador.nome}</p>
+                    </div>
+                    <div class="header-meta">
                         <div class="period">${nomeMesCapitalizado} ${periodo.ano}</div>
+                        <div class="meta-divider"></div>
+                        <div class="doc-type">Documento oficial</div>
                     </div>
                 </div>
             </header>

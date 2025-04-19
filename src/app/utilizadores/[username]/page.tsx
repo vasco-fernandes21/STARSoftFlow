@@ -23,6 +23,12 @@ import {
   Activity,
   Send,
   MapPin,
+  Pencil,
+  Download,
+  Link2,
+  ExternalLink,
+  ChevronDown,
+  MessageSquare,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -359,49 +365,58 @@ export default function PerfilUtilizador() {
     };
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6">
-        <div className="container max-w-8xl mx-auto  px-4 pb-20 sm:px-6">
-          {/* Breadcrumb Navigation */}
-          <div className="-ml-2 mb-8 flex w-full items-center justify-between">
-            <div className="flex items-center text-sm font-medium">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/utilizadores")}
-                className="flex h-7 items-center gap-1 px-2 py-0 text-gray-500 hover:text-azul"
-                aria-label="Voltar para utilizadores"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Utilizadores</span>
-              </Button>
-              <span className="mx-1 text-gray-400">/</span>
-              <div className="flex items-center gap-1.5">
-                <div className={cn(
-                  "h-2 w-2 rounded-full",
-                  utilizadorComDetalhes.regime === "INTEGRAL" 
-                    ? "bg-emerald-500" 
-                    : "bg-amber-500"
-                )}></div>
-                <span className="max-w-[300px] truncate text-gray-700 sm:max-w-[400px]" title={utilizadorComDetalhes.name ?? ""}>
-                  {utilizadorComDetalhes.name ?? "Nome não disponível"}
-                </span>
+      <div className="min-h-screen bg-gray-100">
+        {/* Header com navegação */}
+        <div className="bg-white shadow">
+          <div className="container mx-auto px-4">
+            <div className="flex h-14 items-center justify-between">
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/utilizadores")}
+                  className="text-gray-600 hover:text-azul"
+                >
+                  <ArrowLeft className="mr-1 h-4 w-4" />
+                  <span className="text-sm">Utilizadores</span>
+                </Button>
+                <span className="text-gray-400">/</span>
+                <span className="text-sm font-medium text-azul">{utilizadorComDetalhes.name}</span>
+              </div>
+              <div>
+                <Button variant="outline" size="sm" className="text-sm">
+                  <Download className="mr-2 h-3.5 w-3.5" />
+                  Exportar Perfil
+                </Button>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Profile Content */}
-          <div className="relative mb-10">
-            <div className="absolute inset-0 -z-10 h-48 rounded-3xl bg-gradient-to-r from-azul/5 to-indigo-50/30"></div>
-
-            <div className="relative px-6 pb-8 pt-12 sm:px-8 md:px-10">
-              <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-start">
-                <div className="group relative">
-                  <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-azul to-indigo-400 opacity-30 blur transition-all duration-500 group-hover:opacity-60"></div>
-                  <Avatar className="relative h-32 w-32 border-4 border-white shadow-xl">
+        <div className="container mx-auto px-4 py-5">
+          {/* Banner e foto de perfil */}
+          <div className="mb-6 overflow-hidden rounded-lg bg-white shadow">
+            {/* Banner */}
+            <div className="h-48 bg-gradient-to-r from-azul/80 to-blue-500/90 relative">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="absolute right-3 top-3 h-8 w-8 rounded-full bg-white/20 text-white hover:bg-white/30"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Perfil & Ações */}
+            <div className="relative px-8 pb-5">
+              {/* Avatar */}
+              <div className="absolute -top-16 left-8">
+                <div className="relative group">
+                  <Avatar className="h-32 w-32 border-4 border-white bg-white shadow-xl">
                     {utilizador?.foto ? (
                       <AvatarImage src={utilizador.foto} alt={utilizador.name || ""} />
                     ) : (
-                      <AvatarFallback className="bg-gradient-to-br from-azul to-indigo-500 text-4xl font-semibold text-white">
+                      <AvatarFallback className="bg-gradient-to-br from-azul to-blue-500 text-4xl font-semibold text-white">
                         {utilizador?.name?.slice(0, 2).toUpperCase() || "U"}
                       </AvatarFallback>
                     )}
@@ -409,449 +424,274 @@ export default function PerfilUtilizador() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-white shadow-md transition-all duration-300 hover:scale-110 hover:bg-azul/5"
+                    className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-white shadow-md transition-all duration-300 hover:scale-110 hover:bg-azul/5 opacity-0 group-hover:opacity-100"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
-
-                <div className="text-center sm:text-left">
-                  <h1 className="mb-2 text-3xl font-bold text-gray-900 sm:text-4xl">
-                    {utilizador?.name ?? "Nome não disponível"}
-                  </h1>
-
-                  <p className="mb-4 max-w-xl text-lg text-gray-600">
-                    {utilizador?.atividade ?? "Sem atividade definida"}
+              </div>
+              
+              {/* Informação do perfil */}
+              <div className="mt-16 flex flex-col md:flex-row md:items-start md:justify-between">
+                <div className="mb-4 md:mb-0">
+                  <div className="flex items-center">
+                    <h1 className="text-2xl font-bold text-gray-900">{utilizador?.name ?? "Nome não disponível"}</h1>
+                    <div className={cn(
+                      "ml-2 h-3 w-3 rounded-full",
+                      utilizadorComDetalhes.regime === "INTEGRAL" ? "bg-emerald-500" : "bg-amber-500"
+                    )}></div>
+                  </div>
+                  <p className="text-md text-gray-600">{utilizador?.atividade ?? "Sem atividade definida"}</p>
+                  <p className="mt-1 flex items-center text-sm text-gray-500">
+                    <MapPin className="mr-1 h-3.5 w-3.5" />
+                    <span>Portugal</span>
+                    <span className="mx-1.5">•</span>
+                    <span>{getPermissaoText(utilizadorComDetalhes.permissao)}</span>
+                    <span className="mx-1.5">•</span>
+                    {new Set(alocacoesDetalhadas.map((a) => a.projeto.id)).size || 0} projetos ativos
                   </p>
-
-                  <div className="mb-6 flex flex-wrap justify-center gap-2 sm:justify-start">
-                    <Badge className="rounded-full bg-azul/10 px-3 py-1.5 text-sm text-azul transition-colors duration-200 hover:bg-azul/20">
-                      <Shield className="mr-1.5 h-3.5 w-3.5" />
-                      {getPermissaoText(utilizadorComDetalhes.permissao)}
-                    </Badge>
-
-                    <Badge className="rounded-full bg-azul/10 px-3 py-1.5 text-sm text-azul transition-colors duration-200 hover:bg-azul/20">
-                      <Clock className="mr-1.5 h-3.5 w-3.5" />
-                      {getRegimeText(utilizadorComDetalhes.regime)}
-                    </Badge>
-
-                    {utilizador?.contratacao && (
-                      <Badge className="rounded-full bg-azul/10 px-3 py-1.5 text-sm text-azul transition-colors duration-200 hover:bg-azul/20">
-                        <Briefcase className="mr-1.5 h-3.5 w-3.5" />
-                        {anosExperiencia} {anosExperiencia === 1 ? "ano" : "anos"} de experiência
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="flex justify-center gap-3 sm:justify-start">
-                    <Button className="bg-azul text-white hover:bg-azul/90">
-                      <Send className="mr-2 h-4 w-4" /> Contactar
-                    </Button>
-                  </div>
                 </div>
-
-                <div className="ml-auto hidden flex-col items-end gap-4 md:flex">
-                  <div className="flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-4 shadow-md transition-all hover:scale-105 hover:shadow-lg">
-                    <div className="mb-2 rounded-full bg-azul/10 p-2 text-azul">
-                      <Activity className="h-6 w-6" />
-                    </div>
-                    <span className="text-2xl font-bold text-gray-900">
-                      {alocacoesDetalhadas.length > 0
-                        ? Math.round(
-                            alocacoesDetalhadas.reduce((sum, a) => sum + a.ocupacao, 0) * 100
-                          ) / 100
-                        : 0}
-                    </span>
-                    <span className="text-xs text-gray-500">Ocupação Total</span>
-                  </div>
-
-                  <div className="flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-4 shadow-md transition-all hover:scale-105 hover:shadow-lg">
-                    <div className="mb-2 rounded-full bg-indigo-100 p-2 text-indigo-600">
-                      <Grid3X3 className="h-6 w-6" />
-                    </div>
-                    <span className="text-2xl font-bold text-gray-900">
-                      {new Set(alocacoesDetalhadas.map((a) => a.projeto.id)).size || 0}
-                    </span>
-                    <span className="text-xs text-gray-500">Projetos Ativos</span>
-                  </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" className="h-9 rounded-full bg-azul text-white hover:bg-azul/90">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Mensagem
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 rounded-full border-gray-300 hover:bg-gray-50">
+                    <span>Mais</span>
+                    <ChevronDown className="ml-1 h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Tabs de navegação */}
-          <Tabs
-            defaultValue="perfil"
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="mb-8"
-          >
-            <TabsList className="grid grid-cols-3 gap-2 rounded-xl border border-gray-100 bg-white p-1 shadow-sm">
-              <TabsTrigger
-                value="perfil"
-                className={cn(
-                  "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
-                  "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
-                  "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
-                )}
-              >
-                <Briefcase className="mr-2 h-4 w-4" />
-                Perfil Profissional
-              </TabsTrigger>
-              <TabsTrigger
-                value="alocacoes"
-                className={cn(
-                  "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
-                  "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
-                  "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
-                )}
-              >
-                <BarChart2 className="mr-2 h-4 w-4" />
-                Alocações
-              </TabsTrigger>
-              <TabsTrigger
-                value="estatisticas"
-                className={cn(
-                  "rounded-lg transition-all data-[state=active]:text-azul data-[state=active]:shadow-sm",
-                  "data-[state=active]:bg-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-500",
-                  "data-[state=inactive]:hover:bg-gray-50 data-[state=inactive]:hover:text-gray-700"
-                )}
-              >
-                <PieChart className="mr-2 h-4 w-4" />
-                Estatísticas
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Conteúdo: Perfil Profissional */}
-            <TabsContent value="perfil" className="pt-6">
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                <div className="space-y-6 lg:col-span-8">
-                  {/* Sobre */}
-                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
-                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                      <CardTitle className="flex items-center text-xl text-gray-800">
-                        <FileText className="mr-2 h-5 w-5 text-azul" />
-                        Sobre
-                      </CardTitle>
-                      <CardDescription className="text-gray-500">
-                        Perfil e resumo profissional
-                      </CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="pt-6">
-                      {utilizadorComDetalhes?.informacoes ? (
-                        <div className="whitespace-pre-wrap leading-relaxed text-gray-700">
-                          {utilizadorComDetalhes.informacoes}
-                        </div>
-                      ) : (
-                        <div className="py-10 text-center">
-                          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50 p-4">
-                            <FileText className="h-8 w-8 text-gray-300" />
-                          </div>
-                          <p className="mb-4 text-gray-500">
-                            Este utilizador ainda não tem um currículo resumido definido.
-                          </p>
-                          <Button
-                            variant="outline"
-                            className="border-gray-200 transition-all duration-200 hover:border-azul/30 hover:bg-azul/5"
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Adicionar Informações
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Projetos */}
-                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
-                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                      <CardTitle className="flex items-center text-xl text-gray-800">
-                        <Building2 className="mr-2 h-5 w-5 text-azul" />
-                        Projetos Atuais
-                      </CardTitle>
-                      <CardDescription className="text-gray-500">
-                        Projetos em que o utilizador está alocado
-                      </CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="pt-6">
-                      {alocacoes?.real && alocacoes.real.length > 0 ? (
-                        <div className="space-y-4">
-                          {Array.from(new Set(alocacoes.real.map(a => a.projetoId))).map((projetoId) => {
-                            const projeto = alocacoes.real.find(a => a.projetoId === projetoId);
-                            if (!projeto) return null;
-                            
-                            return (
-                              <div
-                                key={projetoId}
-                                className="group rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 hover:border-azul/20 hover:bg-azul/5"
-                              >
-                                <div className="mb-2 flex items-start justify-between">
-                                  <h3 className="font-medium text-gray-900 transition-colors group-hover:text-azul">
-                                    {projeto.projetoNome}
-                                  </h3>
-                                  <Badge className="bg-emerald-50 text-xs text-emerald-600">
-                                    {projeto.projetoEstado === "EM_DESENVOLVIMENTO" ? "Ativo" : "Inativo"}
-                                  </Badge>
-                                </div>
-                                <p className="mb-3 line-clamp-2 text-sm text-gray-600">
-                                  {projeto.projetoNome}
-                                </p>
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <div className="flex items-center">
-                                    <Calendar className="mr-1 h-3.5 w-3.5" />
-                                    <span>
-                                      {projeto.mes}/{projeto.ano}
-                                    </span>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="-mr-2 h-7 px-2 text-xs text-azul hover:bg-azul/10"
-                                  >
-                                    <ChevronRight className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="py-10 text-center">
-                          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50 p-4">
-                            <Building2 className="h-8 w-8 text-gray-300" />
-                          </div>
-                          <p className="mb-4 text-gray-500">
-                            Este utilizador não está alocado em nenhum projeto.
-                          </p>
-                          <Button
-                            variant="outline"
-                            className="border-gray-200 transition-all duration-200 hover:border-azul/30 hover:bg-azul/5"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Adicionar a um Projeto
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+          
+          {/* Conteúdo principal */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+            {/* Coluna da esquerda */}
+            <div className="lg:col-span-8 space-y-5">
+              {/* Cartão de Resumo */}
+              <div className="rounded-lg bg-white p-6 shadow">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">Resumo</h2>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-500">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                 </div>
-
-                {/* Sidebar */}
-                <div className="space-y-6 lg:col-span-4">
-                  {/* Informação de Contacto */}
-                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
-                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                      <CardTitle className="flex items-center text-xl text-gray-800">
-                        <Mail className="mr-2 h-5 w-5 text-azul" />
-                        Contacto
-                      </CardTitle>
-                    </CardHeader>
-
-                    <CardContent className="space-y-4 pt-6">
-                      <div className="group flex items-center gap-3 rounded-xl p-3 text-gray-600 transition-all duration-200 hover:bg-gray-50">
-                        <div className="rounded-full bg-azul/10 p-2 text-azul transition-all group-hover:scale-105">
-                          <Mail className="h-5 w-5" />
-                        </div>
-                        <span className="transition-colors duration-200 group-hover:text-azul">
-                          {utilizador?.email}
-                        </span>
-                      </div>
-                      <div className="group flex items-center gap-3 rounded-xl p-3 text-gray-600 transition-all duration-200 hover:bg-gray-50">
-                        <div className="rounded-full bg-azul/10 p-2 text-azul transition-all group-hover:scale-105">
-                          <MapPin className="h-5 w-5" />
-                        </div>
-                        <span className="transition-colors duration-200 group-hover:text-azul">
-                          Portugal
-                        </span>
-                      </div>
-                      <div className="group flex items-center gap-3 rounded-xl p-3 text-gray-600 transition-all duration-200 hover:bg-gray-50">
-                        <div className="rounded-full bg-azul/10 p-2 text-azul transition-all group-hover:scale-105">
-                          <Calendar className="h-5 w-5" />
-                        </div>
-                        <span className="transition-colors duration-200 group-hover:text-azul">
-                          {utilizador?.contratacao
-                            ? `Membro desde ${format(new Date(utilizador?.contratacao), "MMMM yyyy", { locale: pt })}`
-                            : "Data não definida"}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Estatísticas Rápidas - Modificada */}
-                  <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
-                    <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                      <CardTitle className="flex items-center text-xl text-gray-800">
-                        <Zap className="mr-2 h-5 w-5 text-azul" />
-                        Estatísticas Rápidas
-                      </CardTitle>
-                    </CardHeader>
-
-                    <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 gap-4">
-                        {/* Projetos alocados */}
-                        <div className="flex items-center gap-4 rounded-xl bg-gray-50 p-4 transition-all duration-200 hover:bg-azul/5 hover:shadow-sm">
-                          <div className="rounded-xl bg-azul/10 p-3 text-azul">
-                            <Building2 className="h-6 w-6" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-azul">
-                              {new Set(alocacoesDetalhadas.map((a) => a.projeto.id)).size || 0}
-                            </p>
-                            <p className="text-xs text-gray-500">Projetos alocados</p>
-                          </div>
-                        </div>
-
-                        {/* Workpackages */}
-                        <div className="flex items-center gap-4 rounded-xl bg-gray-50 p-4 transition-all duration-200 hover:bg-azul/5 hover:shadow-sm">
-                          <div className="rounded-xl bg-indigo-100 p-3 text-indigo-600">
-                            <Grid3X3 className="h-6 w-6" />
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-indigo-600">
-                              {new Set(alocacoesDetalhadas.map((a) => a.workpackage.id)).size || 0}
-                            </p>
-                            <p className="text-xs text-gray-500">Workpackages ativos</p>
-                          </div>
-                        </div>
-
-                        {/* Próximo workpackage */}
-                        <div className="rounded-xl bg-gray-50 p-4 transition-all duration-200 hover:bg-azul/5 hover:shadow-sm">
-                          <div className="mb-2 flex items-center gap-3">
-                            <div className="rounded-lg bg-emerald-100 p-2 text-emerald-600">
-                              <Calendar className="h-5 w-5" />
-                            </div>
-                            <p className="font-medium text-gray-700">Próximo workpackage</p>
-                          </div>
-
-                          {proximoWorkpackage ? (
-                            <div className="pl-2">
-                              <p className="mb-1 truncate font-medium text-azul">
-                                {proximoWorkpackage.nome}
-                              </p>
-                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-500">
-                                  Projeto:{" "}
-                                  <span className="text-gray-700">
-                                    {proximoWorkpackage.projeto.nome}
-                                  </span>
-                                </span>
-                                <span className="font-medium text-emerald-600">
-                                  {format(proximoWorkpackage.dataInicio, "dd MMM yyyy", {
-                                    locale: pt,
-                                  })}
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="pl-2 text-sm text-gray-500">Sem workpackages futuros</p>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                
+                {utilizadorComDetalhes?.informacoes ? (
+                  <div className="text-gray-700 leading-relaxed">
+                    {utilizadorComDetalhes.informacoes}
+                  </div>
+                ) : (
+                  <div className="text-gray-500 italic">
+                    Sem informações adicionais disponíveis.
+                  </div>
+                )}
               </div>
-            </TabsContent>
-
-            {/* Conteúdo: Alocações */}
-            <TabsContent value="alocacoes" className="pt-6">
-              <div className="grid grid-cols-1 gap-6">
-                {/* Visão Detalhada */}
-                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
-                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                    <CardTitle className="flex items-center text-xl text-gray-800">
-                      <Calendar className="mr-2 h-5 w-5 text-azul" />
-                      Alocações Detalhadas
-                    </CardTitle>
-                    <CardDescription className="text-gray-500">
-                      Visão detalhada por projeto e workpackage
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="scrollbar-thin scrollbar-thumb-azul/20 scrollbar-track-gray-100 max-h-[500px] overflow-y-auto pt-6">
-                    <AlocacoesDetalhadas alocacoes={alocacoesDetalhadas} />
-                  </CardContent>
-                </Card>
-
-                {/* Tabela de Alocações */}
-                <div className="overflow-hidden rounded-2xl border-0 bg-white shadow-md">
+              
+              {/* Cartão de Experiência */}
+              <div className="rounded-lg bg-white p-6 shadow">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">Projetos Ativos</h2>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-500">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {alocacoes?.real && alocacoes.real.length > 0 ? (
+                  <div className="space-y-5">
+                    {Array.from(new Set(alocacoes.real.map(a => a.projetoId))).map((projetoId) => {
+                      const projeto = alocacoes.real.find(a => a.projetoId === projetoId);
+                      if (!projeto) return null;
+                      
+                      return (
+                        <div key={projetoId} className="group">
+                          <div className="flex gap-4">
+                            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white">
+                              <Building2 className="h-6 w-6 text-azul" />
+                            </div>
+                            <div className="flex-grow">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-medium text-gray-900">{projeto.projetoNome}</h3>
+                                <Badge className={cn(
+                                  "rounded-full px-2 py-0.5 text-xs",
+                                  projeto.projetoEstado === "EM_DESENVOLVIMENTO" 
+                                    ? "bg-emerald-100 text-emerald-700" 
+                                    : "bg-amber-100 text-amber-700"
+                                )}>
+                                  {projeto.projetoEstado === "EM_DESENVOLVIMENTO" ? "Ativo" : "Inativo"}
+                                </Badge>
+                              </div>
+                              <div className="mt-1 flex items-center text-sm text-gray-500">
+                                <Calendar className="mr-1.5 h-3.5 w-3.5" />
+                                {projeto.mes}/{projeto.ano}
+                              </div>
+                              <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                                Alocação mensal em workpackages deste projeto.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-2 h-px w-full bg-gray-100"></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Building2 className="mx-auto h-10 w-10 text-gray-300" />
+                    <p className="mt-2 text-gray-500">Sem projetos ativos</p>
+                    <Button variant="outline" className="mt-3 text-sm">
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Adicionar Projeto
+                    </Button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Gráfico de Alocações */}
+              <div className="rounded-lg bg-white p-6 shadow">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">Alocações</h2>
+                  <Badge className="bg-azul/10 text-azul">
+                    {currentYear}
+                  </Badge>
+                </div>
+                
+                <div className="overflow-hidden rounded-lg border border-gray-100">
                   <TabelaAlocacoes 
                     alocacoes={alocacoesTabela}
                     viewMode={viewMode}
                     ano={currentYear}
                     onSave={() => {
-                      // This is a placeholder function since we don't need to save in this view
                       console.log("Save triggered");
                     }}
                   />
                 </div>
               </div>
-            </TabsContent>
-
-            {/* Conteúdo: Estatísticas */}
-            <TabsContent value="estatisticas" className="pt-6">
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
-                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                    <CardTitle className="flex items-center text-xl text-gray-800">
-                      <PieChart className="mr-2 h-5 w-5 text-azul" />
-                      Distribuição de Ocupação
-                    </CardTitle>
-                  </CardHeader>
-
-                  <CardContent className="flex h-60 items-center justify-center pt-6">
-                    <div className="text-center text-gray-500">
-                      <PieChart className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                      <p>Dados de gráfico não disponíveis.</p>
-                      <p className="text-sm">
-                        Adicione mais informações para visualizar estatísticas.
+            </div>
+            
+            {/* Coluna da direita */}
+            <div className="lg:col-span-4 space-y-5">
+              {/* Cartão de Contacto */}
+              <div className="rounded-lg bg-white p-6 shadow">
+                <h2 className="mb-4 text-lg font-semibold text-gray-900">Detalhes de Contacto</h2>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-azul/10 text-azul">
+                      <Mail className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="text-sm font-medium text-azul">{utilizador?.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-azul/10 text-azul">
+                      <Calendar className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Membro desde</p>
+                      <p className="text-sm font-medium">
+                        {utilizador?.contratacao
+                          ? format(new Date(utilizador?.contratacao), "MMMM yyyy", { locale: pt })
+                          : "Data não definida"}
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg">
-                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                    <CardTitle className="flex items-center text-xl text-gray-800">
-                      <Activity className="mr-2 h-5 w-5 text-azul" />
-                      Tendência de Alocação
-                    </CardTitle>
-                  </CardHeader>
-
-                  <CardContent className="flex h-60 items-center justify-center pt-6">
-                    <div className="text-center text-gray-500">
-                      <Activity className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                      <p>Dados de gráfico não disponíveis.</p>
-                      <p className="text-sm">
-                        Adicione mais informações para visualizar estatísticas.
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-azul/10 text-azul">
+                      <Briefcase className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Tipo de Regime</p>
+                      <p className="text-sm font-medium">
+                        {getRegimeText(utilizadorComDetalhes.regime)}
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="overflow-hidden rounded-2xl border-0 shadow-md transition-all duration-300 hover:shadow-lg lg:col-span-2">
-                  <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-white to-azul/5 pb-4">
-                    <CardTitle className="flex items-center text-xl text-gray-800">
-                      <Building2 className="mr-2 h-5 w-5 text-azul" />
-                      Distribuição por Projeto
-                    </CardTitle>
-                  </CardHeader>
-
-                  <CardContent className="flex h-60 items-center justify-center pt-6">
-                    <div className="text-center text-gray-500">
-                      <Building2 className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                      <p>Dados de gráfico não disponíveis.</p>
-                      <p className="text-sm">
-                        Adicione mais informações para visualizar estatísticas.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </div>
-            </TabsContent>
-          </Tabs>
+              
+              {/* Cartão de Estatísticas */}
+              <div className="rounded-lg bg-white p-6 shadow">
+                <h2 className="mb-4 text-lg font-semibold text-gray-900">Estatísticas</h2>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 text-center">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-azul/10 text-azul">
+                      <Activity className="h-5 w-5" />
+                    </div>
+                    <p className="text-xl font-bold text-azul">
+                      {alocacoesDetalhadas.length > 0
+                        ? Math.round(
+                            alocacoesDetalhadas.reduce((sum, a) => sum + a.ocupacao, 0) * 100
+                          ) / 100
+                        : 0}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Ocupação Total</p>
+                  </div>
+                  
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 text-center">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-azul/10 text-azul">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <p className="text-xl font-bold text-azul">
+                      {new Set(alocacoesDetalhadas.map((a) => a.projeto.id)).size || 0}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Projetos Ativos</p>
+                  </div>
+                  
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 text-center">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-azul/10 text-azul">
+                      <Grid3X3 className="h-5 w-5" />
+                    </div>
+                    <p className="text-xl font-bold text-azul">
+                      {new Set(alocacoesDetalhadas.map((a) => a.workpackage.id)).size || 0}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Workpackages</p>
+                  </div>
+                  
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 text-center">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-azul/10 text-azul">
+                      <Shield className="h-5 w-5" />
+                    </div>
+                    <p className="text-xl font-bold text-azul">
+                      {utilizador?.contratacao ? anosExperiencia : 0}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Anos na empresa</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Cartão de Próximo Workpackage */}
+              {proximoWorkpackage && (
+                <div className="rounded-lg bg-white p-6 shadow">
+                  <h2 className="mb-4 text-lg font-semibold text-gray-900">Próximo Workpackage</h2>
+                  
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <div className="flex-grow">
+                        <h3 className="font-medium text-gray-900">{proximoWorkpackage.nome}</h3>
+                        <p className="text-sm text-gray-500">{proximoWorkpackage.projeto.nome}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-sm font-medium text-emerald-600">
+                      Inicia em {format(proximoWorkpackage.dataInicio, "dd MMM yyyy", {
+                        locale: pt,
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

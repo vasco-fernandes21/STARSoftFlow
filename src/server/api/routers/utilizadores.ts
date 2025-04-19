@@ -1371,7 +1371,7 @@ export const utilizadorRouter = createTRPCRouter({
 
           return {
             pdf: Buffer.from(pdf).toString("base64"),
-            filename: `relatorio_${input.username}_${input.mes}_${input.ano}.pdf`,
+            filename: `${input.username}_${input.mes}_${input.ano}.pdf`,
           };
         } finally {
           // Fechar o browser e o servidor

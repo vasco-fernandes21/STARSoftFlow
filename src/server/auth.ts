@@ -361,7 +361,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async session({ session, token }) {
-      console.log("Session callback - Token recebido:", token);
+
 
       if (session.user) {
         // Campos já existentes
@@ -374,7 +374,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as any).username = token.username;
         (session.user as any).contratacao = token.contratacao;
 
-        console.log("Session callback - Session após modificação:", session);
       }
       return session;
     },

@@ -1,4 +1,4 @@
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import type { Prisma } from "@prisma/client";
@@ -182,6 +182,7 @@ async function getOrcamentoReal(
       rubrica: true,
       ano_utilizacao: true,
       estado: true,
+      mes: true,
       workpackage: {
         select: {
           id: true,
@@ -222,6 +223,7 @@ async function getOrcamentoReal(
         },
         ano_utilizacao: material.ano_utilizacao,
         estado: material.estado,
+        mes: material.mes,
       });
 
       return acc;
@@ -240,6 +242,7 @@ async function getOrcamentoReal(
           workpackage: { id: string; nome: string };
           ano_utilizacao: number;
           estado: boolean;
+          mes: number;
         }>;
       }
     >
@@ -598,289 +601,7 @@ async function getTotais(
 }
 
 export const financasRouter = createTRPCRouter({
-  getFinancas: protectedProcedure
-    .input(
-      z.object({
-        projetoId: z.string().uuid("ID do projeto inválido"),
-        ano: z.number().int().min(2000).optional(),
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      const { projetoId, ano } = input;
-
-      try {
-        const projeto = await ctx.db.projeto.findUnique({
-          where: { id: projetoId },
-          select: {
-            valor_eti: true,
-            overhead: true,
-            taxa_financiamento: true,
-          },
-        });
-
-        if (!projeto) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Projeto não encontrado",
-          });
-        }
-
-        // Calcular orçamento submetido
-        const orcamentoSubmetido = await getOrcamentoSubmetido(ctx.db, projetoId, { ano });
-
-        // Calcular orçamento real com base nos filtros fornecidos
-        const orcamentoReal = await getOrcamentoReal(ctx.db, projetoId, { ano });
-
-        // Calcular totais financeiros (resultado de financiamento, overhead, etc)
-        const totaisFinanceiros = await getTotais(ctx.db, projetoId, { ano });
-
-        // Buscar alocações com detalhes para relatório
-        type AlocacaoDetalhada = {
-          id: string;
-          userId: string;
-          workpackageId: string;
-          mes: number;
-          ano: number;
-          ocupacao: Decimal;
-          user: {
-            id: string;
-            name: string | null;
-            salario: Decimal | null;
-          };
-          workpackage: {
-            id: string;
-            nome: string;
-          };
-        };
-
-        const alocacoes = (await ctx.db.alocacaoRecurso.findMany({
-          where: {
-            workpackage: { projetoId },
-            ...(ano && { ano }),
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                salario: true,
-              },
-            },
-            workpackage: {
-              select: {
-                id: true,
-                nome: true,
-              },
-            },
-          },
-        })) as AlocacaoDetalhada[];
-
-        // Buscar materiais adquiridos
-        const materiaisAdquiridos = await ctx.db.material.findMany({
-          where: {
-            workpackage: { projetoId },
-            estado: true,
-            ...(ano && { ano_utilizacao: ano }),
-          },
-        });
-
-        const custoMaterialAdquirido = materiaisAdquiridos.reduce((sum, material) => {
-          const custoTotal = material.preco.times(new Decimal(material.quantidade));
-          return sum.plus(custoTotal);
-        }, new Decimal(0));
-
-        // Calcular alocações que já ocorreram (meses passados)
-        const hoje = new Date();
-        const anoAtual = hoje.getFullYear();
-        const mesAtual = hoje.getMonth() + 1;
-
-        const custosAlocacoesPassadas = totaisFinanceiros.custosConcluidos.recursos;
-        const etisAlocacoesPassadas = alocacoes
-          .filter((a) => a.ano < anoAtual || (a.ano === anoAtual && a.mes < mesAtual))
-          .reduce((sum, a) => sum.plus(a.ocupacao), new Decimal(0));
-
-        // Tipo para detalhes de alocação por utilizador
-        type UserAlocacaoDetails = {
-          user: {
-            id: string;
-            name: string;
-            salario: Decimal | null;
-          };
-          totalAlocacao: Decimal;
-          custoTotal: Decimal;
-          alocacoes: Array<{
-            alocacaoId: string;
-            workpackage: {
-              id: string;
-              nome: string;
-            };
-            data: Date;
-            mes: number;
-            ano: number;
-            etis: number;
-            // Removido custo base, mantido custo ajustado
-            custoAjustado: number;
-            fatores: {
-              segurancaSocial: number;
-              meses: number;
-            };
-          }>;
-        };
-
-        // Organizar detalhes por utilizador, usando os custos ajustados
-        const custosPorUser = alocacoes.reduce(
-          (acc, alocacao) => {
-            const user = alocacao.user;
-            const workpackage = alocacao.workpackage;
-
-            if (!acc[user.id]) {
-              acc[user.id] = {
-                user: {
-                  id: user.id,
-                  name: user.name ?? "Nome Desconhecido",
-                  salario: user.salario,
-                },
-                totalAlocacao: new Decimal(0),
-                custoTotal: new Decimal(0),
-                alocacoes: [],
-              };
-            }
-
-            if (alocacao.ocupacao) {
-              const userEntry = acc[user.id] as UserAlocacaoDetails;
-
-              userEntry.totalAlocacao = userEntry.totalAlocacao.plus(alocacao.ocupacao);
-
-              // Calcular o custo com os fatores de ajuste (1.223 * 14/11)
-              const VALOR_SALARIO = new Decimal(1.223);
-              const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
-
-              let custoAjustado = new Decimal(0);
-
-              if (user.salario) {
-                const salarioAjustado = user.salario.times(VALOR_SALARIO).times(FATOR_MESES);
-
-                custoAjustado = alocacao.ocupacao.times(salarioAjustado);
-
-                userEntry.custoTotal = userEntry.custoTotal.plus(custoAjustado);
-              }
-
-              // Adicionar detalhe da alocação
-              userEntry.alocacoes.push({
-                alocacaoId: alocacao.id,
-                workpackage: {
-                  id: workpackage.id,
-                  nome: workpackage.nome,
-                },
-                data: new Date(alocacao.ano, alocacao.mes - 1, 1),
-                mes: alocacao.mes,
-                ano: alocacao.ano,
-                etis: alocacao.ocupacao.toNumber(),
-                custoAjustado: custoAjustado.toNumber(),
-                // Incluir os fatores para explicar o cálculo
-                fatores: {
-                  segurancaSocial: VALOR_SALARIO.toNumber(),
-                  meses: FATOR_MESES.toNumber(),
-                },
-              });
-            }
-
-            return acc;
-          },
-          {} as Record<string, UserAlocacaoDetails>
-        );
-
-        // Construir a resposta final, convertendo Decimals para numbers
-        return {
-          parametros: {
-            valor_eti: projeto.valor_eti?.toNumber() || 0,
-            taxa_financiamento: projeto.taxa_financiamento?.toNumber() || 0,
-            overhead: projeto.overhead?.toNumber() || 0, // Overhead percentual definido no projeto
-          },
-          orcamento: {
-            submetido: orcamentoSubmetido.orcamentoTotal.toNumber(),
-            detalhesSubmissao: orcamentoSubmetido.detalhesPorAno.map((d) => ({
-              ano: d.ano,
-              totalAlocacao: d.totalAlocacao.toNumber(),
-              orcamento: d.orcamento.toNumber(),
-            })),
-            real: {
-              recursos: orcamentoReal.custoRecursos.toNumber(),
-              materiais: orcamentoReal.custoMateriais.toNumber(),
-              total: orcamentoReal.total.toNumber(),
-              // Incluir os detalhes por recurso
-              detalhesRecursos: orcamentoReal.detalhesRecursos.map((detalhe) => ({
-                userId: detalhe.userId,
-                userName: detalhe.userName,
-                salario: detalhe.salario?.toNumber() || 0,
-                alocacao: detalhe.alocacao.toNumber(),
-                custoAjustado: detalhe.custoAjustado.toNumber(),
-                detalhesCalculo: {
-                  salarioBase: detalhe.detalhesCalculo.salarioBase?.toNumber() || 0,
-                  salarioAjustado: detalhe.detalhesCalculo.salarioAjustado?.toNumber() || 0,
-                  alocacao: detalhe.detalhesCalculo.alocacao.toNumber(),
-                  formulaUsada: "alocacao * (salario * 1.223 * 14/11)",
-                },
-              })),
-            },
-          },
-          financeiro: {
-            valorFinanciado: totaisFinanceiros.valorFinanciado.toNumber(),
-            overheadCalculado: totaisFinanceiros.overhead.toNumber(), // Overhead monetário calculado
-            resultado: totaisFinanceiros.resultado.toNumber(),
-            folga: totaisFinanceiros.folga.toNumber(),
-            vab: totaisFinanceiros.vab.toNumber(),
-            margem: totaisFinanceiros.margem.toNumber(),
-            vabCustosPessoal: totaisFinanceiros.vabCustosPessoal.toNumber(),
-          },
-          custosRealizados: {
-            // Renomeado de custosConcluidos para mais clareza
-            alocacoes: {
-              custo: custosAlocacoesPassadas.toNumber(),
-              etis: etisAlocacoesPassadas.toNumber(),
-            },
-            materiais: {
-              custo: custoMaterialAdquirido.toNumber(),
-              quantidade: materiaisAdquiridos.length, // Manter quantidade para info
-            },
-            total: totaisFinanceiros.custosConcluidos.total.toNumber(), // Usar o total dos custos concluídos já calculado
-            percentagemOrcamentoReal: orcamentoReal.total.greaterThan(0)
-              ? totaisFinanceiros.custosConcluidos.total
-                  .dividedBy(orcamentoReal.total)
-                  .times(100)
-                  .toNumber()
-              : 0,
-            percentagemOrcamentoSubmetido: orcamentoSubmetido.orcamentoTotal.greaterThan(0)
-              ? totaisFinanceiros.custosConcluidos.total
-                  .dividedBy(orcamentoSubmetido.orcamentoTotal)
-                  .times(100)
-                  .toNumber()
-              : 0,
-          },
-          detalhesPorUser: Object.values(custosPorUser).map((item) => ({
-            user: {
-              id: item.user.id,
-              name: item.user.name,
-              salario: item.user.salario?.toNumber(), // Convertendo salário
-            },
-            totalAlocacao: item.totalAlocacao.toNumber(),
-            custoTotal: item.custoTotal.toNumber(),
-            alocacoes: item.alocacoes.sort((a, b) => {
-              if (a.ano !== b.ano) return a.ano - b.ano;
-              return a.mes - b.mes;
-            }),
-          })),
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        console.error("Erro ao buscar finanças do projeto:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao buscar finanças do projeto",
-          cause: error,
-        });
-      }
-    }),
+  
 
   getTotaisFinanceiros: protectedProcedure
     .input(
@@ -1227,5 +948,94 @@ export const financasRouter = createTRPCRouter({
           cause: error instanceof Error ? error.message : "Erro desconhecido",
         });
       }
+    }),
+
+  getGastosMensais: protectedProcedure
+    .input(
+      z.object({
+        projetoId: z.string().uuid("ID do projeto inválido"),
+        ano: z.number().int().min(2000),
+        mes: z.number().int().min(1).max(12).optional()
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { projetoId, ano } = input;
+
+      // Buscar dados do projeto para saber duração
+      const projeto = await ctx.db.projeto.findUnique({
+        where: { id: projetoId },
+        select: { inicio: true, fim: true }
+      });
+
+      if (!projeto) { 
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Projeto não encontrado"
+        });
+      }
+
+      // Função auxiliar para calcular dados de um mês específico
+      async function getDadosMes(mes: number) {
+        // Buscar alocações do mês
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            workpackage: { projetoId },
+            ano,
+            mes
+          },
+          include: {
+            user: { select: { salario: true } }
+          }
+        });
+
+        // Buscar materiais do mês
+        const materiais = await ctx.db.material.findMany({
+          where: {
+            workpackage: { projetoId },
+            ano_utilizacao: ano,
+            mes
+          }
+        });
+
+        // Calcular custos estimados
+        const estimadoRecursos = alocacoes.reduce((acc, alocacao) => {
+          if (!alocacao.user?.salario) return acc;
+          const salarioAjustado = new Decimal(alocacao.user.salario)
+            .times(new Decimal(1.223))
+            .times(new Decimal(14).dividedBy(new Decimal(11)));
+          return acc.plus(new Decimal(alocacao.ocupacao).times(salarioAjustado));
+        }, new Decimal(0));
+
+        const estimadoMateriais = materiais.reduce((acc, material) => {
+          return acc.plus(new Decimal(material.preco).times(material.quantidade));
+        }, new Decimal(0));
+
+        // Calcular custos realizados (apenas materiais marcados como concluídos)
+        const realizadoMateriais = materiais
+          .filter(m => m.estado)
+          .reduce((acc, material) => {
+            return acc.plus(new Decimal(material.preco).times(material.quantidade));
+          }, new Decimal(0));
+
+        // Para recursos, consideramos realizado = estimado para meses passados
+        const hoje = new Date();
+        const mesAtual = hoje.getMonth() + 1;
+        const anoAtual = hoje.getFullYear();
+        const isPassado = ano < anoAtual || (ano === anoAtual && mes < mesAtual);
+        const realizadoRecursos = isPassado ? estimadoRecursos : new Decimal(0);
+
+        return {
+          mes,
+          ano,
+          estimado: estimadoRecursos.plus(estimadoMateriais).toNumber(),
+          realizado: realizadoRecursos.plus(realizadoMateriais).toNumber()
+        };
+      }
+
+      // Retornar dados para todos os meses do ano
+      const meses = Array.from({ length: 12 }, (_, i) => i + 1);
+      const resultados = await Promise.all(meses.map(getDadosMes));
+      
+      return resultados;
     }),
 });

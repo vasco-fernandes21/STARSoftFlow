@@ -23,6 +23,7 @@ model Projeto {
   financiamento      Financiamento? @relation(fields: [financiamentoId], references: [id])
   responsavel        User?          @relation("ProjetosResponsavel", fields: [responsavelId], references: [id])
   workpackages       Workpackage[]
+  tipo               ProjetoTipo    @default(STANDARD)
 
   @@map("Projetos")
 }
@@ -243,4 +244,9 @@ enum Rubrica {
   DESLOCACAO_ESTADIAS
   OUTROS_CUSTOS
   CUSTOS_ESTRUTURA
+}
+
+enum ProjetoTipo {
+  STANDARD
+  ATIVIDADE_ECONOMICA
 }
