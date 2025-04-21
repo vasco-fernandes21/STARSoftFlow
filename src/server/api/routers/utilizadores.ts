@@ -128,6 +128,15 @@ const configuracaoMensalSchema = z.object({
   horasPotenciais: z.number().min(0).max(1000),
 });
 
+// Novo schema de input opcional para findAll
+const findAllUtilizadoresInputSchema = z.object({
+  page: z.number().int().min(1).optional(),
+  limit: z.number().int().min(1).optional(),
+  // Poderíamos adicionar filtros aqui também, se necessário no futuro
+  // search: z.string().optional(), 
+  // permissao: z.nativeEnum(Permissao).optional(),
+}).optional(); // Torna o objeto input inteiro opcional
+
 // Tipos inferidos dos schemas
 export type CreateUtilizadorInput = z.infer<typeof createUtilizadorSchema>;
 export type UpdateUtilizadorInput = z.infer<typeof updateUtilizadorSchema>;
@@ -163,12 +172,22 @@ const validProjectStates = Object.values(ProjetoEstado).filter(
 
 // Router
 export const utilizadorRouter = createTRPCRouter({
-  // Obter todos os utilizadores
+  // Obter todos os utilizadores (agora com paginação opcional)
   findAll: protectedProcedure
-    .query(async ({ ctx }) => {
+    .input(findAllUtilizadoresInputSchema) // Adicionar o input opcional
+    .query(async ({ ctx, input }) => {
       try {
-        // Buscar todos os utilizadores
+        const page = input?.page;
+        const limit = input?.limit;
+
+        // Verifica se temos paginação válida
+        const hasPagination = typeof page === 'number' && typeof limit === 'number' && page > 0 && limit > 0;
+
+        const whereClause: Prisma.UserWhereInput = {}; // Preparar para filtros futuros, se necessário
+
+        // Buscar utilizadores
         const users = await ctx.db.user.findMany({
+          where: whereClause,
           select: {
             id: true,
             name: true,
@@ -182,9 +201,23 @@ export const utilizadorRouter = createTRPCRouter({
             emailVerified: true,
           },
           orderBy: { name: "asc" },
+          ...(hasPagination && { // Adicionar paginação se os parâmetros forem válidos
+              skip: (page - 1) * limit,
+              take: limit,
+          }),
         });
 
-        return users;
+        // Obter a contagem total (respeitando filtros futuros)
+        const totalCount = await ctx.db.user.count({
+          where: whereClause,
+        });
+
+        // Retornar um objeto com os items e a contagem total
+        return {
+          items: users,
+          totalCount,
+        };
+
       } catch (error) {
         return handlePrismaError(error);
       }
