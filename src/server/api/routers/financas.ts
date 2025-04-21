@@ -1,141 +1,298 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, Rubrica } from "@prisma/client";
 import { Decimal } from "decimal.js";
 
 /**
+ * Função auxiliar para calcular salário ajustado
+ */
+function calcularSalarioAjustado(salario: Decimal | number | null | undefined): Decimal {
+  if (salario === null || salario === undefined) {
+    return new Decimal(0);
+  }
+  const salarioDecimal = new Decimal(salario);
+  const VALOR_SALARIO = new Decimal(1.223);
+  const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
+  return salarioDecimal.times(VALOR_SALARIO).times(FATOR_MESES);
+}
+
+/**
+ * Calcula os custos estimados detalhados (Recursos + Materiais) a partir do snapshot.
+ * Retorna totais e detalhes por ano.
+ */
+async function calcularCustosDetalhadosSnapshot( 
+  snapshotData: any, 
+  filtros?: { ano?: number } 
+): Promise<{
+  custoRecursosTotal: Decimal;
+  custoMateriaisTotal: Decimal;
+  detalhesAnuais: Array<{
+    ano: number;
+    custoRecursos: Decimal;
+    custoMateriais: Decimal;
+  }>;
+}> {
+    const workpackages = snapshotData?.workpackages ?? [];
+    let custoRecursosTotal = new Decimal(0);
+    let custoMateriaisTotal = new Decimal(0);
+    const custosPorAno: Record<number, { recursos: Decimal, materiais: Decimal }> = {};
+
+    for (const wp of workpackages) {
+        // Calcular Custo Recursos WP
+        const recursosWPSnapshot = wp.recursos ?? [];
+        recursosWPSnapshot.forEach((r: any) => {
+            const anoRecurso = r.ano as number;
+            // Aplicar filtro de ano, se existir
+            if (!filtros?.ano || anoRecurso === filtros.ano) {
+                const salarioSnap = r.user?.salario ? new Decimal(r.user.salario) : null;
+                const custoRecurso = new Decimal(r.ocupacao || 0).times(calcularSalarioAjustado(salarioSnap));
+                custoRecursosTotal = custoRecursosTotal.plus(custoRecurso);
+
+                // Detalhes por ano
+                if (!custosPorAno[anoRecurso]) {
+                    custosPorAno[anoRecurso] = { recursos: new Decimal(0), materiais: new Decimal(0) };
+                }
+                custosPorAno[anoRecurso].recursos = custosPorAno[anoRecurso].recursos.plus(custoRecurso);
+            }
+        });
+
+        // Calcular Custo Materiais WP
+        const materiaisWPSnapshot = wp.materiais ?? [];
+        materiaisWPSnapshot.forEach((m: any) => {
+            const anoMaterial = m.ano_utilizacao as number;
+             // Aplicar filtro de ano, se existir
+            if (!filtros?.ano || anoMaterial === filtros.ano) {
+                const custoMaterial = new Decimal(m.preco || 0).times(new Decimal(m.quantidade || 0));
+                custoMateriaisTotal = custoMateriaisTotal.plus(custoMaterial);
+
+                // Detalhes por ano
+                 if (!custosPorAno[anoMaterial]) {
+                    custosPorAno[anoMaterial] = { recursos: new Decimal(0), materiais: new Decimal(0) };
+                }
+                custosPorAno[anoMaterial].materiais = custosPorAno[anoMaterial].materiais.plus(custoMaterial);
+            }
+        });
+    }
+
+    // Formatar detalhes anuais
+    const detalhesAnuais = Object.entries(custosPorAno).map(([anoStr, custos]) => ({
+        ano: parseInt(anoStr),
+        custoRecursos: custos.recursos,
+        custoMateriais: custos.materiais,
+    })).sort((a, b) => a.ano - b.ano);
+
+    return {
+        custoRecursosTotal,
+        custoMateriaisTotal,
+        detalhesAnuais,
+    };
+}
+
+/**
  * Calcula o orçamento submetido de um projeto.
- * Se o projeto estiver aprovado, usa os dados do snapshot.
- * Se estiver pendente, calcula com base nas alocações dos recursos.
+ * A lógica varia consoante o estado do projeto e o valor_eti no snapshot.
  */
 async function getOrcamentoSubmetido(
   db: Prisma.TransactionClient,
   projetoId: string,
   filtros?: { ano?: number }
 ) {
-  // Vai buscar o projeto com estado, valor ETI e snapshot aprovado
+  // Tipo de retorno mais complexo para acomodar os cenários
+  type ResultadoOrcamentoSubmetido = {
+    orcamentoTotal: Decimal;
+    tipoCalculo: 'DB_PENDENTE' | 'ETI_SNAPSHOT' | 'DETALHADO_SNAPSHOT' | 'INVALIDO';
+    valorETI: Decimal | null; // Valor ETI usado no cálculo (se aplicável)
+    totalAlocacao: Decimal | null; // Alocação total usada no cálculo (se aplicável)
+    detalhes?: { // Apenas para DETALHADO_SNAPSHOT
+      recursos: Decimal;
+      materiais: Decimal;
+      overhead: Decimal;
+      overheadPercent: Decimal;
+    } | null;
+    detalhesPorAno: Array<{
+      ano: number;
+      orcamento: Decimal;
+      // Detalhes adicionais por ano, dependendo do tipoCalculo
+      valorETI?: Decimal | null;
+      totalAlocacao?: Decimal | null;
+      custoRecursos?: Decimal | null;
+      custoMateriais?: Decimal | null;
+      overhead?: Decimal | null;
+    }>;
+  };
+
+  // 1. Buscar Projeto e seus dados relevantes
   const projeto = await db.projeto.findUnique({
     where: { id: projetoId },
     select: { 
-      valor_eti: true,
       estado: true,
-      aprovado: true 
+      valor_eti: true, // Valor ETI atual do projeto (usado para PENDENTE)
+      aprovado: true, // O snapshot JSON
+      overhead: true, // Overhead atual do projeto (pode não ser o do snapshot!)
     },
   });
 
-  const valorETI = projeto?.valor_eti ?? new Decimal(0);
-
-  if (!projeto || !valorETI) {
+  if (!projeto) {
+    // Retornar um estado inválido claro
     return {
-      valorETI: new Decimal(0),
-      totalAlocacao: new Decimal(0),
       orcamentoTotal: new Decimal(0),
-      detalhesPorAno: [] as { ano: number; totalAlocacao: Decimal; orcamento: Decimal }[],
-    };
+      tipoCalculo: 'INVALIDO',
+      valorETI: null,
+      totalAlocacao: null,
+      detalhes: null,
+      detalhesPorAno: [],
+    } satisfies ResultadoOrcamentoSubmetido;
   }
 
-  // Se o projeto estiver aprovado, usar dados do snapshot
-  if (projeto.estado === "APROVADO" && projeto.aprovado) {
-    const snapshot = projeto.aprovado as any;
-    const workpackages = snapshot.workpackages || [];
+  // --- Lógica para Projetos NÃO APROVADOS (ex: PENDENTE) --- 
+  if (projeto.estado !== 'APROVADO' || !projeto.aprovado) {
+    const valorETIAtual = projeto.valor_eti ?? new Decimal(0);
     
-    // Estrutura para armazenar alocações por ano
-    const alocacoesPorAno: Record<number, Decimal> = {};
-    
-    // Processar workpackages do snapshot
-    workpackages.forEach((wp: any) => {
-      const recursos = wp.recursos || [];
-      recursos.forEach((recurso: any) => {
-        const { ano, ocupacao } = recurso;
-        if (!filtros?.ano || ano === filtros.ano) {
-          alocacoesPorAno[ano] = (alocacoesPorAno[ano] || new Decimal(0)).plus(new Decimal(ocupacao));
-        }
-      });
+    // Calcula alocações TOTAIS atuais do DB
+    const alocacoesDB = await db.alocacaoRecurso.findMany({
+      where: {
+        workpackage: { projetoId },
+        ...(filtros?.ano && { ano: filtros.ano }), // Aplicar filtro de ano aqui
+      },
+      select: { ocupacao: true, ano: true },
     });
 
-    // Calcular total de alocações
-    const totalAlocacao = Object.values(alocacoesPorAno).reduce(
-      (sum, alocacao) => sum.plus(alocacao),
-      new Decimal(0)
-    );
+    const alocacoesPorAnoDB: Record<number, Decimal> = {};
+    const totalAlocacaoDB = alocacoesDB.reduce((sum, aloc) => {
+      const anoAloc = aloc.ano;
+       if (!alocacoesPorAnoDB[anoAloc]) {
+            alocacoesPorAnoDB[anoAloc] = new Decimal(0);
+        }
+        alocacoesPorAnoDB[anoAloc] = alocacoesPorAnoDB[anoAloc].plus(aloc.ocupacao);
+      return sum.plus(aloc.ocupacao);
+    }, new Decimal(0));
 
-    // Calcular orçamento total
-    const orcamentoTotal = totalAlocacao.times(valorETI);
+    const orcamentoTotalDB = totalAlocacaoDB.times(valorETIAtual);
 
-    // Preparar detalhes por ano
-    const detalhesPorAno = Object.entries(alocacoesPorAno).map(([ano, alocacao]) => ({
-      ano: parseInt(ano),
-      totalAlocacao: alocacao,
-      orcamento: alocacao.times(valorETI),
-    }));
+    const detalhesPorAnoDB = Object.entries(alocacoesPorAnoDB).map(([anoStr, alocAno]) => ({
+      ano: parseInt(anoStr),
+      orcamento: alocAno.times(valorETIAtual),
+      valorETI: valorETIAtual,
+      totalAlocacao: alocAno,
+    })).sort((a, b) => a.ano - b.ano);
 
     return {
-      valorETI,
-      totalAlocacao,
-      orcamentoTotal,
-      detalhesPorAno: detalhesPorAno.sort((a, b) => a.ano - b.ano),
-    };
+      orcamentoTotal: orcamentoTotalDB,
+      tipoCalculo: 'DB_PENDENTE',
+      valorETI: valorETIAtual,
+      totalAlocacao: totalAlocacaoDB,
+      detalhes: null,
+      detalhesPorAno: detalhesPorAnoDB,
+    } satisfies ResultadoOrcamentoSubmetido;
   }
 
-  // Se não estiver aprovado, manter o cálculo original baseado nas tabelas
-  const alocacoes = await db.alocacaoRecurso.findMany({
-    where: {
-      workpackage: { projetoId },
-      ...(filtros?.ano && { ano: filtros.ano }),
-    },
-    select: {
-      ocupacao: true,
-      ano: true,
-    },
-  });
-
-  // Soma todas as alocações
-  const totalAlocacao = alocacoes.reduce(
-    (sum, alocacao) => sum.plus(alocacao.ocupacao),
-    new Decimal(0)
-  );
-
-  // Calcula o orçamento submetido total: valor ETI * total de alocações
-  const orcamentoTotal = totalAlocacao.times(valorETI);
-
-  // Se solicitar detalhes por ano, calcula o orçamento submetido por ano
-  const detalhesPorAno: { ano: number; totalAlocacao: Decimal; orcamento: Decimal }[] = [];
-
-  if (alocacoes.length > 0) {
-    // Agrupa as alocações por ano
-    const alocacoesPorAno = alocacoes.reduce(
-      (acc, alocacao) => {
-        if (!acc[alocacao.ano]) {
-          acc[alocacao.ano] = new Decimal(0);
-        }
-
-        acc[alocacao.ano] = (acc[alocacao.ano] ?? new Decimal(0)).plus(alocacao.ocupacao);
-        return acc;
-      },
-      {} as Record<number, Decimal>
-    );
-
-    // Calcula o orçamento por ano
-    for (const [ano, alocacao] of Object.entries(alocacoesPorAno)) {
-      const anoNum = parseInt(ano);
-      detalhesPorAno.push({
-        ano: anoNum,
-        totalAlocacao: alocacao,
-        orcamento: alocacao.times(valorETI),
-      });
+  // --- Lógica para Projetos APROVADOS (Usa Snapshot) --- 
+  let snapshotData: any = null;
+  try {
+    // Garantir que projeto.aprovado é string antes de parse
+    if (typeof projeto.aprovado === 'string') {
+        snapshotData = JSON.parse(projeto.aprovado);
+    } else if (typeof projeto.aprovado === 'object' && projeto.aprovado !== null) {
+        snapshotData = projeto.aprovado; // Já é objeto
+    } else {
+        throw new Error('Snapshot inválido ou ausente.');
     }
-
-    // Ordena por ano
-    detalhesPorAno.sort((a, b) => a.ano - b.ano);
+  } catch (e) {
+    console.error(`Erro ao processar snapshot do projeto ${projetoId}:`, e);
+     return { // Retornar estado inválido se snapshot falhar
+      orcamentoTotal: new Decimal(0),
+      tipoCalculo: 'INVALIDO',
+      valorETI: null,
+      totalAlocacao: null,
+      detalhes: null,
+      detalhesPorAno: [],
+    } satisfies ResultadoOrcamentoSubmetido;
   }
 
+  // Extrair dados do snapshot
+  const valorETISnapshot = snapshotData.valor_eti ? new Decimal(snapshotData.valor_eti) : new Decimal(0);
+  // Usar o overhead guardado no RAIZ do snapshot
+  const overheadPercentSnapshot = snapshotData.overhead ? new Decimal(snapshotData.overhead) : new Decimal(0);
+
+  // --- Sub-cenário A: Snapshot com Valor ETI > 0 --- 
+  if (valorETISnapshot.greaterThan(0)) {
+      const snapshotWorkpackages = snapshotData.workpackages ?? [];
+      const alocacoesPorAnoSnapshot: Record<number, Decimal> = {};
+      let totalAlocacaoSnapshot = new Decimal(0);
+
+      snapshotWorkpackages.forEach((wp: any) => {
+          const recursos = wp.recursos ?? [];
+          recursos.forEach((rec: any) => {
+              const anoRec = rec.ano;
+              // Aplicar filtro de ano
+              if (!filtros?.ano || anoRec === filtros.ano) {
+                  const ocupacao = new Decimal(rec.ocupacao || 0);
+                  totalAlocacaoSnapshot = totalAlocacaoSnapshot.plus(ocupacao);
+                  if (!alocacoesPorAnoSnapshot[anoRec]) {
+                      alocacoesPorAnoSnapshot[anoRec] = new Decimal(0);
+        }
+                  alocacoesPorAnoSnapshot[anoRec] = alocacoesPorAnoSnapshot[anoRec].plus(ocupacao);
+              }
+          });
+      });
+
+      const orcamentoTotalETI = totalAlocacaoSnapshot.times(valorETISnapshot);
+      const detalhesPorAnoETI = Object.entries(alocacoesPorAnoSnapshot).map(([anoStr, alocAno]) => ({
+        ano: parseInt(anoStr),
+        orcamento: alocAno.times(valorETISnapshot),
+        valorETI: valorETISnapshot,
+        totalAlocacao: alocAno,
+      })).sort((a, b) => a.ano - b.ano);
+
+      return {
+        orcamentoTotal: orcamentoTotalETI,
+        tipoCalculo: 'ETI_SNAPSHOT',
+        valorETI: valorETISnapshot,
+        totalAlocacao: totalAlocacaoSnapshot,
+        detalhes: null,
+        detalhesPorAno: detalhesPorAnoETI,
+      } satisfies ResultadoOrcamentoSubmetido;
+  }
+  // --- Sub-cenário B: Snapshot SEM Valor ETI (> 0) --- 
+  else {
+      const custosDetalhados = await calcularCustosDetalhadosSnapshot(snapshotData, filtros);
+      
+      const overheadValorTotal = (custosDetalhados.custoRecursosTotal
+          .plus(custosDetalhados.custoMateriaisTotal))
+          .times(overheadPercentSnapshot);
+          
+      const orcamentoTotalDetalhado = custosDetalhados.custoRecursosTotal
+          .plus(custosDetalhados.custoMateriaisTotal)
+          .plus(overheadValorTotal);
+
+      // Calcular detalhes por ano para o modo detalhado
+      const detalhesPorAnoDetalhado = custosDetalhados.detalhesAnuais.map(detalheAno => {
+          const overheadAno = (detalheAno.custoRecursos.plus(detalheAno.custoMateriais)).times(overheadPercentSnapshot);
+          const orcamentoAno = detalheAno.custoRecursos.plus(detalheAno.custoMateriais).plus(overheadAno);
   return {
-    valorETI,
-    totalAlocacao,
-    orcamentoTotal,
-    detalhesPorAno,
-  };
+              ano: detalheAno.ano,
+              orcamento: orcamentoAno,
+              custoRecursos: detalheAno.custoRecursos,
+              custoMateriais: detalheAno.custoMateriais,
+              overhead: overheadAno,
+          };
+      });
+
+      return {
+        orcamentoTotal: orcamentoTotalDetalhado,
+        tipoCalculo: 'DETALHADO_SNAPSHOT',
+        valorETI: valorETISnapshot, // Ainda é o valor do snapshot (0 ou null)
+        totalAlocacao: null, // Não aplicável neste cálculo
+        detalhes: {
+            recursos: custosDetalhados.custoRecursosTotal,
+            materiais: custosDetalhados.custoMateriaisTotal,
+            overhead: overheadValorTotal,
+            overheadPercent: overheadPercentSnapshot,
+        },
+        detalhesPorAno: detalhesPorAnoDetalhado,
+      } satisfies ResultadoOrcamentoSubmetido;
+  }
 }
 
 /**
@@ -223,7 +380,7 @@ async function getOrcamentoReal(
         },
         ano_utilizacao: material.ano_utilizacao,
         estado: material.estado,
-        mes: material.mes,
+        mes: material.mes != null ? material.mes : 1,
       });
 
       return acc;
@@ -346,7 +503,8 @@ async function getTotais(
   }
 
   // Obter o orçamento submetido
-  const orcamentoSubmetido = await getOrcamentoSubmetido(db, projetoId, { ano: options?.ano });
+  const orcamentoSubmetidoInfo = await getOrcamentoSubmetido(db, projetoId, { ano: options?.ano });
+  const orcamentoSubmetidoValor = orcamentoSubmetidoInfo.orcamentoTotal;
 
   // Obter o orçamento real (custos efetivos)
   const orcamentoReal = await getOrcamentoReal(db, projetoId, { ano: options?.ano });
@@ -357,27 +515,22 @@ async function getTotais(
     : new Decimal(0);
 
   // Calcular valor financiado (orçamento submetido * taxa de financiamento)
-  const valorFinanciado = orcamentoSubmetido.orcamentoTotal.times(taxaFinanciamento);
-  // Calcular overhead (15% do custo real de recursos humanos) - NOTA: o overhead do projeto parece ser um valor percentual, mas a fórmula usa -0.15. Verificar se deve usar projeto.overhead
-  const overheadCalculado = orcamentoReal.custoRecursos.times(new Decimal(-0.15)); // Overhead fixo de -15% do custo de recursos
+  const valorFinanciado = orcamentoSubmetidoValor.times(taxaFinanciamento);
+  
+  // Calcular overhead - Usa o CUSTO REAL de recursos, como antes. A definição de overhead estimado é SÓ para o orçamento submetido detalhado.
+  const overheadCalculadoReal = orcamentoReal.custoRecursos.times(new Decimal(-0.15)); 
 
-  // Calcular resultado financeiro
-  // resultado = (valor financiado) - (custo real total) + overhead
-  const resultado = valorFinanciado.minus(orcamentoReal.total).plus(overheadCalculado); // Usando o overhead calculado
+  // Calcular resultado financeiro (orçamento submetido * taxa de financiamento - custo real total + overhead)
+  const resultado = orcamentoSubmetidoValor.times(taxaFinanciamento).minus(orcamentoReal.total).plus(overheadCalculadoReal);
 
-  // Calcular VAB (Valor Acrescentado Bruto)
-  // VAB = valorFinanciado - custoMateriais
-  const vab = valorFinanciado.minus(orcamentoReal.custoMateriais);
+  // Calcular VAB (orçamento submetido * taxa de financiamento - custo materiais)
+  const vab = orcamentoSubmetidoValor.times(taxaFinanciamento).minus(orcamentoReal.custoMateriais);
 
-  // Calcular margem (resultado / valor financiado)
-  const margem = valorFinanciado.isZero()
-    ? new Decimal(0)
-    : resultado.dividedBy(valorFinanciado).times(new Decimal(100));
+  // Calcular margem (resultado / orçamento submetido)
+  const margem = orcamentoSubmetidoValor.isZero() ? new Decimal(0) : resultado.dividedBy(orcamentoSubmetidoValor).times(new Decimal(100));
 
-  // Calcular VAB / Custos com Pessoal
-  const vabCustosPessoal = orcamentoReal.custoRecursos.isZero()
-    ? new Decimal(0)
-    : vab.dividedBy(orcamentoReal.custoRecursos);
+  // Calcular VAB / Custos com Pessoal (orçamento submetido * taxa de financiamento / custo recursos)
+  const vabCustosPessoal = orcamentoSubmetidoValor.isZero() ? new Decimal(0) : vab.dividedBy(orcamentoReal.custoRecursos);
 
   // Calcular custos concluídos (alocações passadas + materiais concluídos)
   // 1. Buscar todas as alocações do projeto com dados do utilizador
@@ -431,15 +584,15 @@ async function getTotais(
   // 6. Total de custos concluídos
   const totalCustosConcluidos = custosAlocacoesPassadas.plus(custoMateriaisConcluidos);
 
-  // Calculo da folga (orçamento submetido - custos reais + overhead)
-  const folga = orcamentoSubmetido.orcamentoTotal
-    .minus(orcamentoReal.total)
-    .plus(overheadCalculado);
+  // Calculo da folga (orçamento submetido - custo real + overhead)
+  const folga = orcamentoSubmetidoValor.minus(orcamentoReal.total).plus(overheadCalculadoReal);
 
   // Base result com custosConcluidos
   const resultadoBase = {
-    orcamentoSubmetido: orcamentoSubmetido.orcamentoTotal,
-    taxaFinanciamento: projeto.taxa_financiamento || new Decimal(0),
+    orcamentoSubmetido: orcamentoSubmetidoValor,
+    orcamentoSubmetidoTipo: orcamentoSubmetidoInfo.tipoCalculo,
+    orcamentoSubmetidoDetalhes: orcamentoSubmetidoInfo.detalhes,
+    taxaFinanciamento: taxaFinanciamento,
     valorFinanciado,
     custosReais: {
       recursos: orcamentoReal.custoRecursos,
@@ -452,9 +605,9 @@ async function getTotais(
       materiais: custoMateriaisConcluidos,
       total: totalCustosConcluidos,
     },
-    overhead: overheadCalculado, // Retornar o overhead calculado
+    overhead: overheadCalculadoReal,
     resultado,
-    folga, // Adicionar folga ao resultado base
+    folga,
     vab,
     margem,
     vabCustosPessoal,
@@ -469,7 +622,7 @@ async function getTotais(
   const anosSet = new Set<number>();
 
   // Adicionar anos do orçamento submetido
-  orcamentoSubmetido.detalhesPorAno.forEach((detalhe) => {
+  orcamentoSubmetidoInfo.detalhesPorAno.forEach((detalhe) => {
     anosSet.add(detalhe.ano);
   });
 
@@ -501,30 +654,25 @@ async function getTotais(
   // Calcular os totais para cada ano
   const detalhesAnuais = await Promise.all(
     anos.map(async (ano) => {
-      // Obter orçamento real e submetido para este ano
+      // Obter orçamento submetido para este ano
+      const orcamentoSubmetidoAnoInfo = await getOrcamentoSubmetido(db, projetoId, { ano });
+      const orcamentoSubmetidoAnoValor = orcamentoSubmetidoAnoInfo.orcamentoTotal;
+      
+      // Obter orçamento real para este ano
       const orcamentoRealAno = await getOrcamentoReal(db, projetoId, { ano });
-      const orcamentoSubmetidoAno = await getOrcamentoSubmetido(db, projetoId, { ano });
 
       // Calcular valor financiado para este ano
-      const valorFinanciadoAno = orcamentoSubmetidoAno.orcamentoTotal.times(taxaFinanciamento);
-
-      // Calcular overhead para este ano
-      const overheadAno = orcamentoRealAno.custoRecursos.times(new Decimal(-0.15));
-
+      const valorFinanciadoAno = orcamentoSubmetidoAnoValor.times(taxaFinanciamento);
+      // Calcular overhead real para este ano
+      const overheadRealAno = orcamentoRealAno.custoRecursos.times(new Decimal(-0.15));
       // Calcular resultado para este ano
-      const resultadoAno = valorFinanciadoAno.minus(orcamentoRealAno.total).plus(overheadAno); // Usando overhead calculado
-
-      // Calcular VAB para este ano (valor financiado - custo materiais)
+      const resultadoAno = valorFinanciadoAno.minus(orcamentoRealAno.total).plus(overheadRealAno);
+      // Calcular VAB para este ano
       const vabAno = valorFinanciadoAno.minus(orcamentoRealAno.custoMateriais);
-
       // Calcular margem para este ano
-      const margemAno = valorFinanciadoAno.isZero()
-        ? new Decimal(0)
-        : resultadoAno.dividedBy(valorFinanciadoAno).times(new Decimal(100));
-
-      const vabCustosPessoalAno = orcamentoRealAno.custoRecursos.isZero()
-        ? new Decimal(0)
-        : vabAno.dividedBy(orcamentoRealAno.custoRecursos);
+      const margemAno = valorFinanciadoAno.isZero() ? new Decimal(0) : resultadoAno.dividedBy(valorFinanciadoAno).times(new Decimal(100));
+      // Calcular VAB / Custos Pessoal para este ano
+      const vabCustosPessoalAno = orcamentoRealAno.custoRecursos.isZero() ? new Decimal(0) : vabAno.dividedBy(orcamentoRealAno.custoRecursos);
 
       // Calcular custos concluídos para este ano
       // 1. Filtrar alocações passadas para este ano
@@ -561,14 +709,14 @@ async function getTotais(
       const totalCustosConcluidosAno = custosAlocacoesPassadasAno.plus(custoMateriaisConcluidosAno);
 
       // Calcular folga para este ano
-      const folgaAno = orcamentoSubmetidoAno.orcamentoTotal
-        .minus(orcamentoRealAno.total)
-        .plus(overheadAno); // Usando overhead calculado
+      const folgaAno = orcamentoSubmetidoAnoValor.minus(orcamentoRealAno.total).plus(overheadRealAno);
 
       return {
         ano,
         orcamento: {
-          submetido: orcamentoSubmetidoAno.orcamentoTotal,
+          submetido: orcamentoSubmetidoAnoValor,
+          submetidoTipo: orcamentoSubmetidoAnoInfo.tipoCalculo,
+          submetidoDetalhes: orcamentoSubmetidoAnoInfo.detalhes,
           real: {
             recursos: orcamentoRealAno.custoRecursos,
             materiais: orcamentoRealAno.custoMateriais,
@@ -581,9 +729,9 @@ async function getTotais(
           materiais: custoMateriaisConcluidosAno,
           total: totalCustosConcluidosAno,
         },
-        alocacoes: orcamentoSubmetidoAno.totalAlocacao,
+        totalAlocacao: orcamentoSubmetidoAnoInfo.totalAlocacao,
         valorFinanciado: valorFinanciadoAno,
-        overhead: overheadAno, // Usando overhead calculado
+        overhead: overheadRealAno,
         resultado: resultadoAno,
         folga: folgaAno,
         vab: vabAno,
@@ -601,7 +749,6 @@ async function getTotais(
 }
 
 export const financasRouter = createTRPCRouter({
-  
 
   getTotaisFinanceiros: protectedProcedure
     .input(
@@ -618,6 +765,16 @@ export const financasRouter = createTRPCRouter({
       try {
         // CASO 1: Se projetoId for fornecido, retorna dados de um projeto específico
         if (projetoId) {
+          // Buscar estado do projeto ANTES de chamar getTotais
+          const projetoInfo = await ctx.db.projeto.findUnique({
+              where: { id: projetoId },
+              select: { estado: true }
+          });
+
+          if (!projetoInfo) {
+              throw new TRPCError({ code: "NOT_FOUND", message: "Projeto não encontrado ao buscar estado." });
+          }
+
           const totais = await getTotais(ctx.db, projetoId, {
             ano,
             incluirDetalhesPorAno,
@@ -641,7 +798,17 @@ export const financasRouter = createTRPCRouter({
 
           // Construir a resposta base para um projeto específico
           const resposta = {
+            estado: projetoInfo.estado,
             orcamentoSubmetido: totais.orcamentoSubmetido.toNumber(),
+            orcamentoSubmetidoTipo: totais.orcamentoSubmetidoTipo,
+            orcamentoSubmetidoDetalhes: totais.orcamentoSubmetidoDetalhes
+              ? {
+                  recursos: totais.orcamentoSubmetidoDetalhes.recursos.toNumber(),
+                  materiais: totais.orcamentoSubmetidoDetalhes.materiais.toNumber(),
+                  overhead: totais.orcamentoSubmetidoDetalhes.overhead.toNumber(),
+                  overheadPercent: totais.orcamentoSubmetidoDetalhes.overheadPercent.toNumber(),
+                }
+              : null,
             taxaFinanciamento: totais.taxaFinanciamento.toNumber(),
             valorFinanciado: totais.valorFinanciado.toNumber(),
             custosReais: {
@@ -662,7 +829,7 @@ export const financasRouter = createTRPCRouter({
             margem: totais.margem.toNumber(),
             vabCustosPessoal: totais.vabCustosPessoal.toNumber(),
             meta: {
-              tipo: "projeto_individual",
+              tipo: "projeto_individual" as const,
               projetoId,
               filtroAno: ano,
               incluiDetalhes: incluirDetalhesPorAno,
@@ -678,11 +845,18 @@ export const financasRouter = createTRPCRouter({
                 ano: detalhe.ano,
                 orcamento: {
                   submetido: detalhe.orcamento.submetido.toNumber(),
+                  submetidoTipo: detalhe.orcamento.submetidoTipo,
+                  submetidoDetalhes: detalhe.orcamento.submetidoDetalhes
+                    ? { 
+                       recursos: detalhe.orcamento.submetidoDetalhes.recursos.toNumber(), 
+                       materiais: detalhe.orcamento.submetidoDetalhes.materiais.toNumber(), 
+                       overhead: detalhe.orcamento.submetidoDetalhes.overhead.toNumber(),
+                       overheadPercent: detalhe.orcamento.submetidoDetalhes.overheadPercent.toNumber(),
+                      } 
+                    : null,
                   real: {
                     recursos: detalhe.orcamento.real.recursos.toNumber(),
                     materiais: detalhe.orcamento.real.materiais.toNumber(),
-                    total: detalhe.orcamento.real.total.toNumber(),
-                    detalhesRecursos: mapDetalhesRecursos(detalhe.orcamento.real.detalhesRecursos),
                   },
                 },
                 custosConcluidos: {
@@ -690,7 +864,7 @@ export const financasRouter = createTRPCRouter({
                   materiais: detalhe.custosConcluidos?.materiais.toNumber() || 0,
                   total: detalhe.custosConcluidos?.total.toNumber() || 0,
                 },
-                alocacoes: detalhe.alocacoes.toNumber(),
+                totalAlocacao: detalhe.totalAlocacao?.toNumber(),
                 valorFinanciado: detalhe.valorFinanciado.toNumber(),
                 overhead: detalhe.overhead.toNumber(),
                 resultado: detalhe.resultado.toNumber(),
@@ -803,9 +977,7 @@ export const financasRouter = createTRPCRouter({
                             recursos: detalhe.orcamento.real.recursos.toNumber(),
                             materiais: detalhe.orcamento.real.materiais.toNumber(),
                             total: detalhe.orcamento.real.total.toNumber(),
-                            detalhesRecursos: mapDetalhesRecursos(
-                              detalhe.orcamento.real.detalhesRecursos
-                            ),
+                            detalhesRecursos: mapDetalhesRecursos(detalhe.orcamento.real.detalhesRecursos),
                           },
                         },
                         custosConcluidos: {
@@ -813,7 +985,7 @@ export const financasRouter = createTRPCRouter({
                           materiais: detalhe.custosConcluidos?.materiais.toNumber() || 0,
                           total: detalhe.custosConcluidos?.total.toNumber() || 0,
                         },
-                        alocacoes: detalhe.alocacoes.toNumber(),
+                        alocacoes: detalhe.totalAlocacao?.toNumber(),
                         valorFinanciado: detalhe.valorFinanciado.toNumber(),
                         overhead: detalhe.overhead.toNumber(),
                         resultado: detalhe.resultado.toNumber(),
@@ -1038,4 +1210,185 @@ export const financasRouter = createTRPCRouter({
       
       return resultados;
     }),
+
+  getComparacaoGastos: protectedProcedure
+    .input(
+      z.object({
+        projetoId: z.string().uuid("ID do projeto inválido"),
+        // workpackageId não é mais input aqui, a filtragem é client-side
+        // incluirDetalhes também não, sempre incluímos rubricas na resposta agora
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { projetoId } = input;
+
+      // 1. Buscar Projeto (estado, workpackages com ID/Nome, snapshot)
+      const projetoInfo = await ctx.db.projeto.findUnique({
+        where: { id: projetoId },
+        select: { estado: true, workpackages: { select: { id: true, nome: true } }, aprovado: true },
+      });
+      if (!projetoInfo) { 
+        throw new TRPCError({ code: "NOT_FOUND", message: "Projeto não encontrado" });
+      }
+
+      // 2. Parse Snapshot
+      let snapshotData: any = null; 
+      try {
+        if (typeof projetoInfo.aprovado === 'string') {
+            snapshotData = JSON.parse(projetoInfo.aprovado);
+        } else if (typeof projetoInfo.aprovado === 'object' && projetoInfo.aprovado !== null) {
+            snapshotData = projetoInfo.aprovado;
+        } else {
+             console.warn(`Snapshot inválido ou ausente para projeto ${projetoId}`);
+             snapshotData = { workpackages: [] }; 
+          }
+      } catch(e) {
+          console.error(`Erro ao parse snapshot projeto ${projetoId}:`, e);
+          snapshotData = { workpackages: [] }; 
+      }
+
+      const valorETISnapshot = snapshotData?.valor_eti ? new Decimal(snapshotData.valor_eti) : new Decimal(0);
+      const estimativaBaseadaEmETI = valorETISnapshot.greaterThan(0);
+      const snapshotWorkpackages = snapshotData?.workpackages ?? [];
+
+      // --- 3. Calcular Dados por Workpackage e Totais --- 
+      
+      let totalEstimadoRecursos = new Decimal(0);
+      let totalEstimadoMateriais = new Decimal(0);
+      let totalRealRecursos = new Decimal(0);
+      let totalRealMateriais = new Decimal(0);
+      const totalEstimadoRubricas: Record<string, Decimal> = {};
+      const totalRealRubricas: Record<string, Decimal> = {};
+
+      // Buscar TODOS os dados reais (Alocações e Materiais) do DB de uma vez
+      const alocacoesReaisDB = await ctx.db.alocacaoRecurso.findMany({ 
+          where: { workpackage: { projetoId: projetoId } }, 
+          include: { user: { select: { salario: true } }, workpackage: { select: { id: true } } } 
+      });
+      const materiaisReaisDB = await ctx.db.material.findMany({ 
+          where: { workpackage: { projetoId: projetoId } }, 
+          select: { preco: true, quantidade: true, rubrica: true, workpackageId: true } 
+      });
+
+      // Processar cada Workpackage definido no projeto
+      const workpackagesResposta = await Promise.all(projetoInfo.workpackages.map(async (wpBase) => {
+          const wpId = wpBase.id;
+
+          // Encontrar o WP correspondente no snapshot
+          const wpSnapshot = snapshotWorkpackages.find((wpSnap: any) => wpSnap.id === wpId);
+
+          // Calcular Estimado para este WP (do Snapshot)
+          let estimadoRecursosWP = new Decimal(0);
+          let estimadoMateriaisWP = new Decimal(0);
+          const estimadoRubricasWP: Record<string, Decimal> = {};
+          if (wpSnapshot) {
+              const recursosSnap = wpSnapshot.recursos ?? [];
+              if (estimativaBaseadaEmETI) {
+                  const alocWPSnap = recursosSnap.reduce((s: Decimal, r:any) => s.plus(new Decimal(r.ocupacao||0)), new Decimal(0));
+                  estimadoRecursosWP = alocWPSnap.times(valorETISnapshot);
+              } else {
+                  estimadoRecursosWP = recursosSnap.reduce((s: Decimal, r: any) => {
+                      const salSnap = r.user?.salario ? new Decimal(r.user.salario) : null;
+                      return s.plus(new Decimal(r.ocupacao||0).times(calcularSalarioAjustado(salSnap)));
+            }, new Decimal(0));
+          }
+              const materiaisSnap = wpSnapshot.materiais ?? [];
+              materiaisSnap.forEach((m: any) => {
+                  const custoMatSnap = new Decimal(m.preco||0).times(new Decimal(m.quantidade||0));
+                  estimadoMateriaisWP = estimadoMateriaisWP.plus(custoMatSnap);
+                  if (m.rubrica) {
+                      estimadoRubricasWP[m.rubrica] = (estimadoRubricasWP[m.rubrica] || new Decimal(0)).plus(custoMatSnap);
+                      totalEstimadoRubricas[m.rubrica] = (totalEstimadoRubricas[m.rubrica] || new Decimal(0)).plus(custoMatSnap);
+            }
+          });
+          }
+          totalEstimadoRecursos = totalEstimadoRecursos.plus(estimadoRecursosWP);
+          totalEstimadoMateriais = totalEstimadoMateriais.plus(estimadoMateriaisWP);
+
+          // Calcular Real para este WP (do DB)
+          let realRecursosWP = new Decimal(0);
+          let realMateriaisWP = new Decimal(0);
+          const realRubricasWP: Record<string, Decimal> = {};
+          alocacoesReaisDB.filter(a => a.workpackage.id === wpId).forEach(aloc => {
+              const custoRealRec = new Decimal(aloc.ocupacao).times(calcularSalarioAjustado(aloc.user.salario));
+              realRecursosWP = realRecursosWP.plus(custoRealRec);
+      });
+          materiaisReaisDB.filter(m => m.workpackageId === wpId).forEach(mat => {
+              const custoMatReal = new Decimal(mat.preco).times(new Decimal(mat.quantidade));
+              realMateriaisWP = realMateriaisWP.plus(custoMatReal);
+              if (mat.rubrica) {
+                  realRubricasWP[mat.rubrica] = (realRubricasWP[mat.rubrica] || new Decimal(0)).plus(custoMatReal);
+                  totalRealRubricas[mat.rubrica] = (totalRealRubricas[mat.rubrica] || new Decimal(0)).plus(custoMatReal);
+        }
+      });
+          totalRealRecursos = totalRealRecursos.plus(realRecursosWP);
+          totalRealMateriais = totalRealMateriais.plus(realMateriaisWP);
+
+          // Montar detalhes de rubricas para este WP
+          const todasRubricasWPKeys = Array.from(new Set([...Object.keys(estimadoRubricasWP), ...Object.keys(realRubricasWP)])) as Rubrica[];
+          const rubricasDetalhadasWP = todasRubricasWPKeys.map(key => ({
+                rubrica: key,
+                estimado: estimadoRubricasWP[key]?.toNumber() || 0,
+                real: realRubricasWP[key]?.toNumber() || 0,
+          }));
+
+          // Retornar estrutura completa para este WP
+          return {
+            id: wpId,
+              nome: wpBase.nome,
+            recursos: {
+                  estimado: estimadoRecursosWP.toNumber(),
+                  real: realRecursosWP.toNumber(),
+            },
+              materiais: {
+                  totalEstimado: estimadoMateriaisWP.toNumber(),
+                  totalReal: realMateriaisWP.toNumber(),
+                  rubricas: rubricasDetalhadasWP,
+              },
+          };
+      }));
+
+      // Calcular Totais Gerais
+      const totalEstimadoGeral = totalEstimadoRecursos.plus(totalEstimadoMateriais);
+      const totalRealGeral = totalRealRecursos.plus(totalRealMateriais);
+
+      // Detalhes de Rubricas Totais
+      const todasRubricasTotalKeys = Array.from(new Set([...Object.keys(totalEstimadoRubricas), ...Object.keys(totalRealRubricas)])) as Rubrica[];
+      const rubricasDetalhadasTotal = todasRubricasTotalKeys.map(key => ({
+        rubrica: key,
+        estimado: totalEstimadoRubricas[key]?.toNumber() || 0,
+        real: totalRealRubricas[key]?.toNumber() || 0,
+      }));
+
+      // Calcular Percentagem
+      const basePercent = totalEstimadoGeral; // Usar sempre o total estimado (Recursos+Materiais Snap) como base
+      const realizadoPercent = basePercent.isZero() ? new Decimal(0) : totalRealGeral.dividedBy(basePercent).times(100); 
+
+      // Montar Resposta Final
+      return {
+          estado: projetoInfo.estado,
+          estimativaBaseadaEmETI: estimativaBaseadaEmETI,
+        total: {
+          recursos: {
+              estimado: totalEstimadoRecursos.toNumber(),
+              real: totalRealRecursos.toNumber(),
+          },
+          materiais: {
+              estimado: totalEstimadoMateriais.toNumber(),
+              real: totalRealMateriais.toNumber(),
+              rubricas: rubricasDetalhadasTotal, 
+          },
+          geral: {
+                estimado: totalEstimadoGeral.toNumber(),
+                real: totalRealGeral.toNumber()
+          }
+        },
+        comparacaoGlobal: {
+          realizadoPercent: realizadoPercent.isNaN() ? 0 : realizadoPercent.toNumber(),
+        },
+          workpackages: workpackagesResposta, // Array com detalhes por WP
+      };
+        
+    }),
+
 });

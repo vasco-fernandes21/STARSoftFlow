@@ -1,0 +1,596 @@
+import React from 'react';
+import {
+  Wallet,
+  DollarSign,
+  TrendingUp,
+  ArrowUpDown,
+  Percent,
+  FileText,
+  Calendar,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { formatNumber, formatCurrency, formatPercentage } from "./utils";
+import type { DisplayData } from "../ProjetoFinancas";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@/server/api/root";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { Rubrica } from "@prisma/client";
+import { DropdownField } from "@/components/projetos/criar/components/FormFields";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Inferir o tipo de output da nova query
+type ComparacaoGastosOutput = inferRouterOutputs<AppRouter>["financas"]["getComparacaoGastos"];
+
+// --- Tipos de Dados --- 
+type RubricaFinanceira = { rubrica: Rubrica; estimado: number; real: number };
+
+// Tipo para os dados de um *único* workpackage como retornado pela API
+type WorkpackageFinanceiro = ComparacaoGastosOutput["workpackages"][number];
+
+// Tipo para o objeto `total` retornado pela API
+type TotaisFinanceiros = ComparacaoGastosOutput["total"];
+
+// Tipo unificado para a fonte de dados usada nos cálculos, seja total ou um WP
+type FonteDadosComparacao = {
+  recursos: { estimado: number; real: number };
+  materiais: { 
+    estimado: number; // totalEstimado para WPs
+    real: number;     // totalReal para WPs
+    rubricas: RubricaFinanceira[];
+  };
+  geral: { estimado: number; real: number };
+};
+
+// --- StatCard Component (moved here) ---
+interface StatCardProps {
+  title: string;
+  value: React.ReactNode;
+  icon: React.ReactNode;
+  colorClass?: string;
+  subtitle?: string;
+  tooltipText?: string;
+}
+
+function StatCard({
+  title,
+  value,
+  icon,
+  colorClass = "bg-blue-50",
+  subtitle,
+  tooltipText,
+}: StatCardProps) {
+  const cardContent = (
+    <Card className="h-full overflow-hidden border-none shadow-sm">
+      <CardContent className="flex h-full flex-col p-6">
+        <div className="flex flex-grow items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+            <div className="mt-1 text-2xl font-semibold">{value}</div>
+            {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
+          </div>
+          <div className={`rounded-full p-3 ${colorClass} flex-shrink-0`}>{icon}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Using basic title attribute for tooltip as a fallback for simplicity
+  return <div title={tooltipText}>{cardContent}</div>;
+}
+// --- End StatCard Component ---
+
+export interface OverviewTabProps {
+  selectedYear: string;
+  setSelectedYear: (year: string) => void;
+  anosDisponiveis: number[];
+  displayData: DisplayData;
+  progressoOrcamento: number;
+  posicaoValorFinanciado: number;
+  baseOrcamento: number;
+  selectedWorkpackageId: string | undefined;
+  setSelectedWorkpackageId: (wpId: string | undefined) => void;
+  workpackagesList: ComparacaoGastosOutput["workpackages"];
+  comparacaoGastos: ComparacaoGastosOutput | undefined | null;
+  isLoadingComparacao: boolean;
+  errorComparacao: any;
+}
+
+// Helper para formatar nome da Rubrica
+function formatRubricaName(rubrica: Rubrica): string {
+  return rubrica.toString().toLowerCase().replace(/_/g, " ");
+}
+
+export function OverviewTab({
+  selectedYear,
+  setSelectedYear,
+  anosDisponiveis,
+  displayData,
+  progressoOrcamento,
+  posicaoValorFinanciado,
+  baseOrcamento,
+  selectedWorkpackageId,
+  setSelectedWorkpackageId,
+  workpackagesList,
+  comparacaoGastos,
+  isLoadingComparacao,
+  errorComparacao,
+}: OverviewTabProps) {
+  const handleWorkpackageChange = (value: string) => {
+    setSelectedWorkpackageId(value === "todos" ? undefined : value);
+  };
+
+  // --- Processamento de Dados Reais (Sempre Executado) ---
+  const dadosReaisProcessados = React.useMemo(() => {
+    if (!comparacaoGastos) return null;
+
+    const isTotal = !selectedWorkpackageId || selectedWorkpackageId === "todos";
+    const source = isTotal 
+      ? comparacaoGastos.total 
+      : comparacaoGastos.workpackages.find(wp => wp.id === selectedWorkpackageId);
+
+    if (!source) return null;
+
+    // Acessar dados corretamente, seja de 'total' ou de um 'workpackage'
+    const recursosReal = source.recursos?.real ?? 0;
+    const materiaisReal = isTotal 
+        ? (source as TotaisFinanceiros).materiais?.real 
+        : (source as WorkpackageFinanceiro).materiais?.totalReal ?? 0;
+    const materiaisRubricas = source.materiais?.rubricas ?? [];
+
+    // Normalizar rubricas para o tipo RubricaFinanceira (apenas valor 'real' relevante aqui)
+    const rubricasReaisNormalizadas: RubricaFinanceira[] = (materiaisRubricas ?? []).map((r) => ({
+        rubrica: r.rubrica,
+        estimado: 0, // Estimado não é relevante aqui
+        real: r.real ?? 0, // Garantir que real existe
+    }));
+
+    return {
+      recursos: { real: recursosReal, estimado: 0 }, // Incluir estimado para consistência do tipo
+      materiais: {
+        real: materiaisReal,
+        estimado: 0, // Incluir estimado para consistência do tipo
+        rubricas: rubricasReaisNormalizadas,
+      },
+      geral: { real: recursosReal + materiaisReal, estimado: 0 } // Incluir estimado
+    } as FonteDadosComparacao; // Afirmar tipo para garantir estrutura
+
+  }, [comparacaoGastos, selectedWorkpackageId]);
+
+  // --- Processamento de Dados Estimados Detalhados (Apenas se NÃO for ETI) ---
+  const fonteEstimadaDetalhada: FonteDadosComparacao | null = React.useMemo(() => {
+    if (!comparacaoGastos || comparacaoGastos.estimativaBaseadaEmETI) return null;
+    
+    const isTotal = !selectedWorkpackageId || selectedWorkpackageId === "todos";
+    const source = isTotal
+      ? comparacaoGastos.total
+      : comparacaoGastos.workpackages.find(wp => wp.id === selectedWorkpackageId);
+
+    if (!source) return null;
+
+    const recursosEstimado = source.recursos?.estimado ?? 0;
+    const materiaisEstimado = isTotal 
+        ? (source as TotaisFinanceiros).materiais?.estimado 
+        : (source as WorkpackageFinanceiro).materiais?.totalEstimado ?? 0;
+    const materiaisRubricasEstimadas = source.materiais?.rubricas ?? [];
+
+    // O real não é necessário aqui, mas mantemos a estrutura para consistência do tipo FonteDados
+    const recursosReal = source.recursos?.real ?? 0;
+    const materiaisReal = isTotal 
+        ? (source as TotaisFinanceiros).materiais?.real 
+        : (source as WorkpackageFinanceiro).materiais?.totalReal ?? 0;
+
+    // Normalizar rubricas estimadas
+    // Adicionando tipo explícito para 'r'
+    const rubricasEstimadasNormalizadas: RubricaFinanceira[] = (materiaisRubricasEstimadas ?? []).map((r: RubricaFinanceira) => ({
+        rubrica: r.rubrica,
+        estimado: r.estimado ?? 0, // Garantir que estimado existe
+        real: 0, // Real não é relevante aqui
+    }));
+
+    return {
+      recursos: { estimado: recursosEstimado, real: recursosReal }, // Real incluído para tipo
+      materiais: {
+        estimado: materiaisEstimado,
+        real: materiaisReal, // Real incluído para tipo
+        rubricas: rubricasEstimadasNormalizadas,
+      },
+      geral: {
+        estimado: recursosEstimado + materiaisEstimado,
+        real: recursosReal + materiaisReal // Real incluído para tipo
+      }
+    } as FonteDadosComparacao; // Afirmar tipo
+  }, [comparacaoGastos, selectedWorkpackageId]);
+
+  // Preparar dados para as tabelas Estimado e Real
+  const { dadosTabelaEstimado, dadosTabelaReal } = React.useMemo(() => {
+    // Tabela Real usa dadosReaisProcessados
+    const real: Array<{ categoria: string; valor: number }> = [];
+    if (dadosReaisProcessados) {
+        real.push({
+          categoria: "Recursos Humanos",
+          valor: dadosReaisProcessados.recursos.real,
+        });
+        // Usar as rubricas de dadosReaisProcessados
+        dadosReaisProcessados.materiais.rubricas.forEach((r) => {
+            if(r.real > 0) { // Só adicionar se houver valor real (já são únicas)
+                const nomeFormatado = formatRubricaName(r.rubrica);
+                real.push({ categoria: nomeFormatado, valor: r.real });
+            }
+        });
+    }
+
+    // Tabela Estimado depende da flag ETI ou de fonteEstimadaDetalhada
+    const estimado: Array<{ categoria: string; valor: number }> = [];
+    if (comparacaoGastos?.estimativaBaseadaEmETI) {
+      estimado.push({
+        categoria: "Orçamento Submetido (ETI)",
+        valor: comparacaoGastos.total.geral.estimado,
+      });
+    } else if (fonteEstimadaDetalhada) { // Usar fonteEstimadaDetalhada
+      estimado.push({
+        categoria: "Recursos Humanos",
+        valor: fonteEstimadaDetalhada.recursos.estimado,
+      });
+      // Usar as rubricas de fonteEstimadaDetalhada
+      fonteEstimadaDetalhada.materiais.rubricas.forEach((r) => {
+        if (r.estimado > 0) { // Só adicionar se houver valor estimado (já são únicas)
+            const nomeFormatado = formatRubricaName(r.rubrica);
+            estimado.push({ categoria: nomeFormatado, valor: r.estimado });
+        }
+      });
+    }
+
+    const ordenarCategorias = (a: { categoria: string }, b: { categoria: string }) => {
+        if (a.categoria === "Recursos Humanos" || a.categoria === "Orçamento Submetido (ETI)") return -1;
+        if (b.categoria === "Recursos Humanos" || b.categoria === "Orçamento Submetido (ETI)") return 1;
+        return a.categoria.localeCompare(b.categoria);
+    }
+
+    return {
+      dadosTabelaEstimado: estimado.sort(ordenarCategorias),
+      dadosTabelaReal: real.sort(ordenarCategorias),
+    };
+  // Depende das duas fontes de dados processadas
+  }, [comparacaoGastos, dadosReaisProcessados, fonteEstimadaDetalhada]); 
+
+  // Calcular totais gerais
+  const totalGeralEstimado = comparacaoGastos?.estimativaBaseadaEmETI
+                             ? comparacaoGastos.total.geral.estimado
+                             : fonteEstimadaDetalhada?.geral.estimado ?? 0;
+                             
+  // Total Real usa sempre dadosReaisProcessados
+  const totalGeralReal = dadosReaisProcessados?.geral.real ?? 0; 
+  const percentGastoGeral = totalGeralEstimado > 0 ? (totalGeralReal / totalGeralEstimado) * 100 : 0;
+
+  const showComparisonCard = comparacaoGastos && comparacaoGastos.estado !== 'PENDENTE';
+
+  // Preparar opções para o DropdownField
+  const workpackageDropdownOptions = React.useMemo(() => {
+      const options = (workpackagesList ?? []).map(wp => ({
+        value: wp.id,
+        label: wp.nome,
+      }));
+      return [
+        { value: "todos", label: "Todos os Workpackages" }, 
+        ...options
+      ];
+  }, [workpackagesList]);
+
+  return (
+    <div className="space-y-6">
+      {/* Year Filter */}
+      <div className="flex justify-end">
+        <Select value={selectedYear} onValueChange={setSelectedYear}>
+          <SelectTrigger className="w-[180px]">
+            <Calendar className="mr-2 h-4 w-4 opacity-50" />
+            <SelectValue placeholder="Filtrar por ano..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os Anos</SelectItem>
+            {/* Corrected map function */}
+            {anosDisponiveis.map((ano: number) => (
+              <SelectItem key={ano} value={ano.toString()}>
+                {ano}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Stat Cards Row 1 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+        <StatCard
+          title="Orçamento Submetido"
+          value={formatCurrency(displayData.orcamentoSubmetido)}
+          subtitle={`Taxa: ${formatPercentage(displayData.taxaFinanciamento)}`}
+          icon={<Wallet className="h-6 w-6 text-blue-600" />}
+          colorClass="bg-blue-50"
+          tooltipText="Valor total do orçamento planeado e submetido."
+        />
+        <StatCard
+          title="Orçamento Real"
+          value={formatCurrency(displayData.custosReais.total)}
+          subtitle={`Concluído: ${formatPercentage(progressoOrcamento)}`}
+          icon={<DollarSign className="h-6 w-6 text-blue-500" />}
+          colorClass="bg-blue-50"
+          tooltipText="Custos reais totais projetados (Recursos + Materiais). A percentagem 'Concluído' mostra quanto do orçamento já foi gasto."
+        />
+        <StatCard
+          title="Valor Financiado"
+          value={formatCurrency(displayData.valorFinanciado)}
+          subtitle={`Overhead: ${formatCurrency(displayData.overhead)}`}
+          icon={<ArrowUpDown className="h-6 w-6 text-green-600" />}
+          colorClass="bg-green-50"
+          tooltipText="Valor recebido do financiamento (Orçamento Submetido * Taxa Financiamento)."
+        />
+      </div>
+      {/* Stat Cards Row 2 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+        <StatCard
+          title="Resultado Financeiro"
+          value={
+            <span className={(displayData.resultado ?? 0) >= 0 ? "text-green-600" : "text-red-600"}>
+              {formatCurrency(displayData.resultado)}
+            </span>
+          }
+          icon={
+            <TrendingUp
+              className={`h-6 w-6 ${(displayData.resultado ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}
+            />
+          }
+          colorClass={(displayData.resultado ?? 0) >= 0 ? "bg-green-50" : "bg-red-50"}
+          tooltipText="(Valor Financiado - Custos Reais) + Overhead."
+        />
+        <StatCard
+          title="Margem"
+          value={
+            <span className={(displayData.margem ?? 0) >= 0 ? "text-green-600" : "text-red-600"}>
+              {formatPercentage(displayData.margem)}
+            </span>
+          }
+          icon={
+            <Percent
+              className={`h-6 w-6 ${(displayData.margem ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}
+            />
+          }
+          colorClass={(displayData.margem ?? 0) >= 0 ? "bg-green-50" : "bg-red-50"}
+          tooltipText="(Resultado Financeiro / Orçamento Submetido) * 100."
+        />
+        <StatCard
+          title="VAB / Custos Pessoal"
+          value={formatNumber(displayData.vabCustosPessoal)}
+          subtitle={`VAB: ${formatCurrency(displayData.vab)}`}
+          icon={<FileText className="h-6 w-6 text-indigo-600" />}
+          colorClass="bg-indigo-50"
+          tooltipText="Valor Acrescentado Bruto (VAB = Valor Financiado - Custos Materiais) a dividir pelos Custos com Pessoal."
+        />
+      </div>
+
+      {/* Progress Card */}
+      <Card className="overflow-hidden border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-medium">
+            Progresso Financeiro {selectedYear !== "todos" ? `(${selectedYear})` : "(Total)"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pb-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Progresso</span>
+              <span>
+                {formatCurrency(displayData.custosConcluidos.total)}
+                {(displayData.custosReais.total ?? 0) > 0 &&
+                  ` / ${formatCurrency(displayData.custosReais.total)}`}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="relative">
+                <Progress value={progressoOrcamento} className="h-3 w-full bg-gray-100" />
+                {/* Indicador do valor financiado */}
+                {posicaoValorFinanciado > 0 && posicaoValorFinanciado < 100 && (
+                  <div
+                    className="absolute top-0 h-5 w-0.5 bg-green-600"
+                    style={{
+                      left: `${posicaoValorFinanciado}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                    title={`Valor Financiado: ${formatCurrency(displayData.valorFinanciado)}`}
+                  >
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 transform whitespace-nowrap text-xs text-green-700">
+                      Financiado
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100% ({formatCurrency(baseOrcamento)})</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-lg bg-blue-50 p-4">
+                <p className="text-xs font-medium text-blue-800">Custos com Recursos</p>
+                <p className="text-lg font-semibold text-blue-900">
+                  {formatCurrency(displayData.custosConcluidos.recursos)}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-100 p-4">
+                <p className="text-xs font-medium text-gray-700">Custos com Materiais</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {formatCurrency(displayData.custosConcluidos.materiais)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card de Comparação - Renderização Condicional e Estilo Refinado */} 
+      {showComparisonCard && (
+         <Card className="overflow-hidden border-none shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-lg font-medium">Comparação Estimado vs. Real</CardTitle>
+              <DropdownField
+                 id="workpackage-filter"
+                 label=""
+                 value={selectedWorkpackageId ?? "todos"} 
+                 onChange={handleWorkpackageChange}
+                 options={workpackageDropdownOptions}
+                 placeholder="Filtrar por Workpackage..."
+                 triggerClassName="w-[250px] bg-white/90 h-9 text-sm"
+              />
+            </CardHeader>
+            <CardContent>
+              {isLoadingComparacao && (
+                <div className="space-y-4 pt-2">
+                    <div className="space-y-2 border-b pb-4">
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-1/3" />
+                            <Skeleton className="h-4 w-1/4" />
+                        </div>
+                         <Skeleton className="h-2 w-full" />
+                         <div className="flex justify-end">
+                             <Skeleton className="h-3 w-1/6" />
+                         </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Skeleton className="h-5 w-1/2 mx-auto" />
+                            <Skeleton className="h-24 w-full" />
+                            <Skeleton className="h-6 w-full" />
+                        </div>
+                         <div className="space-y-2">
+                            <Skeleton className="h-5 w-1/2 mx-auto" />
+                            <Skeleton className="h-24 w-full" />
+                            <Skeleton className="h-6 w-full" />
+                        </div>
+                    </div>
+                </div>
+              )}
+              {errorComparacao && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-4 text-center">
+                   <p className="text-sm font-medium text-red-700">Erro ao carregar dados de comparação:</p>
+                   <p className="text-xs text-red-600">{errorComparacao.message}</p>
+                </div>
+              )}
+              {!isLoadingComparacao && !errorComparacao && comparacaoGastos && (
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2 border-b pb-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Gasto Real vs. {comparacaoGastos.estimativaBaseadaEmETI ? 'Submetido (ETI)' : 'Estimado'} {selectedWorkpackageId !== 'todos' && selectedWorkpackageId ? '(WP Selecionado)' : '(Geral)'}</span>
+                        <span className="font-medium">
+                          {formatCurrency(totalGeralReal)} /
+                          <span className="text-gray-500"> {formatCurrency(totalGeralEstimado)}</span>
+                        </span>
+                      </div>
+                      <Progress value={percentGastoGeral} className="h-2" />
+                      <div className="flex justify-end text-xs font-medium">
+                        {formatPercentage(percentGastoGeral / 100, 0)}
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <h3 className="text-center text-sm font-medium text-gray-600">
+                         {comparacaoGastos.estimativaBaseadaEmETI ? 'Orçamento Submetido' : 'Custos Estimados'}
+                      </h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="h-auto px-3 py-2 text-xs uppercase text-gray-500">{comparacaoGastos.estimativaBaseadaEmETI ? 'Base' : 'Categoria'}</TableHead>
+                            <TableHead className="h-auto px-3 py-2 text-right text-xs uppercase text-gray-500">Valor</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {dadosTabelaEstimado.map((item) => (
+                            <TableRow key={`est-${item.categoria}`} className="border-gray-100 hover:bg-gray-50/50">
+                              <TableCell className={`px-3 py-2 text-sm capitalize ${item.categoria === 'Recursos Humanos' || item.categoria === 'Orçamento Submetido (ETI)' ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
+                                {item.categoria}
+                              </TableCell>
+                              <TableCell className={`px-3 py-2 text-right text-sm ${item.categoria === 'Recursos Humanos' || item.categoria === 'Orçamento Submetido (ETI)' ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                                {formatCurrency(item.valor)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                           {dadosTabelaEstimado.length === 0 && (
+                              <TableRow className="border-gray-100">
+                                <TableCell colSpan={2} className="px-3 py-4 text-center text-sm text-gray-400 italic">Sem dados estimados.</TableCell>
+                              </TableRow>
+                           )}
+                        </TableBody>
+                        <tfoot>
+                          <TableRow className="border-t bg-gray-50 hover:bg-gray-100/60">
+                              <TableCell className="px-3 py-2 text-sm font-semibold text-gray-700">
+                                {comparacaoGastos.estimativaBaseadaEmETI ? 'Total Submetido (ETI)' : 'Total Geral Estimado'}
+                              </TableCell>
+                              <TableCell className="px-3 py-2 text-right text-sm font-bold text-gray-800">
+                                 {formatCurrency(totalGeralEstimado)}
+                              </TableCell>
+                          </TableRow>
+                        </tfoot>
+                      </Table>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-center text-sm font-medium text-gray-600">Custos Reais</h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="h-auto px-3 py-2 text-xs uppercase text-gray-500">Categoria</TableHead>
+                            <TableHead className="h-auto px-3 py-2 text-right text-xs uppercase text-gray-500">Valor</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {dadosTabelaReal.map((item) => (
+                            <TableRow key={`real-${item.categoria}`} className="border-gray-100 hover:bg-gray-50/50">
+                              <TableCell className={`px-3 py-2 text-sm capitalize ${item.categoria === 'Recursos Humanos' ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
+                                {item.categoria}
+                              </TableCell>
+                              <TableCell className={`px-3 py-2 text-right text-sm ${item.categoria === 'Recursos Humanos' ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                                {formatCurrency(item.valor)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                           {dadosTabelaReal.length === 0 && (
+                              <TableRow className="border-gray-100">
+                                <TableCell colSpan={2} className="px-3 py-4 text-center text-sm text-gray-400 italic">Sem custos reais.</TableCell>
+                              </TableRow>
+                           )}
+                        </TableBody>
+                        <tfoot>
+                           <TableRow className="border-t bg-gray-50 hover:bg-gray-100/60">
+                              <TableCell className="px-3 py-2 text-sm font-semibold text-gray-700">Total Geral Real</TableCell>
+                              <TableCell className="px-3 py-2 text-right text-sm font-bold text-gray-800">
+                                 {formatCurrency(totalGeralReal)}
+                              </TableCell>
+                           </TableRow>
+                        </tfoot>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+      )}
+    </div>
+  );
+}

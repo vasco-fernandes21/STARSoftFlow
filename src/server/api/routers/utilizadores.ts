@@ -165,53 +165,26 @@ const validProjectStates = Object.values(ProjetoEstado).filter(
 export const utilizadorRouter = createTRPCRouter({
   // Obter todos os utilizadores
   findAll: protectedProcedure
-    .input(utilizadorFilterSchema.optional())
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx }) => {
       try {
-        const { search, permissao, regime, page = 1, limit = 10 } = input || {};
+        // Buscar todos os utilizadores
+        const users = await ctx.db.user.findMany({
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            foto: true,
+            atividade: true,
+            contratacao: true,
+            username: true,
+            permissao: true,
+            regime: true,
+            emailVerified: true,
+          },
+          orderBy: { name: "asc" },
+        });
 
-        // Construir condições de filtro
-        const where: Prisma.UserWhereInput = {
-          ...(search
-            ? {
-                OR: [
-                  { name: { contains: search, mode: "insensitive" as Prisma.QueryMode } },
-                  { email: { contains: search, mode: "insensitive" as Prisma.QueryMode } },
-                  { username: { contains: search, mode: "insensitive" as Prisma.QueryMode } },
-                ] as Prisma.UserWhereInput[],
-              }
-            : {}),
-          ...(permissao ? { permissao } : {}),
-          ...(regime ? { regime } : {}),
-        };
-
-        // Parâmetros de paginação
-        const { skip, take } = getPaginationParams(page, limit);
-
-        // Executar query com contagem
-        const [users, total] = await Promise.all([
-          ctx.db.user.findMany({
-            where,
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              foto: true,
-              atividade: true,
-              contratacao: true,
-              username: true,
-              permissao: true,
-              regime: true,
-              emailVerified: true,
-            },
-            skip,
-            take,
-            orderBy: { name: "asc" },
-          }),
-          ctx.db.user.count({ where }),
-        ]);
-
-        return createPaginatedResponse(users, total, page, limit);
+        return users;
       } catch (error) {
         return handlePrismaError(error);
       }

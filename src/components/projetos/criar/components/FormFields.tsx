@@ -125,8 +125,8 @@ export function TextField({
 
 // DecimalField atualizado
 interface DecimalFieldProps extends BaseFieldProps {
-  value: number | null; // Alterado para permitir null
-  onChange: (value: number | null) => void; // Alterado para permitir null
+  value: string | number | null;  // Alterado para incluir string
+  onChange: (value: number | null) => void;
   prefix?: ReactNode;
   suffix?: ReactNode;
   step?: number;
@@ -165,11 +165,10 @@ export function DecimalField({
         <Input
           id={id}
           type="number"
-          value={value ?? ""} // Usa string vazia quando for null
+          value={typeof value === 'string' ? value : (value ?? '')}  // Passa string diretamente
           onChange={(e) => {
-            console.log("DecimalField onChange:", e.target.value);
             const val = e.target.value;
-            if (val === "") {
+            if (val === '') {
               if (onChange) onChange(null);
             } else {
               const newValue = parseFloat(val);
@@ -210,7 +209,7 @@ export function PercentageField(props: Omit<DecimalFieldProps, "suffix" | "step"
   const { value, onChange, ...restProps } = props;
 
   // Converter o valor decimal para exibição (0.85 -> 85)
-  const displayValue = value !== null ? value * 100 : null;
+  const displayValue = value !== null ? (value as number) * 100 : null;
 
   // Função para converter o valor de entrada (85) para decimal (0.85)
   const handleChange = (newValue: number | null) => {
@@ -383,7 +382,7 @@ export function SelectField({
 
 // NumberField para números inteiros
 interface NumberFieldProps extends BaseFieldProps {
-  value: number;
+  value: string | number;
   onChange: (value: number) => void;
   prefix?: ReactNode;
   suffix?: ReactNode;
@@ -422,9 +421,8 @@ export function NumberField({
         <Input
           id={id}
           type="number"
-          value={value}
+          value={typeof value === 'string' ? value : value}  // Passa string diretamente
           onChange={(e) => {
-            console.log("NumberField onChange:", e.target.value);
             const newValue = e.target.value ? parseInt(e.target.value) : 0;
             if (onChange) onChange(newValue);
           }}

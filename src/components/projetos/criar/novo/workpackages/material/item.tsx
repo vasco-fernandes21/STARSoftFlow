@@ -61,20 +61,24 @@ const rubricaParaVariante: Record<
   MATERIAIS: "blue",
   SERVICOS_TERCEIROS: "purple",
   OUTROS_SERVICOS: "indigo",
-  DESLOCACAO_ESTADIAS: "orange",
+  DESLOCACAO_ESTADAS: "orange",
   OUTROS_CUSTOS: "red",
   CUSTOS_ESTRUTURA: "default", // emerald (verde) já é o default
+  INSTRUMENTOS_E_EQUIPAMENTOS: "default",
+  SUBCONTRATOS: "default",
 };
 
 // Função para obter o nome da rubrica
 function obterNomeRubrica(rubrica: Rubrica): string {
   const rubricas: Record<Rubrica, string> = {
     MATERIAIS: "Materiais",
-    SERVICOS_TERCEIROS: "Serviços de Terceiros",
+    SERVICOS_TERCEIROS: "Serviços Terceiros",
     OUTROS_SERVICOS: "Outros Serviços",
-    DESLOCACAO_ESTADIAS: "Deslocação e Estadias",
+    DESLOCACAO_ESTADAS: "Deslocação e Estadas",
     OUTROS_CUSTOS: "Outros Custos",
     CUSTOS_ESTRUTURA: "Custos de Estrutura",
+    INSTRUMENTOS_E_EQUIPAMENTOS: "Instrumentos e Equipamentos",
+    SUBCONTRATOS: "Subcontratos",
   };
 
   return rubricas[rubrica] || rubrica;

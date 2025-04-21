@@ -41,9 +41,11 @@ const rubricaOptions = [
   { value: "MATERIAIS", label: "Materiais" },
   { value: "SERVICOS_TERCEIROS", label: "Serviços de Terceiros" },
   { value: "OUTROS_SERVICOS", label: "Outros Serviços" },
-  { value: "DESLOCACAO_ESTADIAS", label: "Deslocação e Estadias" },
+  { value: "DESLOCACAO_ESTADAS", label: "Deslocação e Estadas" },
   { value: "OUTROS_CUSTOS", label: "Outros Custos" },
   { value: "CUSTOS_ESTRUTURA", label: "Custos de Estrutura" },
+  { value: "INSTRUMENTOS_E_EQUIPAMENTOS", label: "Instrumentos e Equipamentos" },
+  { value: "SUBCONTRATOS", label: "Subcontratos" },
 ];
 
 // Opções para o campo de mês
@@ -110,8 +112,8 @@ export function Form({
   // Estado do formulário
   const [nome, setNome] = useState(initialValues?.nome || "");
   const [descricao, setDescricao] = useState<string | null>(initialValues?.descricao || null);
-  const [preco, setPreco] = useState<number>(initialValues?.preco || 0);
-  const [quantidade, setQuantidade] = useState(initialValues?.quantidade || 1);
+  const [precoStr, setPrecoStr] = useState(initialValues?.preco ? String(initialValues.preco) : '');
+  const [quantidadeStr, setQuantidadeStr] = useState(initialValues?.quantidade ? String(initialValues.quantidade) : '');
   const [anoUtilizacao, setAnoUtilizacao] = useState(
     initialValues?.ano_utilizacao || new Date().getFullYear()
   );
@@ -148,8 +150,8 @@ export function Form({
     if (initialValues) {
       setNome(initialValues.nome);
       setDescricao(initialValues.descricao);
-      setPreco(initialValues.preco);
-      setQuantidade(initialValues.quantidade);
+      setPrecoStr(initialValues.preco ? String(initialValues.preco) : '');
+      setQuantidadeStr(initialValues.quantidade ? String(initialValues.quantidade) : '');
       setAnoUtilizacao(initialValues.ano_utilizacao);
       setAnoUtilizacaoStr(String(initialValues.ano_utilizacao));
       setMes(initialValues.mes || new Date().getMonth() + 1);
@@ -179,11 +181,11 @@ export function Form({
       novosErros.nome = "Nome deve ter pelo menos 3 caracteres";
     }
 
-    if (preco <= 0) {
+    if (precoStr === '') {
       novosErros.preco = "O preço deve ser maior que zero";
     }
 
-    if (quantidade <= 0) {
+    if (quantidadeStr === '') {
       novosErros.quantidade = "A quantidade deve ser maior que zero";
     }
 
@@ -200,25 +202,27 @@ export function Form({
     e.preventDefault();
 
     if (validarFormulario()) {
-      // Preparar o objeto de dados garantindo que descricao seja sempre string ou null
+      const precoNum = parseFloat(precoStr) || 0;
+      const quantidadeNum = parseInt(quantidadeStr, 10) || 0;
+      if (precoNum <= 0) {
+        setErros((prev) => ({ ...prev, preco: 'O preço deve ser maior que zero' }));
+        return;
+      }
+      if (quantidadeNum <= 0) {
+        setErros((prev) => ({ ...prev, quantidade: 'A quantidade deve ser maior que zero' }));
+        return;
+      }
       const materialData = {
-        // Se estiver em modo de edição, manter o ID existente se disponível
-        ...(initialValues?.id && { id: initialValues.id }),
         nome,
-        descricao: descricao === "" ? null : descricao,
-        preco,
-        quantidade,
+        descricao: descricao === '' ? null : descricao,
+        preco: precoNum,
+        quantidade: quantidadeNum,
         ano_utilizacao: anoUtilizacao,
         mes,
         rubrica,
       };
-
-      // Enviar dados para atualização
       onSubmit(workpackageId, materialData);
-
-      if (onUpdate) {
-        onUpdate();
-      }
+      if (onUpdate) { onUpdate(); }
     }
   };
 
@@ -318,17 +322,17 @@ export function Form({
             <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
               <MoneyField
                 label="Preço Unitário"
-                value={preco}
-                onChange={(value) => value !== null && setPreco(value)}
+                value={precoStr || ''}
+                onChange={(value) => typeof value === 'string' ? setPrecoStr(value) : setPrecoStr('')}
                 required
                 helpText={erros.preco}
               />
 
               <NumberField
                 label="Quantidade"
-                value={quantidade}
-                onChange={setQuantidade}
-                min={1}
+                value={quantidadeStr || ''}
+                onChange={(value) => typeof value === 'string' ? setQuantidadeStr(value) : setQuantidadeStr('')}
+                min={undefined}
                 required
                 helpText={erros.quantidade}
               />

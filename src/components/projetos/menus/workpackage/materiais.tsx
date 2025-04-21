@@ -35,16 +35,15 @@ interface MaterialFormValues extends MaterialBase {
 }
 
 // Mapeamento de rubricas para variantes de badge
-const rubricaParaVariante: Record<
-  Rubrica,
-  "blue" | "purple" | "indigo" | "orange" | "red" | "default"
-> = {
-  MATERIAIS: "blue",
-  SERVICOS_TERCEIROS: "purple",
-  OUTROS_SERVICOS: "indigo",
-  DESLOCACAO_ESTADIAS: "orange",
-  OUTROS_CUSTOS: "red",
-  CUSTOS_ESTRUTURA: "default",
+const rubricaColors: Record<Rubrica, string> = {
+  MATERIAIS: 'blue',
+  SERVICOS_TERCEIROS: 'purple',
+  OUTROS_SERVICOS: 'indigo',
+  DESLOCACAO_ESTADAS: 'orange',
+  OUTROS_CUSTOS: 'red',
+  CUSTOS_ESTRUTURA: 'default',
+  INSTRUMENTOS_E_EQUIPAMENTOS: 'green',
+  SUBCONTRATOS: 'yellow'
 };
 
 export function WorkpackageMateriais({
@@ -107,8 +106,8 @@ export function WorkpackageMateriais({
         return "Serviços de Terceiros";
       case "OUTROS_SERVICOS":
         return "Outros Serviços";
-      case "DESLOCACAO_ESTADIAS":
-        return "Deslocações e Estadias";
+      case "DESLOCACAO_ESTADAS":
+        return "Deslocações e Estadas";
       case "OUTROS_CUSTOS":
         return "Outros Custos";
       case "CUSTOS_ESTRUTURA":
@@ -224,17 +223,17 @@ export function WorkpackageMateriais({
                     <Badge
                       className={cn(
                         "mr-3",
-                        rubricaParaVariante[grupo.rubrica as Rubrica] === "blue" &&
+                        rubricaColors[grupo.rubrica as Rubrica] === "blue" &&
                           "bg-blue-100 text-blue-800 hover:bg-blue-200",
-                        rubricaParaVariante[grupo.rubrica as Rubrica] === "purple" &&
+                        rubricaColors[grupo.rubrica as Rubrica] === "purple" &&
                           "bg-purple-100 text-purple-800 hover:bg-purple-200",
-                        rubricaParaVariante[grupo.rubrica as Rubrica] === "indigo" &&
+                        rubricaColors[grupo.rubrica as Rubrica] === "indigo" &&
                           "bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
-                        rubricaParaVariante[grupo.rubrica as Rubrica] === "orange" &&
+                        rubricaColors[grupo.rubrica as Rubrica] === "orange" &&
                           "bg-orange-100 text-orange-800 hover:bg-orange-200",
-                        rubricaParaVariante[grupo.rubrica as Rubrica] === "red" &&
+                        rubricaColors[grupo.rubrica as Rubrica] === "red" &&
                           "bg-red-100 text-red-800 hover:bg-red-200",
-                        rubricaParaVariante[grupo.rubrica as Rubrica] === "default" &&
+                        rubricaColors[grupo.rubrica as Rubrica] === "default" &&
                           "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                       )}
                     >

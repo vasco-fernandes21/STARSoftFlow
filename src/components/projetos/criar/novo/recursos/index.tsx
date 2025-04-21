@@ -39,8 +39,8 @@ const RecursosData = () => {
     return { membrosEquipa: [], error };
   }
 
-  // Extrair os items da resposta paginada
-  const membrosEquipa = data?.items || [];
+
+  const membrosEquipa = data || [];
 
   return { membrosEquipa };
 };
@@ -310,11 +310,11 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
               inicio={selectedWorkpackage.inicio || new Date()}
               fim={selectedWorkpackage.fim || new Date()}
               utilizadores={membrosEquipa.map(
-                (u: any): { id: string; name: string; email: string; regime: string } => ({
-                  id: u.id,
-                  name: u.name || "",
-                  email: u.email || "",
-                  regime: u.regime,
+                (m: { id: string; name: string | null; email: string | null; regime: string }): { id: string; name: string; email: string; regime: string } => ({
+                  id: m.id,
+                  name: m.name || "",
+                  email: m.email || "",
+                  regime: m.regime,
                 })
               )}
               onAddAlocacao={handleAddAlocacao}

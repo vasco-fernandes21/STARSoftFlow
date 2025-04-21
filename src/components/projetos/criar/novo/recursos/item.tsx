@@ -50,6 +50,9 @@ export function Item({
   workpackageId,
   utilizadores = [],
 }: ItemProps) {
+  // Log para verificar as props recebidas, especialmente 'alocacoes'
+  console.log(`[Item Component] Props recebidas para User: ${user.name} (ID: ${user.id})`, { alocacoes, workpackageId });
+
   const [isEditing, /* setIsEditing */] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);

@@ -208,7 +208,7 @@ const RUBRICA_LABELS: Record<string, string> = {
   MATERIAIS: "Materiais",
   SERVICOS_TERCEIROS: "Serviços Terceiros",
   OUTROS_SERVICOS: "Outros Serviços",
-  DESLOCACAO_ESTADIAS: "Deslocação e Estadias",
+  DESLOCACAO_ESTADAS: "Deslocação e Estadas",
   OUTROS_CUSTOS: "Outros Custos",
   CUSTOS_ESTRUTURA: "Custos de Estrutura",
 };
@@ -218,7 +218,7 @@ const RUBRICA_COLORS: Record<string, { bg: string; text: string; border: string 
   MATERIAIS: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
   SERVICOS_TERCEIROS: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
   OUTROS_SERVICOS: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-  DESLOCACAO_ESTADIAS: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+  DESLOCACAO_ESTADAS: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
   OUTROS_CUSTOS: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   CUSTOS_ESTRUTURA: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
 };

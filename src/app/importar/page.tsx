@@ -59,7 +59,7 @@ function mapearRubrica(rubricaExcel: string): Rubrica {
     Materiais: "MATERIAIS",
     "Serviços Terceiros": "SERVICOS_TERCEIROS",
     "Outros Serviços": "OUTROS_SERVICOS",
-    "Deslocações e Estadas": "DESLOCACAO_ESTADIAS",
+    "Deslocações e Estadas": "DESLOCACAO_ESTADAS",
     "Outros Custos": "OUTROS_CUSTOS",
     "Custos Estrutura": "CUSTOS_ESTRUTURA",
   };
@@ -86,7 +86,7 @@ function getRubricaColors(rubrica: Rubrica): string {
       return "bg-green-50 text-green-600 border-green-200";
     case "OUTROS_SERVICOS":
       return "bg-purple-50 text-purple-600 border-purple-200";
-    case "DESLOCACAO_ESTADIAS":
+    case "DESLOCACAO_ESTADAS":
       return "bg-amber-50 text-amber-600 border-amber-200";
     case "OUTROS_CUSTOS":
       return "bg-red-50 text-red-600 border-red-200";
