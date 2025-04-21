@@ -657,7 +657,7 @@ export const projetoRouter = createTRPCRouter({
         overhead: z.number().min(0).max(100).default(0),
         taxa_financiamento: z.number().min(0).max(100).default(0),
         valor_eti: z.number().min(0).default(0),
-        rascunhoId: z.string().optional(), // Novo campo opcional para ID do rascunho
+        rascunhoId: z.string().optional(), 
         workpackages: z
           .array(
             z.object({

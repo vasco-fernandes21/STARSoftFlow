@@ -273,6 +273,7 @@ export function WorkpackageMateriais({
                             preco: Number(material.preco),
                             quantidade: material.quantidade,
                             ano_utilizacao: material.ano_utilizacao,
+                            mes: material.mes ?? 1,
                             rubrica: material.rubrica,
                             workpackageId: workpackage.id,
                             estado: material.estado,

@@ -18,7 +18,9 @@ import {
   CheckCircle2, 
   Clock, 
   RefreshCw, 
-  ChevronDown
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -30,19 +32,16 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip";
 import { api } from "@/trpc/react";
-import { ProjetoEstado } from "@prisma/client";
-import { useQuery } from '@tanstack/react-query';
+import type { ProjetoEstado } from "@prisma/client";
 import { useParams } from 'next/navigation';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -138,6 +137,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
   const [loading, setLoading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [modoComparacao, setModoComparacao] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Constantes
   const mesesFull = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -366,7 +366,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                 value="real" 
                 className={cn(
                   "rounded-full text-xs font-medium transition-all duration-200 px-4",
-                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white"
+                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white shadow-sm"
                 )}
               >
                 <Clock className="h-3.5 w-3.5 mr-1.5" />
@@ -376,7 +376,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                 value="submetido" 
                 className={cn(
                   "rounded-full text-xs font-medium transition-all duration-200 px-4",
-                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
+                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white shadow-sm"
                 )}
               >
                 <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
@@ -453,11 +453,11 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                   
                   <div className="pt-2 flex items-center">
                     <Button 
-                      variant={modoComparacao ? "default" : "outline"}
+                      variant={modoComparacao ? "secondary" : "outline"}
                       size="sm" 
                       className={cn(
-                        "w-full text-sm h-9 rounded-full transition-all",
-                        modoComparacao ? "bg-blue-600 hover:bg-blue-700" : ""
+                        "w-full text-sm h-9 rounded-full transition-all shadow-sm",
+                        modoComparacao ? "bg-blue-100 text-blue-700 hover:bg-blue-200" : ""
                       )}
                       onClick={() => setModoComparacao(!modoComparacao)}
                     >
@@ -479,7 +479,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
             </DropdownMenu>
             
             {!isSubmetido && (
-              <TooltipProvider>
+              <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
@@ -487,10 +487,10 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                         onClick={handleSave} 
                         disabled={!podeSalvar || loading}
                         className={cn(
-                          "h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300",
+                          "h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300 shadow-sm",
                           podeSalvar 
                             ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-md hover:from-blue-600 hover:to-blue-700" 
-                            : "bg-slate-100 text-slate-400"
+                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
                         )}
                       >
                         {loading ? (
@@ -498,14 +498,14 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                         ) : (
                           <Save className="h-3.5 w-3.5" />
                         )}
-                        <span>Guardar Alterações</span>
+                        <span>Guardar</span>
                       </Button>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-slate-800 text-white p-2 rounded-lg text-xs">
+                  <TooltipContent side="bottom" className="bg-slate-800 text-white p-2 rounded-md text-xs shadow-lg">
                     {podeSalvar 
-                      ? "Guardar alterações nas alocações" 
-                      : "As alocações devem totalizar os mesmos valores dos submetidos para guardar"}
+                      ? "Guardar alterações nas alocações"
+                      : "Os totais reais devem coincidir com os submetidos para guardar"}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -515,14 +515,16 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
               <Button 
                 onClick={handleExportPDF} 
                 disabled={isGeneratingPDF}
-                className="h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-md hover:from-blue-700 hover:to-blue-800"
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1 rounded-full px-4 text-sm text-slate-700 hover:bg-slate-100 shadow-sm"
               >
                 {isGeneratingPDF ? (
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
                 ) : (
                   <FileText className="h-3.5 w-3.5" />
                 )}
-                <span>Exportar Relatório</span>
+                <span>Exportar</span>
               </Button>
             )}
           </div>
@@ -530,24 +532,35 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
 
         <div className="overflow-auto p-0 m-0">
           <Table className={cn(
-            "border-separate border-spacing-y-0",
+            "w-full min-w-[800px]",
+            "border-separate border-spacing-0",
             mesSelecionado && "table-fixed",
             "animate-in fade-in duration-300"
           )}>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-30 bg-white shadow-sm">
               <TableRow className="border-b-0">
                 <TableHead className={cn(
-                  "bg-white/95 px-4 py-3 text-sm font-semibold uppercase tracking-wider text-slate-500 sticky left-0 z-20",
-                  mesSelecionado ? "w-[60%]" : "w-[180px]"
+                  "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 sticky left-0 z-40 bg-white flex items-center justify-between",
+                  mesSelecionado ? "w-[60%]" : (isSidebarCollapsed ? "w-[60px] min-w-[60px]" : "w-[220px] min-w-[220px]"),
+                  "transition-all duration-300 ease-in-out"
                 )}>
-                  Projeto / Workpackage
+                  <span className={cn(isSidebarCollapsed && "hidden")}>Projeto / Workpackage</span>
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 p-0 text-slate-500 hover:bg-slate-200/50 rounded-full"
+                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    aria-label={isSidebarCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
+                  >
+                    {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                  </Button>
                 </TableHead>
                 {getMeses().map((mes) => (
                   <TableHead
                     key={mes}
                     className={cn(
-                      "sticky top-0 z-10 bg-white/95 px-2 py-3 text-center text-sm font-semibold uppercase tracking-wider text-slate-500",
-                      mes % 2 === 0 ? "bg-slate-50/50" : "",
+                      "px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500",
+                      mes % 2 !== 0 ? "bg-slate-50/60" : "bg-white",
                       mesSelecionado && "w-[40%]"
                     )}
                   >
@@ -560,32 +573,45 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                 ))}
               </TableRow>
             </TableHeader>
+            
             <TableBody>
-              {projetos.map((projeto) => (
+              {projetos.map((projeto, projIndex) => (
                 <React.Fragment key={projeto.id}>
-                  <TableRow className="group border-t border-slate-100 first:border-t-0">
+                  <TableRow className={cn(
+                    "group",
+                    projIndex > 0 ? "border-t border-slate-200" : ""
+                  )}>
                     <TableCell
-                      colSpan={mesSelecionado ? 2 : 13}
                       className={cn(
-                        "sticky left-0 z-10 border-y border-slate-200/70",
+                        "sticky left-0 z-20 px-4 py-2 flex items-center justify-between",
                         isSubmetido 
-                          ? "bg-gradient-to-r from-indigo-50/90 to-indigo-50/70 text-indigo-900" 
-                          : "bg-gradient-to-r from-blue-50/90 to-blue-50/70 text-blue-900",
+                          ? "bg-indigo-50 text-indigo-900" 
+                          : "bg-blue-50 text-blue-900",
                         "transition-colors duration-200"
                       )}
                     >
-                      <div className="flex items-center gap-2 py-0.5">
+                      <div className="flex items-center gap-2">
                         <div className={cn(
-                          "flex h-7 w-7 items-center justify-center rounded-lg text-xs font-medium shadow-sm",
+                          "flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold shadow-sm flex-shrink-0",
                           isSubmetido 
                             ? "bg-indigo-100 text-indigo-700" 
                             : "bg-blue-100 text-blue-700"
                         )}>
                           {projeto.nome.substring(0, 2).toUpperCase()}
                         </div>
-                        <span className="font-medium text-sm">{projeto.nome}</span>
+                        <span className={cn("font-medium text-sm truncate", isSidebarCollapsed && "hidden")}>{projeto.nome}</span>
                       </div>
                     </TableCell>
+                    {getMeses().map((mes) => (
+                      <TableCell
+                        key={`${projeto.id}-mes-${mes}`}
+                        className={cn(
+                          "py-2",
+                          isSubmetido ? "bg-indigo-50" : "bg-blue-50",
+                          mes % 2 !== 0 ? "bg-opacity-60" : "bg-opacity-100",
+                        )}
+                      />
+                    ))}
                   </TableRow>
 
                   {Array.from(projeto.wps).map((wpId) => {
@@ -597,24 +623,26 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
 
                     return (
                       <TableRow
-                        key={`${projeto.id}-${wpId}`} 
-                        className="group transition-all duration-200 ease-in-out hover:bg-slate-50/70"
+                        key={`${projeto.id}-${wpId}`}
+                        className="group transition-all duration-150 ease-in-out hover:bg-slate-50/70"
                       >
                         <TableCell className={cn(
-                          "px-4 py-2 align-middle text-sm sticky left-0 bg-white z-10 group-hover:bg-slate-50/70 transition-colors duration-200",
-                          mesSelecionado && "max-w-0"
+                          "px-4 py-3 align-middle text-sm sticky left-0 bg-white z-10 group-hover:bg-slate-50/70 transition-all duration-300 ease-in-out",
+                          mesSelecionado && "max-w-0",
+                          isSidebarCollapsed ? "w-0 p-0 opacity-0 pointer-events-none" : ""
                         )}>
-                          <div className="flex items-center gap-1.5">
+                          <div className={cn("flex items-center gap-1.5 pl-4", isSidebarCollapsed && "hidden")}>
                             <div className={cn(
-                              "h-1.5 w-1.5 rounded-full transition-colors duration-200",
+                              "h-1.5 w-1.5 rounded-full transition-colors duration-200 flex-shrink-0",
                               isSubmetido ? "bg-indigo-400 group-hover:bg-indigo-500" : "bg-blue-400 group-hover:bg-blue-500"
                             )} />
                             <span className={cn(
-                              "text-sm transition-colors duration-200 group-hover:text-slate-800",
+                              "text-sm transition-colors duration-200 group-hover:text-slate-800 truncate",
                               mesSelecionado && "line-clamp-1"
                             )}>{wp.nome}</span>
                           </div>
                         </TableCell>
+                        
                         {getMeses().map((mes) => {
                           const valor = getValor(wpId, mes);
                           const valorNum = typeof valor === 'number' ? valor : 0;
@@ -626,17 +654,17 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                             <TableCell 
                               key={mes} 
                               className={cn(
-                                "px-2 py-2 text-center align-middle transition-all duration-200",
-                                mes % 2 === 0 ? "bg-slate-50/30" : "",
+                                "px-3 py-2 text-center align-middle transition-all duration-200",
+                                mes % 2 !== 0 ? "bg-slate-50/30" : "bg-white",
                                 mesSelecionado && "w-[40%]",
-                                !isSubmetido && temDiferenca && "bg-yellow-50/50"
+                                !isSubmetido && temDiferenca && modoComparacao && "bg-yellow-50/50"
                               )}
                             >
                               <div className="flex flex-col items-center">
                                 {isSubmetido ? (
                                   <span className={cn(
-                                    "text-sm",
-                                    valorNum > 0 ? "font-medium text-indigo-700" : "text-slate-400"
+                                    "flex items-center justify-center h-8 w-[70px] text-sm rounded-md",
+                                    valorNum > 0 ? "font-medium text-indigo-700 bg-indigo-50/60" : "text-slate-400"
                                   )}>
                                     {valorNum.toFixed(2)}
                                   </span>
@@ -647,22 +675,21 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                                     onChange={(e) => handleInputChange(wpId, mes, e)}
                                     placeholder="0,00"
                                     className={cn(
-                                      "h-8 text-center text-sm transition-all duration-200 focus:ring-2 focus:ring-offset-1",
-                                      isEditing 
-                                        ? "border-blue-300 bg-blue-50/60 shadow-sm ring-blue-200" 
-                                        : "border-transparent bg-transparent hover:border-slate-200 hover:bg-white",
+                                      "h-8 w-[70px] text-center text-sm border border-transparent rounded-md",
+                                      "bg-transparent focus:bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none",
+                                      "transition-all duration-200",
+                                      isEditing && "bg-blue-50/60 border-blue-300 shadow-sm",
                                       valorNum > 0 && "text-blue-700 font-medium",
-                                      mesSelecionado && "text-base",
-                                      temDiferenca && "border-yellow-300"
+                                      mesSelecionado && "text-base w-[80px]",
+                                      temDiferenca && modoComparacao && "border-yellow-400 bg-yellow-50/50"
                                     )}
                                   />
                                 )}
                                 
-                                {/* Modo comparação mostra a diferença */}
                                 {modoComparacao && temDiferenca && (
                                   <div className={cn(
-                                    "text-xs mt-1",
-                                    diferenca > 0 ? "text-green-600" : "text-red-600"
+                                    "text-[11px] mt-1 font-medium",
+                                    diferenca > 0 ? "text-emerald-600" : "text-red-600"
                                   )}>
                                     {diferenca > 0 ? "+" : ""}{diferenca.toFixed(2)}
                                   </div>
@@ -677,56 +704,45 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                 </React.Fragment>
               ))}
             </TableBody>
-            <TableFooter>
+            
+            <TableFooter className="sticky bottom-0 z-20 bg-slate-100/95 backdrop-blur-sm">
               <TableRow className="border-t border-slate-200">
-                <TableCell className="bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-900 sticky left-0 z-10">
-                  Total por Mês
+                <TableCell className={cn(
+                  "px-4 py-3 text-sm font-semibold text-slate-700 sticky left-0 z-10 bg-slate-100/95 transition-all duration-300 ease-in-out",
+                  isSidebarCollapsed ? "w-[60px] min-w-[60px] text-center" : ""
+                )}>
+                  <span className={cn(isSidebarCollapsed && "hidden")}>{isSubmetido ? "Total Submetido" : "Total Real"}</span>
+                  {isSidebarCollapsed && <span title={isSubmetido ? "Total Submetido" : "Total Real"}>Σ</span>}
                 </TableCell>
                 {getMeses().map((mes) => {
                   const totalReal = calcularTotal(alocacoes.real, mes);
                   const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
                   const isDifferent = Math.abs(totalReal - totalSubmetido) >= 0.001;
+                  const totalAtual = isSubmetido ? totalSubmetido : totalReal;
 
                   return (
                     <TableCell
                       key={mes}
                       className={cn(
-                        "bg-slate-50/80 px-2 py-3 text-center text-sm font-medium",
-                        isDifferent && !isSubmetido ? "bg-yellow-50 text-yellow-700 border-b-2 border-yellow-300" : "",
-                        !isDifferent && !isSubmetido ? "bg-green-50/40 text-green-700 border-b-2 border-green-300" : "",
+                        "px-3 py-3 text-center text-sm font-semibold",
+                        isDifferent && !isSubmetido ? "bg-yellow-100/70 text-yellow-800" : "text-slate-700",
+                        !isDifferent && !isSubmetido ? "bg-emerald-100/60 text-emerald-800" : "",
                         mesSelecionado && "text-base"
                       )}
                     >
                       <div className="flex flex-col items-center">
-                        <span>{isSubmetido ? totalSubmetido.toFixed(2) : totalReal.toFixed(2)}</span>
-                        
-                        {/* Indicador visual de status para cada mês */}
+                        <span>{totalAtual.toFixed(2)}</span>
                         {!isSubmetido && (
-                          <div className="flex items-center mt-1 gap-1">
-                            {isDifferent ? (
-                              <span className="text-xs text-yellow-600 flex items-center">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Divergente
-                              </span>
-                            ) : (
-                              <span className="text-xs text-green-600 flex items-center">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Correto
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Modo comparação para totais */}
-                        {modoComparacao && isDifferent && (
                           <div className={cn(
-                            "text-xs mt-1",
-                            (totalReal > totalSubmetido) ? "text-green-600" : "text-red-600"
+                              "flex items-center mt-1 text-xs font-medium",
+                              isDifferent ? "text-yellow-700" : "text-emerald-700"
                           )}>
-                            {isSubmetido 
-                              ? "Ver alocações reais"
-                              : (totalReal > totalSubmetido ? "+" : "") + (totalReal - totalSubmetido).toFixed(2)
-                            }
+                            {isDifferent ? (
+                              <AlertCircle className="h-3 w-3 mr-1 flex-shrink-0" />
+                            ) : (
+                              <CheckCircle2 className="h-3 w-3 mr-1 flex-shrink-0" />
+                            )}
+                            {isDifferent ? "Divergente" : "Correto"}
                           </div>
                         )}
                       </div>
@@ -737,31 +753,24 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
               
               {!isSubmetido && (
                 <TableRow className="border-t border-slate-200/50">
-                  <TableCell className="bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-600 sticky left-0 z-10">
-                    Total Submetido
+                  <TableCell className={cn(
+                    "px-4 py-3 text-sm font-medium text-slate-500 sticky left-0 z-10 bg-slate-100/95 transition-all duration-300 ease-in-out",
+                    isSidebarCollapsed ? "w-[60px] min-w-[60px] text-center" : ""
+                  )}>
+                    <span className={cn(isSidebarCollapsed && "hidden")}>Meta (Submetido)</span>
+                    {isSidebarCollapsed && <span title="Meta (Submetido)">🎯</span>}
                   </TableCell>
                   {getMeses().map((mes) => {
                     const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
-                    const totalReal = calcularTotal(alocacoes.real, mes);
-                    const isDifferent = Math.abs(totalReal - totalSubmetido) >= 0.001;
-
                     return (
                       <TableCell
                         key={mes}
                         className={cn(
-                          "bg-slate-50/80 px-2 py-3 text-center text-sm",
-                          isDifferent 
-                            ? "font-medium text-indigo-600 bg-indigo-50/40" 
-                            : "text-slate-500",
+                          "px-3 py-3 text-center text-sm font-medium text-slate-500",
                           mesSelecionado && "text-base"
                         )}
                       >
-                        <div className="flex flex-col items-center">
-                          <span>{totalSubmetido.toFixed(2)}</span>
-                          {isDifferent && modoComparacao && (
-                            <div className="text-xs mt-1 text-indigo-500">Objetivo</div>
-                          )}
-                        </div>
+                        {totalSubmetido.toFixed(2)}
                       </TableCell>
                     );
                   })}
@@ -771,75 +780,37 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
           </Table>
         </div>
         
-        {/* Legenda */}
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
-          <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
             <div className="flex items-center">
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700 mr-1.5">
-                <Clock className="h-3 w-3" />
-              </div>
+              <div className="h-2 w-2 rounded-full bg-blue-400 mr-1.5"></div>
               <span>Alocações Reais</span>
             </div>
             <div className="flex items-center">
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 mr-1.5">
-                <CheckCircle2 className="h-3 w-3" />
-              </div>
-              <span>Alocações Submetidas</span>
+              <div className="h-2 w-2 rounded-full bg-indigo-400 mr-1.5"></div>
+              <span>Alocações Submetidas (Meta)</span>
             </div>
             {modoComparacao && (
-              <div className="flex items-center">
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-100 text-yellow-700 mr-1.5">
-                  <AlertCircle className="h-3 w-3" />
+              <>
+                <div className="flex items-center">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-100 text-yellow-700 mr-1.5">
+                    <AlertCircle className="h-3 w-3" />
+                  </div>
+                  <span>Diferença Real vs. Submetido</span>
                 </div>
-                <span>Diferenças Destacadas</span>
-              </div>
+                <div className="flex items-center text-emerald-600">
+                  <span className="font-mono mr-1">+0.10</span>
+                  <span>Real Maior</span>
+                </div>
+                <div className="flex items-center text-red-600">
+                  <span className="font-mono mr-1">-0.10</span>
+                  <span>Real Menor</span>
+                </div>
+              </>
             )}
           </div>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// Componente de página que implementa a TabelaAlocacoes com obtenção direta de dados da API
-export function AlocacoesPage() {
-  const params = useParams();
-  const username = params?.username as string;
-  const currentYear = new Date().getFullYear();
-  
-  const [viewMode, setViewMode] = useState<"real" | "submetido">("real");
-  const [ano, setAno] = useState(currentYear);
-  
-  // Obter alocações da API
-  const { data, isLoading, error, refetch } = useAlocacoes(username, ano);
-  
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-64">
-      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-    </div>;
-  }
-  
-  if (error || !data) {
-    return <div className="flex flex-col items-center justify-center h-64 text-red-600">
-      <AlertCircle className="h-8 w-8 mb-2" />
-      <p>Erro ao carregar dados. Por favor, tente novamente.</p>
-    </div>;
-  }
-  
-  const handleSave = async (alocacoesReais: AlocacaoOriginal[]) => {
-    // Implementar lógica de salvamento
-    console.log("Salvando alocações:", alocacoesReais);
-    // Após salvar, recarregar os dados
-    await refetch();
-  };
-  
-  return (
-    <TabelaAlocacoes
-      alocacoes={data}
-      viewMode={viewMode}
-      ano={ano}
-      onSave={handleSave}
-      singleYear={false}
-    />
   );
 }

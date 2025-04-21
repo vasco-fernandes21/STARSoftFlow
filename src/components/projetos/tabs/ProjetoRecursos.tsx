@@ -124,13 +124,6 @@ const ProjetoRecursos = ({ projetoId }: ProjetoRecursosProps) => {
       .sort((a, b) => b.eti - a.eti);
   }, [projeto, selectedResource, selectedYear]);
 
-  // Encontrar nome do recurso selecionado
-  const selectedResourceName = useMemo(() => {
-    if (!selectedResource) return "";
-    const recurso = recursosProcessados.find((r) => r.id === selectedResource);
-    return recurso?.nome || "";
-  }, [selectedResource, recursosProcessados]);
-
   // Loading state
   if (isLoading) {
     return (

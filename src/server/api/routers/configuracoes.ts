@@ -206,14 +206,12 @@ export const configuracaoRouter = createTRPCRouter({
     .input(configuracaoFilterSchema.optional())
     .query(async ({ ctx, input }) => {
       try {
-        const { ano, mes, search, page = 1, limit = 10 } = input || {};
+        const { ano, mes, page = 1, limit = 10 } = input || {};
 
         // Construir condições de filtro
         const where: Prisma.ConfiguracaoMensalWhereInput = {
           ...(ano ? { ano } : {}),
           ...(mes ? { mes } : {}),
-          // Não temos campos de texto para pesquisa neste modelo, 
-          // mas mantemos o padrão caso seja necessário no futuro
         };
 
         // Parâmetros de paginação

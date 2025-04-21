@@ -41,6 +41,7 @@ type MaterialImportacao = {
   rubrica: Rubrica;
   ano_utilizacao: number;
   workpackageNome: string;
+  mes: number;
 };
 
 interface WorkpackageSimples {
@@ -125,16 +126,17 @@ function ImportarExcelContent() {
 
       if (typeof custoUnitario === "number" && typeof unidades === "number") {
         materiais.push({
-          id: Math.floor(Math.random() * 1000000), // Adicionar id que é obrigatório
+          id: Math.floor(Math.random() * 1000000),
           nome: despesa,
           descricao: null,
           estado: false,
-          preco: custoUnitario, // Agora é number, não Decimal
+          preco: custoUnitario,
           quantidade: unidades,
           ano_utilizacao: typeof ano === "number" ? ano : new Date().getFullYear(),
           rubrica: mapearRubrica(rubrica),
-          workpackageId: null, // Adicionar workpackageId que é obrigatório
+          workpackageId: null,
           workpackageNome: atividade,
+          mes: 1,
         });
       }
     }
@@ -520,6 +522,7 @@ function ImportarExcelContent() {
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
             rubrica: material.rubrica,
+            mes: material.mes || 1,
           },
         });
       });

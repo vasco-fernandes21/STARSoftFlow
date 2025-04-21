@@ -8,6 +8,7 @@ import {
   type Material,
   type AlocacaoRecurso,
   type User,
+  type ProjetoTipo,
 } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { useSession } from "next-auth/react";
@@ -41,12 +42,13 @@ export type ProjetoState = Omit<Projeto, "id" | "responsavel" | "responsavelId">
   responsavel: ResponsavelInfo | null;
   workpackages: WorkpackageState[];
   aprovado: boolean | null;
+  tipo: ProjetoTipo;
 };
 
 // Estado inicial mais limpo
 const initialState: ProjetoState = {
   nome: "",
-  descricao: null,
+  descricao: "",
   inicio: null,
   fim: null,
   estado: "RASCUNHO",
@@ -56,7 +58,8 @@ const initialState: ProjetoState = {
   financiamentoId: null,
   responsavel: null,
   workpackages: [],
-  aprovado: null,
+  aprovado: false,
+  tipo: "STANDARD" as ProjetoTipo,
 };
 
 // Ações atualizadas usando os tipos do Prisma

@@ -273,23 +273,6 @@ const getOpcoesFiltroAnoSchema = z.object({
   incluiVazios: z.boolean().default(true),
 });
 
-interface DespesaMensalBase {
-  mes: number;
-  ano: number;
-}
-
-interface AlocacaoAgregada extends DespesaMensalBase {
-  _sum: {
-    ocupacao: number | null;
-  };
-}
-
-interface MaterialAgregado extends DespesaMensalBase {
-  _sum: {
-    preco: number | null;
-  };
-}
-
 export const dashboardRouter = createTRPCRouter({
   // Dashboard unificado - substitui getUserDashboard
   getDashboard: protectedProcedure.query(async ({ ctx }) => {
@@ -313,9 +296,9 @@ export const dashboardRouter = createTRPCRouter({
 
   getDespesasMensais: protectedProcedure
     .input(getDespesasMensaisSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx, input: _input }) => {
       // pegar os ultimos X meses do ano especificado
-      const { ano } = input;
+      const { ano } = _input;
 
       // buscar despesas de recursos humanos (alocações)
       const despesasRH = await ctx.db.alocacaoRecurso.groupBy({
@@ -416,8 +399,7 @@ export const dashboardRouter = createTRPCRouter({
   // Novo endpoint para buscar anos disponíveis para filtro
   getOpcoesFiltroAno: protectedProcedure
     .input(getOpcoesFiltroAnoSchema)
-    .query(async ({ ctx, input }) => {
-      const { incluiVazios } = input;
+    .query(async ({ ctx, input: _input }) => {
       const anoAtual = new Date().getFullYear();
 
       // Anos a partir das alocações de recursos

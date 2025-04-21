@@ -27,7 +27,6 @@ import {
   PercentageField,
   MoneyField,
 } from "./criar/components/FormFields";
-import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
 
 // Schema for the form

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -170,14 +170,8 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
         descricao: null,
         estado: false,
       });
-
-      console.log(
-        `📝 Material encontrado: ${despesa} (${atividade}) - ${custoUnitario}€ x ${unidades} = ${custoUnitario * unidades}€`
-      );
     }
   }
-
-  console.log(`📝 Total de materiais encontrados: ${materiais.length}`);
 
   return materiais;
 }
@@ -267,9 +261,6 @@ function extrairDadosRH(
         dataFim: null,
       };
       wps.push(wpAtual);
-
-      // Log de workpackage encontrado
-      console.log(`📦 WP: ${wpAtual.codigo} - ${wpAtual.nome}`);
     }
     // Também verifica workpackages implícitos (A1 sem código na coluna)
     else if (
@@ -288,7 +279,6 @@ function extrairDadosRH(
         dataFim: null,
       };
       wps.push(wpAtual);
-      console.log(`📦 WP (implícito): A1 - ${row[2]}`);
     }
     // Verificar se é um recurso/utilizador
     else if (wpAtual && row[3] && typeof row[3] === "string" && !row[1]) {
@@ -361,24 +351,8 @@ function extrairDadosRH(
             // Atualizar workpackage com estas datas se forem mais precisas
             wpAtual.dataInicio = dataInicio;
             wpAtual.dataFim = dataFim;
-
-            console.log(
-              `   📅 Período calculado: ${dataInicio.toLocaleDateString()} até ${dataFim.toLocaleDateString()}`
-            );
           }
         }
-
-        // Log do utilizador
-        console.log(
-          `   👤 ${nomeRecurso}${utilizador ? ` (ID: ${utilizador.id})` : " (não encontrado)"} - ${recurso.alocacoes.length} alocações:`
-        );
-
-        // Log de todas as alocações em ordem cronológica
-        recurso.alocacoes
-          .sort((a, b) => (a.ano !== b.ano ? a.ano - b.ano : a.mes - b.mes))
-          .forEach((a) => {
-            console.log(`      📊 ${a.mes}/${a.ano}: ${a.percentagem.toFixed(1)}%`);
-          });
       }
     }
   }
@@ -400,9 +374,6 @@ function atribuirMateriaisAosWorkpackages(
     }
   });
 
-  let materiaisAtribuidos = 0;
-  let materiaisPadrão = 0;
-
   materiais.forEach((material) => {
     let wpMatch = wpMap.get(material.workpackageNome);
 
@@ -415,20 +386,10 @@ function atribuirMateriaisAosWorkpackages(
 
     if (wpMatch) {
       wpMatch.materiais.push(material);
-      materiaisAtribuidos++;
-      console.log(`✅ Material atribuído: "${material.nome}" ao workpackage "${wpMatch.nome}"`);
     } else if (workpackages.length > 0 && workpackages[0]) {
       workpackages[0].materiais.push(material);
-      materiaisPadrão++;
-      console.log(
-        `⚠️ Material sem correspondência: "${material.nome}" atribuído ao primeiro workpackage`
-      );
     }
   });
-
-  console.log(
-    `📊 Materiais atribuídos: ${materiaisAtribuidos} diretamente, ${materiaisPadrão} ao workpackage padrão`
-  );
 
   return workpackages;
 }
@@ -450,7 +411,7 @@ export default function ImportarProjetoButton() {
   // Adicionar o hook aqui dentro do componente
   const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -461,8 +422,6 @@ export default function ImportarProjetoButton() {
       const response = await fetch("/api/trpc/utilizador.findAll");
       const responseData = await response.json();
       const utilizadores = extrairUtilizadores(responseData);
-
-      console.log(`👥 Utilizadores carregados: ${utilizadores.length}`);
 
       const reader = new FileReader();
 
@@ -553,10 +512,6 @@ export default function ImportarProjetoButton() {
             });
 
             // Adicionar recursos e alocações
-            console.log(
-              `📊 Processando recursos para: ${wp.nome} (${wp.recursos.length} recursos)`
-            );
-
             wp.recursos.forEach((recurso) => {
               if (!recurso.userId) return;
 
@@ -576,10 +531,6 @@ export default function ImportarProjetoButton() {
             });
 
             // Adicionar materiais
-            console.log(
-              `📝 Processando materiais para: ${wp.nome} (${wp.materiais.length} materiais)`
-            );
-
             wp.materiais.forEach((material) => {
               dispatch({
                 type: "ADD_MATERIAL",
@@ -589,6 +540,7 @@ export default function ImportarProjetoButton() {
                   nome: material.nome,
                   preco: new Decimal(material.preco),
                   quantidade: material.quantidade,
+                  mes: wp.dataInicio ? wp.dataInicio.getMonth() + 1 : new Date().getMonth() + 1,
                   ano_utilizacao: material.ano_utilizacao,
                   rubrica: material.rubrica,
                   descricao: null,
@@ -625,8 +577,6 @@ export default function ImportarProjetoButton() {
               );
 
               if (financiamentoExistente) {
-                console.log(`💰 Financiamento encontrado: ${financiamentoExistente.nome}`);
-
                 dispatch({
                   type: "UPDATE_PROJETO",
                   data: {
@@ -636,8 +586,6 @@ export default function ImportarProjetoButton() {
 
                 toast.success(`Financiamento "${financiamentoExistente.nome}" aplicado`);
               } else if (tipoFinanciamento) {
-                console.log(`💰 Novo financiamento necessário: ${tipoFinanciamento}`);
-
                 setDadosFinanciamento({
                   nome: tipoFinanciamento,
                   overhead,
@@ -663,15 +611,6 @@ export default function ImportarProjetoButton() {
             }
           }
 
-          // Registar informações gerais
-          console.log(
-            `📋 Projeto: "${nomeProjeto}" - Período: ${dataInicioProjeto?.toLocaleDateString()} até ${dataFimProjeto?.toLocaleDateString()}`
-          );
-          console.log(
-            `📋 Financiamento: ${tipoFinanciamento || "Não definido"} (ETI: ${valorEti || 0}€, Overhead: ${overhead || 0}%, Taxa: ${taxaFinanciamento || 0}%)`
-          );
-          console.log(`📋 Total: ${wps.length} workpackages, ${materiais.length} materiais`);
-
           setOpen(false);
         } catch (error) {
           console.error("Erro na importação", error);
@@ -692,9 +631,9 @@ export default function ImportarProjetoButton() {
       toast.error("Ocorreu um erro ao buscar utilizadores.");
       setIsLoading(false);
     }
-  };
+  }, [dispatch, financiamentosData]);
 
-  const handleFinanciamentoCriado = (financiamento: FinanciamentoAPI) => {
+  const handleFinanciamentoCriado = useCallback((financiamento: FinanciamentoAPI) => {
     dispatch({
       type: "UPDATE_PROJETO",
       data: {
@@ -709,7 +648,7 @@ export default function ImportarProjetoButton() {
     setModalFinanciamentosAberto(false);
 
     toast.success("Financiamento criado e aplicado ao projeto");
-  };
+  }, [dispatch]);
 
   return (
     <>

@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, DollarSign, Percent, Info, Users, User, BarChart2 } from "lucide-react";
+import { Calendar, DollarSign, Percent, Info, Users, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import type { User as PrismaUser, Workpackage, AlocacaoRecurso } from "@prisma/client";
 import { ProjetoEstado } from "@prisma/client";
 
@@ -140,7 +140,6 @@ function ResourceList({ users }: ResourceListProps) {
 function CostChart({ projetoId, projeto }: { projetoId: string, projeto: ProjetoVisaoGeral }) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
-  // Buscar dados financeiros para o projeto e ano selecionado
   const { data: gastosMensais, isLoading, error } = api.financas.getGastosMensais.useQuery({
     projetoId: projetoId,
     ano: parseInt(selectedYear),
@@ -184,9 +183,20 @@ function CostChart({ projetoId, projeto }: { projetoId: string, projeto: Projeto
     return years;
   }, [projeto.inicio, projeto.fim]);
 
+  const chartConfig = {
+    estimado: {
+      label: "Estimado",
+      color: "#94a3b8"
+    },
+    realizado: {
+      label: "Realizado",
+      color: "#475569"
+    }
+  };
+
   if (isLoading) {
     return (
-      <Card className="border-slate-200 bg-slate-50">
+      <Card>
         <CardContent className="p-6 text-center text-slate-700">
           <p className="font-semibold">A carregar dados financeiros...</p>
         </CardContent>
@@ -204,24 +214,13 @@ function CostChart({ projetoId, projeto }: { projetoId: string, projeto: Projeto
     );
   }
 
-  const chartConfig = {
-    estimado: {
-      label: "Estimado",
-      color: "#94a3b8"
-    },
-    realizado: {
-      label: "Realizado",
-      color: "#475569"
-    }
-  } satisfies ChartConfig;
-
   return (
     <Card className="rounded-xl border border-slate-100 bg-white/80 shadow-sm backdrop-blur-sm">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/50">
-        <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-          <BarChart2 className="h-5 w-5 text-slate-500" />
-          Custos Mensais
-        </CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
+        <div>
+          <CardTitle className="text-lg font-semibold text-slate-800">Custos Mensais</CardTitle>
+          <CardDescription>{selectedYear}</CardDescription>
+        </div>
         <div className="w-32">
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="h-8 rounded-md border-slate-200 bg-white shadow-sm focus:ring-2 focus:ring-slate-300 focus:ring-offset-0">
@@ -241,41 +240,51 @@ function CostChart({ projetoId, projeto }: { projetoId: string, projeto: Projeto
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="horizontal" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="mes" stroke="#64748b" tick={{ fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#e2e8f0' }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${value/1000}K€`} />
-              <ChartTooltip 
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis 
+                dataKey="mes" 
+                stroke="#64748b" 
+                tick={{ fontSize: 12 }} 
+                tickLine={false} 
+                axisLine={false}
+                tickMargin={10}
+              />
+              <YAxis 
+                stroke="#64748b" 
+                tick={{ fontSize: 12 }} 
+                tickLine={false} 
+                axisLine={false} 
+                tickFormatter={(value) => `${value/1000}K€`}
+              />
+              <ChartTooltip
+                cursor={false}
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   
                   return (
                     <div className="rounded-lg border border-slate-200 bg-white/90 p-3 shadow-md backdrop-blur-sm">
                       <p className="mb-2 font-medium text-slate-800">{payload[0]?.payload.mes}</p>
-                      {payload.map((item, index) => (
+                      {payload.map((item: any, index: number) => (
                         <div key={index} className="flex items-center gap-2 text-sm">
                           <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
                           <span className="font-medium text-slate-600">{item.name}:</span>
-                          <span className="text-slate-800">{item.value.toLocaleString('pt-PT')}€</span>
+                          <span className="text-slate-800">{item.value?.toLocaleString('pt-PT')}€</span>
                         </div>
                       ))}
                     </div>
                   );
                 }}
               />
-              <Legend 
-                wrapperStyle={{ paddingTop: '20px' }}
-                formatter={(value) => <span className="text-sm font-medium text-slate-600">{value}</span>}
-              />
               <Bar 
                 dataKey="estimado" 
                 name="Estimado" 
-                fill="#94a3b8" 
+                fill="#92C5FD" 
                 radius={[4, 4, 0, 0]} 
               />
               <Bar 
                 dataKey="realizado" 
                 name="Realizado" 
-                fill="#475569" 
+                fill="#3C82F6" 
                 radius={[4, 4, 0, 0]} 
               />
             </BarChart>

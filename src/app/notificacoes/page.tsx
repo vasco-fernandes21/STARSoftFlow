@@ -20,14 +20,15 @@ import { format, addDays, addHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { type ColumnDef, type RowSelectionState } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
-
-import { TabelaDados } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { StatsGrid } from "@/components/common/StatsGrid";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import type { StatItem } from "@/components/common/StatsGrid";
-import type { FilterOption } from "@/components/common/TabelaDados";
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import type { StatItem } from '@/components/common/StatsGrid';
+import { TabelaDados } from '@/components/common/TabelaDados';
+import type { FilterOption } from '@/components/common/TabelaDados';
+
+
 
 // Tipos de Notificação
 type TipoNotificacao = "ENTREGAVEL" | "PROJETO" | "WORKPACKAGE" | "ALOCACAO" | "TAREFA";
@@ -262,7 +263,7 @@ export default function Notificacoes() {
   }, [notificacoes, tipoFilter, urgenciaFilter]);
 
   // Manipulador para clique em uma notificação (navegação)
-  const handleRowClick = (notificacao: Notificacao) => {
+  const handleRowClick = useCallback((notificacao: Notificacao) => {
     // Marcar como lida ao clicar (simulação)
     setNotificacoes((prev) =>
       prev.map((n) =>
@@ -293,7 +294,7 @@ export default function Notificacoes() {
         url = "/dashboard";
     }
     router.push(url);
-  };
+  }, [router]);
 
   // Ação: Marcar selecionadas como lidas
   const handleMarcarComoLida = () => {
@@ -487,8 +488,8 @@ export default function Notificacoes() {
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
-    [handleRowClick, rowSelection]
-  ); // Adicionar rowSelection como dependência para re-renderizar checkboxes
+    [handleRowClick]
+  ); // Remover rowSelection da dependência pois não é necessário
 
   // Estatísticas das notificações
   const getNaoLidasCount = useCallback(() => {

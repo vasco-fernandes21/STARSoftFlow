@@ -82,6 +82,8 @@ export function ProjetoCronograma({
         financiamento: null,
         workpackages: workpackages,
         progresso: 0,
+        aprovado: false,
+        tipo: "STANDARD",
       };
 
       return (
