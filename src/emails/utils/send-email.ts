@@ -214,7 +214,7 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     // Determinar o email de origem correto
     // Em ambiente de desenvolvimento, usar o endereço padrão do Resend
     // Em produção, usar o endereço configurado em .env
-    const fromEmail = isDev ? "onboarding@resend.dev" : env.RESEND_FROM_EMAIL;
+    const fromEmail = isDev ? "onboarding@starsoftflow.tech" : env.RESEND_FROM_EMAIL;
 
     // Preparar o payload do email
     const emailPayload = {
