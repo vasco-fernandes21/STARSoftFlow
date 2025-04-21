@@ -45,6 +45,8 @@ const RUBRICA_LABELS: Record<Rubrica, string> = {
   DESLOCACAO_ESTADAS: "Deslocação e Estadas",
   OUTROS_CUSTOS: "Outros Custos",
   CUSTOS_ESTRUTURA: "Custos de Estrutura",
+  INSTRUMENTOS_E_EQUIPAMENTOS: "Instrumentos e Equipamentos",
+  SUBCONTRATOS: "Subcontratos",
 };
 
 // Cores para as rubricas
@@ -55,6 +57,8 @@ const RUBRICA_COLORS: Record<Rubrica, { bg: string; text: string; border: string
   DESLOCACAO_ESTADAS: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
   OUTROS_CUSTOS: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   CUSTOS_ESTRUTURA: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
+  INSTRUMENTOS_E_EQUIPAMENTOS: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  SUBCONTRATOS: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
 };
 
 // Formatar valor monetário

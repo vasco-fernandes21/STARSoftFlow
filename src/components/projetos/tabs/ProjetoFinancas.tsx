@@ -41,6 +41,7 @@ import { OverviewTab } from "./projeto-financas/OverviewTab";
 import { OrcamentoSubmetidoTab } from "./projeto-financas/OrcamentoSubmetidoTab";
 import { OrcamentoRealTab } from "./projeto-financas/OrcamentoRealTab";
 import { FolgaTab } from "./projeto-financas/FolgaTab";
+import type { ProjetoEstado } from "@prisma/client";
 
 // --- Type Definitions ---
 
@@ -93,6 +94,14 @@ export interface DetalheAnualMapped {
 
 // Use type intersection instead of extends for better compatibility with inferred types
 interface FinancasBase {
+  estado: ProjetoEstado;
+  orcamentoSubmetidoTipo: 'DB_PENDENTE' | 'ETI_SNAPSHOT' | 'DETALHADO_SNAPSHOT' | 'INVALIDO';
+  orcamentoSubmetidoDetalhes: {
+    recursos: number;
+    materiais: number;
+    overhead: number;
+    overheadPercent: number;
+  } | null;
   orcamentoSubmetido: number;
   taxaFinanciamento: number;
   valorFinanciado: number;
@@ -134,22 +143,12 @@ function isFinancasComDetalhes(
     !!data &&
     typeof data === "object" &&
     "orcamentoSubmetido" in data &&
-    "taxaFinanciamento" in data &&
-    "valorFinanciado" in data &&
     "custosReais" in data &&
-    "custosConcluidos" in data &&
-    "overhead" in data &&
-    "resultado" in data &&
-    "folga" in data &&
-    "vab" in data &&
-    "margem" in data &&
-    "vabCustosPessoal" in data &&
-    "meta" in data &&
     "detalhesAnuais" in data &&
     Array.isArray((data as any).detalhesAnuais) &&
     "anos" in data &&
     Array.isArray((data as any).anos) &&
-    data.meta.tipo === "projeto_individual"
+    data.meta?.tipo === "projeto_individual"
   );
 }
 
@@ -216,8 +215,6 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     error: errorComparacao,
   } = api.financas.getComparacaoGastos.useQuery({
     projetoId,
-    workpackageId: selectedWorkpackageId === "todos" ? undefined : selectedWorkpackageId,
-    incluirDetalhes: true,
   }, {
     // Re-fetch quando selectedWorkpackageId muda
     enabled: !!projetoId, // Só executa se projetoId estiver definido

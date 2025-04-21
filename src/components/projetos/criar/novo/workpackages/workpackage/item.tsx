@@ -207,6 +207,7 @@ export function WorkpackageItem({
                   ...material,
                   preco: Number(material.preco),
                   workpackageId: material.workpackageId || workpackage.id,
+                  mes: material.mes ?? 1,
                 }}
                 onEdit={async (workpackageId, data) => {
                   await handlers.updateMaterial(workpackageId, material.id, data);

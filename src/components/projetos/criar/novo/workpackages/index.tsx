@@ -657,7 +657,7 @@ export function WorkpackagesTab({
                                       ...material,
                                       preco: Number(material.preco),
                                       workpackageId: selectedWorkpackage.id,
-                                      mes: material.mes || 0,
+                                      mes: material.mes || 1, 
                                     }}
                                     onEdit={(workpackageId, materialData) => {
                                       handleUpdateMaterialLocal(
