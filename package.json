@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma migrate deploy && prisma generate && next build --turbopack",
+    "build": "DATABASE_URL=\"$DATABASE_URL_NON_POOLING\" prisma migrate deploy && prisma generate && next build --turbopack",
     "check": "next lint && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",
