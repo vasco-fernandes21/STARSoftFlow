@@ -92,6 +92,7 @@ export default function LoginPage() {
               width={280}
               height={80}
               priority
+              unoptimized={true}
               className="mb-12 drop-shadow-lg"
               onError={(e) => {
                 console.error("Error loading logo:", e);
@@ -130,6 +131,7 @@ export default function LoginPage() {
               width={180}
               height={48}
               priority
+              unoptimized={true}
               className="h-10 w-auto"
               onError={(e) => {
                 console.error("Error loading logo:", e);

@@ -44,9 +44,14 @@ export async function middleware(request: NextRequest) {
 // Configuração para aplicar o middleware a rotas específicas
 export const config = {
   matcher: [
-    // Aplica a todas as rotas exceto:
-    // 1. Recursos estáticos
-    // 2. Rotas de API
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|images|public).*)",
+    /*
+     * Corresponde a todos os caminhos de pedido, exceto aqueles que começam com:
+     * - api (rotas de API)
+     * - _next/static (ficheiros estáticos do Next.js)
+     * - _next/image (ficheiros de otimização de imagem)
+     * - favicon.ico (ficheiro favicon)
+     * - Qualquer coisa que pareça um ficheiro (contém um ponto '.')
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)',
   ],
 };
