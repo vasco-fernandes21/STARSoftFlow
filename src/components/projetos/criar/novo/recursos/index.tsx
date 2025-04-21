@@ -30,19 +30,18 @@ interface Alocacao {
 }
 
 // Dados dos membros da equipa obtidos da API
-const RecursosData = () => {
+const useRecursosData = () => {
   const { data, isLoading, error } = api.utilizador.findAll.useQuery();
 
-  if (isLoading) return { membrosEquipa: [], isLoading: true };
+  if (isLoading) return { data: undefined, isLoading: true, error: null }; // Retorna estrutura consistente
   if (error) {
     toast.error("Erro ao carregar utilizadores");
-    return { membrosEquipa: [], error };
+    // Retorna estrutura consistente, mesmo com erro
+    return { data: undefined, isLoading: false, error }; 
   }
 
-
-  const membrosEquipa = data || [];
-
-  return { membrosEquipa };
+  // Retorna diretamente o resultado da query (ou undefined)
+  return { data, isLoading: false, error: null };
 };
 
 // Transform user data to match the expected User interface
@@ -84,8 +83,10 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     alocacoes: any[];
   } | null>(null);
 
-  // Obter dados dos membros da equipa
-  const { membrosEquipa = [] } = RecursosData();
+  // Obter dados dos membros da equipa usando o hook renomeado
+  const { data: membrosEquipaData, isLoading: isLoadingMembros } = useRecursosData();
+  // Extrair a lista de items ou usar um array vazio
+  const listaMembrosEquipa = membrosEquipaData?.items ?? [];
 
   // Verificar se há workpackages
   const hasWorkpackages = state.workpackages && state.workpackages.length > 0;
@@ -309,7 +310,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
               workpackageId={selectedWorkpackageId}
               inicio={selectedWorkpackage.inicio || new Date()}
               fim={selectedWorkpackage.fim || new Date()}
-              utilizadores={membrosEquipa.map(
+              utilizadores={listaMembrosEquipa.map(
                 (m: { id: string; name: string | null; email: string | null; regime: string }): { id: string; name: string; email: string; regime: string } => ({
                   id: m.id,
                   name: m.name || "",
@@ -349,7 +350,8 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
               ) : (
                 <div className="space-y-4">
                   {Object.entries(recursosAgrupados).map(([userId, recurso]) => {
-                    const user = membrosEquipa.find((m) => m.id === userId);
+                    // Usar a listaMembrosEquipa diretamente
+                    const user = listaMembrosEquipa.find((m: { id: string }) => m.id === userId);
                     if (!user) return null;
 
                     const isExpanded = expandedRecursoId === userId;
@@ -365,8 +367,8 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                         onRemove={() =>
                           handleRemoveRecurso(selectedWorkpackageId, userId, recurso.alocacoes)
                         }
-                        inicio={selectedWorkpackage?.inicio || new Date()}
-                        fim={selectedWorkpackage?.fim || new Date()}
+                        inicio={selectedWorkpackage.inicio || new Date()}
+                        fim={selectedWorkpackage.fim || new Date()}
                         projetoEstado={"RASCUNHO"}
                         onUpdateAlocacao={(userId, alocacoes) =>
                           handleAddAlocacao(
@@ -375,7 +377,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                           )
                         }
                         workpackageId={selectedWorkpackageId}
-                        utilizadores={membrosEquipa.map(transformUser)}
+                        utilizadores={listaMembrosEquipa.map(transformUser)}
                       />
                     );
                   })}
