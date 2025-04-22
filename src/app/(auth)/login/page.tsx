@@ -157,7 +157,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full rounded-xl border-0 px-4 py-3.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 transition-all duration-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-azul"
-                  placeholder="utilizador@starinstitute.com"
+                  placeholder="utilizador@starinstitute.pt"
                   required
                   disabled={isLoading}
                 />

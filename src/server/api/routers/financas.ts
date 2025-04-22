@@ -1277,50 +1277,60 @@ export const financasRouter = createTRPCRouter({
           // Encontrar o WP correspondente no snapshot
           const wpSnapshot = snapshotWorkpackages.find((wpSnap: any) => wpSnap.id === wpId);
 
-          // Calcular Estimado para este WP (do Snapshot)
+          // --- Calcular Estimado para este WP (do Snapshot) ---
           let estimadoRecursosWP = new Decimal(0);
           let estimadoMateriaisWP = new Decimal(0);
           const estimadoRubricasWP: Record<string, Decimal> = {};
+
           if (wpSnapshot) {
               const recursosSnap = wpSnapshot.recursos ?? [];
+              const materiaisSnap = wpSnapshot.materiais ?? [];
+
               if (estimativaBaseadaEmETI) {
+                  // Cenário ETI: Apenas alocações * ETI
                   const alocWPSnap = recursosSnap.reduce((s: Decimal, r:any) => s.plus(new Decimal(r.ocupacao||0)), new Decimal(0));
                   estimadoRecursosWP = alocWPSnap.times(valorETISnapshot);
+                  estimadoMateriaisWP = new Decimal(0); // Materiais NÃO entram na estimativa ETI
+                  // Rúbricas também são 0 na estimativa ETI
               } else {
+                  // Cenário Detalhado: Recursos ajustados + Materiais
                   estimadoRecursosWP = recursosSnap.reduce((s: Decimal, r: any) => {
                       const salSnap = r.user?.salario ? new Decimal(r.user.salario) : null;
                       return s.plus(new Decimal(r.ocupacao||0).times(calcularSalarioAjustado(salSnap)));
-            }, new Decimal(0));
+                  }, new Decimal(0));
+
+                  materiaisSnap.forEach((m: any) => {
+                      const custoMatSnap = new Decimal(m.preco||0).times(new Decimal(m.quantidade||0));
+                      estimadoMateriaisWP = estimadoMateriaisWP.plus(custoMatSnap);
+                      if (m.rubrica) {
+                          estimadoRubricasWP[m.rubrica] = (estimadoRubricasWP[m.rubrica] || new Decimal(0)).plus(custoMatSnap);
+                          // Acumular nos totais de rúbricas apenas no modo detalhado
+                          totalEstimadoRubricas[m.rubrica] = (totalEstimadoRubricas[m.rubrica] || new Decimal(0)).plus(custoMatSnap);
+                      }
+                  });
+              }
           }
-              const materiaisSnap = wpSnapshot.materiais ?? [];
-              materiaisSnap.forEach((m: any) => {
-                  const custoMatSnap = new Decimal(m.preco||0).times(new Decimal(m.quantidade||0));
-                  estimadoMateriaisWP = estimadoMateriaisWP.plus(custoMatSnap);
-                  if (m.rubrica) {
-                      estimadoRubricasWP[m.rubrica] = (estimadoRubricasWP[m.rubrica] || new Decimal(0)).plus(custoMatSnap);
-                      totalEstimadoRubricas[m.rubrica] = (totalEstimadoRubricas[m.rubrica] || new Decimal(0)).plus(custoMatSnap);
-            }
-          });
-          }
+          // Acumular nos totais gerais (independentemente do método ETI/Detalhado)
           totalEstimadoRecursos = totalEstimadoRecursos.plus(estimadoRecursosWP);
           totalEstimadoMateriais = totalEstimadoMateriais.plus(estimadoMateriaisWP);
 
-          // Calcular Real para este WP (do DB)
+          // --- Calcular Real para este WP (do DB) ---
           let realRecursosWP = new Decimal(0);
           let realMateriaisWP = new Decimal(0);
           const realRubricasWP: Record<string, Decimal> = {};
           alocacoesReaisDB.filter(a => a.workpackage.id === wpId).forEach(aloc => {
               const custoRealRec = new Decimal(aloc.ocupacao).times(calcularSalarioAjustado(aloc.user.salario));
               realRecursosWP = realRecursosWP.plus(custoRealRec);
-      });
+          });
           materiaisReaisDB.filter(m => m.workpackageId === wpId).forEach(mat => {
               const custoMatReal = new Decimal(mat.preco).times(new Decimal(mat.quantidade));
               realMateriaisWP = realMateriaisWP.plus(custoMatReal);
               if (mat.rubrica) {
                   realRubricasWP[mat.rubrica] = (realRubricasWP[mat.rubrica] || new Decimal(0)).plus(custoMatReal);
+                  // Acumular nos totais de rúbricas apenas no modo detalhado
                   totalRealRubricas[mat.rubrica] = (totalRealRubricas[mat.rubrica] || new Decimal(0)).plus(custoMatReal);
-        }
-      });
+              }
+          });
           totalRealRecursos = totalRealRecursos.plus(realRecursosWP);
           totalRealMateriais = totalRealMateriais.plus(realMateriaisWP);
 

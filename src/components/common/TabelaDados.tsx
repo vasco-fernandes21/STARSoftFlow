@@ -94,48 +94,10 @@ export function TabelaDados<TData>({
   getRowId,
 }: TabelaDadosProps<TData>) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
-  const [dynamicItemsPerPage, setDynamicItemsPerPage] = useState(itemsPerPage);
-
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: dynamicItemsPerPage,
+    pageSize: itemsPerPage,
   });
-
-  const calculateItemsPerPage = useCallback(() => {
-    if (!tableContainerRef.current) return itemsPerPage;
-
-    const ROW_HEIGHT = 44;
-    const HEADER_FOOTER_HEIGHT = 70;
-    const MIN_ROWS = 5;
-    const MAX_ROWS = 25;
-
-    const availableHeight = tableContainerRef.current.clientHeight - HEADER_FOOTER_HEIGHT;
-    const calculatedItems = Math.max(1, Math.floor((availableHeight + 5) / ROW_HEIGHT));
-
-    return Math.max(MIN_ROWS, Math.min(calculatedItems, MAX_ROWS));
-  }, [itemsPerPage]);
-
-  useEffect(() => {
-    const updateItemsPerPage = () => {
-      const calculated = calculateItemsPerPage();
-      setDynamicItemsPerPage((prev) => (prev !== calculated ? calculated : prev));
-    };
-
-    updateItemsPerPage();
-
-    const observer = new ResizeObserver(updateItemsPerPage);
-    const containerElement = tableContainerRef.current;
-    if (containerElement) {
-      observer.observe(containerElement);
-    }
-
-    return () => {
-      if (containerElement) {
-        observer.unobserve(containerElement);
-      }
-      observer.disconnect();
-    };
-  }, [calculateItemsPerPage]);
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -144,9 +106,9 @@ export function TabelaDados<TData>({
   useEffect(() => {
     setPagination((prev) => ({
       ...prev,
-      pageSize: dynamicItemsPerPage,
+      pageSize: itemsPerPage,
     }));
-  }, [dynamicItemsPerPage]);
+  }, [itemsPerPage]);
 
   const table = useReactTable({
     data,
@@ -169,7 +131,7 @@ export function TabelaDados<TData>({
     ...(getRowId && { getRowId }),
     ...(setRowSelection && { onRowSelectionChange: setRowSelection }),
     manualPagination: false,
-    autoResetPageIndex: false,
+    autoResetPageIndex: true,
     enableRowSelection: !!rowSelection,
   });
 
@@ -182,8 +144,11 @@ export function TabelaDados<TData>({
   const clearAllFilters = () => {
     table.resetGlobalFilter();
     table.resetColumnFilters();
-    filterConfigs.forEach((config) => config.onChange("todos"));
+    filterConfigs.forEach((config) => {
+      config.onChange("all");
+    });
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    setGlobalFilter("");
   };
 
   const paginationNumbers = useMemo(() => {
@@ -243,7 +208,10 @@ export function TabelaDados<TData>({
               type="text"
               placeholder={searchPlaceholder}
               value={globalFilter ?? ""}
-              onChange={(e) => setGlobalFilter(e.target.value)}
+              onChange={(e) => {
+                setGlobalFilter(e.target.value);
+                setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+              }}
               className="h-9 w-full rounded-full border-slate-200 bg-slate-50/50 py-2 pl-10 pr-4 text-slate-700 shadow-inner transition-all duration-200 ease-in-out focus:border-azul/30 focus:bg-white focus:ring-1 focus:ring-azul/20"
             />
           </div>
@@ -321,7 +289,6 @@ export function TabelaDados<TData>({
                                     customClassName="w-2 h-2 p-0 rounded-full min-w-0"
                                   />
                                 ) : (
-                                  option.value !== "todos" &&
                                   option.value !== "all" && (
                                     <div className="h-2 w-2 rounded-full bg-slate-300" />
                                   )
@@ -369,7 +336,8 @@ export function TabelaDados<TData>({
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            config.onChange("todos");
+                            config.onChange("all");
+                            table.resetColumnFilters();
                             setPagination((prev) => ({ ...prev, pageIndex: 0 }));
                           }}
                           className="ml-1 h-4 w-4 rounded-full p-0 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
@@ -388,7 +356,7 @@ export function TabelaDados<TData>({
       <div ref={tableContainerRef} className="min-h-[400px] flex-1 overflow-auto">
         <div className="h-full min-w-full">
           {isLoading ? (
-            <LoadingTable columns={columns} itemsPerPage={dynamicItemsPerPage} />
+            <LoadingTable columns={columns} itemsPerPage={itemsPerPage} />
           ) : table.getFilteredRowModel().rows.length === 0 ? (
             <EmptyState message={emptyStateMessage} onClearFilters={clearAllFilters} />
           ) : (
@@ -456,7 +424,10 @@ export function TabelaDados<TData>({
                           className={cn(
                             "h-[44px] px-3 py-2.5 align-middle text-sm font-normal text-slate-700 transition-colors duration-150",
                             "first:rounded-l-lg last:rounded-r-lg group-hover:text-slate-800",
-                            row.getIsSelected() && "font-medium text-azul/90"
+                            row.getIsSelected() && "font-medium text-azul/90",
+                            (cell.column.columnDef.meta as any)?.align === "right" && "text-right",
+                            (cell.column.columnDef.meta as any)?.align === "center" && "text-center",
+                            !((cell.column.columnDef.meta as any)?.align) && "text-left"
                           )}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}

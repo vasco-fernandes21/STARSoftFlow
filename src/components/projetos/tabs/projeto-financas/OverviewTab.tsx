@@ -134,150 +134,115 @@ export function OverviewTab({
     setSelectedWorkpackageId(value === "todos" ? undefined : value);
   };
 
-  // --- Processamento de Dados Reais (Sempre Executado) ---
-  const dadosReaisProcessados = React.useMemo(() => {
+  // --- Determinar a Fonte de Dados Selecionada (Total ou WP específico) ---
+  const fonteDadosSelecionada: FonteDadosComparacao | null = React.useMemo(() => {
     if (!comparacaoGastos) return null;
 
     const isTotal = !selectedWorkpackageId || selectedWorkpackageId === "todos";
-    const source = isTotal 
-      ? comparacaoGastos.total 
-      : comparacaoGastos.workpackages.find(wp => wp.id === selectedWorkpackageId);
-
-    if (!source) return null;
-
-    // Acessar dados corretamente, seja de 'total' ou de um 'workpackage'
-    const recursosReal = source.recursos?.real ?? 0;
-    const materiaisReal = isTotal 
-        ? (source as TotaisFinanceiros).materiais?.real 
-        : (source as WorkpackageFinanceiro).materiais?.totalReal ?? 0;
-    const materiaisRubricas = source.materiais?.rubricas ?? [];
-
-    // Normalizar rubricas para o tipo RubricaFinanceira (apenas valor 'real' relevante aqui)
-    const rubricasReaisNormalizadas: RubricaFinanceira[] = (materiaisRubricas ?? []).map((r) => ({
-        rubrica: r.rubrica,
-        estimado: 0, // Estimado não é relevante aqui
-        real: r.real ?? 0, // Garantir que real existe
-    }));
-
-    return {
-      recursos: { real: recursosReal, estimado: 0 }, // Incluir estimado para consistência do tipo
-      materiais: {
-        real: materiaisReal,
-        estimado: 0, // Incluir estimado para consistência do tipo
-        rubricas: rubricasReaisNormalizadas,
-      },
-      geral: { real: recursosReal + materiaisReal, estimado: 0 } // Incluir estimado
-    } as FonteDadosComparacao; // Afirmar tipo para garantir estrutura
-
-  }, [comparacaoGastos, selectedWorkpackageId]);
-
-  // --- Processamento de Dados Estimados Detalhados (Apenas se NÃO for ETI) ---
-  const fonteEstimadaDetalhada: FonteDadosComparacao | null = React.useMemo(() => {
-    if (!comparacaoGastos || comparacaoGastos.estimativaBaseadaEmETI) return null;
     
-    const isTotal = !selectedWorkpackageId || selectedWorkpackageId === "todos";
-    const source = isTotal
-      ? comparacaoGastos.total
-      : comparacaoGastos.workpackages.find(wp => wp.id === selectedWorkpackageId);
+    if (isTotal) {
+        // Usar os totais gerais
+        return {
+            recursos: comparacaoGastos.total.recursos, // { estimado, real }
+            materiais: { // { estimado, real, rubricas }
+                estimado: comparacaoGastos.total.materiais.estimado,
+                real: comparacaoGastos.total.materiais.real,
+                rubricas: comparacaoGastos.total.materiais.rubricas,
+            },
+            geral: comparacaoGastos.total.geral // { estimado, real }
+        } as FonteDadosComparacao;
+    } else {
+        // Encontrar o workpackage específico
+        const wpSelecionado = comparacaoGastos.workpackages.find(wp => wp.id === selectedWorkpackageId);
+        if (!wpSelecionado) return null;
 
-    if (!source) return null;
-
-    const recursosEstimado = source.recursos?.estimado ?? 0;
-    const materiaisEstimado = isTotal 
-        ? (source as TotaisFinanceiros).materiais?.estimado 
-        : (source as WorkpackageFinanceiro).materiais?.totalEstimado ?? 0;
-    const materiaisRubricasEstimadas = source.materiais?.rubricas ?? [];
-
-    // O real não é necessário aqui, mas mantemos a estrutura para consistência do tipo FonteDados
-    const recursosReal = source.recursos?.real ?? 0;
-    const materiaisReal = isTotal 
-        ? (source as TotaisFinanceiros).materiais?.real 
-        : (source as WorkpackageFinanceiro).materiais?.totalReal ?? 0;
-
-    // Normalizar rubricas estimadas
-    // Adicionando tipo explícito para 'r'
-    const rubricasEstimadasNormalizadas: RubricaFinanceira[] = (materiaisRubricasEstimadas ?? []).map((r: RubricaFinanceira) => ({
-        rubrica: r.rubrica,
-        estimado: r.estimado ?? 0, // Garantir que estimado existe
-        real: 0, // Real não é relevante aqui
-    }));
-
-    return {
-      recursos: { estimado: recursosEstimado, real: recursosReal }, // Real incluído para tipo
-      materiais: {
-        estimado: materiaisEstimado,
-        real: materiaisReal, // Real incluído para tipo
-        rubricas: rubricasEstimadasNormalizadas,
-      },
-      geral: {
-        estimado: recursosEstimado + materiaisEstimado,
-        real: recursosReal + materiaisReal // Real incluído para tipo
-      }
-    } as FonteDadosComparacao; // Afirmar tipo
+        // Mapear dados do WP para a estrutura FonteDadosComparacao
+        return {
+            recursos: wpSelecionado.recursos, // { estimado, real }
+            materiais: { // { totalEstimado, totalReal, rubricas }
+                estimado: wpSelecionado.materiais.totalEstimado,
+                real: wpSelecionado.materiais.totalReal,
+                rubricas: wpSelecionado.materiais.rubricas,
+            },
+            // Calcular geral para o WP selecionado
+            geral: { 
+                estimado: wpSelecionado.recursos.estimado + wpSelecionado.materiais.totalEstimado, 
+                real: wpSelecionado.recursos.real + wpSelecionado.materiais.totalReal 
+            }
+        } as FonteDadosComparacao;
+    }
   }, [comparacaoGastos, selectedWorkpackageId]);
 
-  // Preparar dados para as tabelas Estimado e Real
+  // --- Processamento de Dados para Tabelas (Baseado na Fonte Selecionada) ---
   const { dadosTabelaEstimado, dadosTabelaReal } = React.useMemo(() => {
-    // Tabela Real usa dadosReaisProcessados
-    const real: Array<{ categoria: string; valor: number }> = [];
-    if (dadosReaisProcessados) {
-        real.push({
-          categoria: "Recursos Humanos",
-          valor: dadosReaisProcessados.recursos.real,
-        });
-        // Usar as rubricas de dadosReaisProcessados
-        dadosReaisProcessados.materiais.rubricas.forEach((r) => {
-            if(r.real > 0) { // Só adicionar se houver valor real (já são únicas)
-                const nomeFormatado = formatRubricaName(r.rubrica);
-                real.push({ categoria: nomeFormatado, valor: r.real });
-            }
-        });
-    }
-
-    // Tabela Estimado depende da flag ETI ou de fonteEstimadaDetalhada
     const estimado: Array<{ categoria: string; valor: number }> = [];
-    if (comparacaoGastos?.estimativaBaseadaEmETI) {
-      estimado.push({
-        categoria: "Orçamento Submetido (ETI)",
-        valor: comparacaoGastos.total.geral.estimado,
-      });
-    } else if (fonteEstimadaDetalhada) { // Usar fonteEstimadaDetalhada
-      estimado.push({
+    const real: Array<{ categoria: string; valor: number }> = [];
+
+    if (fonteDadosSelecionada) {
+      // Tabela Real sempre usa os dados 'real'
+      real.push({
         categoria: "Recursos Humanos",
-        valor: fonteEstimadaDetalhada.recursos.estimado,
+        valor: fonteDadosSelecionada.recursos.real,
       });
-      // Usar as rubricas de fonteEstimadaDetalhada
-      fonteEstimadaDetalhada.materiais.rubricas.forEach((r) => {
-        if (r.estimado > 0) { // Só adicionar se houver valor estimado (já são únicas)
-            const nomeFormatado = formatRubricaName(r.rubrica);
-            estimado.push({ categoria: nomeFormatado, valor: r.estimado });
+      fonteDadosSelecionada.materiais.rubricas.forEach((r) => {
+        if (r.real > 0) {
+          const nomeFormatado = formatRubricaName(r.rubrica);
+          real.push({ categoria: nomeFormatado, valor: r.real });
         }
       });
+
+      // Tabela Estimado depende da flag ETI ou dos dados 'estimado'
+      if (comparacaoGastos?.estimativaBaseadaEmETI) {
+        // No modo ETI, o estimado é só o valor dos recursos (Aloc * ETI)
+        estimado.push({
+          categoria: "Orçamento Submetido (ETI)",
+          valor: fonteDadosSelecionada.recursos.estimado, // Usa o estimado de recursos da fonte
+        });
+        // Não adiciona materiais/rubricas estimadas no modo ETI
+      } else {
+        // Modo Detalhado: usa os valores estimados
+        estimado.push({
+          categoria: "Recursos Humanos",
+          valor: fonteDadosSelecionada.recursos.estimado,
+        });
+        fonteDadosSelecionada.materiais.rubricas.forEach((r) => {
+          if (r.estimado > 0) {
+            const nomeFormatado = formatRubricaName(r.rubrica);
+            estimado.push({ categoria: nomeFormatado, valor: r.estimado });
+          }
+        });
+      }
     }
 
     const ordenarCategorias = (a: { categoria: string }, b: { categoria: string }) => {
-        if (a.categoria === "Recursos Humanos" || a.categoria === "Orçamento Submetido (ETI)") return -1;
-        if (b.categoria === "Recursos Humanos" || b.categoria === "Orçamento Submetido (ETI)") return 1;
-        return a.categoria.localeCompare(b.categoria);
-    }
+      if (a.categoria === "Recursos Humanos" || a.categoria === "Orçamento Submetido (ETI)") return -1;
+      if (b.categoria === "Recursos Humanos" || b.categoria === "Orçamento Submetido (ETI)") return 1;
+      return a.categoria.localeCompare(b.categoria);
+    };
 
     return {
       dadosTabelaEstimado: estimado.sort(ordenarCategorias),
       dadosTabelaReal: real.sort(ordenarCategorias),
     };
-  // Depende das duas fontes de dados processadas
-  }, [comparacaoGastos, dadosReaisProcessados, fonteEstimadaDetalhada]); 
+  // Depende da fonte de dados selecionada e da flag ETI
+  }, [fonteDadosSelecionada, comparacaoGastos?.estimativaBaseadaEmETI]);
 
-  // Calcular totais gerais
-  const totalGeralEstimado = comparacaoGastos?.estimativaBaseadaEmETI
-                             ? comparacaoGastos.total.geral.estimado
-                             : fonteEstimadaDetalhada?.geral.estimado ?? 0;
-                             
-  // Total Real usa sempre dadosReaisProcessados
-  const totalGeralReal = dadosReaisProcessados?.geral.real ?? 0; 
+  // Calcular totais gerais (Estimado e Real) a partir da fonte selecionada
+  const totalGeralEstimado = fonteDadosSelecionada
+      ? (comparacaoGastos?.estimativaBaseadaEmETI
+          ? fonteDadosSelecionada.recursos.estimado // Estimado ETI é só Recursos * ETI
+          : fonteDadosSelecionada.geral.estimado) // Estimado Detalhado é Recursos + Materiais
+      : 0;
+  const totalGeralReal = fonteDadosSelecionada?.geral.real ?? 0;
   const percentGastoGeral = totalGeralEstimado > 0 ? (totalGeralReal / totalGeralEstimado) * 100 : 0;
 
   const showComparisonCard = comparacaoGastos && comparacaoGastos.estado !== 'PENDENTE';
+
+  // Nome do Workpackage selecionado para exibição
+  const nomeWpSelecionado = React.useMemo(() => {
+      if (!selectedWorkpackageId || selectedWorkpackageId === "todos") return null;
+      return workpackagesList?.find(wp => wp.id === selectedWorkpackageId)?.nome;
+  }, [selectedWorkpackageId, workpackagesList]);
 
   // Preparar opções para o DropdownField
   const workpackageDropdownOptions = React.useMemo(() => {

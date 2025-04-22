@@ -131,27 +131,45 @@ function getRegimeText(regime: Regime): string {
   }
 }
 
+type Utilizador = {
+  permissao: Permissao;
+  regime: Regime;
+  username: string;
+  name: string;
+  email: string;
+  foto?: string;
+  atividade?: string;
+  contratacao?: string;
+};
+
 const Users = () => {
   const router = useRouter();
   const [estadoFilter, setEstadoFilter] = useState<"all" | Permissao>("all");
   const [regimeFilter, setRegimeFilter] = useState<"all" | Regime>("all");
 
-  // Fetch all data with pagination limits
-  const queryParams = useMemo(
-    () => ({
-      page: 1,
-      limit: 8, // Limite reduzido para melhor paginação
-    }),
-    []
+  // Fetch all data at once since we're using client-side pagination
+  const { data, isLoading } = api.utilizador.findAll.useQuery(
+    { page: 1, limit: 1000 },
+    {
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }
   );
-
-  const { data, isLoading } = api.utilizador.findAll.useQuery(queryParams, {
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
 
   // Extrair utilizadores usando a função utilitária
   const utilizadores = useMemo(() => extrairUtilizadores(data), [data]);
+
+  // Aplicar filtros aos utilizadores
+  const utilizadoresFiltrados = useMemo(() => {
+    if (!utilizadores) return [];
+    
+    return utilizadores.filter((utilizador: Utilizador) => {
+      const passouFiltroPermissao = estadoFilter === "all" || utilizador.permissao === estadoFilter;
+      const passouFiltroRegime = regimeFilter === "all" || utilizador.regime === regimeFilter;
+      
+      return passouFiltroPermissao && passouFiltroRegime;
+    });
+  }, [utilizadores, estadoFilter, regimeFilter]);
 
   const handleRowClick = (utilizador: any) => {
     router.push(`/utilizadores/${utilizador.username}`);
@@ -159,21 +177,64 @@ const Users = () => {
 
   // Configuração dos filtros
   const permissaoOptions = [
-    { id: "all", label: "Todas as permissões", value: "all" },
-    ...uniquePermissoes.map((permissao) => ({
-      id: permissao,
-      label: PERMISSAO_LABELS[permissao] || "",
-      value: permissao,
-    })),
+    { 
+      id: "all", 
+      label: "Todas as permissões", 
+      value: "all",
+    },
+    {
+      id: "ADMIN",
+      label: "Administrador",
+      value: "ADMIN",
+      badge: {
+        status: "ADMIN",
+        variant: "permissao",
+      },
+    },
+    {
+      id: "GESTOR",
+      label: "Gestor",
+      value: "GESTOR",
+      badge: {
+        status: "GESTOR",
+        variant: "permissao",
+      },
+    },
+    {
+      id: "COMUM",
+      label: "Utilizador",
+      value: "COMUM",
+      badge: {
+        status: "COMUM",
+        variant: "permissao",
+      },
+    },
   ];
 
   const regimeOptions = [
-    { id: "all", label: "Todos os regimes", value: "all" },
-    ...uniqueRegimes.map((regime) => ({
-      id: regime,
-      label: REGIME_LABELS[regime] || "",
-      value: regime,
-    })),
+    { 
+      id: "all", 
+      label: "Todos os regimes", 
+      value: "all",
+    },
+    {
+      id: "INTEGRAL",
+      label: "Tempo Integral",
+      value: "INTEGRAL",
+      badge: {
+        status: "INTEGRAL",
+        variant: "regime",
+      },
+    },
+    {
+      id: "PARCIAL",
+      label: "Tempo Parcial",
+      value: "PARCIAL",
+      badge: {
+        status: "PARCIAL",
+        variant: "regime",
+      },
+    },
   ];
 
   const filterConfigs = [
@@ -241,15 +302,12 @@ const Users = () => {
       {
         accessorKey: "contratacao",
         header: "Data de Contratação",
-        meta: { align: "right" },
         cell: ({ getValue }) => {
           const date = getValue<string | null>();
           return (
-            <div className="flex items-center justify-end gap-2">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-600">
-                {date ? new Date(date).toLocaleDateString() : "N/A"}
-              </span>
+            <div className="inline-flex items-center gap-2 text-slate-600">
+              <Clock className="h-4 w-4 text-slate-400 flex-shrink-0" />
+              <span>{date ? new Date(date).toLocaleDateString("pt-PT") : "N/A"}</span>
             </div>
           );
         },
@@ -258,7 +316,7 @@ const Users = () => {
     []
   );
 
-  // Cálculos estatísticos baseados no array atual
+  // Cálculos estatísticos baseados no array total de utilizadores (não filtrado)
   const utilizadoresArray = Array.isArray(utilizadores) ? utilizadores : [];
   const totalUsers = utilizadoresArray.length || 0;
   const regimenIntegral =
@@ -321,7 +379,7 @@ const Users = () => {
           ) : (
             <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
               <TabelaDados<any>
-                data={utilizadores}
+                data={utilizadoresFiltrados}
                 isLoading={isLoading}
                 columns={columns}
                 itemsPerPage={8}

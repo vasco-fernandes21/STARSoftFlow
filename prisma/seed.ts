@@ -59,7 +59,7 @@ async function main() {
   const admin = await createUserWithPassword(
     {
       name: "Vasco Fernandes",
-      email: "admin@starinstitute.com",
+      email: "admin@starinstitute.pt",
       emailVerified: new Date(),
       foto: "https://ui-avatars.com/api/?name=Administrator&background=1d4ed8&color=fff",
       atividade: "Administrador",
@@ -75,7 +75,7 @@ async function main() {
   const gestor = await createUserWithPassword(
     {
       name: "Helga Carvalho",
-      email: "gestor@starinstitute.com",
+      email: "gestor@starinstitute.pt",
       emailVerified: new Date(),
       foto: "https://ui-avatars.com/api/?name=Helga+Carvalho&background=15803d&color=fff",
       atividade: "Administração",
@@ -91,7 +91,7 @@ async function main() {
   const commonUsersData = [
     {
       name: "Ricardo Correia",
-      email: "utilizador@starinstitute.com",
+      email: "utilizador@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Ricardo+Correia&background=0284c7&color=fff",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2021-01-10"),
@@ -100,7 +100,7 @@ async function main() {
     },
     {
       name: "Ana Isabel Carvalho",
-      email: "ana.i.carvalho@starinstitute.com",
+      email: "ana.i.carvalho@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Ana+Isabel+Carvalho&background=0f766e&color=fff",
       atividade: "Investigadora no Laboratório Digital",
       contratacao: new Date("2021-03-22"),
@@ -109,7 +109,7 @@ async function main() {
     },
     {
       name: "Ana Claudia Carvalho",
-      email: "ana.c.carvalho@starinstitute.com",
+      email: "ana.c.carvalho@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Ana+Claudia+Carvalho&background=7e22ce&color=fff",
       atividade: "Investigadora no Laboratório Digital",
       contratacao: new Date("2022-01-05"),
@@ -118,7 +118,7 @@ async function main() {
     },
     {
       name: "João Lopes",
-      email: "joao.lopes@starinstitute.com",
+      email: "joao.lopes@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=João+Lopes&background=b91c1c&color=fff",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2022-06-12"),
@@ -127,7 +127,7 @@ async function main() {
     },
     {
       name: "Filipe Coutinho",
-      email: "filipe.coutinho@starinstitute.com",
+      email: "filipe.coutinho@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Filipe+Coutinho&background=c2410c&color=fff",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2023-02-01"),
@@ -136,7 +136,7 @@ async function main() {
     },
     {
       name: "Rui Coimbra",
-      email: "rui.coimbra@starinstitute.com",
+      email: "rui.coimbra@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Rui+Coimbra&background=0284c7&color=fff",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2023-02-01"),
@@ -145,7 +145,7 @@ async function main() {
     },
     {
       name: "Elisio Oliveira",
-      email: "elisio.oliveira@starinstitute.com",
+      email: "elisio.oliveira@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Elisio+Oliveira&background=db2777&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2023-01-01"),
@@ -154,7 +154,7 @@ async function main() {
     },
     {
       name: "Luis Almeida",
-      email: "luis.almeida@starinstitute.com",
+      email: "luis.almeida@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Luis+Almeida&background=65a30d&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2023-01-01"),
@@ -163,7 +163,7 @@ async function main() {
     },
     {
       name: "Mafalda lisboa",
-      email: "mafalda.lisboa@starinstitute.com",
+      email: "mafalda.lisboa@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Mafalda+lisboa&background=ea580c&color=fff",
       atividade: "Investigadora",
       contratacao: new Date("2023-06-01"),
@@ -172,7 +172,7 @@ async function main() {
     },
     {
       name: "Domingos Moreia",
-      email: "domingos.moreia@starinstitute.com",
+      email: "domingos.moreia@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Domingos+Moreia&background=ca8a04&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2023-08-01"),
@@ -181,7 +181,7 @@ async function main() {
     },
     {
       name: "Carlos Mesquita",
-      email: "carlos.mesquita@starinstitute.com",
+      email: "carlos.mesquita@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Carlos+Mesquita&background=0d9488&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2023-09-01"),
@@ -190,7 +190,7 @@ async function main() {
     },
     {
       name: "José Carlos Lopes",
-      email: "jose.c.lopes@starinstitute.com",
+      email: "jose.c.lopes@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Jose+Carlos+Lopes&background=4338ca&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2023-11-01"),
@@ -199,7 +199,7 @@ async function main() {
     },
     {
       name: "Joana Matos",
-      email: "joana.matos@starinstitute.com",
+      email: "joana.matos@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Joana+Matos&background=be185d&color=fff",
       atividade: "Investigadora",
       contratacao: new Date("2023-12-01"),
@@ -208,7 +208,7 @@ async function main() {
     },
     {
       name: "Mariana Domingos",
-      email: "mariana.domingos@starinstitute.com",
+      email: "mariana.domingos@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Mariana+Domingos&background=16a34a&color=fff",
       atividade: "Investigadora",
       contratacao: new Date("2024-01-01"),
@@ -217,7 +217,7 @@ async function main() {
     },
     {
       name: "Carla Gomes",
-      email: "carla.gomes@starinstitute.com",
+      email: "carla.gomes@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Carla+Gomes&background=f97316&color=fff",
       atividade: "Investigadora",
       contratacao: new Date("2024-01-01"),
@@ -226,7 +226,7 @@ async function main() {
     },
     {
       name: "Nelson Lorenzoni",
-      email: "nelson.lorenzoni@starinstitute.com",
+      email: "nelson.lorenzoni@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Nelson+Lorenzoni&background=eab308&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2024-01-01"),
@@ -235,7 +235,7 @@ async function main() {
     },
     {
       name: "André Fernandes",
-      email: "andre.fernandes@starinstitute.com",
+      email: "andre.fernandes@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Andre+Fernandes&background=0891b2&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2024-08-01"),
@@ -244,7 +244,7 @@ async function main() {
     },
     {
       name: "Pedro Soares",
-      email: "pedro.soares@starinstitute.com",
+      email: "pedro.soares@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Pedro+Soares&background=6d28d9&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2024-09-01"),
@@ -253,7 +253,7 @@ async function main() {
     },
     {
       name: "Ricardo Carvalho",
-      email: "ricardo.carvalho@starinstitute.com",
+      email: "ricardo.carvalho@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Ricardo+Carvalho&background=be123c&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2024-12-01"),
@@ -262,7 +262,7 @@ async function main() {
     },
     {
       name: "Filipe Ramalho",
-      email: "filipe.ramalho@starinstitute.com",
+      email: "filipe.ramalho@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Filipe+Ramalho&background=10b981&color=fff",
       atividade: "Investigador",
       contratacao: new Date("2025-02-01"),

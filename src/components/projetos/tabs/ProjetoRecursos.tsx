@@ -5,7 +5,7 @@ import { api } from "@/trpc/react";
 import { Users, Calendar, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -49,15 +49,14 @@ const ProjetoRecursos = ({ projetoId }: ProjetoRecursosProps) => {
     enabled: !!projetoId,
   });
 
-  // Processar alocações por recurso
-  const recursosProcessados = useMemo(() => {
-    if (!projeto?.workpackages) return [];
+  // Processar alocações por recurso e calcular total
+  const { recursosProcessados, totalEtisGeral } = useMemo(() => {
+    if (!projeto?.workpackages) return { recursosProcessados: [], totalEtisGeral: 0 };
 
-    const recursosMap = new Map();
+    const recursosMap = new Map<string, { id: string; nome: string; iniciais: string; totalEtis: number; periodos: number }>();
 
     projeto.workpackages.forEach((wp) => {
-      const recursos =
-        selectedYear === "todos"
+      const recursos = selectedYear === "todos"
           ? wp.recursos
           : wp.recursos.filter((r) => r.ano === parseInt(selectedYear, 10));
 
@@ -73,20 +72,27 @@ const ProjetoRecursos = ({ projetoId }: ProjetoRecursosProps) => {
         }
 
         const dados = recursosMap.get(recurso.userId);
-        dados.totalEtis += Number(recurso.ocupacao);
-        dados.periodos += 1;
+        if (dados) { // Type guard
+            dados.totalEtis += Number(recurso.ocupacao);
+            dados.periodos += 1;
+        }
       });
     });
 
-    // Manter o total absoluto em vez de calcular média
-    return Array.from(recursosMap.values())
+    // Ordenar recursos
+    const recursosOrdenados = Array.from(recursosMap.values())
       .map((r) => ({
         ...r,
-        mediaEtis: r.totalEtis, // Agora guardamos o total em vez da média
+        mediaEtis: r.totalEtis, // Mantém o total
       }))
       .sort((a, b) =>
         sortOrder === "desc" ? b.mediaEtis - a.mediaEtis : a.mediaEtis - b.mediaEtis
       );
+
+    // Calcular o total geral dos ETIs exibidos
+    const totalEtis = recursosOrdenados.reduce((sum, recurso) => sum + recurso.mediaEtis, 0);
+
+    return { recursosProcessados: recursosOrdenados, totalEtisGeral: totalEtis };
   }, [projeto, selectedYear, sortOrder]);
 
   // Anos disponíveis
@@ -172,9 +178,17 @@ const ProjetoRecursos = ({ projetoId }: ProjetoRecursosProps) => {
         </div>
       </div>
 
-      {/* Grid de Recursos */}
+      {/* Grid de Recursos & Total ETI Card */}
       {recursosProcessados.length > 0 ? (
         <div className="grid gap-4">
+         {/* Card com Total ETI */}
+         <Card className="bg-slate-50/50 shadow-sm">
+           <CardContent className="flex items-center justify-between p-4">
+              <p className="text-sm font-medium text-slate-600">Total ETIs {selectedYear === 'todos' ? '(Todos os Anos)' : `(${selectedYear})`}</p>
+              <Badge variant="secondary" className="text-lg font-semibold">{formatEti(totalEtisGeral)} ETI</Badge>
+           </CardContent>
+         </Card>
+
           {recursosProcessados.map((recurso) => (
             <div key={recurso.id} className="group space-y-2">
               <Card

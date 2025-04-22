@@ -162,13 +162,13 @@ export default function Projetos() {
 
   const handleRowClick = useCallback(
     (projeto: Projeto) => {
-      // Se for um rascunho, redirecionar para a página de edição de rascunho
+      // Se for um rascunho, envia para a página de edição de rascunho
       if (projeto.isRascunho) {
         router.push(`/projetos/criar?rascunhoId=${projeto.id}`);
         return;
       }
 
-      // Se for um projeto normal, redirecionar para a página de detalhes
+      // Se for um projeto normal, envia para a página de detalhes
       router.push(`/projetos/${projeto.id}`);
     },
     [router]
