@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma migrate deploy && bunx prisma seed && prisma generate && next build --turbopack",
+    "build": "prisma migrate deploy && bunx prisma db seed && prisma generate && next build --turbopack",
     "check": "next lint && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
