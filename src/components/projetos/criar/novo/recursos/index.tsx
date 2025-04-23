@@ -97,6 +97,19 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   // Obter workpackage selecionado
   const selectedWorkpackage = state.workpackages?.find((wp) => wp.id === selectedWorkpackageId);
 
+  // IDs dos utilizadores já alocados ao workpackage selecionado
+  const utilizadoresAlocadosIds = React.useMemo(() => {
+    if (!selectedWorkpackage?.recursos) return new Set<string>();
+    return new Set(selectedWorkpackage.recursos.map((r) => r.userId));
+  }, [selectedWorkpackage]);
+
+  // Filtrar lista de membros da equipa para mostrar apenas os disponíveis
+  const utilizadoresDisponiveis = React.useMemo(() => {
+    return listaMembrosEquipa.filter(
+      (membro: { id: string }) => !utilizadoresAlocadosIds.has(membro.id)
+    );
+  }, [listaMembrosEquipa, utilizadoresAlocadosIds]);
+
   // Agrupar recursos por utilizador
   const recursosAgrupados = React.useMemo(() => {
     if (!selectedWorkpackage?.recursos || selectedWorkpackage.recursos.length === 0) {
@@ -288,7 +301,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                   setRecursoEmEdicao(null);
                 }}
                 className="flex gap-1.5"
-                disabled={addingRecurso}
+                disabled={addingRecurso || utilizadoresDisponiveis.length === 0}
               >
                 <Plus className="h-4 w-4" />
                 Adicionar Recurso
@@ -310,14 +323,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
               workpackageId={selectedWorkpackageId}
               inicio={selectedWorkpackage.inicio || new Date()}
               fim={selectedWorkpackage.fim || new Date()}
-              utilizadores={listaMembrosEquipa.map(
-                (m: { id: string; name: string | null; email: string | null; regime: string }): { id: string; name: string; email: string; regime: string } => ({
-                  id: m.id,
-                  name: m.name || "",
-                  email: m.email || "",
-                  regime: m.regime,
-                })
-              )}
+              utilizadores={utilizadoresDisponiveis.map(transformUser)}
               onAddAlocacao={handleAddAlocacao}
               onCancel={() => {
                 setAddingRecurso(false);
@@ -342,6 +348,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                       setAddingRecurso(true);
                     }}
                     className="mx-auto flex gap-1.5"
+                    disabled={utilizadoresDisponiveis.length === 0}
                   >
                     <Plus className="h-4 w-4" />
                     Adicionar Recurso

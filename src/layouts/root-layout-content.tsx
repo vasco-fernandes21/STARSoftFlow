@@ -9,7 +9,7 @@ import { AlertDialogProvider } from "@/components/ui/alert-dialog/alert-dialog-p
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-  const pagesWithoutSidebar = ["/login", "/primeiro-login"];
+  const pagesWithoutSidebar = ["/login", "/primeiro-login", "/recuperar-password"];
 
   // Garantir que só renderizamos quando estamos no cliente
   useEffect(() => {

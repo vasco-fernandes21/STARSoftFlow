@@ -63,9 +63,9 @@ export function GerirFinanciamentosModal({
   const [modoEdicao, setModoEdicao] = useState<number | null>(null);
   const [novoFinanciamento, setNovoFinanciamento] = useState<NovoFinanciamentoInput>({
     nome: dadosPreenchidos?.nome || "",
-    overhead: dadosPreenchidos?.overhead || null,
-    taxa_financiamento: dadosPreenchidos?.taxa_financiamento || null,
-    valor_eti: dadosPreenchidos?.valor_eti || null,
+    overhead: dadosPreenchidos?.overhead ?? 0,
+    taxa_financiamento: dadosPreenchidos?.taxa_financiamento ?? 0,
+    valor_eti: dadosPreenchidos?.valor_eti ?? 0,
   });
 
   // Estados para o AlertDialog
@@ -147,9 +147,9 @@ export function GerirFinanciamentosModal({
   const limparForm = () => {
     setNovoFinanciamento({
       nome: "",
-      overhead: null,
-      taxa_financiamento: null,
-      valor_eti: null,
+      overhead: 0,
+      taxa_financiamento: 0,
+      valor_eti: 0,
     });
   };
 
@@ -167,9 +167,9 @@ export function GerirFinanciamentosModal({
 
     const dadosParaEnviar = {
       nome: novoFinanciamento.nome,
-      overhead: novoFinanciamento.overhead !== null ? novoFinanciamento.overhead / 100 : 0, // Converte para decimal (25 -> 0.25)
-      taxa_financiamento: novoFinanciamento.taxa_financiamento / 100, // Converte para decimal (85 -> 0.85)
-      valor_eti: novoFinanciamento.valor_eti,
+      overhead: Number((novoFinanciamento.overhead ?? 0) / 100), // Converte para decimal (25 -> 0.25)
+      taxa_financiamento: Number((novoFinanciamento.taxa_financiamento ?? 0) / 100), // Converte para decimal (85 -> 0.85)
+      valor_eti: Number(novoFinanciamento.valor_eti ?? 0), // Garante que é número
     };
 
     if (modoEdicao) {
@@ -186,9 +186,9 @@ export function GerirFinanciamentosModal({
     setModoEdicao(financiamento.id);
     setNovoFinanciamento({
       nome: financiamento.nome,
-      overhead: Number(financiamento.overhead) * 100, // Converte para percentagem (0.25 -> 25)
-      taxa_financiamento: Number(financiamento.taxa_financiamento) * 100, // Converte para percentagem (0.85 -> 85)
-      valor_eti: Number(financiamento.valor_eti),
+      overhead: Number((Number(financiamento.overhead) * 100).toFixed(2)), // Converte para percentagem (0.25 -> 25) com 2 casas
+      taxa_financiamento: Number((Number(financiamento.taxa_financiamento) * 100).toFixed(2)), // Converte para percentagem (0.85 -> 85) com 2 casas
+      valor_eti: Number(Number(financiamento.valor_eti).toFixed(2)), // Garante 2 casas decimais
     });
   };
 
@@ -249,8 +249,11 @@ export function GerirFinanciamentosModal({
 
               <DecimalField
                 label="Overhead"
-                value={novoFinanciamento.overhead}
-                onChange={(value) => setNovoFinanciamento((prev) => ({ ...prev, overhead: value }))}
+                value={novoFinanciamento.overhead ?? 0}
+                onChange={(value) => setNovoFinanciamento((prev) => ({ 
+                  ...prev, 
+                  overhead: value !== null ? Number(Number(value).toFixed(2)) : 0 
+                }))}
                 suffix="%"
                 min={0}
                 max={100}
@@ -260,10 +263,11 @@ export function GerirFinanciamentosModal({
 
               <DecimalField
                 label="Taxa de Financiamento"
-                value={novoFinanciamento.taxa_financiamento}
-                onChange={(value) =>
-                  setNovoFinanciamento((prev) => ({ ...prev, taxa_financiamento: value }))
-                }
+                value={novoFinanciamento.taxa_financiamento ?? 0}
+                onChange={(value) => setNovoFinanciamento((prev) => ({ 
+                  ...prev, 
+                  taxa_financiamento: value !== null ? Number(Number(value).toFixed(2)) : 0 
+                }))}
                 suffix="%"
                 min={0}
                 max={100}
@@ -274,10 +278,11 @@ export function GerirFinanciamentosModal({
 
               <MoneyField
                 label="Valor ETI"
-                value={novoFinanciamento.valor_eti}
-                onChange={(value) =>
-                  setNovoFinanciamento((prev) => ({ ...prev, valor_eti: value }))
-                }
+                value={novoFinanciamento.valor_eti ?? 0}
+                onChange={(value) => setNovoFinanciamento((prev) => ({ 
+                  ...prev, 
+                  valor_eti: value !== null ? Number(Number(value).toFixed(2)) : 0 
+                }))}
                 required
                 tooltip="Valor do ETI (Equivalente a Tempo Integral)"
               />
@@ -320,16 +325,18 @@ export function GerirFinanciamentosModal({
                         <div className="mt-2 space-y-1 text-sm text-azul/80">
                           <p>
                             Overhead:{" "}
-                            {Number(financiamento.overhead).toLocaleString("pt-PT", {
+                            {(Number(financiamento.overhead) * 100).toLocaleString("pt-PT", {
                               style: "percent",
                               minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             })}
                           </p>
                           <p>
                             Taxa:{" "}
-                            {Number(financiamento.taxa_financiamento).toLocaleString("pt-PT", {
+                            {(Number(financiamento.taxa_financiamento) * 100).toLocaleString("pt-PT", {
                               style: "percent",
                               minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             })}
                           </p>
                           <p>
@@ -337,6 +344,8 @@ export function GerirFinanciamentosModal({
                             {Number(financiamento.valor_eti).toLocaleString("pt-PT", {
                               style: "currency",
                               currency: "EUR",
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             })}
                           </p>
                         </div>

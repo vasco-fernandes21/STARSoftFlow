@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { pt } from "date-fns/locale";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -151,7 +151,7 @@ export function ConfiguracaoMensalDialog({ ano, onSuccess, permissao }: Configur
               {configs.map((config, idx) => (
                 <div key={config.mes} className="space-y-2 border rounded-lg p-4 bg-slate-50">
                   <div className="font-medium text-slate-700">
-                    {format(new Date(config.ano, config.mes - 1), "MMMM", { locale: ptBR })}
+                    {format(new Date(config.ano, config.mes - 1), "MMMM", { locale: pt })}
                   </div>
                   <Label htmlFor={`diasUteis-${config.mes}`}>Dias Úteis</Label>
                   <Input
@@ -175,7 +175,7 @@ export function ConfiguracaoMensalDialog({ ano, onSuccess, permissao }: Configur
                   />
                   {config.updatedAt && (
                     <div className="text-xs text-muted-foreground">
-                      Última atualização: {format(new Date(config.updatedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      Última atualização: {format(new Date(config.updatedAt), "dd/MM/yyyy HH:mm", { locale: pt })}
                     </div>
                   )}
                 </div>

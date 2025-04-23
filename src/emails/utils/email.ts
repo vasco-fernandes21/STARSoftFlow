@@ -25,7 +25,7 @@ export async function sendPasswordResetEmail(
     type: "resetPassword",
     variables: {
       userName: nome,
-      resetLink: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`,
+      resetLink: `${process.env.NEXT_PUBLIC_APP_URL}/recuperar-password?token=${token}`,
       verificationCode: Math.floor(100000 + Math.random() * 900000).toString(),
     },
   });

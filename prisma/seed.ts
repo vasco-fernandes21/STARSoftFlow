@@ -91,7 +91,7 @@ async function main() {
   const commonUsersData = [
     {
       name: "Ricardo Correia",
-      email: "utilizador@starinstitute.pt",
+      email: "ricardo.correia@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Ricardo+Correia&background=0284c7&color=fff",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2021-01-10"),

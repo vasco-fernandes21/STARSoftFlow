@@ -120,7 +120,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "Validação por Token",
       credentials: {
         token: { label: "Token", type: "text" },
-        password: { label: "Nova Senha", type: "password" },
+        password: { label: "Nova Password", type: "password" },
       },
       async authorize(credentials) {
         try {
@@ -158,7 +158,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             });
 
             if (!user) {
-              console.log("Usuário não encontrado para o token");
+              console.log("Utilizador não encontrado para o token");
               return null;
             }
 
@@ -292,12 +292,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
-    // Não definimos maxAge aqui, pois será definido dinamicamente
   },
   pages: {
     signIn: "/login",
     verifyRequest: "/verificar-email",
     newUser: "/bem-vindo",
+    error: "/auth/error",
   },
   cookies: {
     sessionToken: {
@@ -307,7 +307,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        // Não definir maxAge para que o cookie seja de sessão (expira ao fechar o navegador)
       },
     },
     callbackUrl: {
@@ -340,18 +339,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   events: {
     async signOut() {
       console.log("Evento de signOut acionado");
-      // Não podemos chamar a server action diretamente aqui
     },
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
-
-        // Campos já existentes
         token.permissao = (user as any).permissao;
-
-        // Adicionar novos campos
         token.atividade = (user as any).atividade;
         token.regime = (user as any).regime;
         token.username = (user as any).username;
@@ -361,41 +355,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async session({ session, token }) {
-
-
       if (session.user) {
-        // Campos já existentes
         (session.user as any).id = token.sub;
         (session.user as any).permissao = token.permissao;
-
-        // Adicionar novos campos
         (session.user as any).atividade = token.atividade;
         (session.user as any).regime = token.regime;
         (session.user as any).username = token.username;
         (session.user as any).contratacao = token.contratacao;
-
       }
       return session;
     },
   },
   secret: process.env.AUTH_SECRET,
 });
-
-// Função personalizada de logout que combina signOut do NextAuth com limpeza manual de cookies
-export async function customSignOut(callbackUrl = "/login") {
-  "use server";
-
-  try {
-    // Primeiro, usar o signOut padrão do NextAuth
-    await signOut({ redirect: false });
-
-    // Em seguida, limpar manualmente todos os cookies
-    await clearAuthCookies();
-
-    // Retornar sucesso e URL de redirecionamento
-    return { success: true, url: callbackUrl };
-  } catch (error) {
-    console.error("Erro ao fazer logout:", error);
-    return { success: false, url: callbackUrl, error };
-  }
-}

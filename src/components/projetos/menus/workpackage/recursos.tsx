@@ -47,6 +47,16 @@ export function WorkpackageRecursos({
     {} as Record<string, (typeof utilizadoresList)[0]>
   );
 
+  // Obter lista de IDs de utilizadores já alocados ao workpackage
+  const utilizadoresAlocados = new Set(
+    workpackage.recursos?.map((recurso) => recurso.userId) || []
+  );
+
+  // Filtrar apenas utilizadores não alocados
+  const utilizadoresDisponiveis = utilizadoresList.filter(
+    (user) => !utilizadoresAlocados.has(user.id)
+  );
+
   // Handler para adicionar recursos
   const handleAddRecurso = (
     workpackageId: string,
@@ -171,6 +181,7 @@ export function WorkpackageRecursos({
           <Button
             onClick={() => setAddingRecurso(true)}
             className="h-10 bg-azul text-white hover:bg-azul/90"
+            disabled={utilizadoresDisponiveis.length === 0}
           >
             <PlusIcon className="mr-2 h-4 w-4" />
             Novo Recurso
@@ -186,7 +197,7 @@ export function WorkpackageRecursos({
             workpackageId={workpackage.id}
             inicio={workpackage.inicio || new Date()}
             fim={workpackage.fim || new Date()}
-            utilizadores={utilizadoresList}
+            utilizadores={utilizadoresDisponiveis}
             onAddAlocacao={handleAddRecurso}
             onCancel={() => setAddingRecurso(false)}
             projetoEstado={workpackage.projeto?.estado || "RASCUNHO"}
@@ -247,7 +258,11 @@ export function WorkpackageRecursos({
           <Users className="mx-auto mb-4 h-12 w-12 text-azul/20" />
           <h3 className="mb-2 text-lg font-medium text-azul">Nenhum recurso alocado</h3>
           <p className="mx-auto max-w-md text-sm text-azul/60">
-            Clique em "Novo Recurso" para alocar recursos humanos a este workpackage
+            {utilizadoresDisponiveis.length > 0 ? (
+              'Clique em "Novo Recurso" para alocar recursos humanos a este workpackage'
+            ) : (
+              'Todos os recursos já estão alocados a este workpackage'
+            )}
           </p>
         </div>
       )}

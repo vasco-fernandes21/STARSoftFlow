@@ -3,11 +3,11 @@ import { TRPCError } from "@trpc/server";
 import { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { sendPrimeiroAcessoEmail } from "@/emails/utils/email";
+import { sendPrimeiroAcessoEmail, sendPasswordResetEmail } from "@/emails/utils/email";
 import { hash } from "bcryptjs";
 import { z } from "zod";
-import { createPaginatedResponse, handlePrismaError } from "../utils";
-import { paginationSchema, getPaginationParams } from "../schemas/common";
+import { handlePrismaError } from "../utils";
+import { paginationSchema } from "../schemas/common";
 import { format } from "date-fns";
 import { Decimal } from "decimal.js";
 import puppeteer from "puppeteer";
@@ -18,7 +18,7 @@ import type net from "net";
 // Schemas base
 const emailSchema = z.string({ required_error: "Email é obrigatório" }).email("Email inválido");
 
-const passwordSchema = z
+export const passwordSchema = z
   .string({ required_error: "Password é obrigatória" })
   .min(8, "Password deve ter pelo menos 8 caracteres")
   .max(32, "Password deve ter no máximo 32 caracteres")
@@ -82,7 +82,7 @@ const utilizadorFilterSchema = z
 
 // Schema para reset de password
 const resetPasswordRequestSchema = z.object({
-  email: emailSchema,
+  email: z.string().email("Email inválido"),
 });
 
 // Schema para definir nova password após reset
@@ -128,6 +128,11 @@ const configuracaoMensalSchema = z.object({
   horasPotenciais: z.number().min(0).max(1000),
 });
 
+// Schema para convite de utilizador existente
+const convidarUtilizadorSchema = z.object({
+  email: emailSchema,
+});
+
 // Novo schema de input opcional para findAll
 const findAllUtilizadoresInputSchema = z.object({
   page: z.number().int().min(1).optional(),
@@ -150,8 +155,6 @@ export type ConfiguracaoMensalInput = z.infer<typeof configuracaoMensalSchema>;
 // Exportar os schemas para uso em validações
 export {
   changePasswordSchema,
-  resetPasswordRequestSchema,
-  resetPasswordSchema,
   primeiroAcessoSchema,
 };
 
@@ -1389,6 +1392,139 @@ export const utilizadorRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao gerar PDF do relatório",
+          cause: error,
+        });
+      }
+    }),
+
+  // Convidar utilizador existente
+  convidarUtilizador: protectedProcedure
+    .input(convidarUtilizadorSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Verificar permissão (apenas admin pode convidar utilizadores)
+        const user = ctx.session?.user as UserWithPermissao | undefined;
+        if (!user || user.permissao !== Permissao.ADMIN) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Não tem permissões para convidar utilizadores",
+          });
+        }
+
+        // Verificar se o utilizador existe
+        const existingUser = await ctx.db.user.findUnique({
+          where: { email: input.email },
+          select: {
+            email: true,
+            name: true,
+          }
+        });
+
+        if (!existingUser || !existingUser.email) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        // Gerar token para primeiro acesso
+        const token = randomUUID();
+        const tokenExpiry = new Date();
+        tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+
+        // Criar token para primeiro acesso
+        await ctx.db.verificationToken.create({
+          data: {
+            identifier: existingUser.email,
+            token,
+            expires: tokenExpiry,
+          },
+        });
+
+        // Enviar email de primeiro acesso
+        const userName = existingUser.name || "Utilizador";
+        await sendPrimeiroAcessoEmail(existingUser.email, userName, token);
+
+        return {
+          success: true,
+          message: "Email de convite enviado com sucesso",
+        };
+      } catch (error) {
+        console.error("Erro ao convidar utilizador:", error);
+        return handlePrismaError(error);
+      }
+    }),
+
+  // Reset de password
+  resetPassword: protectedProcedure
+    .input(resetPasswordRequestSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { email } = input;
+
+        // Verificar se o utilizador existe
+        const user = await ctx.db.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        });
+
+        if (!user || !user.email) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        // Gerar token
+        const token = randomUUID();
+        const expires = new Date();
+        expires.setHours(expires.getHours() + 24); // Token válido por 24 horas
+
+        // Criar ou atualizar token de reset
+        const existingReset = await ctx.db.passwordReset.findFirst({
+          where: { email },
+        });
+
+        if (existingReset) {
+          // Atualizar token existente
+          await ctx.db.passwordReset.update({
+            where: { id: existingReset.id },
+            data: {
+              token,
+              expires,
+            },
+          });
+        } else {
+          // Criar novo token
+          await ctx.db.passwordReset.create({
+            data: {
+              email,
+              token,
+              expires,
+            },
+          });
+        }
+
+        // Enviar email com link de reset
+        await sendPasswordResetEmail(
+          user.email,
+          user.name || "Utilizador",
+          token
+        );
+
+        return {
+          success: true,
+          message: "Email de recuperação enviado com sucesso",
+        };
+      } catch (error) {
+        console.error("Erro no reset de password:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao processar o pedido de recuperação de password",
           cause: error,
         });
       }

@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   FileText,
   UserCog,
+  Send,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { api } from "@/trpc/react";
 import type { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import { TabelaAlocacoes } from "./TabelaAlocacoes";
 import { z } from "zod";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import type { ViewMode } from "@/types/projeto";
 
 // Interfaces e mapeamentos
@@ -93,6 +94,7 @@ export default function PerfilUtilizador() {
   const router = useRouter();
   const params = useParams<{ username: string }>();
   const username = params?.username || "";
+  const { toast } = useToast();
 
   // Estados
   const [viewMode, setViewMode] = useState<ViewMode>('real');
@@ -156,9 +158,37 @@ export default function PerfilUtilizador() {
   useEffect(() => {
     if (viewMode === 'submetido' && !alocacoes?.submetido) {
       setViewMode('real');
-      toast.warning("Voltando para dados reais pois não existem dados submetidos.");
+      toast({
+        description: "Voltando para dados reais pois não existem dados submetidos.",
+      });
     }
   }, [viewMode, alocacoes?.submetido]);
+
+  // Mutation para convidar utilizador
+  const convidarUtilizadorMutation = api.utilizador.convidarUtilizador.useMutation({
+    onSuccess: () => {
+      toast({
+        description: "O utilizador receberá um email para definir a sua password.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Função para enviar convite
+  const handleEnviarConvite = async () => {
+    if (!utilizador?.email) return;
+    
+    try {
+      await convidarUtilizadorMutation.mutate({ email: utilizador.email });
+    } catch (error) {
+      console.error("Erro ao enviar convite:", error);
+    }
+  };
 
   // Early return if no username is found
   if (!params?.username) {
@@ -279,6 +309,26 @@ export default function PerfilUtilizador() {
               </div>
             </div>
             
+            {/* Adicionar botão de Novo Convite */}
+            <div className="flex-shrink-0">
+              <Button
+                onClick={handleEnviarConvite}
+                disabled={convidarUtilizadorMutation.status === "pending"}
+                className="bg-azul text-white hover:bg-azul/90 transition-colors"
+              >
+                {convidarUtilizadorMutation.status === "pending" ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white mr-2" />
+                    A enviar...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Novo Convite
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Conteúdo Principal - CV e Tabela */}

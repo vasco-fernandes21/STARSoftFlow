@@ -46,6 +46,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { TarefaItem } from "./tarefas/item";
 import { Item as MaterialItem } from "./material/item";
+import { pt } from 'date-fns/locale';
 
 // Importar tipo WorkpackageHandlers de onde for necessário (now uses 'any')
 import type { WorkpackageHandlers } from "@/app/projetos/criar/page";
@@ -353,7 +354,7 @@ export function WorkpackagesTab({
                         className={`mt-0.5 text-xs ${selectedWorkpackageId === wp.id ? "text-white/70" : "text-azul/60"}`}
                       >
                         {wp.inicio && wp.fim
-                          ? `${format(new Date(wp.inicio), "MMM/yy")} - ${format(new Date(wp.fim), "MMM/yy")}`
+                          ? `${format(new Date(wp.inicio), "MMM/yy", { locale: pt })} - ${format(new Date(wp.fim), "MMM/yy", { locale: pt })}`
                           : "Sem período definido"}
                       </div>
                     </div>
@@ -443,8 +444,8 @@ export function WorkpackagesTab({
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       <span>
-                        {format(new Date(selectedWorkpackage.inicio), "MMM/yyyy")} -{" "}
-                        {format(new Date(selectedWorkpackage.fim), "MMM/yyyy")}
+                        {format(new Date(selectedWorkpackage.inicio), "MMM/yyyy", { locale: pt })} -{" "}
+                        {format(new Date(selectedWorkpackage.fim), "MMM/yyyy", { locale: pt })}
                       </span>
                     </div>
                   )}

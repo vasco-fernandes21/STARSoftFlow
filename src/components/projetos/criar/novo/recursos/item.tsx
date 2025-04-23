@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
-import type { Decimal } from "decimal.js";
+import { Decimal } from "decimal.js";
 import { Form } from "./form";
 
 interface User {
@@ -34,12 +34,12 @@ interface ItemProps {
   projetoEstado: "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO";
   onUpdateAlocacao: (userId: string, alocacoes: Alocacao[]) => void;
   workpackageId: string;
-  utilizadores?: User[];
+  utilizadores: User[];
 }
 
 export function Item({
   user,
-  alocacoes = [],
+  alocacoes,
   isExpanded,
   onToggleExpand,
   onRemove,
@@ -48,13 +48,19 @@ export function Item({
   projetoEstado,
   onUpdateAlocacao,
   workpackageId,
-  utilizadores = [],
+  utilizadores,
 }: ItemProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Calcular ocupação total
+  const ocupacaoTotal = alocacoes.reduce((acc, curr) => acc + Number(curr.ocupacao), 0);
+
+  // Filtrar apenas o utilizador atual para o Form de edição
+  const utilizadoresDisponiveis = utilizadores.filter(u => u.id === user.id);
+
   // Log para verificar as props recebidas, especialmente 'alocacoes'
   console.log(`[Item Component] Props recebidas para User: ${user.name} (ID: ${user.id})`, { alocacoes, workpackageId });
 
-  const [isEditing, /* setIsEditing */] = useState(false);
-  const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
 
   // Ensure valid dates
@@ -211,15 +217,14 @@ export function Item({
             workpackageId={workpackageId}
             inicio={validInicio}
             fim={validFim}
-            utilizadores={utilizadores || []}
+            utilizadores={utilizadoresDisponiveis}
             onAddAlocacao={handleFormUpdate}
             onCancel={() => setShowForm(false)}
             recursoEmEdicao={{
               userId: user.id,
               alocacoes: alocacoes.map((a) => ({
-                mes: a.mes,
-                ano: a.ano,
-                ocupacao: a.ocupacao,
+                ...a,
+                ocupacao: new Decimal(a.ocupacao),
               })),
             }}
             projetoEstado={projetoEstado}
@@ -232,8 +237,8 @@ export function Item({
             inicio={validInicio}
             fim={validFim}
             isEditing={isEditing}
-            editValues={editValues}
-            setEditValues={setEditValues}
+            editValues={{}}
+            setEditValues={() => {}}
             validarEntrada={validarEntrada}
             projetoEstado={projetoEstado}
           />
