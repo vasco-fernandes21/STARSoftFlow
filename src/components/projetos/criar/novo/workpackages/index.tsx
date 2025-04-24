@@ -286,11 +286,7 @@ export function WorkpackagesTab({
     <div className="flex flex-col">
       {/* Dialog para adição de workpackage - sempre disponível independente do estado */}
       <Dialog open={addingWorkpackage} onOpenChange={setAddingWorkpackage}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Novo Workpackage</DialogTitle>
-            <DialogDescription>Adicione um novo workpackage ao projeto</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl p-0">
           <WorkpackageForm
             onSubmit={handleAddWorkpackageLocal}
             onCancel={() => setAddingWorkpackage(false)}
