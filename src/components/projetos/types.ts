@@ -122,7 +122,7 @@ export type ProjetoCompleto = Prisma.ProjetoGetPayload<{
     };
   };
 }> & {
-  progresso: number;
+  progresso?: number;
 };
 
 // Tipos

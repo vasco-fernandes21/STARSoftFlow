@@ -14,9 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Euro,
   Lock,
   Unlock,
+  Euro,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,8 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { icon: Home, label: "Início", href: "/", requiredPermission: null },
-  { icon: Euro, label: "Finanças", href: "/financas", requiredPermission: "ADMIN" },
   { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
+  { icon: Euro, label: "Atividade Económica", href: "/atividade-economica", requiredPermission: "ADMIN" },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
   { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: "ADMIN" },
 ];

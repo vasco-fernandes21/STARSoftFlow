@@ -72,24 +72,11 @@ function mapearRubrica(rubricaExcel: string): Rubrica {
   return mapeamento[rubricaExcel] || "MATERIAIS";
 }
 
-function excelDateToJS(excelDate: number, isEndOfMonth = false) {
-  // Excel base date is 1899-12-30 (day 0)
+function excelDateToJS(excelDate: number) {
   const date = new Date((excelDate - 25569) * 86400 * 1000);
-  
-  if (isEndOfMonth) {
-    // Get the last day of the month
-    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    return {
-      mes: date.getMonth() + 1,
-      ano: date.getFullYear(),
-      date: lastDay
-    };
-  }
-
   return {
     mes: date.getMonth() + 1,
     ano: date.getFullYear(),
-    date: date
   };
 }
 
@@ -226,184 +213,142 @@ function extrairDadosRH(
   const wps: WorkpackageSimples[] = [];
   let wpAtual: WorkpackageSimples | null = null;
 
-  // Obter a linha com os números seriais do Excel
-  const linhaDatas = data[4] || [];
+  const linhaAnos = data[3] || [];
+  const linhaMeses = data[4] || [];
 
-  // Encontrar o índice da coluna que começa os dados (após "€/Mês" ou "Mês")
-  const inicioBuscaColuna = linhaDatas.findIndex(col => 
-    typeof col === 'string' && (col === '€/Mês' || col === 'Mês')
-  );
+  const colunasDatasMap = new Map<number, { mes: number; ano: number }>();
+  let primeiraColunaIdx = -1;
+  let ultimaColunaIdx = -1;
 
-  if (inicioBuscaColuna === -1) {
-    console.error("[Importação] Coluna '€/Mês' ou 'Mês' não encontrada.");
-    return { workpackages: [], dataInicioProjeto: null, dataFimProjeto: null };
-  }
-
-  // Encontrar o índice da coluna "ETIs"
-  const fimBuscaColuna = linhaDatas.findIndex(col => 
-    typeof col === 'string' && col === 'ETIs'
-  );
-
-  if (fimBuscaColuna === -1) {
-    console.error("[Importação] Coluna 'ETIs' não encontrada.");
-    return { workpackages: [], dataInicioProjeto: null, dataFimProjeto: null };
-  }
-
-  const colunasDatasMap = new Map<number, { mes: number; ano: number; data: Date }>();
-  let primeiraData: Date | null = null;
-  let ultimaData: Date | null = null;
-
-  // Processar apenas as colunas entre inicioBuscaColuna e fimBuscaColuna
-  for (let i = inicioBuscaColuna + 1; i < fimBuscaColuna; i++) {
-    const numeroSerial = linhaDatas[i];
-    
-    if (typeof numeroSerial === "number" && !isNaN(numeroSerial)) {
+  const inicioBuscaColuna = 5; 
+  for (let i = inicioBuscaColuna; i < linhaMeses.length; i++) {
+    if (
+      typeof linhaAnos[i] === "number" &&
+      typeof linhaMeses[i] === "number" &&
+      linhaMeses[i] > 0 
+    ) {
       try {
-        const { mes, ano, date } = excelDateToJS(numeroSerial, i === fimBuscaColuna - 1);
-        colunasDatasMap.set(i, { mes, ano, data: date });
-
-        if (!primeiraData || date < primeiraData) {
-          primeiraData = date;
-        }
-        if (!ultimaData || date > ultimaData) {
-          ultimaData = date;
+        const { mes, ano } = excelDateToJS(linhaMeses[i]);
+        if (ano === linhaAnos[i]) { 
+          colunasDatasMap.set(i, { mes, ano });
+          if (primeiraColunaIdx === -1) {
+            primeiraColunaIdx = i;
+          }
+          ultimaColunaIdx = i; 
         }
       } catch (e) {
-        console.warn(`[Importação] Erro ao converter data do Excel: ${numeroSerial}`, e);
+        // Ignorar erros
       }
     }
   }
 
-  const colunasDatasArray = Array.from(colunasDatasMap.entries())
-    .map(([coluna, info]) => ({ coluna, ...info }))
-    .sort((a, b) => {
-      if (a.ano !== b.ano) return a.ano - b.ano;
-      return a.mes - b.mes;
-    });
+  if (primeiraColunaIdx === -1) {
+    console.error("[Importação] Nenhuma coluna de data válida encontrada no cabeçalho da folha RH.");
+    toast.error("Formato inválido: Cabeçalho de datas não encontrado na folha RH.");
+    return { workpackages: [], dataInicioProjeto: null, dataFimProjeto: null };
+  }
 
-  // Processar as linhas de dados
-  for (let i = 6; i < data.length; i++) {
+  const primeiraDataInfo = colunasDatasMap.get(primeiraColunaIdx)!;
+  const ultimaDataInfo = colunasDatasMap.get(ultimaColunaIdx)!;
+  const dataInicioProjeto = new Date(primeiraDataInfo.ano, primeiraDataInfo.mes - 1, 1);
+  const dataFimProjeto = new Date(ultimaDataInfo.ano, ultimaDataInfo.mes, 0); 
+
+  const colunasDatasArray = Array.from(colunasDatasMap.entries())
+                               .map(([coluna, data]) => ({ coluna, ...data }))
+                               .sort((a, b) => a.coluna - b.coluna);
+
+  for (let i = 5; i < data.length; i++) {
     const row = data[i];
     if (!row) continue;
 
-    const codigoWP = typeof row[2] === "string" ? row[2].trim() : null;
-    const nomeWP = typeof row[3] === "string" ? row[3].trim() : null;
+    const codigo = typeof row[1] === "string" && row[1].match(/^A\d+$/) ? row[1].trim() : null;
+    const nome   = typeof row[2] === "string" && row[2].trim() ? row[2].trim() : null;
 
-    const isWorkpackage = codigoWP && (
-      codigoWP.match(/^A\d+$/) || 
-      codigoWP.match(/^WP\d+$/) || 
-      codigoWP.match(/^WP\s*\d+$/)
-    );
-
-    if (isWorkpackage && nomeWP) {
-      wpAtual = {
-        codigo: codigoWP,
-        nome: `${codigoWP} - ${nomeWP}`,
-        recursos: [],
-        materiais: [],
-        dataInicio: null,
-        dataFim: null
-      };
+    if (codigo && nome) {
+      wpAtual = { codigo, nome, recursos: [], materiais: [], dataInicio: null, dataFim: null };
       wps.push(wpAtual);
-      console.log(`[Importação] Novo workpackage encontrado: ${wpAtual.nome}`);
-      continue;
+      continue; 
     }
 
     if (
       wpAtual &&
-      !row[2] && 
-      typeof row[4] === "string" && 
-      row[4].trim() &&
-      row[4] !== "contagem células cinza"
+      !row[1] &&
+      typeof row[3] === "string" &&
+      row[3].trim() &&
+      row[3] !== "contagem células cinza" 
     ) {
-      const nomeRecurso = row[4].trim();
-      // Dividir o nome em palavras e remover iniciais do meio (como "G.")
-      const palavrasRecurso = nomeRecurso.toLowerCase()
-        .split(' ')
-        .filter((palavra: string) => !palavra.endsWith('.') && palavra.length > 1);
+      const nomeRecurso = row[3].trim();
 
+      const nomeRecursoLower = nomeRecurso.toLowerCase();
+      const excelNameTrimmedLower = nomeRecursoLower.trim(); // Processar nome do Excel uma vez
+
+      // 1. Encontrar todas as correspondências parciais (DB name inclui Excel name)
       const potentialMatches = utilizadores.filter(u => {
-        if (!u.name) return false;
-        
-        // Dividir o nome do utilizador em palavras
-        const palavrasUtilizador = u.name.toLowerCase()
-          .split(' ')
-          .filter((palavra: string) => palavra.length > 1);
-
-        // Verificar se pelo menos duas palavras do nome correspondem
-        const palavrasCorrespondentes = palavrasRecurso.filter((palavraRecurso: string) =>
-          palavrasUtilizador.some((palavraUtilizador: string) => 
-            palavraUtilizador.includes(palavraRecurso) || 
-            palavraRecurso.includes(palavraUtilizador)
-          )
-        );
-
-        return palavrasCorrespondentes.length >= 2;
+          const dbNameTrimmedLower = u.name?.trim().toLowerCase();
+          return dbNameTrimmedLower?.includes(excelNameTrimmedLower);
       });
 
       let userId: string | null = null;
+      let utilizador: { id: string; name: string | null } | null = null;
+
+      // 2. Verificar unicidade
       if (potentialMatches.length === 1) {
-        userId = potentialMatches[0]?.id || null;
-        console.log(`[Importação] Match encontrado para '${nomeRecurso}' -> ${potentialMatches[0]?.name} (ID: ${userId})`);
+          utilizador = potentialMatches[0]!;
+          userId = utilizador?.id || null;
+          console.log(`[Importação - Match Único] Excel: '${excelNameTrimmedLower}' correspondeu UNICAMENTE a DB: '${utilizador?.name?.trim().toLowerCase()}' (ID: ${userId})`);
       } else if (potentialMatches.length > 1) {
-        console.warn(`[Importação] Múltiplas correspondências para '${nomeRecurso}': ${potentialMatches.map(u => u.name).join(', ')}`);
+          console.warn(`[Importação - Ambiguidade] Excel: '${excelNameTrimmedLower}' correspondeu a MÚLTIPLOS utilizadores na DB: ${potentialMatches.map(u => `'${u.name}'`).join(', ')}. Nenhuma alocação será feita.`);
       } else {
-        console.warn(`[Importação] Nenhuma correspondência encontrada para '${nomeRecurso}'`);
+          // Nenhuma correspondência encontrada (nem parcial)
+          // console.log(`[Importação - Sem Match] Excel: '${excelNameTrimmedLower}' não correspondeu a nenhum utilizador na DB.`); // Opcional: log se não houver match
       }
-
+      
+      // Apenas continuar se encontrámos um utilizador único
       if (userId) {
-        const recurso: Recurso = {
-          nome: nomeRecurso,
-          userId,
-          alocacoes: []
-        };
+          const recurso: Recurso = { nome: nomeRecurso, userId: userId, alocacoes: [] };
 
-        let dataInicioRecurso: Date | null = null;
-        let dataFimRecurso: Date | null = null;
+          let dataInicioRecurso: Date | null = null;
+          let dataFimRecurso: Date | null = null;
 
-        for (const colData of colunasDatasArray) {
-          const valor = row[colData.coluna];
-          
-          if (typeof valor === "number" && !isNaN(valor) && valor > 0 && valor <= 1) {
-            const percentagem = valor * 100;
-            recurso.alocacoes.push({
-              mes: colData.mes,
-              ano: colData.ano,
-              percentagem
-            });
+          for (const colData of colunasDatasArray) {
+              const valor = row[colData.coluna];
+              
+              if (typeof valor === "number" && !isNaN(valor) && valor > 0 && valor <= 1) {
+                 const percentagem = valor * 100;
+                 recurso.alocacoes.push({ mes: colData.mes, ano: colData.ano, percentagem: percentagem });
 
-            const dataAlocInicio = new Date(colData.ano, colData.mes - 1, 1);
-            const dataAlocFim = new Date(colData.ano, colData.mes, 0);
+                 const dataAlocInicio = new Date(colData.ano, colData.mes - 1, 1);
+                 const dataAlocFim = new Date(colData.ano, colData.mes, 0); 
 
-            if (!dataInicioRecurso || dataAlocInicio < dataInicioRecurso) {
-              dataInicioRecurso = dataAlocInicio;
-            }
-            if (!dataFimRecurso || dataAlocFim > dataFimRecurso) {
-              dataFimRecurso = dataAlocFim;
-            }
+                 if (!dataInicioRecurso || dataAlocInicio < dataInicioRecurso) {
+                   dataInicioRecurso = dataAlocInicio;
+                 }
+                 if (!dataFimRecurso || dataAlocFim > dataFimRecurso) {
+                   dataFimRecurso = dataAlocFim;
+                 }
+              } 
           }
-        }
 
-        if (recurso.alocacoes.length > 0) {
-          wpAtual.recursos.push(recurso);
-          console.log(`[Importação] Adicionadas ${recurso.alocacoes.length} alocações para '${nomeRecurso}' no WP '${wpAtual.nome}'`);
+          if (recurso.alocacoes.length > 0 && wpAtual) { // Não precisa verificar userId aqui, já foi feito
+              wpAtual.recursos.push(recurso);
+              
+              const alocacoesString = recurso.alocacoes
+                  .map(a => `${String(a.mes).padStart(2, '0')}/${a.ano}: ${a.percentagem.toFixed(1)}%`)
+                  .join(', ');
+              console.log(`[Importação] Alocações para '${nomeRecurso}' (ID: ${recurso.userId}) no WP '${wpAtual.nome}': ${alocacoesString}`);
 
-          if (dataInicioRecurso && (!wpAtual.dataInicio || dataInicioRecurso < wpAtual.dataInicio)) {
-            wpAtual.dataInicio = dataInicioRecurso;
-          }
-          if (dataFimRecurso && (!wpAtual.dataFim || dataFimRecurso > wpAtual.dataFim)) {
-            wpAtual.dataFim = dataFimRecurso;
-          }
-        }
+              if (dataInicioRecurso && (!wpAtual.dataInicio || dataInicioRecurso < wpAtual.dataInicio)) {
+                wpAtual.dataInicio = dataInicioRecurso;
+              }
+              if (dataFimRecurso && (!wpAtual.dataFim || dataFimRecurso > wpAtual.dataFim)) {
+                wpAtual.dataFim = dataFimRecurso;
+              }
+          } 
       }
     }
   }
 
-  return { 
-    workpackages: wps, 
-    dataInicioProjeto: primeiraData, 
-    dataFimProjeto: ultimaData 
-  };
+  return { workpackages: wps, dataInicioProjeto, dataFimProjeto };
 }
 
 function atribuirMateriaisAosWorkpackages(
