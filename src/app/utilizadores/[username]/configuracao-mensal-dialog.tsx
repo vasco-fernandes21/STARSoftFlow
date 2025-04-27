@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Icons } from "@/components/ui/icons";
 import { Settings } from "lucide-react";
 
@@ -40,7 +40,6 @@ export function ConfiguracaoMensalDialog({ ano, onSuccess, permissao }: Configur
     }))
   );
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
   const podeEditar = ["ADMIN", "GESTOR"].includes(permissao);
 
@@ -116,7 +115,7 @@ export function ConfiguracaoMensalDialog({ ano, onSuccess, permissao }: Configur
           })
         )
       );
-      toast({ title: "Configurações guardadas!" });
+      toast("Configurações guardadas!");
       setOpen(false);
       if (onSuccess) onSuccess();
       void refetch();

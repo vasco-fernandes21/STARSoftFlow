@@ -20,8 +20,7 @@ import { api } from "@/trpc/react";
 import type { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import { TabelaAlocacoes } from "./TabelaAlocacoes";
 import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
-import type { ViewMode } from "@/types/projeto";
+import { toast } from "sonner";
 
 // Interfaces e mapeamentos
 interface UserWithDetails {
@@ -37,6 +36,8 @@ interface UserWithDetails {
   regime: Regime;
   informacoes: string | null;
 }
+
+export type ViewMode = 'real' | 'submetido';
 
 // Interface para os dados recebidos da API
 interface AlocacaoAPI {
@@ -94,7 +95,6 @@ export default function PerfilUtilizador() {
   const router = useRouter();
   const params = useParams<{ username: string }>();
   const username = params?.username || "";
-  const { toast } = useToast();
 
   // Estados
   const [viewMode, setViewMode] = useState<ViewMode>('real');
@@ -158,24 +158,17 @@ export default function PerfilUtilizador() {
   useEffect(() => {
     if (viewMode === 'submetido' && !alocacoes?.submetido) {
       setViewMode('real');
-      toast({
-        description: "Voltando para dados reais pois não existem dados submetidos.",
-      });
+      toast("Voltando para dados reais pois não existem dados submetidos.");
     }
   }, [viewMode, alocacoes?.submetido]);
 
   // Mutation para convidar utilizador
   const convidarUtilizadorMutation = api.utilizador.convidarUtilizador.useMutation({
     onSuccess: () => {
-      toast({
-        description: "O utilizador receberá um email para definir a sua password.",
-      });
+      toast("O utilizador receberá um email para definir a sua password.");
     },
     onError: (error) => {
-      toast({
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(error.message);
     },
   });
 

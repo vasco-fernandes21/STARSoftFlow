@@ -23,9 +23,9 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSession } from "next-auth/react";
 import type { User as PrismaUser } from "@prisma/client";
-import { customSignOut } from "@/app/actions/auth-actions";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { Permissao } from "@prisma/client";
+import { signOut } from "next-auth/react";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -72,7 +72,7 @@ export const AppSidebar = () => {
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
     try {
-      await customSignOut();
+      await signOut({ callbackUrl: "/login" });
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
       window.location.href = "/login";

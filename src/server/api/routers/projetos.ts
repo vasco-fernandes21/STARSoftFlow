@@ -271,7 +271,7 @@ export const projetoRouter = createTRPCRouter({
           },
         });
 
-        // Sempre buscar rascunhos para o utilizador autenticado
+        // Vai sempre buscar rascunhos do utilizador autenticado
         const rascunhos = await ctx.db.rascunho.findMany({
           where: { userId },
           orderBy: { updatedAt: "desc" },
@@ -1182,7 +1182,7 @@ export const projetoRouter = createTRPCRouter({
           return (aDate ? aDate.getTime() : Infinity) - (bDate ? bDate.getTime() : Infinity);
         });
       if (sortedByStart.length > 0 && sortedByStart[0]) inicio = wpToDate(sortedByStart[0].inicio);
-      if (sortedByEnd.length > 0 && sortedByEnd[sortedByEnd.length - 1]) fim = wpToDate(sortedByEnd[sortedByEnd.length - 1].fim);
+      if (sortedByEnd.length > 0 && sortedByEnd[sortedByEnd.length - 1]) fim = wpToDate(sortedByEnd[sortedByEnd.length - 1]?.fim);
     }
 
     function wpToDate(val: any): Date | null {

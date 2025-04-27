@@ -1,4 +1,4 @@
-import { formatarMoeda, formatarNumero } from "@/lib/formatters";
+import { formatarMoeda, formatarNumero } from "@/lib/utils";
 
 // --- Formatting Functions ---
 export const formatNumber = (value: number | undefined | null, fractionDigits = 2): string => {

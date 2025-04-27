@@ -236,7 +236,7 @@ function extrairDadosRH(
           }
           ultimaColunaIdx = i; 
         }
-      } catch (e) {
+      } catch (error) {
         // Ignorar erros
       }
     }
@@ -244,7 +244,6 @@ function extrairDadosRH(
 
   if (primeiraColunaIdx === -1) {
     console.error("[Importação] Nenhuma coluna de data válida encontrada no cabeçalho da folha RH.");
-    toast.error("Formato inválido: Cabeçalho de datas não encontrado na folha RH.");
     return { workpackages: [], dataInicioProjeto: null, dataFimProjeto: null };
   }
 
@@ -402,16 +401,13 @@ export default function ImportarProjetoButton() {
   const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
   const { data: utilizadoresData } = api.utilizador.findAll.useQuery();
 
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = useCallback(async () => {
+    const file = fileInputRef.current?.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
 
     const utilizadores = extrairUtilizadores(utilizadoresData);
-
-    // Log para verificar o array completo de utilizadores ANTES de passá-lo adiante
-    console.log("[Importação] Utilizadores extraídos e PRONTOS para comparação:", JSON.stringify(utilizadores.map(u => ({id: u.id, name: u.name})), null, 2)); 
 
     if (utilizadores.length === 0) {
         toast.error("Não foi possível carregar a lista de utilizadores da base de dados.");
@@ -593,15 +589,7 @@ export default function ImportarProjetoButton() {
 
                 setModalFinanciamentosAberto(true);
 
-                toast.info(
-                  `Não existe financiamento do tipo "${tipoFinanciamento}". Por favor, crie um novo.`,
-                  {
-                    action: {
-                      label: "Fechar",
-                      onClick: () => toast.dismiss(),
-                    },
-                  }
-                );
+                toast.info(`Não existe financiamento do tipo "${tipoFinanciamento}". Por favor, crie um novo.`);
               }
           } catch (error) {
             console.error("[Importação] Erro ao verificar financiamentos existentes:", error);
@@ -630,7 +618,7 @@ export default function ImportarProjetoButton() {
 
     reader.readAsArrayBuffer(file);
 
-  }, [dispatch, financiamentosData, utilizadoresData]);
+  }, [dispatch, financiamentosData, utilizadoresData, toast]);
 
   const handleFinanciamentoCriado = useCallback((financiamento: FinanciamentoAPI) => {
     dispatch({
@@ -647,7 +635,7 @@ export default function ImportarProjetoButton() {
     setModalFinanciamentosAberto(false);
 
     toast.success("Financiamento criado e aplicado ao projeto");
-  }, [dispatch]);
+  }, [dispatch, toast]);
 
   return (
     <>

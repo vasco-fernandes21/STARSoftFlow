@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, lazy, Suspense } from "react";
-import { Button } from "@/components/ui/button";
 import {
   Users,
-  ArrowLeft,
   FileText,
   Package,
   DollarSign,
@@ -77,6 +75,7 @@ export default function AtividadeEconomicaPage() {
                     financiamento: projeto.financiamento
                       ? { nome: projeto.financiamento.nome }
                       : null,
+                    valor_eti: projeto.valor_eti ? projeto.valor_eti.toString() : null,
                   }}
                 />
               </Suspense>

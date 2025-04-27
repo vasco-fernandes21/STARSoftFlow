@@ -1,6 +1,6 @@
 "use client";
 
-import { NovoUtilizadorModal } from "@/components/utilizadores/NovoUtilizadorModal";
+import { NovoUtilizadorModal } from "@/app/utilizadores/components/NovoUtilizadorModal";
 
 export default function CriarUtilizador() {
   return (

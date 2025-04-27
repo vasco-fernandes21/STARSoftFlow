@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare, hash } from "bcryptjs";
 import { ZodError } from "zod";
-import { loginSchema } from "./api/auth/types";
+import { loginSchema } from "./api/schemas/auth";
 import { z } from "zod";
 import { cookies } from "next/headers";
 

@@ -1,7 +1,8 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ProjetoEstado } from "@prisma/client";
-import { imageToBase64 } from "@/app/actions/images";
+import fs from 'fs/promises';
+import path from 'path';
 
 // Interface para os dados recebidos da API
 interface RelatorioMensalOutput {
@@ -46,6 +47,27 @@ interface ProjetoAlocacoes {
   }>;
   totalOcupacao: number;
   totalHoras: number;
+}
+
+// Função utilitária para converter imagem em base64
+export async function imageToBase64(filename: string) {
+  try {
+    const filePath = path.join(process.cwd(), 'public', filename);
+    const fileData = await fs.readFile(filePath);
+    const base64 = fileData.toString('base64');
+    const ext = path.extname(filename).slice(1).toLowerCase();
+    // Mapear extensões para tipos MIME
+    const mimeType = {
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'svg': 'image/svg+xml',
+    }[ext] || 'image/png';
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error(`Erro ao converter imagem para base64: ${filename}`, error);
+    return '';
+  }
 }
 
 // Template otimizado para impressão em A4 com Puppeteer

@@ -6,9 +6,9 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { loginSchema } from "@/server/api/auth/types";
+import { loginSchema } from "@/server/api/schemas/auth";
 import { ZodError } from "zod";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,7 +16,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,11 +35,9 @@ export default function LoginPage() {
       }
 
       if (result.error) {
-        toast({
-          variant: "destructive",
-          title: "Dados inválidos",
-          description: "Por favor, verifique o email e a palavra-passe.",
-        });
+        toast.error(
+          "Dados inválidos. Por favor, verifique o email e a palavra-passe."
+        );
         return;
       }
 
@@ -49,11 +46,9 @@ export default function LoginPage() {
     } catch (error) {
       if (error instanceof ZodError) {
         const fieldErrors = error.errors.map((err) => err.message);
-        toast({
-          variant: "destructive",
-          title: "Erro de validação",
-          description: fieldErrors[0] || "Por favor verifique os campos de entrada",
-        });
+        toast.error(
+          "Erro de validação: " + (fieldErrors[0] || "Por favor verifique os campos de entrada")
+        );
       } else {
         // If there's a navigation error, redirect using window.location
         window.location.href = "/";
@@ -239,7 +234,7 @@ export default function LoginPage() {
 
             {/* Footer */}
             <footer className="mt-8 text-center text-xs text-gray-400">
-              © {new Date().getFullYear()} STAR Institute. Todos os direitos reservados.
+              {new Date().getFullYear()} STAR Institute. Todos os direitos reservados.
             </footer>
           </div>
         </div>
