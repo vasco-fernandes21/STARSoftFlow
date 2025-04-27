@@ -235,11 +235,12 @@ function getIconByType(tipo: TipoNotificacao) {
 function getIconBgColor(urgencia: NivelUrgencia): string {
   switch (urgencia) {
     case "ALTA":
-      return "bg-red-100 text-red-600";
+      // Usar cores mais suaves
+      return "bg-red-50/70 text-red-600";
     case "MEDIA":
-      return "bg-amber-100 text-amber-600";
+      return "bg-amber-50/70 text-amber-600";
     case "BAIXA":
-      return "bg-gray-100 text-gray-600"; // Cor neutra
+      return "bg-slate-100 text-slate-600"; // Usar slate para consistência
     default:
       return "bg-slate-100 text-slate-600";
   }
@@ -591,7 +592,7 @@ export default function Notificacoes() {
 
         <StatsGrid stats={stats} />
 
-        <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
+        <div className="rounded-2xl border border-white/20 bg-white/80 shadow-xl backdrop-blur-sm transition-all duration-200">
           {/* Barra de Ações Condicional */}
           <div
             className={cn(

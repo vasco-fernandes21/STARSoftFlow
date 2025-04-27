@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { pt } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
 
 // Componente para o cabeçalho do projeto aprovado
@@ -55,7 +55,7 @@ const ApprovedProjectHeader = ({
       <div className="flex items-center gap-1.5 text-xs text-gray-500">
         <Clock className="h-3.5 w-3.5" />
         <span>
-          Aprovado em {format(new Date(dataAprovacao), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+          Aprovado em {format(new Date(dataAprovacao), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: pt })}
         </span>
       </div>
     )}

@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 // Rotas que não requerem autenticação
-const rotasPublicas = ["/login", "/primeiro-login"];
+const rotasPublicas = ["/login", "/primeiro-login", "/recuperar-password"];
 
 export async function middleware(request: NextRequest) {
   // Verificar token usando o cookie next-auth.session-token

@@ -2,46 +2,18 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/trpc/react";
-import {
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  BarChart,
-  Bar,
-} from "recharts";
-import {
-  Wallet,
-  DollarSign,
-  TrendingUp,
-  ArrowUpDown,
-  Percent,
-  FileText,
-  Calendar,
-} from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { badgeVariants } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { VariantProps } from "class-variance-authority";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@/server/api/root";
-import { formatarMoeda, formatarNumero } from "@/lib/formatters";
 import { OverviewTab } from "./projeto-financas/OverviewTab";
 import { OrcamentoSubmetidoTab } from "./projeto-financas/OrcamentoSubmetidoTab";
 import { OrcamentoRealTab } from "./projeto-financas/OrcamentoRealTab";
 import { FolgaTab } from "./projeto-financas/FolgaTab";
 import type { ProjetoEstado } from "@prisma/client";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@/server/api/root";
 
 // --- Type Definitions ---
 
@@ -366,13 +338,6 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   );
 
   // --- Chart Data Preparation (Unfiltered) ---
-  const dadosGraficoComparacao = detalhesAnuais.map((detalhe: DetalheAnualMapped) => ({
-    ano: detalhe.ano.toString(),
-    submetido: detalhe.orcamento.submetido,
-    real: detalhe.orcamento.real.total,
-    resultado: detalhe.resultado,
-  }));
-
   const dadosGraficoSubmissao = detalhesAnuais.map((detalhe: DetalheAnualMapped) => ({
     ano: detalhe.ano.toString(),
     orcamento: detalhe.orcamento.submetido,

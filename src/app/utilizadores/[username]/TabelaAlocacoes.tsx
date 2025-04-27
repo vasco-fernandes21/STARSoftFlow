@@ -44,6 +44,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePDFExport } from '@/hooks/usePDFExport';
 
 interface AlocacaoOriginal {
   ano: number;
@@ -150,34 +151,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
   const username = params?.username as string;
 
   // API para gerar PDF
-  const { mutate: gerarPDF } = api.utilizador.gerarRelatorioPDF.useMutation({
-    onSuccess: (data: { pdf: string; filename: string }) => {
-      // Converter o Base64 para Blob
-      const byteCharacters = atob(data.pdf);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-
-      // Criar URL e fazer download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = data.filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      setIsGeneratingPDF(false);
-    },
-    onError: (error) => {
-      console.error("Erro ao gerar PDF:", error);
-      alert("Erro ao gerar PDF. Por favor, tente novamente.");
-      setIsGeneratingPDF(false);
-    }
-  });
+  const { mutate: gerarPDF } = usePDFExport();
 
   // Função para exportar PDF
   const handleExportPDF = () => {

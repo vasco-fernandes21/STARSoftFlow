@@ -10,7 +10,7 @@ import { api } from "@/trpc/react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { format, isBefore, addDays, differenceInDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { pt } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -231,7 +231,7 @@ export default function Page() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">
               {format(new Date(atividade.data), "dd 'de' MMMM 'às' HH:mm", {
-                locale: ptBR,
+                locale: pt,
               })}
             </span>
             <Circle className="h-1 w-1 fill-current text-gray-300" />

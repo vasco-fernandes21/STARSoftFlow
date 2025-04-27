@@ -18,7 +18,7 @@ import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/format"; // Assuming you have this helper
+import { formatCurrency } from "@/lib/utils";
 import {
   ResponsiveContainer,
   BarChart,

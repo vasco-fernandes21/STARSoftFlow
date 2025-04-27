@@ -18,6 +18,7 @@ import { gerarMesesEntreDatas } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
+import { pt } from "date-fns/locale";
 
 interface FormProps {
   workpackageId: string;
@@ -340,7 +341,7 @@ export function Form({
       if (ocupacao + ocupacaoExistente > 1) {
         const tipoAlocacao = canEditApproved ? "aprovada" : "pendente";
         toast.warning(
-          `Atenção: A ocupação total para ${format(new Date(ano, mes - 1), "MMMM")} 
+          `Atenção: A ocupação total para ${format(new Date(ano, mes - 1), "MMMM", { locale: pt })} 
           será de ${((ocupacao + ocupacaoExistente) * 100).toFixed(0)}%. 
           Você está editando a alocação ${tipoAlocacao}.`
         );
@@ -651,7 +652,7 @@ export function Form({
                             >
                               <div className="mb-1.5 flex justify-between text-xs">
                                 <span className={statusClasses.text}>
-                                  {format(new Date(mes.ano, mes.mesNumero - 1), "MMM")}
+                                  {format(new Date(mes.ano, mes.mesNumero - 1), "MMM", { locale: pt })}
                                 </span>
                                 <div className="flex flex-col items-end">
                                   <span className={`font-medium ${statusClasses.text}`}>

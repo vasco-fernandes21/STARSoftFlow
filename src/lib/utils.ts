@@ -42,6 +42,54 @@ export function gerarMesesEntreDatas(
   return meses;
 }
 
+// --- Formatadores de valores comuns ---
+
+/**
+ * Formata um valor numérico como moeda (EUR)
+ * @param valor Valor a ser formatado (pode ser null/undefined)
+ * @returns String formatada como moeda (ex: €1.234,56)
+ */
+export function formatarMoeda(valor: number | null | undefined): string {
+  if (valor === null || valor === undefined || isNaN(valor)) return "€0,00";
+  return new Intl.NumberFormat("pt-PT", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(valor);
+}
+
+/**
+ * Formata um valor numérico como percentagem (0-100 ou 0-1)
+ * @param valor Valor a ser formatado (0-100 ou 0-1)
+ * @param jaEmPercentagem Se true, assume que o valor já está em percentagem (default: false)
+ * @returns String formatada como percentagem (ex: 12,5%)
+ */
+export function formatarPercentagem(valor: number | null | undefined, jaEmPercentagem = false): string {
+  if (valor === null || valor === undefined || isNaN(valor)) return "0%";
+  const percent = jaEmPercentagem ? valor : valor / 100;
+  return new Intl.NumberFormat("pt-PT", {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(percent);
+}
+
+/**
+ * Formata uma data para exibição (pt-PT)
+ * @param data Data a ser formatada
+ * @returns String formatada no padrão local (ex: 01/01/2025)
+ */
+export function formatarData(data: Date | string | null | undefined): string {
+  if (data === null || data === undefined) return "N/D";
+  const dataObj = typeof data === "string" ? new Date(data) : data;
+  return dataObj.toLocaleDateString("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export const formatarDataSegura = (
   ano: string | number,
   mes: string | number,
@@ -54,6 +102,48 @@ export const formatarDataSegura = (
     return `${mes}/${ano}`;
   }
 };
+
+/**
+ * Formata um número com separadores de milhar
+ * @param valor Valor a ser formatado
+ * @param casasDecimais Número de casas decimais (default: 0)
+ * @returns String formatada com separadores (ex: 1.234)
+ */
+export function formatarNumero(valor: number | null | undefined, casasDecimais = 0): string {
+  if (valor === null || valor === undefined || isNaN(valor)) return "0";
+  return new Intl.NumberFormat("pt-PT", {
+    minimumFractionDigits: casasDecimais,
+    maximumFractionDigits: casasDecimais,
+  }).format(valor);
+}
+
+/**
+ * Formata um valor numérico como moeda (EUR)
+ * @param valor Valor a ser formatado (pode ser null/undefined)
+ * @returns String formatada como moeda (ex: €1.234,56)
+ */
+export function formatCurrency(valor: number | null | undefined): string {
+  return formatarMoeda(valor);
+}
+
+/**
+ * Formata um valor numérico como percentagem (0-100 ou 0-1)
+ * @param valor Valor a ser formatado (0-100 ou 0-1)
+ * @returns String formatada como percentagem (ex: 12,5%)
+ */
+export function formatPercentage(valor: number | null | undefined): string {
+  return formatarPercentagem(valor, false);
+}
+
+/**
+ * Formata um número com separadores de milhar
+ * @param valor Valor a ser formatado
+ * @param casasDecimais Número de casas decimais (default: 0)
+ * @returns String formatada com separadores (ex: 1.234)
+ */
+export function formatNumber(valor: number | null | undefined, casasDecimais = 0): string {
+  return formatarNumero(valor, casasDecimais);
+}
 
 // Função para agrupar alocações por ano e mês com validação
 export function agruparAlocacoesPorAnoMes(
@@ -93,13 +183,4 @@ export function agruparAlocacoesPorAnoMes(
     },
     {} as Record<string, Record<number, number>>
   );
-}
-
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
 }

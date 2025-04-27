@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormField } from "@/components/ui/form";
 import { Pencil, Save, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useMutations } from "@/hooks/useMutations";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
@@ -66,7 +66,6 @@ interface EditarProjetoProps {
 
 export function EditarProjeto({ projeto, financiamentos, renderTrigger }: EditarProjetoProps) {
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
   const { projeto: projetoMutations } = useMutations(projeto.id);
   const { isAdmin, isGestor } = usePermissions();
   const { data: session } = useSession();
@@ -118,19 +117,12 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
 
     projetoMutations.update.mutate(submitData, {
       onSuccess: () => {
-        toast({
-          title: "Projeto atualizado",
-          description: "As alterações foram guardadas com sucesso.",
-        });
+        toast("Projeto atualizado com sucesso!");
         setOpen(false);
       },
       onError: (error) => {
         console.error("Erro ao atualizar projeto:", error);
-        toast({
-          title: "Erro ao atualizar",
-          description: error.message || "Ocorreu um erro ao atualizar o projeto.",
-          variant: "destructive",
-        });
+        toast.error("Ocorreu um erro ao atualizar o projeto.");
       },
     });
   }

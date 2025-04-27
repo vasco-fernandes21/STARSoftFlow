@@ -445,7 +445,7 @@ function DefinirPasswordContent() {
                   Palavra-passe definida com sucesso!
                 </h3>
                 <p className="text-gray-500">
-                  A sua conta foi ativada. Será redirecionado para a página de login em instantes.
+                  A sua conta foi ativada. Será redirecionado para a página inicial em instantes.
                 </p>
                 <div className="mt-4 h-1.5 w-full rounded-full bg-gray-200">
                   <div className="animate-progress h-1.5 rounded-full bg-azul"></div>

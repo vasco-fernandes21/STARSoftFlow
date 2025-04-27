@@ -91,7 +91,7 @@ async function main() {
   const commonUsersData = [
     {
       name: "Ricardo Correia",
-      email: "utilizador@starinstitute.pt",
+      email: "ricardo.correia@starinstitute.pt",
       foto: "https://ui-avatars.com/api/?name=Ricardo+Correia&background=0284c7&color=fff",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2021-01-10"),
@@ -288,6 +288,89 @@ async function main() {
   // Combinar todos os usuários em um array
   const users = [admin, gestor, ...commonUsers];
   console.log(`✅ ${users.length} utilizadores criados.`);
+
+  // --- Criar Projeto Atividade Económica ---
+  // Para cada projeto existente (exceto "Atividade Económica"), criar um workpackage no projeto "Atividade Económica"
+  // Cada workpackage terá o nome do projeto e 2 ou 3 tarefas aleatórias referentes a atividades económicas
+  type ProjetoWP = { nome: string; inicio: Date; fim: Date };
+  const tarefasAtividadeEconomica = [
+    (proj: ProjetoWP) => ({
+      nome: `Reunião com investidores (${proj.nome})`,
+      descricao: "Sessão para apresentação do projeto a potenciais investidores.",
+      inicio: proj.inicio,
+      // Duração: 1/3 da duração total do projeto
+      fim: new Date(proj.inicio.getTime() + Math.floor((proj.fim.getTime() - proj.inicio.getTime()) / 3)),
+      estado: true,
+    }),
+    (proj: ProjetoWP) => ({
+      nome: `Planeamento de infraestruturas (${proj.nome})`,
+      descricao: "Definição das necessidades de infraestruturas para o projeto.",
+      // Inicia após a primeira tarefa, termina aos 2/3 do projeto
+      inicio: new Date(proj.inicio.getTime() + Math.floor((proj.fim.getTime() - proj.inicio.getTime()) / 3)),
+      fim: new Date(proj.inicio.getTime() + Math.floor(2 * (proj.fim.getTime() - proj.inicio.getTime()) / 3)),
+      estado: false,
+    }),
+    (proj: ProjetoWP) => ({
+      nome: `Workshop de inovação (${proj.nome})`,
+      descricao: "Sessão de brainstorm e inovação aberta.",
+      // Último terço do projeto
+      inicio: new Date(proj.inicio.getTime() + Math.floor(2 * (proj.fim.getTime() - proj.inicio.getTime()) / 3)),
+      fim: proj.fim,
+      estado: true,
+    }),
+  ];
+  function gerarTarefasParaWP(proj: ProjetoWP) {
+    // Aleatório: 2 ou 3 tarefas, alternando estado
+    const numTarefas = Math.floor(Math.random() * 2) + 2; // 2 ou 3
+    return tarefasAtividadeEconomica.slice(0, numTarefas).map((fn, idx) => {
+      const t = fn(proj);
+      t.estado = idx % 2 === 0;
+      return t;
+    });
+  }
+
+  const projetosParaWP: ProjetoWP[] = [
+    {
+      nome: "INOVC+",
+      inicio: new Date("2023-01-01"),
+      fim: new Date("2025-01-31"),
+    },
+    {
+      nome: "IAMFat",
+      inicio: new Date("2024-11-01"),
+      fim: new Date("2026-12-31"),
+    },
+    {
+      nome: "GreenAuto",
+      inicio: new Date("2025-09-01"),
+      fim: new Date("2028-11-30"),
+    },
+    {
+      nome: "DreamFAB",
+      inicio: new Date("2025-09-01"),
+      fim: new Date("2028-11-30"),
+    },
+  ];
+
+  await prisma.projeto.create({
+    data: {
+      nome: "Atividade Económica",
+      descricao: "",
+      tipo: "ATIVIDADE_ECONOMICA",
+      workpackages: {
+        create: projetosParaWP.map((proj) => ({
+          nome: proj.nome,
+          inicio: proj.inicio,
+          fim: proj.fim,
+          estado: false,
+          tarefas: {
+            create: gerarTarefasParaWP(proj)
+          }
+        }))
+      }
+    },
+  });
+  console.log("✅ Projeto Atividade económica criado com workpackages e tarefas aleatórias de atividade económica (tarefas com maior duração).");
 
   // --- Criar Tipos de Financiamento ---
   console.log("💰 A criar tipos de financiamento...");
