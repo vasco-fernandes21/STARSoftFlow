@@ -90,6 +90,19 @@ export function formatarData(data: Date | string | null | undefined): string {
   });
 }
 
+export const formatarDataSegura = (
+  ano: string | number,
+  mes: string | number,
+  formatString: string
+): string => {
+  try {
+    const data = new Date(Number(ano), Number(mes) - 1, 1);
+    return format(data, formatString, { locale: pt });
+  } catch {
+    return `${mes}/${ano}`;
+  }
+};
+
 /**
  * Formata um número com separadores de milhar
  * @param valor Valor a ser formatado

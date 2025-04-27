@@ -17,7 +17,7 @@ import { ChevronRight, ChevronDown, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import Link from "next/link";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency } from "@/lib/utils";
 import { type Rubrica } from "@prisma/client";
 
 // Definição de tipos para representar a resposta da API

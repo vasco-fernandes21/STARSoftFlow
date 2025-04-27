@@ -76,6 +76,8 @@ export default function AtividadeEconomicaPage() {
                       ? { nome: projeto.financiamento.nome }
                       : null,
                     valor_eti: projeto.valor_eti ? projeto.valor_eti.toString() : null,
+                    taxa_financiamento: projeto.taxa_financiamento ? projeto.taxa_financiamento.toString() : null,
+                    overhead: projeto.overhead ? projeto.overhead.toString() : null,
                   }}
                 />
               </Suspense>
