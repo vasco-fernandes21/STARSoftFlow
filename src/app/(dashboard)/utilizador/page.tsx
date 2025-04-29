@@ -7,12 +7,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { api } from "@/trpc/react";
-import { useRouter } from "next/navigation";
-import { format, isBefore, addDays, differenceInDays } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
-// Import below might be needed in future implementations
-// import { usePermissions } from "@/hooks/usePermissions";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -24,16 +21,21 @@ import {
 } from "recharts";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
-import type { AtividadeRecente } from "@/server/api/routers/dashboard";
-import { useSession } from "next-auth/react";
+import type { EntregavelAlerta } from "@/server/api/routers/dashboard";
+import { Package } from "lucide-react";
+
+// Local type for tarefasProximas if not present in backend
+type TarefaProxima = {
+  id: string;
+  nome: string;
+  data: string | Date | null;
+  estado: boolean;
+  descricao?: string | null;
+};
 
 export default function UserDashboard() {
-  const router = useRouter();
-  const { data: session } = useSession();
-
   // Obter dados do dashboard do utilizador
-  const { data: dashboardData, isLoading: isLoadingDashboard } =
-    api.dashboard.getDashboard.useQuery();
+  const { data: dashboardData, isLoading: isLoadingDashboard } = api.dashboard.getDashboard.useQuery();
 
   // Valores padrão e fallbacks seguros para dados que podem não existir na API
   const tarefasPendentes = dashboardData?.tarefasPendentes || 5;
@@ -171,7 +173,7 @@ export default function UserDashboard() {
       <p className="text-sm text-gray-500">Nenhuma atividade recente</p>
     </div>
   ) : (
-    atividadesRecentes.map((atividade: AtividadeRecente) => (
+    atividadesRecentes.map((atividade: any) => (
       <div
         key={atividade.id}
         className="flex items-start gap-4 rounded-lg p-4 transition-colors hover:bg-gray-50"
@@ -204,7 +206,7 @@ export default function UserDashboard() {
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-              Olá, {session?.user?.name?.split(" ")[0] || "Utilizador"}
+              Olá, Utilizador
             </h1>
             <p className="text-sm text-slate-500">Bem-vindo ao seu painel de controlo.</p>
           </div>
@@ -233,7 +235,6 @@ export default function UserDashboard() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => router.push("/tarefas")}
                           className="h-7 px-2 text-xs font-normal transition-colors hover:bg-slate-50"
                         >
                           Ver todas
@@ -253,75 +254,38 @@ export default function UserDashboard() {
                               </div>
                             ))}
                           </>
+                        ) : Array.isArray((dashboardData as any)?.tarefasProximas) && (dashboardData as any).tarefasProximas.length ? (
+                          (dashboardData as any).tarefasProximas.map((tarefa: TarefaProxima) => (
+                            <div key={tarefa.id} className="flex items-center gap-3">
+                              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                <Calendar className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="truncate text-sm font-normal text-slate-800">{tarefa.nome}</p>
+                                <p className="text-xs text-slate-500">
+                                  {tarefa.data ? (typeof tarefa.data === "string" ? tarefa.data : new Date(tarefa.data).toLocaleDateString()) : ""}
+                                </p>
+                              </div>
+                            </div>
+                          ))
                         ) : (
-                          <>
-                            {dashboardData?.tarefasPendentes ? (
-                              <>
-                                {/* Aqui iriam as tarefas próximas - dados de exemplo */}
-                                <div className="flex items-start gap-3">
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                                    <Circle className="h-5 w-5 text-blue-600" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-slate-800">
-                                      Atualizar documentação técnica
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      Projeto: INOVC+ • 2 dias restantes
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
-                                    <Circle className="h-5 w-5 text-amber-600" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-slate-800">
-                                      Enviar relatório de progresso
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      Projeto: DreamFAB • Hoje
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
-                                    <Circle className="h-5 w-5 text-emerald-600" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-slate-800">
-                                      Preparar apresentação final
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      Projeto: IAMFat • 5 dias restantes
-                                    </p>
-                                  </div>
-                                </div>
-                              </>
-                            ) : (
-                              <p className="py-2 text-center text-sm text-slate-500">
-                                Não há tarefas pendentes.
-                              </p>
-                            )}
-                          </>
+                          <p className="text-center text-sm text-slate-500">Nenhuma tarefa próxima.</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Próximos Entregáveis */}
+                    {/* Entregáveis */}
                     <div className="flex-1 p-4">
                       <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-sm font-medium text-slate-700">Próximos Entregáveis</h3>
+                        <h3 className="text-sm font-medium text-slate-700">Entregáveis</h3>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => router.push("/entregaveis")}
                           className="h-7 px-2 text-xs font-normal transition-colors hover:bg-slate-50"
                         >
                           Ver todos
                         </Button>
                       </div>
-
                       <div className="mt-2 space-y-3">
                         {isLoadingDashboard ? (
                           <>
@@ -335,147 +299,110 @@ export default function UserDashboard() {
                               </div>
                             ))}
                           </>
+                        ) : dashboardData?.entregaveisProximos && dashboardData.entregaveisProximos.length ? (
+                          dashboardData.entregaveisProximos.map((entregavel: EntregavelAlerta) => {
+                            // Fallback para projetoNome
+                            const projetoNome = entregavel.tarefa?.workpackage?.projeto?.nome || "";
+                            // Dias restantes e atraso
+                            const diasRestantes = entregavel.diasRestantes;
+                            const atrasado = diasRestantes < 0;
+                            const prazoTexto = atrasado
+                              ? `${Math.abs(diasRestantes)} dia${Math.abs(diasRestantes) !== 1 ? "s" : ""} atrasado`
+                              : diasRestantes === 0
+                              ? "Termina hoje"
+                              : diasRestantes === 1
+                              ? "Termina amanhã"
+                              : `Faltam ${diasRestantes} dias`;
+                            return (
+                              <div key={entregavel.id} className="flex items-center gap-3">
+                                <div
+                                  className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${atrasado ? "bg-red-50 text-red-600" : diasRestantes <= 3 ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}
+                                >
+                                  <Package className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="truncate text-sm font-normal text-slate-800">{entregavel.nome}</p>
+                                  <p
+                                    className={`text-xs ${atrasado ? "text-red-600" : diasRestantes <= 3 ? "text-amber-600" : "text-slate-500"}`}
+                                  >
+                                    {projetoNome} | {prazoTexto}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })
                         ) : (
-                          <>
-                            {dashboardData?.entregaveisProximos &&
-                            dashboardData.entregaveisProximos.length > 0 ? (
-                              <>
-                                {dashboardData.entregaveisProximos.slice(0, 3).map((entregavel) => {
-                                  const isPastDue = entregavel.data
-                                    ? isBefore(new Date(entregavel.data), new Date())
-                                    : false;
-                                  const isCloseToDeadline = entregavel.data
-                                    ? isBefore(new Date(entregavel.data), addDays(new Date(), 3))
-                                    : false;
-                                  const diasRestantes = entregavel.data
-                                    ? differenceInDays(new Date(entregavel.data), new Date())
-                                    : null;
-
-                                  return (
-                                    <div key={entregavel.id} className="flex items-start gap-3">
-                                      <div
-                                        className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                                          isPastDue
-                                            ? "bg-red-100"
-                                            : isCloseToDeadline
-                                              ? "bg-amber-100"
-                                              : "bg-emerald-100"
-                                        }`}
-                                      >
-                                        <Circle
-                                          className={`h-5 w-5 ${
-                                            isPastDue
-                                              ? "text-red-600"
-                                              : isCloseToDeadline
-                                                ? "text-amber-600"
-                                                : "text-emerald-600"
-                                          }`}
-                                        />
-                                      </div>
-                                      <div>
-                                        <p className="text-sm font-medium text-slate-800">
-                                          {entregavel.nome}
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                          Projeto:{" "}
-                                          {entregavel.tarefa?.workpackage?.projeto?.nome || "N/A"} •
-                                          {isPastDue
-                                            ? " Atrasado"
-                                            : diasRestantes === 0
-                                              ? " Hoje"
-                                              : ` ${diasRestantes} dias`}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </>
-                            ) : (
-                              <p className="py-2 text-center text-sm text-slate-500">
-                                Não há entregáveis próximos.
-                              </p>
-                            )}
-                          </>
+                          <p className="text-center text-sm text-slate-500">
+                            Nenhum entregável próximo.
+                          </p>
                         )}
                       </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+            </div>
 
-              {/* Gráfico de Ocupação */}
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
-                <CardHeader className="border-b border-slate-100/50 px-6 py-4">
-                  <CardTitle className="font-medium text-slate-800">Ocupação Mensal</CardTitle>
-                  <CardDescription className="text-slate-500">
-                    Percentual de ocupação ao longo do ano
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="h-60">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart
-                        data={ocupacaoAnual}
-                        margin={{
-                          top: 10,
-                          right: 30,
-                          left: 20,
-                          bottom: 10,
-                        }}
-                      >
+            {/* Gráfico de Ocupação e Atividade Recente */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {/* Gráfico de Ocupação Anual */}
+              <div className="md:col-span-2">
+                <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-base font-medium text-slate-700">
+                      Ocupação Anual (%)
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500">
+                      A sua percentagem média de alocação mensal.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={ocupacaoAnual}>
                         <defs>
                           <linearGradient id="colorOcupacao" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis
-                          dataKey="mes"
-                          tick={{ fill: "#64748b", fontSize: 12 }}
-                          axisLine={{ stroke: "#e2e8f0", strokeWidth: 1 }}
-                          tickLine={false}
-                        />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                        <XAxis dataKey="mes" fontSize={12} tickLine={false} axisLine={false} />
                         <YAxis
-                          tick={{ fill: "#64748b", fontSize: 12 }}
-                          axisLine={false}
+                          fontSize={12}
                           tickLine={false}
+                          axisLine={false}
                           tickFormatter={(value) => `${value}%`}
+                          domain={[0, 110]}
                         />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "white",
-                            border: "none",
-                            borderRadius: "8px",
-                            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                          }}
-                          formatter={(value) => [`${value}%`, "Ocupação"]}
-                          labelStyle={{ color: "#1e293b", fontWeight: 500 }}
-                        />
+                        <Tooltip formatter={(value: number) => [`${value}%`, "Ocupação"]} />
                         <Area
                           type="monotone"
                           dataKey="ocupacao"
                           stroke="#3b82f6"
-                          strokeWidth={2}
                           fillOpacity={1}
                           fill="url(#colorOcupacao)"
+                          strokeWidth={2}
+                          dot={false}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
 
-              {/* Card de Atividades Recentes */}
-              <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
-                <CardHeader className="border-b border-slate-100/50 px-6 py-4">
-                  <CardTitle className="font-medium text-slate-800">Atividades Recentes</CardTitle>
-                  <CardDescription className="text-slate-500">
-                    Últimas ações na plataforma
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="px-6 py-4">{atividadesContent}</CardContent>
-              </Card>
+              {/* Atividade Recente */}
+              <div>
+                <Card className="glass-card border-white/20 shadow-md transition-all duration-300 ease-in-out hover:shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-base font-medium text-slate-700">
+                      Atividade Recente
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="max-h-[350px] overflow-y-auto">
+                    {atividadesContent}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         )}

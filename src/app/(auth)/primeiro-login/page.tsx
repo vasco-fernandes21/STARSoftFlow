@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { signIn } from "next-auth/react";
 
-// Loading component for Suspense fallback
+
 function DefinirPasswordLoading() {
   return (
     <div className="flex min-h-screen w-full items-center justify-center">
@@ -22,7 +22,6 @@ function DefinirPasswordLoading() {
   );
 }
 
-// Main component with useSearchParams wrapped in Suspense
 function DefinirPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();

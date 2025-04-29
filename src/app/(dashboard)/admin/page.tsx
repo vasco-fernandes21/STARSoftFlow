@@ -1,16 +1,5 @@
 "use client";
 
-import {
-  Briefcase,
-  TrendingUp,
-  AlertTriangle,
-  Users,
-  DollarSign,
-  AlertCircle,
-  ChevronRight,
-  PieChart as PieChartIcon,
-  Clock,
-} from "lucide-react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +7,7 @@ import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils"; // Assumindo que esta função existe
 import {
   ResponsiveContainer,
   BarChart,
@@ -31,11 +20,21 @@ import {
   PieChart,
   Pie,
   Cell,
-} from "recharts";
+} from "recharts";  
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Briefcase,
+  TrendingUp,
+  AlertTriangle,
+  AlertCircle,
+  DollarSign,
+  Users,
+  ChevronRight,
+  PieChart as PieChartIcon,
+  Clock
+} from "lucide-react";
 
-// --- Mock Data ---
-
+// --- Colar constantes e mock data aqui (fora do componente Page) ---
 const mockStatsItems: StatItem[] = [
   {
     icon: Briefcase,
@@ -106,7 +105,6 @@ const mockFinancialSummary = {
   projectedResult: 150_000,
 };
 
-// Mock data for financial trends chart
 const mockFinancialTrends = [
   { month: "Jan", orcamento: 125000, despesas: 110000, projetos: 8 },
   { month: "Fev", orcamento: 125000, despesas: 122000, projetos: 8 },
@@ -116,7 +114,6 @@ const mockFinancialTrends = [
   { month: "Jun", orcamento: 175000, despesas: 168000, projetos: 12 },
 ];
 
-// Mock data for project status distribution
 const mockProjectStatuses = [
   { name: "Em Desenvolvimento", value: 12, color: "#3b82f6" }, // blue-500
   { name: "Em Risco", value: 3, color: "#f59e0b" }, // amber-500
@@ -125,8 +122,7 @@ const mockProjectStatuses = [
   { name: "Pendentes", value: 2, color: "#6b7280" }, // gray-500
 ];
 
-// --- Helper Components (Mock Version) ---
-
+// --- Colar componentes auxiliares aqui (fora do componente Page) ---
 function ProjectListCard({
   title,
   projects,
@@ -247,7 +243,6 @@ function FinancialSummaryCard({ summary }: { summary: typeof mockFinancialSummar
   );
 }
 
-// New component for the dashboard charts
 function DashboardCharts() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -359,7 +354,7 @@ function DashboardCharts() {
                   <Bar
                     yAxisId="left"
                     dataKey="orcamento"
-                    name="Orçamento"
+                    name="Receitas"
                     fill="#93c5fd"
                     barSize={20}
                     radius={[4, 4, 0, 0]}
@@ -417,18 +412,8 @@ function DashboardCharts() {
   );
 }
 
-// --- Main Component ---
-
-export default function AdminDashboard() {
-  // In a real scenario, you'd fetch data here using tRPC
-  // const { data, isLoading } = api.dashboard.getAdminDashboardData.useQuery();
-  const isLoading = false; // Mock loading state
-
-  if (isLoading) {
-    // Optional: Add a loading skeleton here if needed
-    return <div>Carregando dashboard...</div>;
-  }
-
+// --- Componente Principal da Página ---
+export default function Page() {
   return (
     <div className="h-full bg-bgApp p-8">
       <div className="max-w-8xl mx-auto space-y-6">

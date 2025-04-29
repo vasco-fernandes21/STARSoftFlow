@@ -38,14 +38,16 @@ const dateSchema = z.union([
 // Schema base para utilizador
 const utilizadorBaseSchema = z
   .object({
-    name: z.string().min(1, "Nome é obrigatório"),
-    email: emailSchema,
+    name: z.string().min(1, "Nome é obrigatório").optional(),
+    email: emailSchema.optional(),
     foto: z.string().nullable().optional(),
-    atividade: z.string().min(1, "Atividade é obrigatória"),
-    contratacao: dateSchema,
-    username: z.string().min(3, "Username deve ter pelo menos 3 caracteres"),
-    permissao: z.nativeEnum(Permissao),
-    regime: z.nativeEnum(Regime),
+    atividade: z.string().min(1, "Atividade é obrigatória").optional(),
+    contratacao: dateSchema.optional(),
+    username: z.string().min(3, "Username deve ter pelo menos 3 caracteres").optional(),
+    permissao: z.nativeEnum(Permissao).optional(),
+    regime: z.nativeEnum(Regime).optional(),
+    contratado: z.boolean().optional(),
+    informacoes: z.string().optional(),
   })
   .passthrough();
 
@@ -452,7 +454,6 @@ export const utilizadorRouter = createTRPCRouter({
   // Criar utilizador
   create: protectedProcedure.input(createUtilizadorSchema).mutation(async ({ ctx, input }) => {
     try {
-      // Verificar permissão (apenas admin pode criar utilizadores)
       const user = ctx.session?.user as UserWithPermissao | undefined;
       if (!user || user.permissao !== Permissao.ADMIN) {
         throw new TRPCError({
@@ -461,7 +462,6 @@ export const utilizadorRouter = createTRPCRouter({
         });
       }
 
-      // Verificar se temos dados de entrada
       if (!input) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -469,6 +469,31 @@ export const utilizadorRouter = createTRPCRouter({
         });
       }
 
+      // Se contratado minimalista, só exige name e informacoes
+      if (input.contratado === true) {
+        if (!input.name || !input.name.trim()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Nome é obrigatório para contratado",
+          });
+        }
+        // Criação minimalista
+        const newUser = await ctx.db.user.create({
+          data: {
+            name: input.name,
+            informacoes: input.informacoes,
+            contratado: true,
+          },
+          select: {
+            id: true,
+            name: true,
+            informacoes: true,
+          },
+        });
+        return newUser;
+      }
+
+      // Fluxo normal (não contratado minimalista)
       const { password, ...userData } = input;
 
       if (process.env.NODE_ENV === "development") {

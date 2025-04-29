@@ -50,7 +50,7 @@ export default function LoginPage() {
           "Erro de validação: " + (fieldErrors[0] || "Por favor verifique os campos de entrada")
         );
       } else {
-        // If there's a navigation error, redirect using window.location
+        // Se houver erro, redirecionar para a página inicial
         window.location.href = "/";
         return;
       }
@@ -63,9 +63,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen w-full">
-      {/* Left side - Animation and Image */}
+      {/* Lado esquerdo - Animação e imagem */}
       <div className="relative hidden bg-azul/20 lg:flex lg:w-1/2">
-        {/* Fixed gradient background with blur */}
+        {/* Fundo gradiente com desfoque */}
         <div
           className="absolute inset-0"
           style={{
@@ -115,10 +115,10 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right side - Login form */}
+      {/* Lado direito - Formulário de login */}
       <div className="relative flex w-full items-center justify-center bg-white lg:w-1/2">
         <div className="w-full max-w-md px-6 py-12 sm:px-12">
-          {/* Logo for mobile only */}
+          {/* Logo para mobile apenas */}
           <div className="mb-12 flex justify-center lg:hidden">
             <Image
               src="/star-institute-logo.png"

@@ -146,13 +146,10 @@ const Users = () => {
   const [regimeFilter, setRegimeFilter] = useState<"all" | Regime>("all");
 
   // Fetch all data at once since we're using client-side pagination
-  const { data, isLoading } = api.utilizador.findAll.useQuery(
-    { page: 1, limit: 1000 },
-    {
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    }
-  );
+  const { data, isLoading } = api.utilizador.findAll.useQuery(undefined, {
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
 
   // Extrair utilizadores usando a função utilitária
   const utilizadores = useMemo(() => extrairUtilizadores(data), [data]);
