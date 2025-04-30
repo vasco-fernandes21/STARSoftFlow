@@ -53,9 +53,8 @@ export function WorkpackageRecursos({
   );
 
   // Filtrar apenas utilizadores não alocados
-  const utilizadoresDisponiveis = utilizadoresList.filter(
-    (user) => !utilizadoresAlocados.has(user.id)
-  );
+  const utilizadoresDisponiveis = utilizadoresList
+    .filter((user) => !utilizadoresAlocados.has(user.id));
 
   // Handler para adicionar recursos
   const handleAddRecurso = (

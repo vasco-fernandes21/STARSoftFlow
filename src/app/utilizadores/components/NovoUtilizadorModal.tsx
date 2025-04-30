@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useQueryClient } from "@tanstack/react-query";
 import { api as trpcApi } from "@/trpc/react";
 
 type Permissao = "ADMIN" | "GESTOR" | "COMUM";

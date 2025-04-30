@@ -3,7 +3,6 @@ import { WorkpackageInformacoes } from "./informacoes";
 import { WorkpackageTarefas } from "./tarefas";
 import { WorkpackageRecursos } from "./recursos";
 import { WorkpackageMateriais } from "./materiais";
-import { WorkpackageProgressoFinanceiro } from "./WorkpackageProgressoFinanceiro";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { api } from "@/trpc/react";
@@ -356,9 +355,6 @@ export function MenuWorkpackage({
                       _workpackageId={fullWorkpackage.id}
                       projetoId={projetoId}
                     />
-                  </div>
-                  <div className="px-5 py-6">
-                    <WorkpackageProgressoFinanceiro workpackage={fullWorkpackage} />
                   </div>
                 </>
               )}

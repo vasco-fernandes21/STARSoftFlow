@@ -13,7 +13,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  regime: string;
+  regime: string | null;
 }
 
 interface Alocacao {

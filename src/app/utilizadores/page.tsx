@@ -147,7 +147,7 @@ const Users = () => {
 
   // Fetch all data at once since we're using client-side pagination
   const { data, isLoading } = api.utilizador.findAll.useQuery(undefined, {
-    staleTime: 0,
+    staleTime: 0, 
     refetchOnWindowFocus: false,
   });
 

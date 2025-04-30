@@ -16,6 +16,9 @@ import { Decimal } from "decimal.js";
 import { Form } from "./form";
 import { Item } from "./item";
 import { api } from "@/trpc/react";
+import { FormContratado } from "./form-contratado";
+import { UserPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface RecursosTabProps {
   onNavigateBack: () => void;
@@ -279,36 +282,54 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
         </div>
 
         {/* Conteúdo principal */}
-        <div className="flex-1 p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-azul">
-                {selectedWorkpackage ? selectedWorkpackage.nome : "Selecione um workpackage"}
-              </h2>
-              {selectedWorkpackage && (
-                <p className="mt-1 text-sm text-gray-500">
-                  {selectedWorkpackage.descricao || "Sem descrição"}
-                </p>
-              )}
-            </div>
-
+        <div className="flex-1 p-6 relative">
+          <div className="flex items-center gap-4 mb-6">
             {selectedWorkpackage && (
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setAddingRecurso(true);
-                  setRecursoEmEdicao(null);
-                }}
-                className="flex gap-1.5"
-                disabled={addingRecurso || utilizadoresDisponiveis.length === 0}
+                className="gap-2 rounded-full bg-azul text-white shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-azul/90 hover:shadow-lg"
+                onClick={() => setAddingRecurso(true)}
               >
                 <Plus className="h-4 w-4" />
-                Adicionar Recurso
+                Adicionar recurso
               </Button>
             )}
+            <FormContratado
+              trigger={
+                <Button
+                  className="gap-2 rounded-full bg-green-600 text-white shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-green-700 hover:shadow-lg"
+                  type="button"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Criar contratado
+                </Button>
+              }
+              onSuccess={() => {
+                // Atualizar lista de membros ao criar contratado
+                if (typeof window !== "undefined") {
+                  // Forçar refetch se necessário
+                  window.location.reload();
+                }
+              }}
+            />
           </div>
-
+          {addingRecurso && (
+            <Dialog open={addingRecurso} onOpenChange={setAddingRecurso}>
+              <DialogContent className="max-w-2xl w-full p-0 bg-transparent border-none shadow-none">
+                <DialogTitle className="sr-only">Adicionar Recurso</DialogTitle>
+                <Form
+                  workpackageId={selectedWorkpackageId}
+                  inicio={selectedWorkpackage?.inicio}
+                  fim={selectedWorkpackage?.fim}
+                  utilizadores={utilizadoresDisponiveis}
+                  onAddAlocacao={handleAddAlocacao}
+                  onCancel={() => setAddingRecurso(false)}
+                  recursoEmEdicao={recursoEmEdicao}
+                  projetoEstado={state.projetoEstado}
+                  hideCloseButtonFromFormHeader
+                />
+              </DialogContent>
+            </Dialog>
+            )}
           {!selectedWorkpackage ? (
             <div className="rounded-lg border border-dashed p-10 text-center text-gray-500">
               <Users className="mx-auto mb-3 h-12 w-12 text-gray-300" />
@@ -318,20 +339,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                 associados a ele.
               </p>
             </div>
-          ) : addingRecurso ? (
-            <Form
-              workpackageId={selectedWorkpackageId}
-              inicio={selectedWorkpackage.inicio || new Date()}
-              fim={selectedWorkpackage.fim || new Date()}
-              utilizadores={utilizadoresDisponiveis.map(transformUser)}
-              onAddAlocacao={handleAddAlocacao}
-              onCancel={() => {
-                setAddingRecurso(false);
-                setRecursoEmEdicao(null);
-              }}
-              recursoEmEdicao={recursoEmEdicao}
-              projetoEstado={"RASCUNHO"}
-            />
           ) : (
             <>
               {Object.keys(recursosAgrupados).length === 0 ? (

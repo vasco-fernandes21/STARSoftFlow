@@ -48,6 +48,7 @@ const utilizadorBaseSchema = z
     regime: z.nativeEnum(Regime).optional(),
     contratado: z.boolean().optional(),
     informacoes: z.string().optional(),
+    salario: z.preprocess((v) => v === "" || v == null ? undefined : Number(v), z.number().min(0, "Salário deve ser positivo").optional()),
   })
   .passthrough();
 
@@ -482,6 +483,7 @@ export const utilizadorRouter = createTRPCRouter({
           data: {
             name: input.name,
             informacoes: input.informacoes,
+            salario: input.salario,
             contratado: true,
           },
           select: {
@@ -1302,7 +1304,7 @@ export const utilizadorRouter = createTRPCRouter({
       return {
         utilizador: {
           id: utilizador.id,
-          nome: utilizador.name || "Utilizador sem nome",
+          nome: utilizador.name || "Utilizador",
           email: utilizador.email || "utilizador@exemplo.com",
           cargo: utilizador.atividade || "Cargo não definido",
         },
