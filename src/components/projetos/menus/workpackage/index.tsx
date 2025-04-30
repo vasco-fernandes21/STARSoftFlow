@@ -3,6 +3,7 @@ import { WorkpackageInformacoes } from "./informacoes";
 import { WorkpackageTarefas } from "./tarefas";
 import { WorkpackageRecursos } from "./recursos";
 import { WorkpackageMateriais } from "./materiais";
+import { ProgressoWorkpackage } from "./progresso";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { api } from "@/trpc/react";
@@ -328,19 +329,7 @@ export function MenuWorkpackage({
                     />
                   </div>
                   <div className="px-5 py-6">
-                    <WorkpackageTarefas
-                      workpackage={fullWorkpackage}
-                      _workpackageId={fullWorkpackage.id}
-                      addingTarefa={addingTarefa}
-                      setAddingTarefa={setAddingTarefa}
-                      onSubmitTarefa={handleSubmitTarefa}
-                      onEditTarefa={handleEditTarefa}
-                      onToggleEstadoTarefa={handleToggleEstadoTarefa}
-                      onDeleteTarefa={handleDeleteTarefa}
-                      onAddEntregavel={handleAddEntregavel}
-                      onEditEntregavel={handleEditEntregavel}
-                      onDeleteEntregavel={handleDeleteEntregavel}
-                    />
+                    <ProgressoWorkpackage />
                   </div>
                   <div className="px-5 py-6">
                     <WorkpackageRecursos

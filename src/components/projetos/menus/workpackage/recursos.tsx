@@ -190,8 +190,7 @@ export function WorkpackageRecursos({
 
       {/* Formulário para adicionar novo recurso */}
       {addingRecurso && (
-        <Card className="rounded-xl border border-azul/10 bg-white p-6 shadow-sm duration-200 animate-in fade-in-50 slide-in-from-top-5">
-          <h3 className="mb-5 text-lg font-medium text-azul">Novo Recurso</h3>
+        <div className="w-full h-full animate-in fade-in-50 slide-in-from-top-5">
           <RecursoForm
             workpackageId={workpackage.id}
             inicio={workpackage.inicio || new Date()}
@@ -216,7 +215,7 @@ export function WorkpackageRecursos({
             _usersMappedById={usersMappedById}
             _isClienteAtivo={true}
           />
-        </Card>
+        </div>
       )}
 
       {/* Lista de recursos agrupados por utilizador */}

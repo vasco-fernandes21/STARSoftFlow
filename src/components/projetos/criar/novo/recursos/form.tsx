@@ -523,9 +523,9 @@ export function Form({
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-azul/10">
                         <User className="h-3 w-3 text-azul" />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{user.name}</span>
-                        <span className="text-xs text-azul/60">{user.regime}</span>
+                      <div className="flex flex-col items-start justify-center min-h-[1.5rem]">
+                        <span className="text-sm font-medium leading-none">{user.name}</span>
+                        <span className="text-xs text-azul/60 leading-none mt-0.5">{user.regime}</span>
                       </div>
                     </div>
                   </SelectItem>
