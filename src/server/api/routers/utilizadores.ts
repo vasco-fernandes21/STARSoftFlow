@@ -7,7 +7,6 @@ import { sendPrimeiroAcessoEmail, sendPasswordResetEmail } from "@/emails/utils/
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { handlePrismaError } from "../utils";
-import { paginationSchema } from "../schemas/common";
 import { format } from "date-fns";
 import { Decimal } from "decimal.js";
 import puppeteer from "puppeteer";
@@ -74,33 +73,7 @@ const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
-// Schema para filtros de utilizador
-const utilizadorFilterSchema = z
-  .object({
-    search: z.string().optional(),
-    permissao: z.nativeEnum(Permissao).optional(),
-    regime: z.nativeEnum(Regime).optional(),
-  })
-  .merge(paginationSchema);
-
-// Schema para reset de password
-const resetPasswordRequestSchema = z.object({
-  email: z.string().email("Email inválido"),
-});
-
-// Schema para definir nova password após reset
-const resetPasswordSchema = z
-  .object({
-    token: z.string(),
-    password: passwordSchema,
-    confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "As passwords não coincidem",
-    path: ["confirmPassword"],
-  });
-
-// Schema para validação de primeiro acesso
+// Schema para primeiro acesso
 const primeiroAcessoSchema = z
   .object({
     token: z.string(),
@@ -149,10 +122,6 @@ const findAllUtilizadoresInputSchema = z.object({
 export type CreateUtilizadorInput = z.infer<typeof createUtilizadorSchema>;
 export type UpdateUtilizadorInput = z.infer<typeof updateUtilizadorSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-export type UtilizadorFilterInput = z.infer<typeof utilizadorFilterSchema>;
-export type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
-export type PrimeiroAcessoInput = z.infer<typeof primeiroAcessoSchema>;
 export type ConfiguracaoMensalInput = z.infer<typeof configuracaoMensalSchema>;
 
 // Exportar os schemas para uso em validações
@@ -1484,7 +1453,9 @@ export const utilizadorRouter = createTRPCRouter({
 
   // Reset de password
   resetPassword: protectedProcedure
-    .input(resetPasswordRequestSchema)
+    .input(z.object({
+      email: z.string().email("Email inválido"),
+    }))
     .mutation(async ({ ctx, input }) => {
       try {
         const { email } = input;

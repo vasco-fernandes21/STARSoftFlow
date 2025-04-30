@@ -13,20 +13,6 @@ import { Permissao, Regime } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
-const PERMISSAO_LABELS: Record<string, string> = {
-  ADMIN: "Admin",
-  GESTOR: "Gestor",
-  COMUM: "Comum",
-} as const;
-
-const REGIME_LABELS: Record<string, string> = {
-  PARCIAL: "Parcial",
-  INTEGRAL: "Integral",
-} as const;
-
-const uniquePermissoes = ["ADMIN", "GESTOR", "COMUM"] as const;
-const uniqueRegimes = ["INTEGRAL", "PARCIAL"] as const;
-
 // Skeleton para estado de carregamento
 const TableSkeleton = () => (
   <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">

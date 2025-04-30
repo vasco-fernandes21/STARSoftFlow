@@ -32,7 +32,21 @@ type Regime = "PARCIAL" | "INTEGRAL";
 export function NovoUtilizadorModal() {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formValues, setFormValues] = useState({
+  // Estado inicial com tipagem explícita
+  const [formValues, setFormValues] = useState<{
+    name: string;
+    informacoes: string;
+    username: string;
+    email: string;
+    atividade: string;
+    contratacao: Date;
+    contratado: boolean;
+    permissao: Permissao;
+    regime: Regime;
+    password: string;
+    sendWelcomeEmail: boolean;
+    salario: number | undefined;
+  }>({
     name: "",
     informacoes: "",
     username: "",
@@ -44,6 +58,7 @@ export function NovoUtilizadorModal() {
     regime: "INTEGRAL" as Regime,
     password: "",
     sendWelcomeEmail: true,
+    salario: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -74,6 +89,7 @@ export function NovoUtilizadorModal() {
       regime: "INTEGRAL",
       password: "",
       sendWelcomeEmail: true,
+      salario: undefined,
     });
     setErrors({});
     setIsSubmitting(false);
@@ -94,6 +110,7 @@ export function NovoUtilizadorModal() {
         name: formValues.name,
         informacoes: formValues.informacoes,
         contratado: true,
+        salario: formValues.salario,
       });
     } else {
       const newErrors: Record<string, string> = {};
@@ -117,6 +134,7 @@ export function NovoUtilizadorModal() {
         password: formValues.password || undefined,
         sendWelcomeEmail: formValues.sendWelcomeEmail,
         contratado: false,
+        salario: formValues.salario,
       });
     }
   };
@@ -268,7 +286,12 @@ export function NovoUtilizadorModal() {
                     />
                     {errors.atividade && <p className="mt-1 text-xs text-red-500">{errors.atividade}</p>}
                   </div>
-                  <div className="space-y-2">
+                </>
+              )}
+              {/* Data de contratação + Salário: mostrar data só se NÃO for contratado */}
+              <div className="space-y-2 md:col-span-2 flex flex-col md:flex-row md:items-end md:gap-4">
+                {!formValues.contratado && (
+                  <div className="flex-1">
                     <Label
                       htmlFor="contratacao"
                       className="flex items-center text-sm font-medium text-gray-700"
@@ -281,8 +304,26 @@ export function NovoUtilizadorModal() {
                       placeholder="Selecione a data"
                     />
                   </div>
-                </>
-              )}
+                )}
+                <div className="flex-1">
+                  <Label
+                    htmlFor="salario"
+                    className="flex items-center text-sm font-medium text-gray-700"
+                  >
+                    €/Mês
+                  </Label>
+                  <Input
+                    id="salario"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formValues.salario ?? ""}
+                    onChange={e => setFormValues(f => ({ ...f, salario: e.target.value ? Number(e.target.value) : undefined }))}
+                    placeholder="Ex: 1500"
+                    className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
+                  />
+                </div>
+              </div>
               {/* Checkbox do Shadcn para contratado, agora mais abaixo, antes das permissões/regime */}
               <div className="flex items-center gap-3 md:col-span-2 mt-2">
                 <Checkbox

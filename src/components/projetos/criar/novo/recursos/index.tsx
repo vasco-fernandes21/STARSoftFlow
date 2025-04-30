@@ -30,50 +30,44 @@ interface Alocacao {
   ano: number;
   ocupacao: Decimal;
   workpackageId?: string;
+  userId: string;
 }
 
 // Dados dos membros da equipa obtidos da API
 const useRecursosData = () => {
-  const { data, isLoading, error } = api.utilizador.findAll.useQuery();
+  const { data } = api.utilizador.findAll.useQuery();
 
-  if (isLoading) return { data: undefined, isLoading: true, error: null }; // Retorna estrutura consistente
-  if (error) {
+  if (!data) {
     toast.error("Erro ao carregar utilizadores");
     // Retorna estrutura consistente, mesmo com erro
-    return { data: undefined, isLoading: false, error }; 
+    return { data: undefined }; 
   }
 
   // Retorna diretamente o resultado da query (ou undefined)
-  return { data, isLoading: false, error: null };
+  return { data };
 };
 
 // Transform user data to match the expected User interface
 const transformUser = (user: any) => ({
   id: user.id,
-  name: user.name || "Utilizador desconhecido",
-  email: user.email || "",
-  regime: user.regime,
+  name: user.name ?? "Utilizador desconhecido",
+  email: user.email ?? "",
+  regime: user.regime ?? null,
 });
 
 // Transform alocacoesPorAnoMes into the expected format
 const transformAlocacoes = (
-  alocacoesPorAnoMes: Record<string, Record<number, number>>
+  alocacoesPorAnoMes: Record<string, Record<number, number>>,
+  userId?: string
 ): Alocacao[] => {
   return Object.entries(alocacoesPorAnoMes).flatMap(([ano, meses]) =>
     Object.entries(meses).map(([mes, ocupacao]) => ({
+      userId: userId ?? '',
       mes: parseInt(mes),
       ano: parseInt(ano),
       ocupacao: new Decimal(Number(ocupacao) / 100),
     }))
   );
-};
-
-// Transform alocacoes to include userId for the API
-const transformAlocacoesForApi = (userId: string, alocacoes: Alocacao[]) => {
-  return alocacoes.map((alocacao) => ({
-    ...alocacao,
-    userId,
-  }));
 };
 
 export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabProps) {
@@ -87,9 +81,10 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   } | null>(null);
 
   // Obter dados dos membros da equipa usando o hook renomeado
-  const { data: membrosEquipaData, isLoading: isLoadingMembros } = useRecursosData();
+  const { data: membrosEquipaData } = useRecursosData();
+  
   // Extrair a lista de items ou usar um array vazio
-  const listaMembrosEquipa = membrosEquipaData?.items ?? [];
+  const listaMembrosEquipa = React.useMemo(() => membrosEquipaData?.items ?? [], [membrosEquipaData]);
 
   // Verificar se há workpackages
   const hasWorkpackages = state.workpackages && state.workpackages.length > 0;
@@ -107,11 +102,9 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   }, [selectedWorkpackage]);
 
   // Filtrar lista de membros da equipa para mostrar apenas os disponíveis
-  const utilizadoresDisponiveis = React.useMemo(() => {
-    return listaMembrosEquipa.filter(
-      (membro: { id: string }) => !utilizadoresAlocadosIds.has(membro.id)
-    );
-  }, [listaMembrosEquipa, utilizadoresAlocadosIds]);
+  const utilizadoresDisponiveis = (listaMembrosEquipa || []).map(transformUser).filter(
+    (membro: { id: string }) => !utilizadoresAlocadosIds.has(membro.id)
+  );
 
   // Agrupar recursos por utilizador
   const recursosAgrupados = React.useMemo(() => {
@@ -163,7 +156,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
 
   // Função para adicionar alocação
   const handleAddAlocacao = (
-    workpackageId: string,
+    userId: string,
     alocacoes: Array<{
       userId: string;
       mes: number;
@@ -175,7 +168,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     if (recursoEmEdicao) {
       dispatch({
         type: "REMOVE_RECURSO_COMPLETO",
-        workpackageId,
+        workpackageId: selectedWorkpackageId,
         userId: recursoEmEdicao.userId,
       });
 
@@ -188,7 +181,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     alocacoes.forEach((alocacao) => {
       dispatch({
         type: "ADD_ALOCACAO",
-        workpackageId,
+        workpackageId: selectedWorkpackageId,
         alocacao: {
           userId: alocacao.userId,
           mes: alocacao.mes,
@@ -318,13 +311,13 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                 <DialogTitle className="sr-only">Adicionar Recurso</DialogTitle>
                 <Form
                   workpackageId={selectedWorkpackageId}
-                  inicio={selectedWorkpackage?.inicio}
-                  fim={selectedWorkpackage?.fim}
+                  inicio={selectedWorkpackage?.inicio ?? new Date()}
+                  fim={selectedWorkpackage?.fim ?? new Date()}
                   utilizadores={utilizadoresDisponiveis}
                   onAddAlocacao={handleAddAlocacao}
                   onCancel={() => setAddingRecurso(false)}
                   recursoEmEdicao={recursoEmEdicao}
-                  projetoEstado={state.projetoEstado}
+                  projetoEstado={state.estado as "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO"}
                   hideCloseButtonFromFormHeader
                 />
               </DialogContent>
@@ -375,7 +368,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                       <Item
                         key={userId}
                         user={transformUser(user)}
-                        alocacoes={transformAlocacoes(alocacoesPorAnoMes)}
+                        alocacoes={transformAlocacoes(alocacoesPorAnoMes, userId)}
                         isExpanded={isExpanded}
                         onToggleExpand={() => setExpandedRecursoId(isExpanded ? null : userId)}
                         onRemove={() =>
@@ -383,15 +376,12 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                         }
                         inicio={selectedWorkpackage.inicio || new Date()}
                         fim={selectedWorkpackage.fim || new Date()}
-                        projetoEstado={"RASCUNHO"}
+                        projetoEstado={state.estado as "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO"}
                         onUpdateAlocacao={(userId, alocacoes) =>
-                          handleAddAlocacao(
-                            selectedWorkpackageId,
-                            transformAlocacoesForApi(userId, alocacoes)
-                          )
+                          handleAddAlocacao(userId, alocacoes)
                         }
                         workpackageId={selectedWorkpackageId}
-                        utilizadores={listaMembrosEquipa.map(transformUser)}
+                        utilizadores={utilizadoresDisponiveis}
                       />
                     );
                   })}

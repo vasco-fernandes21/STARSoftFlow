@@ -14,11 +14,10 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Plus, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { TRPCClientError } from "@trpc/client";
 
 interface FormContratadoProps {
   onSuccess?: () => void;
@@ -57,7 +56,7 @@ export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
   };
 
   const createUserMutation = api.utilizador.create.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success("Contratado criado com sucesso!");
       utils.utilizador.findAll.invalidate();
       resetFormAndClose();
@@ -81,7 +80,7 @@ export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
         contratado: true,
       };
       createUserMutation.mutate(userData);
-    } catch (error) {
+    } catch {
       toast.error("Ocorreu um erro ao processar os dados do formulário");
       setIsSubmitting(false);
     }
