@@ -1,9 +1,21 @@
-"use client";
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { api } from "@/trpc/react";
+import { Plus, UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -11,197 +23,118 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Plus, UserPlus } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
-import { toast } from "sonner";
-import { DatePicker } from "@/components/ui/date-picker";
-import { TRPCClientError } from "@trpc/client";
+import { Checkbox } from "@/components/ui/checkbox";
+import { api as trpcApi } from "@/trpc/react";
 
 type Permissao = "ADMIN" | "GESTOR" | "COMUM";
 type Regime = "PARCIAL" | "INTEGRAL";
 
-interface ZodErrorData {
-  zodError?: {
-    fieldErrors: Record<string, string[]>;
-  };
-}
-
 export function NovoUtilizadorModal() {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formValues, setFormValues] = useState({
+  // Estado inicial com tipagem explícita
+  const [formValues, setFormValues] = useState<{
+    name: string;
+    informacoes: string;
+    username: string;
+    email: string;
+    atividade: string;
+    contratacao: Date;
+    contratado: boolean;
+    permissao: Permissao;
+    regime: Regime;
+    password: string;
+    sendWelcomeEmail: boolean;
+    salario: number | undefined;
+  }>({
     name: "",
+    informacoes: "",
     username: "",
     email: "",
     atividade: "",
     contratacao: new Date(),
+    contratado: false,
     permissao: "COMUM" as Permissao,
     regime: "INTEGRAL" as Regime,
     password: "",
     sendWelcomeEmail: true,
+    salario: undefined,
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const utils = api.useContext();
+
+  const utils = trpcApi.useUtils();
+
+  const createUserMutation = api.utilizador.create.useMutation({
+    onSuccess: () => {
+      toast.success("Utilizador criado com sucesso");
+      utils.utilizador.findAll.invalidate();
+      resetFormAndClose();
+    },
+    onError: () => {
+      setIsSubmitting(false);
+      toast.error("Erro ao criar utilizador");
+    },
+  });
 
   const resetFormAndClose = () => {
     setFormValues({
       name: "",
+      informacoes: "",
       username: "",
       email: "",
       atividade: "",
       contratacao: new Date(),
-      permissao: "COMUM" as Permissao,
-      regime: "INTEGRAL" as Regime,
+      contratado: false,
+      permissao: "COMUM",
+      regime: "INTEGRAL",
       password: "",
       sendWelcomeEmail: true,
+      salario: undefined,
     });
     setErrors({});
     setIsSubmitting(false);
     setOpen(false);
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formValues.name?.trim()) {
-      newErrors.name = "Nome é obrigatório";
-    }
-
-    if (!formValues.username?.trim()) {
-      newErrors.username = "Nome de utilizador é obrigatório";
-    } else if (formValues.username.includes(" ")) {
-      newErrors.username = "Nome de utilizador não pode conter espaços";
-    }
-
-    if (!formValues.email?.trim()) {
-      newErrors.email = "Email é obrigatório";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formValues.email)) {
-      newErrors.email = "Email inválido";
-    }
-
-    if (!formValues.atividade?.trim()) {
-      newErrors.atividade = "Atividade é obrigatória";
-    }
-
-    if (!formValues.contratacao) {
-      newErrors.contratacao = "Data de contratação é obrigatória";
-    }
-
-    // Validação condicional para a password apenas se for preenchida
-    if (formValues.password && formValues.password.length > 0) {
-      if (formValues.password.length < 8) {
-        newErrors.password = "Password deve ter pelo menos 8 caracteres";
-      } else if (
-        !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(
-          formValues.password
-        )
-      ) {
-        newErrors.password =
-          "Password deve conter pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial";
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const createUserMutation = api.utilizador.create.useMutation({
-    onSuccess: (data) => {
-      if (process.env.NODE_ENV === "development") {
-        console.log("Resposta de sucesso:", data);
-      }
-      toast.success("Utilizador criado com sucesso!");
-      utils.utilizador.findAll.invalidate();
-      resetFormAndClose();
-    },
-    onError: (error) => {
-      console.error("Erro detalhado:", error);
-
-      if (error instanceof TRPCClientError) {
-        const errorData = error.data as ZodErrorData;
-
-        if (errorData?.zodError) {
-          const errorMessages = Object.entries(errorData.zodError.fieldErrors)
-            .map(([field, errors]) => `${field}: ${errors.join(", ")}`)
-            .join("; ");
-
-          toast.error(`Erro de validação: ${errorMessages}`);
-        } else {
-          toast.error(error.message || "Ocorreu um erro ao criar o utilizador.");
-        }
-      } else {
-        toast.error("Ocorreu um erro ao criar o utilizador.");
-      }
-
-      setIsSubmitting(false);
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) return;
-
     setIsSubmitting(true);
-
-    try {
-      // Criar objeto com dados básicos
-      const userData = {
-        name: formValues.name.trim(),
-        username: formValues.username.trim(),
-        email: formValues.email.trim(),
-        atividade: formValues.atividade.trim(),
-        contratacao:
-          formValues.contratacao instanceof Date
-            ? formValues.contratacao.toISOString()
-            : new Date().toISOString(),
+    setErrors({});
+    if (formValues.contratado) {
+      if (!formValues.name?.trim()) {
+        setErrors({ name: "Nome é obrigatório" });
+        setIsSubmitting(false);
+        return;
+      }
+      createUserMutation.mutate({
+        name: formValues.name,
+        informacoes: formValues.informacoes,
+        contratado: true,
+        salario: formValues.salario,
+      });
+    } else {
+      const newErrors: Record<string, string> = {};
+      if (!formValues.name?.trim()) newErrors.name = "Nome é obrigatório";
+      if (!formValues.username?.trim()) newErrors.username = "Username obrigatório";
+      if (!formValues.email?.trim()) newErrors.email = "Email obrigatório";
+      if (!formValues.atividade?.trim()) newErrors.atividade = "Atividade obrigatória";
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        setIsSubmitting(false);
+        return;
+      }
+      createUserMutation.mutate({
+        name: formValues.name,
+        username: formValues.username,
+        email: formValues.email,
+        atividade: formValues.atividade,
+        contratacao: formValues.contratacao instanceof Date ? formValues.contratacao.toISOString() : formValues.contratacao,
         permissao: formValues.permissao,
         regime: formValues.regime,
-      };
-
-      // Log para depuração
-      if (process.env.NODE_ENV === "development") {
-        console.log("Dados a enviar:", userData);
-      }
-
-      // Adicionar password apenas se preenchida
-      if (formValues.password && formValues.password.length > 0) {
-        createUserMutation.mutate({
-          ...userData,
-          password: formValues.password,
-        });
-      } else {
-        createUserMutation.mutate(userData);
-      }
-    } catch (error) {
-      console.error("Erro ao preparar dados:", error);
-      toast.error("Ocorreu um erro ao processar os dados do formulário");
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleChange = (field: string, value: string | Date | boolean) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    if (errors[field]) {
-      setErrors({
-        ...errors,
-        [field]: "",
+        password: formValues.password || undefined,
+        sendWelcomeEmail: formValues.sendWelcomeEmail,
+        contratado: false,
+        salario: formValues.salario,
       });
     }
   };
@@ -225,226 +158,265 @@ export function NovoUtilizadorModal() {
                 <DialogTitle className="text-2xl font-bold text-gray-900">
                   Novo Utilizador
                 </DialogTitle>
-                <DialogDescription className="text-gray-500">
-                  Adicione um novo utilizador ao sistema
-                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
           <div className="space-y-6 overflow-y-auto p-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Nome */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="name"
-                  className="flex items-center text-sm font-medium text-gray-700"
-                >
-                  Primeiro e último nome <span className="ml-1 text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={formValues.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  placeholder="Insira o primeiro e último nome"
-                  className={cn(
-                    "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
-                    errors.name && "border-red-300 focus:ring-red-500/20"
-                  )}
-                />
-                {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
-              </div>
-
-              {/* Username */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="username"
-                  className="flex items-center text-sm font-medium text-gray-700"
-                >
-                  Nome de utilizador <span className="ml-1 text-red-500">*</span>
-                </Label>
-                <Input
-                  id="username"
-                  value={formValues.username}
-                  onChange={(e) => handleChange("username", e.target.value)}
-                  placeholder="nome.apelido"
-                  className={cn(
-                    "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
-                    errors.username && "border-red-300 focus:ring-red-500/20"
-                  )}
-                />
-                {errors.username && <p className="mt-1 text-xs text-red-500">{errors.username}</p>}
-              </div>
-
-              {/* Email */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="flex items-center text-sm font-medium text-gray-700"
-                >
-                  Email <span className="ml-1 text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formValues.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  placeholder="exemplo@empresa.com"
-                  className={cn(
-                    "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
-                    errors.email && "border-red-300 focus:ring-red-500/20"
-                  )}
-                />
-                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
-              </div>
-
-              {/* Password (opcional) */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="flex items-center text-sm font-medium text-gray-700"
-                >
-                  Password <span className="ml-1 text-xs text-gray-400">(opcional)</span>
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formValues.password}
-                  onChange={(e) => handleChange("password", e.target.value)}
-                  placeholder="Deixe em branco para enviar email de primeiro acesso"
-                  className={cn(
-                    "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
-                    errors.password && "border-red-300 focus:ring-red-500/20"
-                  )}
-                />
-                {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
-                <p className="mt-1 text-xs text-gray-500">
-                  Se não definir uma password, será enviado um email para o utilizador criar a sua
-                  password.
-                </p>
-              </div>
-
-              {/* Atividade */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="atividade"
-                  className="flex items-center text-sm font-medium text-gray-700"
-                >
-                  Atividade <span className="ml-1 text-red-500">*</span>
-                </Label>
-                <Input
-                  id="atividade"
-                  value={formValues.atividade}
-                  onChange={(e) => handleChange("atividade", e.target.value)}
-                  placeholder="Ex: Desenvolvedor, Designer, Gestor de Projetos"
-                  className={cn(
-                    "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
-                    errors.atividade && "border-red-300 focus:ring-red-500/20"
-                  )}
-                />
-                {errors.atividade && (
-                  <p className="mt-1 text-xs text-red-500">{errors.atividade}</p>
+              {/* Campos principais */}
+              {formValues.contratado ? (
+                <>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label
+                      htmlFor="name"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Identificação <span className="ml-1 text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={formValues.name}
+                      onChange={(e) => setFormValues((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="Identificação do contratado"
+                      className={cn(
+                        "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
+                        errors.name && "border-red-300 focus:ring-red-500/20"
+                      )}
+                      required
+                    />
+                    {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label
+                      htmlFor="informacoes"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Descrição
+                    </Label>
+                    <Input
+                      id="informacoes"
+                      value={formValues.informacoes}
+                      onChange={(e) => setFormValues((f) => ({ ...f, informacoes: e.target.value }))}
+                      placeholder="Descrição da contratação"
+                      className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="name"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Nome <span className="ml-1 text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={formValues.name}
+                      onChange={(e) => setFormValues((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="Nome completo"
+                      className={cn(
+                        "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
+                        errors.name && "border-red-300 focus:ring-red-500/20"
+                      )}
+                      required
+                    />
+                    {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="username"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Username <span className="ml-1 text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="username"
+                      value={formValues.username}
+                      onChange={(e) => setFormValues((f) => ({ ...f, username: e.target.value }))}
+                      placeholder="Username"
+                      className={cn(
+                        "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
+                        errors.username && "border-red-300 focus:ring-red-500/20"
+                      )}
+                      required
+                    />
+                    {errors.username && <p className="mt-1 text-xs text-red-500">{errors.username}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="email"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Email <span className="ml-1 text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formValues.email}
+                      onChange={(e) => setFormValues((f) => ({ ...f, email: e.target.value }))}
+                      placeholder="Email"
+                      className={cn(
+                        "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
+                        errors.email && "border-red-300 focus:ring-red-500/20"
+                      )}
+                      required
+                    />
+                    {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="atividade"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Atividade <span className="ml-1 text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="atividade"
+                      value={formValues.atividade}
+                      onChange={(e) => setFormValues((f) => ({ ...f, atividade: e.target.value }))}
+                      placeholder="Atividade"
+                      className={cn(
+                        "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
+                        errors.atividade && "border-red-300 focus:ring-red-500/20"
+                      )}
+                      required
+                    />
+                    {errors.atividade && <p className="mt-1 text-xs text-red-500">{errors.atividade}</p>}
+                  </div>
+                </>
+              )}
+              {/* Data de contratação + Salário: mostrar data só se NÃO for contratado */}
+              <div className="space-y-2 md:col-span-2 flex flex-col md:flex-row md:items-end md:gap-4">
+                {!formValues.contratado && (
+                  <div className="flex-1">
+                    <Label
+                      htmlFor="contratacao"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Data de contratação
+                    </Label>
+                    <DatePicker
+                      value={formValues.contratacao}
+                      onChange={(date) => setFormValues((f) => ({ ...f, contratacao: date || new Date() }))}
+                      placeholder="Selecione a data"
+                    />
+                  </div>
                 )}
+                <div className="flex-1">
+                  <Label
+                    htmlFor="salario"
+                    className="flex items-center text-sm font-medium text-gray-700"
+                  >
+                    €/Mês
+                  </Label>
+                  <Input
+                    id="salario"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formValues.salario ?? ""}
+                    onChange={e => setFormValues(f => ({ ...f, salario: e.target.value ? Number(e.target.value) : undefined }))}
+                    placeholder="Ex: 1500"
+                    className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
+                  />
+                </div>
               </div>
-
-              {/* Data de Contratação */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="contratacao"
-                  className="flex items-center text-sm font-medium text-gray-700"
-                >
-                  Data de contratação <span className="ml-1 text-red-500">*</span>
-                </Label>
-                <DatePicker
-                  value={formValues.contratacao}
-                  onChange={(date) => handleChange("contratacao", date || new Date())}
-                  placeholder="Selecione a data"
+              {/* Checkbox do Shadcn para contratado, agora mais abaixo, antes das permissões/regime */}
+              <div className="flex items-center gap-3 md:col-span-2 mt-2">
+                <Checkbox
+                  id="contratado"
+                  checked={formValues.contratado}
+                  onCheckedChange={(checked) => setFormValues((f) => ({ ...f, contratado: !!checked }))}
+                  className="data-[state=checked]:bg-azul border-azul focus:ring-azul/20"
                 />
-                {errors.contratacao && (
-                  <p className="mt-1 text-xs text-red-500">{errors.contratacao}</p>
-                )}
-              </div>
-
-              {/* Permissão */}
-              <div className="space-y-2">
-                <Label htmlFor="permissao" className="text-sm font-medium text-gray-700">
-                  Permissão
+                <Label htmlFor="contratado" className="text-sm font-medium text-gray-700 select-none cursor-pointer">
+                  Contratado
                 </Label>
-                <Select
-                  value={formValues.permissao}
-                  onValueChange={(value) => handleChange("permissao", value as Permissao)}
-                >
-                  <SelectTrigger
-                    id="permissao"
-                    className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
-                  >
-                    <SelectValue placeholder="Selecione uma permissão" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-gray-200 bg-white/90 shadow-lg backdrop-blur-md">
-                    <div className="p-2">
-                      <div className="mb-2 space-y-1">
-                        <p className="text-xs font-medium text-gray-500">
-                          Selecione o nível de acesso
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <SelectItem value="ADMIN" className="rounded-lg hover:bg-purple-50">
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-purple-600"></div>
-                            <span className="font-medium">Admin</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="GESTOR" className="rounded-lg hover:bg-blue-50">
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-azul"></div>
-                            <span className="font-medium">Gestor</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="COMUM" className="rounded-lg hover:bg-gray-50">
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-gray-500"></div>
-                            <span className="font-medium">Comum</span>
-                          </div>
-                        </SelectItem>
-                      </div>
-                    </div>
-                  </SelectContent>
-                </Select>
               </div>
-
-              {/* Regime */}
-              <div className="space-y-2">
-                <Label htmlFor="regime" className="text-sm font-medium text-gray-700">
-                  Regime
-                </Label>
-                <Select
-                  value={formValues.regime}
-                  onValueChange={(value) => handleChange("regime", value as Regime)}
-                >
-                  <SelectTrigger
-                    id="regime"
-                    className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
-                  >
-                    <SelectValue placeholder="Selecione um regime" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-gray-200 bg-white/90 shadow-lg backdrop-blur-md">
-                    <div className="space-y-1 p-2">
-                      <SelectItem value="INTEGRAL" className="rounded-lg hover:bg-green-50">
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-full bg-green-600"></div>
-                          <span className="font-medium">Integral</span>
+              {/* Bloco de permissões/regime */}
+              {!formValues.contratado && (
+                <>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="permissao"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Permissão
+                    </Label>
+                    <Select
+                      value={formValues.permissao}
+                      onValueChange={(value) => setFormValues((f) => ({ ...f, permissao: value as Permissao }))}
+                    >
+                      <SelectTrigger
+                        id="permissao"
+                        className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
+                      >
+                        <SelectValue placeholder="Selecione uma permissão" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-gray-200 bg-white/90 shadow-lg backdrop-blur-md">
+                        <div className="space-y-1 p-2">
+                          <SelectItem value="ADMIN" className="rounded-lg hover:bg-purple-50">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-purple-600"></div>
+                              <span className="font-medium">Admin</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="GESTOR" className="rounded-lg hover:bg-blue-50">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-azul"></div>
+                              <span className="font-medium">Gestor</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="COMUM" className="rounded-lg hover:bg-gray-50">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-gray-500"></div>
+                              <span className="font-medium">Comum</span>
+                            </div>
+                          </SelectItem>
                         </div>
-                      </SelectItem>
-                      <SelectItem value="PARCIAL" className="rounded-lg hover:bg-orange-50">
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-full bg-orange-500"></div>
-                          <span className="font-medium">Parcial</span>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="regime"
+                      className="flex items-center text-sm font-medium text-gray-700"
+                    >
+                      Regime
+                    </Label>
+                    <Select
+                      value={formValues.regime}
+                      onValueChange={(value) => setFormValues((f) => ({ ...f, regime: value as Regime }))}
+                    >
+                      <SelectTrigger
+                        id="regime"
+                        className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
+                      >
+                        <SelectValue placeholder="Selecione um regime" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-gray-200 bg-white/90 shadow-lg backdrop-blur-md">
+                        <div className="space-y-1 p-2">
+                          <SelectItem value="INTEGRAL" className="rounded-lg hover:bg-green-50">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-green-600"></div>
+                              <span className="font-medium">Integral</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="PARCIAL" className="rounded-lg hover:bg-orange-50">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 rounded-full bg-orange-500"></div>
+                              <span className="font-medium">Parcial</span>
+                            </div>
+                          </SelectItem>
                         </div>
-                      </SelectItem>
-                    </div>
-                  </SelectContent>
-                </Select>
-              </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </div>
             {/* Informação campos obrigatórios */}
             <div className="mt-4 flex items-center gap-1 px-1 text-xs text-gray-500">

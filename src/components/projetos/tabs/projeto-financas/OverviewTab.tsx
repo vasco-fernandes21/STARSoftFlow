@@ -39,12 +39,6 @@ type ComparacaoGastosOutput = inferRouterOutputs<AppRouter>["financas"]["getComp
 // --- Tipos de Dados --- 
 type RubricaFinanceira = { rubrica: Rubrica; estimado: number; real: number };
 
-// Tipo para os dados de um *único* workpackage como retornado pela API
-type WorkpackageFinanceiro = ComparacaoGastosOutput["workpackages"][number];
-
-// Tipo para o objeto `total` retornado pela API
-type TotaisFinanceiros = ComparacaoGastosOutput["total"];
-
 // Tipo unificado para a fonte de dados usada nos cálculos, seja total ou um WP
 type FonteDadosComparacao = {
   recursos: { estimado: number; real: number };
@@ -237,12 +231,6 @@ export function OverviewTab({
   const percentGastoGeral = totalGeralEstimado > 0 ? (totalGeralReal / totalGeralEstimado) * 100 : 0;
 
   const showComparisonCard = comparacaoGastos && comparacaoGastos.estado !== 'PENDENTE';
-
-  // Nome do Workpackage selecionado para exibição
-  const nomeWpSelecionado = React.useMemo(() => {
-      if (!selectedWorkpackageId || selectedWorkpackageId === "todos") return null;
-      return workpackagesList?.find(wp => wp.id === selectedWorkpackageId)?.nome;
-  }, [selectedWorkpackageId, workpackagesList]);
 
   // Preparar opções para o DropdownField
   const workpackageDropdownOptions = React.useMemo(() => {

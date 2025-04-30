@@ -7,7 +7,6 @@ import { sendPrimeiroAcessoEmail, sendPasswordResetEmail } from "@/emails/utils/
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { handlePrismaError } from "../utils";
-import { paginationSchema } from "../schemas/common";
 import { format } from "date-fns";
 import { Decimal } from "decimal.js";
 import puppeteer from "puppeteer";
@@ -38,14 +37,17 @@ const dateSchema = z.union([
 // Schema base para utilizador
 const utilizadorBaseSchema = z
   .object({
-    name: z.string().min(1, "Nome é obrigatório"),
-    email: emailSchema,
+    name: z.string().min(1, "Nome é obrigatório").optional(),
+    email: emailSchema.optional(),
     foto: z.string().nullable().optional(),
-    atividade: z.string().min(1, "Atividade é obrigatória"),
-    contratacao: dateSchema,
-    username: z.string().min(3, "Username deve ter pelo menos 3 caracteres"),
-    permissao: z.nativeEnum(Permissao),
-    regime: z.nativeEnum(Regime),
+    atividade: z.string().min(1, "Atividade é obrigatória").optional(),
+    contratacao: dateSchema.optional(),
+    username: z.string().min(3, "Username deve ter pelo menos 3 caracteres").optional(),
+    permissao: z.nativeEnum(Permissao).optional(),
+    regime: z.nativeEnum(Regime).optional(),
+    contratado: z.boolean().optional(),
+    informacoes: z.string().optional(),
+    salario: z.preprocess((v) => v === "" || v == null ? undefined : Number(v), z.number().min(0, "Salário deve ser positivo").optional()),
   })
   .passthrough();
 
@@ -71,33 +73,7 @@ const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
-// Schema para filtros de utilizador
-const utilizadorFilterSchema = z
-  .object({
-    search: z.string().optional(),
-    permissao: z.nativeEnum(Permissao).optional(),
-    regime: z.nativeEnum(Regime).optional(),
-  })
-  .merge(paginationSchema);
-
-// Schema para reset de password
-const resetPasswordRequestSchema = z.object({
-  email: z.string().email("Email inválido"),
-});
-
-// Schema para definir nova password após reset
-const resetPasswordSchema = z
-  .object({
-    token: z.string(),
-    password: passwordSchema,
-    confirmPassword: z.string().min(1, "Confirmação de password é obrigatória"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "As passwords não coincidem",
-    path: ["confirmPassword"],
-  });
-
-// Schema para validação de primeiro acesso
+// Schema para primeiro acesso
 const primeiroAcessoSchema = z
   .object({
     token: z.string(),
@@ -146,10 +122,6 @@ const findAllUtilizadoresInputSchema = z.object({
 export type CreateUtilizadorInput = z.infer<typeof createUtilizadorSchema>;
 export type UpdateUtilizadorInput = z.infer<typeof updateUtilizadorSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-export type UtilizadorFilterInput = z.infer<typeof utilizadorFilterSchema>;
-export type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
-export type PrimeiroAcessoInput = z.infer<typeof primeiroAcessoSchema>;
 export type ConfiguracaoMensalInput = z.infer<typeof configuracaoMensalSchema>;
 
 // Exportar os schemas para uso em validações
@@ -452,7 +424,6 @@ export const utilizadorRouter = createTRPCRouter({
   // Criar utilizador
   create: protectedProcedure.input(createUtilizadorSchema).mutation(async ({ ctx, input }) => {
     try {
-      // Verificar permissão (apenas admin pode criar utilizadores)
       const user = ctx.session?.user as UserWithPermissao | undefined;
       if (!user || user.permissao !== Permissao.ADMIN) {
         throw new TRPCError({
@@ -461,7 +432,6 @@ export const utilizadorRouter = createTRPCRouter({
         });
       }
 
-      // Verificar se temos dados de entrada
       if (!input) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -469,6 +439,32 @@ export const utilizadorRouter = createTRPCRouter({
         });
       }
 
+      // Se contratado minimalista, só exige name e informacoes
+      if (input.contratado === true) {
+        if (!input.name || !input.name.trim()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Nome é obrigatório para contratado",
+          });
+        }
+        // Criação minimalista
+        const newUser = await ctx.db.user.create({
+          data: {
+            name: input.name,
+            informacoes: input.informacoes,
+            salario: input.salario,
+            contratado: true,
+          },
+          select: {
+            id: true,
+            name: true,
+            informacoes: true,
+          },
+        });
+        return newUser;
+      }
+
+      // Fluxo normal (não contratado minimalista)
       const { password, ...userData } = input;
 
       if (process.env.NODE_ENV === "development") {
@@ -1277,7 +1273,7 @@ export const utilizadorRouter = createTRPCRouter({
       return {
         utilizador: {
           id: utilizador.id,
-          nome: utilizador.name || "Utilizador sem nome",
+          nome: utilizador.name || "Utilizador",
           email: utilizador.email || "utilizador@exemplo.com",
           cargo: utilizador.atividade || "Cargo não definido",
         },
@@ -1457,7 +1453,9 @@ export const utilizadorRouter = createTRPCRouter({
 
   // Reset de password
   resetPassword: protectedProcedure
-    .input(resetPasswordRequestSchema)
+    .input(z.object({
+      email: z.string().email("Email inválido"),
+    }))
     .mutation(async ({ ctx, input }) => {
       try {
         const { email } = input;

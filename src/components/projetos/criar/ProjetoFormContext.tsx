@@ -22,6 +22,14 @@ type ResponsavelInfo = {
   permissao: User["permissao"];
 };
 
+// Tipo para utilizador temporário do projeto
+export type UtilizadorState = {
+  id: string;
+  nome: string;
+  email: string;
+  permissao?: string;
+};
+
 // Definir tipos para o estado
 type EntregavelState = Omit<Entregavel, "tarefaId">;
 type TarefaState = Omit<Tarefa, "workpackageId"> & { entregaveis: EntregavelState[] };
@@ -43,6 +51,7 @@ export type ProjetoState = Omit<Projeto, "id" | "responsavel" | "responsavelId">
   workpackages: WorkpackageState[];
   aprovado: boolean | null;
   tipo: ProjetoTipo;
+  utilizadores: UtilizadorState[];
 };
 
 // Estado inicial mais limpo
@@ -60,13 +69,14 @@ const initialState: ProjetoState = {
   workpackages: [],
   aprovado: false,
   tipo: "STANDARD" as ProjetoTipo,
+  utilizadores: [],
 };
 
 // Ações atualizadas usando os tipos do Prisma
 type ProjetoFormAction =
   | {
       type: "SET_FIELD";
-      field: keyof Omit<ProjetoState, "workpackages" | "responsavel">;
+      field: keyof Omit<ProjetoState, "workpackages" | "responsavel" | "utilizadores">;
       value: any;
     }
   | { type: "SET_RESPONSAVEL"; responsavel: ResponsavelInfo | null }
@@ -94,9 +104,12 @@ type ProjetoFormAction =
       data: Partial<RecursoState>;
     }
   | { type: "REMOVE_RECURSO_COMPLETO"; workpackageId: string; userId: string }
+  | { type: "ADD_UTILIZADOR"; utilizador: UtilizadorState }
+  | { type: "EDIT_UTILIZADOR"; utilizador: UtilizadorState }
+  | { type: "REMOVE_UTILIZADOR"; utilizadorId: string }
   | { type: "SET_STATE"; state: ProjetoState }
   | { type: "RESET" }
-  | { type: "UPDATE_PROJETO"; data: Partial<Omit<ProjetoState, "workpackages" | "responsavel">> };
+  | { type: "UPDATE_PROJETO"; data: Partial<Omit<ProjetoState, "workpackages" | "responsavel" | "utilizadores">> };
 
 function projetoReducer(state: ProjetoState, action: ProjetoFormAction): ProjetoState {
   switch (action.type) {
@@ -245,6 +258,26 @@ function projetoReducer(state: ProjetoState, action: ProjetoFormAction): Projeto
               }
             : wp
         ),
+      };
+
+    case "ADD_UTILIZADOR":
+      return {
+        ...state,
+        utilizadores: [...state.utilizadores, action.utilizador],
+      };
+
+    case "EDIT_UTILIZADOR":
+      return {
+        ...state,
+        utilizadores: state.utilizadores.map((u) =>
+          u.id === action.utilizador.id ? action.utilizador : u
+        ),
+      };
+
+    case "REMOVE_UTILIZADOR":
+      return {
+        ...state,
+        utilizadores: state.utilizadores.filter((u) => u.id !== action.utilizadorId),
       };
 
     case "SET_STATE":

@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { WorkpackageInformacoes } from "./informacoes";
-import { WorkpackageTarefas } from "./tarefas";
 import { WorkpackageRecursos } from "./recursos";
 import { WorkpackageMateriais } from "./materiais";
+import { ProgressoWorkpackage } from "./progresso";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { api } from "@/trpc/react";
@@ -10,9 +10,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { WorkpackageCompleto, ProjetoCompleto } from "@/components/projetos/types";
 import { Decimal } from "decimal.js";
-import { useMutations } from "@/hooks/useMutations";
-import { toast } from "sonner";
-import type { Prisma } from "@prisma/client";
 
 interface MenuWorkpackageProps {
   workpackageId: string;
@@ -110,11 +107,6 @@ export function MenuWorkpackage({
   workpackage: externalWorkpackage,
   projeto,
 }: MenuWorkpackageProps) {
-  const [addingTarefa, setAddingTarefa] = useState(false);
-
-  // Usar mutations com o projetoId
-  const mutations = useMutations(projetoId);
-
   // Se não temos o workpackage externamente, buscar da API
   const { data: apiWorkpackage, isLoading } = api.workpackage.findById.useQuery(
     { id: workpackageId },
@@ -133,121 +125,10 @@ export function MenuWorkpackage({
     : undefined;
 
   useEffect(() => {
-    if (!open) setAddingTarefa(false);
+    if (!open) {
+      // setAddingTarefa(false);
+    }
   }, [open]);
-
-  // --- Handlers para tarefas ---
-
-  // Criar nova tarefa
-  const handleSubmitTarefa = (
-    workpackageId: string,
-    tarefa: Omit<Prisma.TarefaCreateInput, "workpackage">
-  ) => {
-    mutations.tarefa.create.mutate({
-      nome: tarefa.nome,
-      workpackageId: workpackageId,
-      descricao: tarefa.descricao,
-      inicio: tarefa.inicio,
-      fim: tarefa.fim,
-      estado: false,
-    });
-
-    setAddingTarefa(false);
-    toast.success("Tarefa criada com sucesso");
-  };
-
-  // Atualizar tarefa
-  const handleEditTarefa = async (tarefaId: string, tarefaData: Prisma.TarefaUpdateInput) => {
-    try {
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: tarefaData,
-      });
-      toast.success("Tarefa atualizada com sucesso");
-    } catch (error) {
-      console.error("Erro ao atualizar tarefa:", error);
-      toast.error("Erro ao atualizar tarefa");
-    }
-  };
-
-  // Alteração de estado da tarefa
-  const handleToggleEstadoTarefa = async (tarefaId: string) => {
-    try {
-      const tarefa = fullWorkpackage?.tarefas?.find((t) => t.id === tarefaId);
-      if (!tarefa) return;
-
-      await mutations.tarefa.update.mutateAsync({
-        id: tarefaId,
-        data: {
-          estado: !tarefa.estado,
-        },
-      });
-
-      toast.success("Estado da tarefa atualizado");
-    } catch (error) {
-      console.error("Erro ao atualizar estado:", error);
-      toast.error("Erro ao atualizar estado da tarefa");
-    }
-  };
-
-  // Deletar tarefa
-  const handleDeleteTarefa = (tarefaId: string) => {
-    try {
-      mutations.tarefa.delete.mutate(tarefaId);
-      toast.success("Tarefa removida com sucesso");
-    } catch (error) {
-      console.error("Erro ao remover tarefa:", error);
-      toast.error("Erro ao remover tarefa");
-    }
-  };
-
-  // --- Handlers para entregáveis ---
-
-  // Adicionar entregável
-  const handleAddEntregavel = async (
-    tarefaId: string,
-    entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">
-  ) => {
-    try {
-      await mutations.entregavel.create.mutateAsync({
-        tarefaId,
-        nome: entregavel.nome,
-        descricao: entregavel.descricao || undefined,
-        data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data,
-      });
-
-      toast.success("Entregável adicionado com sucesso");
-    } catch (error) {
-      console.error("Erro ao adicionar entregável:", error);
-      toast.error("Erro ao adicionar entregável");
-    }
-  };
-
-  // Atualizar entregável
-  const handleEditEntregavel = async (entregavelId: string, data: Prisma.EntregavelUpdateInput) => {
-    try {
-      await mutations.entregavel.update.mutateAsync({
-        id: entregavelId,
-        data,
-      });
-
-      toast.success("Entregável atualizado com sucesso");
-    } catch (error) {
-      console.error("Erro ao atualizar entregável:", error);
-      toast.error("Erro ao atualizar entregável");
-    }
-  };
-
-  // Deletar entregável
-  const handleDeleteEntregavel = (entregavelId: string) => {
-    try {
-      mutations.entregavel.delete.mutate(entregavelId);
-      toast.success("Entregável removido com sucesso");
-    } catch (error) {
-      console.error("Erro ao remover entregável:", error);
-      toast.error("Erro ao remover entregável");
-    }
-  };
 
   // Loading state enquanto buscamos dados da API (só se necessário)
   if (!externalWorkpackage && isLoading) {
@@ -328,19 +209,7 @@ export function MenuWorkpackage({
                     />
                   </div>
                   <div className="px-5 py-6">
-                    <WorkpackageTarefas
-                      workpackage={fullWorkpackage}
-                      _workpackageId={fullWorkpackage.id}
-                      addingTarefa={addingTarefa}
-                      setAddingTarefa={setAddingTarefa}
-                      onSubmitTarefa={handleSubmitTarefa}
-                      onEditTarefa={handleEditTarefa}
-                      onToggleEstadoTarefa={handleToggleEstadoTarefa}
-                      onDeleteTarefa={handleDeleteTarefa}
-                      onAddEntregavel={handleAddEntregavel}
-                      onEditEntregavel={handleEditEntregavel}
-                      onDeleteEntregavel={handleDeleteEntregavel}
-                    />
+                    <ProgressoWorkpackage />
                   </div>
                   <div className="px-5 py-6">
                     <WorkpackageRecursos

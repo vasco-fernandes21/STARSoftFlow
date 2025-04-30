@@ -38,8 +38,8 @@ const nextConfig = {
     return config;
   },
 
-
-  turbopack: {},
+  // Configuração mínima do Turbopack
+  turbopack: true
 };
 
 export default nextConfig;

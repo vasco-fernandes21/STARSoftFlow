@@ -4,7 +4,6 @@ import { PlusIcon, Users } from "lucide-react";
 import type { WorkpackageCompleto } from "@/components/projetos/types";
 import { useMutations } from "@/hooks/useMutations";
 import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
-import { Card } from "@/components/ui/card";
 import { api } from "@/trpc/react";
 import { Item } from "@/components/projetos/criar/novo/recursos/item";
 import { Decimal } from "decimal.js";
@@ -53,9 +52,8 @@ export function WorkpackageRecursos({
   );
 
   // Filtrar apenas utilizadores não alocados
-  const utilizadoresDisponiveis = utilizadoresList.filter(
-    (user) => !utilizadoresAlocados.has(user.id)
-  );
+  const utilizadoresDisponiveis = utilizadoresList
+    .filter((user) => !utilizadoresAlocados.has(user.id));
 
   // Handler para adicionar recursos
   const handleAddRecurso = (
@@ -191,8 +189,7 @@ export function WorkpackageRecursos({
 
       {/* Formulário para adicionar novo recurso */}
       {addingRecurso && (
-        <Card className="rounded-xl border border-azul/10 bg-white p-6 shadow-sm duration-200 animate-in fade-in-50 slide-in-from-top-5">
-          <h3 className="mb-5 text-lg font-medium text-azul">Novo Recurso</h3>
+        <div className="w-full h-full animate-in fade-in-50 slide-in-from-top-5">
           <RecursoForm
             workpackageId={workpackage.id}
             inicio={workpackage.inicio || new Date()}
@@ -217,7 +214,7 @@ export function WorkpackageRecursos({
             _usersMappedById={usersMappedById}
             _isClienteAtivo={true}
           />
-        </Card>
+        </div>
       )}
 
       {/* Lista de recursos agrupados por utilizador */}
@@ -229,11 +226,17 @@ export function WorkpackageRecursos({
 
             if (!membroEquipa) return null;
 
+            // Add userId directly from recursoInfo.userId to each alocacao
+            const alocacoesWithUserId = recursoInfo.alocacoes.map(alocacao => ({
+              ...alocacao,
+              userId: recursoInfo.userId
+            }));
+
             return (
               <Item
                 key={recursoInfo.userId}
                 user={membroEquipa}
-                alocacoes={recursoInfo.alocacoes}
+                alocacoes={alocacoesWithUserId}
                 isExpanded={expandedUsuarioId === recursoInfo.userId}
                 onToggleExpand={() => {
                   if (expandedUsuarioId === recursoInfo.userId) {

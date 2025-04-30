@@ -14,7 +14,6 @@ import { useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
 import * as XLSX from "xlsx";
 import { Decimal } from "decimal.js";
 import type { Rubrica, Material as PrismaMaterial } from "@prisma/client";
-import { toast } from "sonner";
 import { generateUUID } from "@/server/api/utils/token";
 import { api } from "@/trpc/react";
 import { GerirFinanciamentosModal } from "@/components/projetos/criar/novo/financas/GerirFinanciamentosModal";
@@ -236,7 +235,7 @@ function extrairDadosRH(
           }
           ultimaColunaIdx = i; 
         }
-      } catch (error) {
+      } catch {
         // Ignorar erros
       }
     }
@@ -410,7 +409,7 @@ export default function ImportarProjetoButton() {
     const utilizadores = extrairUtilizadores(utilizadoresData);
 
     if (utilizadores.length === 0) {
-        toast.error("Não foi possível carregar a lista de utilizadores da base de dados.");
+        console.error("Não foi possível carregar a lista de utilizadores da base de dados.");
         setIsLoading(false);
         return;
     }
@@ -457,7 +456,6 @@ export default function ImportarProjetoButton() {
           dataFimProjeto = resultado.dataFimProjeto;
         } else {
           console.warn("[Importação] Folha 'RH_Budget_SUBM' não encontrada no Excel.");
-          toast.info("Folha 'RH_Budget_SUBM' não encontrada no ficheiro Excel.");
         }
 
         if (sheetsData["Outros_Budget"]) {
@@ -577,7 +575,6 @@ export default function ImportarProjetoButton() {
                   },
                 });
                 console.log(`[Importação] Financiamento '${financiamentoExistente.nome}' encontrado e aplicado.`);
-                toast.success(`Financiamento "${financiamentoExistente.nome}" aplicado`);
               } else if (tipoFinanciamento) {
                  console.log(`[Importação] Financiamento '${tipoFinanciamento}' não encontrado. Abrindo modal para criação.`);
                  setDadosFinanciamento({
@@ -588,20 +585,16 @@ export default function ImportarProjetoButton() {
                 });
 
                 setModalFinanciamentosAberto(true);
-
-                toast.info(`Não existe financiamento do tipo "${tipoFinanciamento}". Por favor, crie um novo.`);
               }
-          } catch (error) {
-            console.error("[Importação] Erro ao verificar financiamentos existentes:", error);
-            toast.error("Erro ao verificar financiamentos existentes.");
+          } catch {
+            console.error("[Importação] Erro ao verificar financiamentos existentes:");
           }
         }
 
-        toast.success("Projeto importado com sucesso do Excel!");
+        console.log("Projeto importado com sucesso do Excel!");
         setOpen(false);
-      } catch (error) {
-        console.error("[Importação] Erro GERAL na importação:", error); 
-        toast.error("Ocorreu um erro ao processar o ficheiro Excel.");
+      } catch {
+        console.error("[Importação] Erro GERAL na importação:"); 
       } finally {
         setIsLoading(false);
         if (fileInputRef.current) {
@@ -610,15 +603,14 @@ export default function ImportarProjetoButton() {
       }
     };
 
-    reader.onerror = (error) => {
-      console.error("[Importação] Erro ao ler o ficheiro:", error); 
-      toast.error("Ocorreu um erro ao ler o ficheiro.");
+    reader.onerror = () => {
+      console.error("[Importação] Erro ao ler o ficheiro"); 
       setIsLoading(false);
     };
 
     reader.readAsArrayBuffer(file);
 
-  }, [dispatch, financiamentosData, utilizadoresData, toast]);
+  }, [dispatch, financiamentosData, utilizadoresData]);
 
   const handleFinanciamentoCriado = useCallback((financiamento: FinanciamentoAPI) => {
     dispatch({
@@ -633,9 +625,7 @@ export default function ImportarProjetoButton() {
 
     setDadosFinanciamento(null);
     setModalFinanciamentosAberto(false);
-
-    toast.success("Financiamento criado e aplicado ao projeto");
-  }, [dispatch, toast]);
+  }, [dispatch]);
 
   return (
     <>

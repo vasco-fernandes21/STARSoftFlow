@@ -13,7 +13,7 @@ function calcularSalarioAjustado(salario: Decimal | number | null | undefined): 
   }
   const salarioDecimal = new Decimal(salario);
   const VALOR_SALARIO = new Decimal(1.223);
-  const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11));
+  const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11)); 
   return salarioDecimal.times(VALOR_SALARIO).times(FATOR_MESES);
 }
 
@@ -270,7 +270,7 @@ async function getOrcamentoSubmetido(
       const detalhesPorAnoDetalhado = custosDetalhados.detalhesAnuais.map(detalheAno => {
           const overheadAno = (detalheAno.custoRecursos.plus(detalheAno.custoMateriais)).times(overheadPercentSnapshot);
           const orcamentoAno = detalheAno.custoRecursos.plus(detalheAno.custoMateriais).plus(overheadAno);
-  return {
+          return {
               ano: detalheAno.ano,
               orcamento: orcamentoAno,
               custoRecursos: detalheAno.custoRecursos,

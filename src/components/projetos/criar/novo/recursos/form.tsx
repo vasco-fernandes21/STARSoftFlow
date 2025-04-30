@@ -24,7 +24,7 @@ interface FormProps {
   workpackageId: string;
   inicio: Date;
   fim: Date;
-  utilizadores: Array<{ id: string; name: string; email: string; regime: string }>;
+  utilizadores: Array<{ id: string; name: string; email: string; regime: string | null }>;
   onAddAlocacao: (
     workpackageId: string,
     alocacoes: Array<{
@@ -56,6 +56,7 @@ interface FormProps {
   _onAlocacoes?: (alocacoes: any[]) => void;
   _usersMappedById?: any;
   _isClienteAtivo?: boolean;
+  hideCloseButtonFromFormHeader?: boolean;
 }
 
 type NovaAlocacao = {
@@ -119,6 +120,7 @@ export function Form({
   _onAlocacoes = () => {},
   _usersMappedById = {},
   _isClienteAtivo = true,
+  hideCloseButtonFromFormHeader = false,
 }: FormProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [alocacoes, setAlocacoes] = useState<NovaAlocacao[]>([]);
@@ -454,8 +456,8 @@ export function Form({
 
   return (
     <Card className="overflow-hidden border-azul/10 transition-all hover:border-azul/20">
-      {/* Cabeçalho do Form - mostrar apenas quando não estiver em modo de edição */}
-      {!recursoEmEdicao && (
+      {/* Cabeçalho do Form - mostrar apenas quando não estiver em modo de edição E não for modal */}
+      {!recursoEmEdicao && !hideCloseButtonFromFormHeader && (
         <div className="flex items-center justify-between border-b border-azul/10 p-3">
           <div className="flex items-center gap-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-azul/10">
@@ -521,9 +523,9 @@ export function Form({
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-azul/10">
                         <User className="h-3 w-3 text-azul" />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{user.name}</span>
-                        <span className="text-xs text-azul/60">{user.regime}</span>
+                      <div className="flex flex-col items-start justify-center min-h-[1.5rem]">
+                        <span className="text-sm font-medium leading-none">{user.name}</span>
+                        <span className="text-xs text-azul/60 leading-none mt-0.5">{user.regime}</span>
                       </div>
                     </div>
                   </SelectItem>

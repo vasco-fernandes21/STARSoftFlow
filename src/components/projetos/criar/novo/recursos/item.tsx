@@ -13,10 +13,11 @@ interface User {
   id: string;
   name: string;
   email: string;
-  regime: string;
+  regime: string | null;
 }
 
 interface Alocacao {
+  userId: string;
   mes: number;
   ano: number;
   ocupacao: Decimal;
@@ -50,10 +51,7 @@ export function Item({
   workpackageId,
   utilizadores,
 }: ItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Calcular ocupação total
-  const ocupacaoTotal = alocacoes.reduce((acc, curr) => acc + Number(curr.ocupacao), 0);
+  const [isEditing] = useState(false);
 
   // Filtrar apenas o utilizador atual para o Form de edição
   const utilizadoresDisponiveis = utilizadores.filter(u => u.id === user.id);
@@ -138,12 +136,13 @@ export function Item({
       user?: any;
     }>
   ) => {
-    const alocacoesComWorkpackage = alocacoes.map(alocacao => ({
+    // Add userId to each alocacao
+    const alocacoesComUserId = alocacoes.map(alocacao => ({
       ...alocacao,
+      userId: user.id,
       workpackageId
     }));
-    
-    onUpdateAlocacao(user.id, alocacoesComWorkpackage);
+    onUpdateAlocacao(user.id, alocacoesComUserId);
     setShowForm(false);
   };
 
@@ -236,7 +235,7 @@ export function Item({
             alocacoesPorAnoMes={alocacoesPorAnoMes}
             inicio={validInicio}
             fim={validFim}
-            isEditing={isEditing}
+            isEditing={false}
             editValues={{}}
             setEditValues={() => {}}
             validarEntrada={validarEntrada}
@@ -394,3 +393,6 @@ function getOcupacaoStyles(ocupacao: number) {
     progressClass: "bg-gray-200",
   };
 }
+
+// When building utilizadoresDisponiveis, ensure all are mapped through transformUser
+// (This will be handled in index.tsx, but add a comment here for clarity)

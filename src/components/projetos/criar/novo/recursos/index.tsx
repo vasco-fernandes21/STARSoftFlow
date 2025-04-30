@@ -16,6 +16,9 @@ import { Decimal } from "decimal.js";
 import { Form } from "./form";
 import { Item } from "./item";
 import { api } from "@/trpc/react";
+import { FormContratado } from "./form-contratado";
+import { UserPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface RecursosTabProps {
   onNavigateBack: () => void;
@@ -27,50 +30,44 @@ interface Alocacao {
   ano: number;
   ocupacao: Decimal;
   workpackageId?: string;
+  userId: string;
 }
 
 // Dados dos membros da equipa obtidos da API
 const useRecursosData = () => {
-  const { data, isLoading, error } = api.utilizador.findAll.useQuery();
+  const { data } = api.utilizador.findAll.useQuery();
 
-  if (isLoading) return { data: undefined, isLoading: true, error: null }; // Retorna estrutura consistente
-  if (error) {
+  if (!data) {
     toast.error("Erro ao carregar utilizadores");
     // Retorna estrutura consistente, mesmo com erro
-    return { data: undefined, isLoading: false, error }; 
+    return { data: undefined }; 
   }
 
   // Retorna diretamente o resultado da query (ou undefined)
-  return { data, isLoading: false, error: null };
+  return { data };
 };
 
 // Transform user data to match the expected User interface
 const transformUser = (user: any) => ({
   id: user.id,
-  name: user.name || "Utilizador desconhecido",
-  email: user.email || "",
-  regime: user.regime,
+  name: user.name ?? "Utilizador desconhecido",
+  email: user.email ?? "",
+  regime: user.regime ?? null,
 });
 
 // Transform alocacoesPorAnoMes into the expected format
 const transformAlocacoes = (
-  alocacoesPorAnoMes: Record<string, Record<number, number>>
+  alocacoesPorAnoMes: Record<string, Record<number, number>>,
+  userId?: string
 ): Alocacao[] => {
   return Object.entries(alocacoesPorAnoMes).flatMap(([ano, meses]) =>
     Object.entries(meses).map(([mes, ocupacao]) => ({
+      userId: userId ?? '',
       mes: parseInt(mes),
       ano: parseInt(ano),
       ocupacao: new Decimal(Number(ocupacao) / 100),
     }))
   );
-};
-
-// Transform alocacoes to include userId for the API
-const transformAlocacoesForApi = (userId: string, alocacoes: Alocacao[]) => {
-  return alocacoes.map((alocacao) => ({
-    ...alocacao,
-    userId,
-  }));
 };
 
 export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabProps) {
@@ -84,9 +81,10 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   } | null>(null);
 
   // Obter dados dos membros da equipa usando o hook renomeado
-  const { data: membrosEquipaData, isLoading: isLoadingMembros } = useRecursosData();
+  const { data: membrosEquipaData } = useRecursosData();
+  
   // Extrair a lista de items ou usar um array vazio
-  const listaMembrosEquipa = membrosEquipaData?.items ?? [];
+  const listaMembrosEquipa = React.useMemo(() => membrosEquipaData?.items ?? [], [membrosEquipaData]);
 
   // Verificar se há workpackages
   const hasWorkpackages = state.workpackages && state.workpackages.length > 0;
@@ -104,11 +102,9 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
   }, [selectedWorkpackage]);
 
   // Filtrar lista de membros da equipa para mostrar apenas os disponíveis
-  const utilizadoresDisponiveis = React.useMemo(() => {
-    return listaMembrosEquipa.filter(
-      (membro: { id: string }) => !utilizadoresAlocadosIds.has(membro.id)
-    );
-  }, [listaMembrosEquipa, utilizadoresAlocadosIds]);
+  const utilizadoresDisponiveis = (listaMembrosEquipa || []).map(transformUser).filter(
+    (membro: { id: string }) => !utilizadoresAlocadosIds.has(membro.id)
+  );
 
   // Agrupar recursos por utilizador
   const recursosAgrupados = React.useMemo(() => {
@@ -160,7 +156,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
 
   // Função para adicionar alocação
   const handleAddAlocacao = (
-    workpackageId: string,
+    userId: string,
     alocacoes: Array<{
       userId: string;
       mes: number;
@@ -172,7 +168,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     if (recursoEmEdicao) {
       dispatch({
         type: "REMOVE_RECURSO_COMPLETO",
-        workpackageId,
+        workpackageId: selectedWorkpackageId,
         userId: recursoEmEdicao.userId,
       });
 
@@ -185,7 +181,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
     alocacoes.forEach((alocacao) => {
       dispatch({
         type: "ADD_ALOCACAO",
-        workpackageId,
+        workpackageId: selectedWorkpackageId,
         alocacao: {
           userId: alocacao.userId,
           mes: alocacao.mes,
@@ -279,36 +275,54 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
         </div>
 
         {/* Conteúdo principal */}
-        <div className="flex-1 p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-azul">
-                {selectedWorkpackage ? selectedWorkpackage.nome : "Selecione um workpackage"}
-              </h2>
-              {selectedWorkpackage && (
-                <p className="mt-1 text-sm text-gray-500">
-                  {selectedWorkpackage.descricao || "Sem descrição"}
-                </p>
-              )}
-            </div>
-
+        <div className="flex-1 p-6 relative">
+          <div className="flex items-center gap-4 mb-6">
             {selectedWorkpackage && (
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setAddingRecurso(true);
-                  setRecursoEmEdicao(null);
-                }}
-                className="flex gap-1.5"
-                disabled={addingRecurso || utilizadoresDisponiveis.length === 0}
+                className="gap-2 rounded-full bg-azul text-white shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-azul/90 hover:shadow-lg"
+                onClick={() => setAddingRecurso(true)}
               >
                 <Plus className="h-4 w-4" />
-                Adicionar Recurso
+                Adicionar recurso
               </Button>
             )}
+            <FormContratado
+              trigger={
+                <Button
+                  className="gap-2 rounded-full bg-green-600 text-white shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-green-700 hover:shadow-lg"
+                  type="button"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Criar contratado
+                </Button>
+              }
+              onSuccess={() => {
+                // Atualizar lista de membros ao criar contratado
+                if (typeof window !== "undefined") {
+                  // Forçar refetch se necessário
+                  window.location.reload();
+                }
+              }}
+            />
           </div>
-
+          {addingRecurso && (
+            <Dialog open={addingRecurso} onOpenChange={setAddingRecurso}>
+              <DialogContent className="max-w-2xl w-full p-0 bg-transparent border-none shadow-none">
+                <DialogTitle className="sr-only">Adicionar Recurso</DialogTitle>
+                <Form
+                  workpackageId={selectedWorkpackageId}
+                  inicio={selectedWorkpackage?.inicio ?? new Date()}
+                  fim={selectedWorkpackage?.fim ?? new Date()}
+                  utilizadores={utilizadoresDisponiveis}
+                  onAddAlocacao={handleAddAlocacao}
+                  onCancel={() => setAddingRecurso(false)}
+                  recursoEmEdicao={recursoEmEdicao}
+                  projetoEstado={state.estado as "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO"}
+                  hideCloseButtonFromFormHeader
+                />
+              </DialogContent>
+            </Dialog>
+            )}
           {!selectedWorkpackage ? (
             <div className="rounded-lg border border-dashed p-10 text-center text-gray-500">
               <Users className="mx-auto mb-3 h-12 w-12 text-gray-300" />
@@ -318,20 +332,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                 associados a ele.
               </p>
             </div>
-          ) : addingRecurso ? (
-            <Form
-              workpackageId={selectedWorkpackageId}
-              inicio={selectedWorkpackage.inicio || new Date()}
-              fim={selectedWorkpackage.fim || new Date()}
-              utilizadores={utilizadoresDisponiveis.map(transformUser)}
-              onAddAlocacao={handleAddAlocacao}
-              onCancel={() => {
-                setAddingRecurso(false);
-                setRecursoEmEdicao(null);
-              }}
-              recursoEmEdicao={recursoEmEdicao}
-              projetoEstado={"RASCUNHO"}
-            />
           ) : (
             <>
               {Object.keys(recursosAgrupados).length === 0 ? (
@@ -368,7 +368,7 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                       <Item
                         key={userId}
                         user={transformUser(user)}
-                        alocacoes={transformAlocacoes(alocacoesPorAnoMes)}
+                        alocacoes={transformAlocacoes(alocacoesPorAnoMes, userId)}
                         isExpanded={isExpanded}
                         onToggleExpand={() => setExpandedRecursoId(isExpanded ? null : userId)}
                         onRemove={() =>
@@ -376,15 +376,12 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                         }
                         inicio={selectedWorkpackage.inicio || new Date()}
                         fim={selectedWorkpackage.fim || new Date()}
-                        projetoEstado={"RASCUNHO"}
+                        projetoEstado={state.estado as "RASCUNHO" | "PENDENTE" | "APROVADO" | "EM_DESENVOLVIMENTO" | "CONCLUIDO"}
                         onUpdateAlocacao={(userId, alocacoes) =>
-                          handleAddAlocacao(
-                            selectedWorkpackageId,
-                            transformAlocacoesForApi(userId, alocacoes)
-                          )
+                          handleAddAlocacao(userId, alocacoes)
                         }
                         workpackageId={selectedWorkpackageId}
-                        utilizadores={listaMembrosEquipa.map(transformUser)}
+                        utilizadores={utilizadoresDisponiveis}
                       />
                     );
                   })}
