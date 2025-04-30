@@ -268,7 +268,7 @@ export const AppSidebar = () => {
               </div>
               <div
                 className={cn(
-                  "flex transform items-center gap-3 transition-all duration-300 ease-in-out",
+                  "flex transform items-center gap-3 transition-all duration-300 ease-in-out min-w-0",
                   collapsed ? "w-0 -translate-x-2 opacity-0" : "w-auto translate-x-0 opacity-100"
                 )}
               >
@@ -276,7 +276,10 @@ export const AppSidebar = () => {
                   <p className="truncate text-sm font-semibold text-slate-800 transition-all duration-300 ease-in-out">
                     {session?.user?.name || "Utilizador"}
                   </p>
-                  <p className="truncate text-xs text-slate-500 transition-all duration-300 ease-in-out">
+                  <p
+                    className="truncate text-xs text-slate-500 transition-all duration-300 ease-in-out max-w-full"
+                    title={(session?.user as unknown as PrismaUser)?.atividade || ""}
+                  >
                     {(session?.user as unknown as PrismaUser)?.atividade || ""}
                   </p>
                 </div>

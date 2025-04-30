@@ -1,4 +1,4 @@
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
@@ -1452,7 +1452,7 @@ export const utilizadorRouter = createTRPCRouter({
     }),
 
   // Reset de password
-  resetPassword: protectedProcedure
+  resetPassword: publicProcedure
     .input(z.object({
       email: z.string().email("Email inválido"),
     }))

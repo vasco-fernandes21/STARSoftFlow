@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { Calendar, Clock, AlertTriangle, Briefcase, TrendingUp, Circle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,6 +35,8 @@ type TarefaProxima = {
 };
 
 export default function UserDashboard() {
+  const { data: session } = useSession();
+
   // Obter dados do dashboard do utilizador
   const { data: dashboardData, isLoading: isLoadingDashboard } = api.dashboard.getDashboard.useQuery();
 
@@ -206,7 +209,7 @@ export default function UserDashboard() {
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-              Olá, Utilizador
+              Olá, {session?.user?.name}
             </h1>
             <p className="text-sm text-slate-500">Bem-vindo ao seu painel de controlo.</p>
           </div>

@@ -44,7 +44,6 @@ export function NovoUtilizadorModal() {
     permissao: Permissao;
     regime: Regime;
     password: string;
-    sendWelcomeEmail: boolean;
     salario: number | undefined;
   }>({
     name: "",
@@ -57,7 +56,6 @@ export function NovoUtilizadorModal() {
     permissao: "COMUM" as Permissao,
     regime: "INTEGRAL" as Regime,
     password: "",
-    sendWelcomeEmail: true,
     salario: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -88,7 +86,6 @@ export function NovoUtilizadorModal() {
       permissao: "COMUM",
       regime: "INTEGRAL",
       password: "",
-      sendWelcomeEmail: true,
       salario: undefined,
     });
     setErrors({});
@@ -132,7 +129,6 @@ export function NovoUtilizadorModal() {
         permissao: formValues.permissao,
         regime: formValues.regime,
         password: formValues.password || undefined,
-        sendWelcomeEmail: formValues.sendWelcomeEmail,
         contratado: false,
         salario: formValues.salario,
       });
