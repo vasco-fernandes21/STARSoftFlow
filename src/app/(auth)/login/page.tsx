@@ -234,7 +234,7 @@ export default function LoginPage() {
 
             {/* Footer */}
             <footer className="mt-8 text-center text-xs text-gray-400">
-              {new Date().getFullYear()} STAR Institute. Todos os direitos reservados.
+              &#169; {new Date().getFullYear()} STAR Institute. Todos os direitos reservados.
             </footer>
           </div>
         </div>
