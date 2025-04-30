@@ -27,6 +27,7 @@ interface Alocacao {
 interface Recurso {
   nome: string;
   alocacoes: Alocacao[];
+  salario?: number;
 }
 
 // Modificar o tipo para usar number em vez de Decimal durante a importação
@@ -146,8 +147,66 @@ function ImportarExcelContent() {
 
   const extrairDadosRH = (data: any[][]): { workpackages: WorkpackageSimples[] } => {
     const wps: WorkpackageSimples[] = [];
+    const salariosPorRecurso = new Map<string, number>();
 
-    // --- INÍCIO DO SCRIPT UNIVERSAL DE IMPORTAÇÃO DE RH ROBUSTO A LINHAS DE ANOS ---
+    // Primeiro vamos extrair os salários e normalizar os nomes
+    for (const row of data) {
+      if (!row || row.length < 7) continue;
+      
+      const nomeRecurso = row[5];
+      const valorLido = row[6];
+      
+      // console.log('Debug Salário:', { 
+      //   nomeRecurso, 
+      //   valorLido, 
+      //   tipo: typeof valorLido,
+      //   row: row.slice(0, 10) // Primeiros 10 elementos para debug
+      // });
+
+      if (typeof nomeRecurso === 'string' && 
+          typeof valorLido === 'number' && 
+          !nomeRecurso.toLowerCase().includes('contagem') &&
+          !nomeRecurso.toLowerCase().includes('total') &&
+          !nomeRecurso.toLowerCase().includes('subtotal') &&
+          !nomeRecurso.toLowerCase().includes('eng.') &&
+          valorLido > 0) {
+        // Converter o valor lido para salário base mensal
+        // valor_lido = salario * 1.223 * 14/11
+        // então: salario = valor_lido / (1.223 * 14/11)
+        const salarioBase = valorLido / (1.223 * 14/11);
+        
+        // console.log('Salário calculado:', {
+        //   nomeRecurso,
+        //   valorLido,
+        //   salarioBase
+        // });
+        
+        // Normalizar o nome do recurso para matching
+        const nomeNormalizado = nomeRecurso.trim().toLowerCase();
+        salariosPorRecurso.set(nomeNormalizado, salarioBase);
+        
+        // Debug do Map após inserção
+        // console.log('Salários armazenados:', {
+        //   nomeNormalizado,
+        //   salarioArmazenado: salariosPorRecurso.get(nomeNormalizado)
+        // });
+        
+        // Também guardar versões alternativas do nome para matching mais flexível
+        if (nomeNormalizado.includes(' - ')) {
+          const partes = nomeNormalizado.split(' - ');
+          if (partes[0]) {
+            salariosPorRecurso.set(partes[0].trim(), salarioBase);
+          }
+        }
+        if (nomeNormalizado.includes('-')) {
+          const partes = nomeNormalizado.split('-');
+          if (partes[0]) {
+            salariosPorRecurso.set(partes[0].trim(), salarioBase);
+          }
+        }
+      }
+    }
+
     // 1. Encontrar linha dos cabeçalhos (onde está "Recurso")
     const headerRowIdx = data.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toUpperCase().includes('RECURSO')));
     const headerRow = headerRowIdx !== -1 ? data[headerRowIdx] : undefined;
@@ -160,14 +219,10 @@ function ImportarExcelContent() {
       if (!row || !Array.isArray(row)) continue;
       const anosCount = row.filter(c => typeof c === 'number' && c >= 2020 && c <= 2100).length;
       const datasExcelCount = row.filter(c => typeof c === 'number' && c > 40000).length;
-      if (anosCount >= 3 && datasExcelCount === 0) {
-        console.log(`Linha ${i} ignorada (linha de anos):`, row);
-        continue;
-      }
+      if (anosCount >= 3 && datasExcelCount === 0) continue;
       if (datasExcelCount >= 3) {
         mesesRowIdx = i;
         mesesRow = row;
-        console.log(`Linha ${i} detetada como linha de datas Excel:`, row);
         break;
       }
     }
@@ -182,20 +237,15 @@ function ImportarExcelContent() {
         }
       }
     }
-    console.log('headerRowIdx:', headerRowIdx, 'headerRow:', headerRow);
-    console.log('mesesRowIdx:', mesesRowIdx, 'mesesColMap:', mesesColMap);
 
     // 4. Detetar dinamicamente colunas de código WP, nome WP e recurso
-    // Procura nas primeiras 5 colunas da linha de dados
     function findWPCodeAndName(row: any[]): {idxCodigoWP: number, idxNomeWP: number, idxNomeRecurso: number} {
       let idxCodigoWP = -1, idxNomeWP = -1, idxNomeRecurso = -1;
       for (let i = 0; i < 5; i++) {
         const v = row[i];
         if (typeof v === 'string' && v.match(/^(WP|A)\d+$/i)) {
           idxCodigoWP = i;
-          // Nome WP normalmente está a seguir
           idxNomeWP = i + 1;
-          // Nome recurso normalmente está a seguir ao nome WP
           idxNomeRecurso = i + 2;
           break;
         }
@@ -211,68 +261,114 @@ function ImportarExcelContent() {
       };
     };
 
-    let wpAtual: any = undefined;
-    let currentWPIndices: {idxCodigoWP: number, idxNomeWP: number, idxNomeRecurso: number} = {idxCodigoWP: -1, idxNomeWP: -1, idxNomeRecurso: -1};
+    let wpAtual: WorkpackageSimples | null = null;
+    let currentWPIndices = {idxCodigoWP: -1, idxNomeWP: -1, idxNomeRecurso: -1};
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      console.log(`Linha ${i}:`, row);
-      if (!row || row.length < 3) {
-        console.log(`Linha ${i} ignorada: vazia ou demasiado curta.`);
-        continue;
-      }
+      if (!row || row.length < 3) continue;
+
       // Detetar início de WP
       const wpColInfo = findWPCodeAndName(row);
       if (wpColInfo.idxCodigoWP !== -1) {
-        // Novo WP
         wpAtual = {
           codigo: row[wpColInfo.idxCodigoWP],
           nome: typeof row[wpColInfo.idxNomeWP] === 'string' ? row[wpColInfo.idxNomeWP] : '',
-          tarefas: [],
-          materiais: [],
           recursos: [],
+          materiais: [],
+          dataInicio: null,
+          dataFim: null
         };
         wps.push(wpAtual);
         currentWPIndices = wpColInfo;
-        console.log('Novo WP:', wpAtual);
         continue;
       }
-      // Só processar recursos se já houver WP
-      if (!wpAtual) {
-        console.log(`Linha ${i} ignorada: fora de WP.`);
-        continue;
-      }
+
+      if (!wpAtual) continue;
+
       const nomeRecurso = row[currentWPIndices.idxNomeRecurso];
-      if (typeof nomeRecurso !== 'string' || nomeRecurso.trim() === '' || nomeRecurso.toLowerCase().includes('total') || nomeRecurso.toLowerCase().includes('subtotal')) {
-        console.log(`Linha ${i} ignorada: sem recurso ou é subtotal/total.`);
+      if (typeof nomeRecurso !== 'string' || nomeRecurso.trim() === '' || 
+          nomeRecurso.toLowerCase().includes('total') || nomeRecurso.toLowerCase().includes('subtotal')) {
         continue;
       }
-      console.log(`Linha ${i}: Detetado recurso '${nomeRecurso}' no WP '${wpAtual.codigo}'`);
-      const recurso: any = {
+
+      // Tentar encontrar o salário usando diferentes variações do nome
+      const nomeNormalizado = nomeRecurso.trim().toLowerCase();
+      let salarioEncontrado = salariosPorRecurso.get(nomeNormalizado);
+      
+      // console.log('Tentativa de matching salário:', {
+      //   nomeRecurso,
+      //   nomeNormalizado,
+      //   salarioEncontrado,
+      //   todosNomes: Array.from(salariosPorRecurso.keys())
+      // });
+      
+      if (!salarioEncontrado && nomeNormalizado.includes(' - ')) {
+        const partes = nomeNormalizado.split(' - ');
+        if (partes[0]) {
+          salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
+          // console.log('Tentativa alternativa 1:', {
+          //   parte: partes[0].trim(),
+          //   salarioEncontrado
+          // });
+        }
+      }
+      
+      if (!salarioEncontrado && nomeNormalizado.includes('-')) {
+        const partes = nomeNormalizado.split('-');
+        if (partes[0]) {
+          salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
+          // console.log('Tentativa alternativa 2:', {
+          //   parte: partes[0].trim(),
+          //   salarioEncontrado
+          // });
+        }
+      }
+
+      const recurso: Recurso = {
         nome: nomeRecurso,
         alocacoes: [],
+        salario: salarioEncontrado
       };
-      let dataInicio: Date | null = null;
-      let dataFim: Date | null = null;
+
+      // console.log('Recurso criado:', {
+      //   nome: recurso.nome,
+      //   salario: recurso.salario
+      // });
+
+      let dataInicioRecurso: Date | null = null;
+      let dataFimRecurso: Date | null = null;
+
       for (const {col, excelDate} of mesesColMap) {
         const valor = row[col];
         if (valor && typeof valor === 'number' && valor > 0 && valor <= 1) {
           const { mes, ano } = excelDateToJS(excelDate);
-          recurso.alocacoes.push({ mes, ano, percentagem: valor });
-          if (!dataInicio) dataInicio = new Date(ano, mes - 1);
-          dataFim = new Date(ano, mes - 1);
-          console.log(`  Alocação: coluna ${col} (${mes}/${ano}) = ${valor}`);
+          recurso.alocacoes.push({ mes, ano, percentagem: valor * 100 });
+
+          const dataAlocInicio = new Date(ano, mes - 1, 1);
+          const dataAlocFim = new Date(ano, mes, 0);
+
+          if (!dataInicioRecurso || dataAlocInicio < dataInicioRecurso) {
+            dataInicioRecurso = dataAlocInicio;
+          }
+          if (!dataFimRecurso || dataAlocFim > dataFimRecurso) {
+            dataFimRecurso = dataAlocFim;
+          }
         }
       }
+
       if (recurso.alocacoes.length > 0) {
         wpAtual.recursos.push(recurso);
-        wpAtual.dataInicio = dataInicio;
-        wpAtual.dataFim = dataFim;
-        console.log(`  Recurso '${nomeRecurso}' adicionado ao WP '${wpAtual.codigo}' com ${recurso.alocacoes.length} alocações.`);
-      } else {
-        console.log(`  Recurso '${nomeRecurso}' ignorado (sem alocações válidas).`);
+        
+        if (dataInicioRecurso && (!wpAtual.dataInicio || dataInicioRecurso < wpAtual.dataInicio)) {
+          wpAtual.dataInicio = dataInicioRecurso;
+        }
+        if (dataFimRecurso && (!wpAtual.dataFim || dataFimRecurso > wpAtual.dataFim)) {
+          wpAtual.dataFim = dataFimRecurso;
+        }
       }
     }
-    // --- FIM DO SCRIPT UNIVERSAL DE IMPORTAÇÃO DE RH ROBUSTO E COMPATÍVEL COM O CONTEXTO DO PROJETO ---
+
     return { workpackages: wps };
   };
 

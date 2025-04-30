@@ -308,7 +308,12 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
           {addingRecurso && (
             <Dialog open={addingRecurso} onOpenChange={setAddingRecurso}>
               <DialogContent className="max-w-2xl w-full p-0 bg-transparent border-none shadow-none">
-                <DialogTitle className="sr-only">Adicionar Recurso</DialogTitle>
+                {/* Accessibility: DialogTitle (hidden) for screen readers */}
+                <DialogTitle asChild>
+                  <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                    {recursoEmEdicao ? 'Editar Recurso' : 'Adicionar Recurso'}
+                  </span>
+                </DialogTitle>
                 <Form
                   workpackageId={selectedWorkpackageId}
                   inicio={selectedWorkpackage?.inicio ?? new Date()}

@@ -17,6 +17,8 @@ import type { Rubrica, Material as PrismaMaterial } from "@prisma/client";
 import { generateUUID } from "@/server/api/utils/token";
 import { api } from "@/trpc/react";
 import { GerirFinanciamentosModal } from "@/components/projetos/criar/novo/financas/GerirFinanciamentosModal";
+import { FormContratado } from "@/components/projetos/criar/novo/recursos/form-contratado";
+import { toast } from "sonner";
 
 // Interfaces e Tipos
 interface Alocacao {
@@ -29,6 +31,21 @@ interface Recurso {
   nome: string;
   userId: string | null;
   alocacoes: Alocacao[];
+  salario?: number;
+}
+
+// Adicionar nova interface para controlar o estado da importação
+interface EstadoImportacao {
+  sheetsData: { [key: string]: any[][] };
+  nomeProjeto: string;
+  tipoFinanciamento: string;
+  taxaFinanciamento: number | null;
+  overhead: number | null;
+  valorEti: number | null;
+  workpackages: WorkpackageSimples[];
+  materiais: MaterialImportacao[];
+  dataInicioProjeto: Date | null;
+  dataFimProjeto: Date | null;
 }
 
 type MaterialImportacao = Pick<
@@ -201,147 +218,203 @@ function extrairUtilizadores(apiResponse: any): any[] {
   return [];
 }
 
-function extrairDadosRH(
-  data: any[][],
-  utilizadores: any[]
-): {
-  workpackages: WorkpackageSimples[];
-  dataInicioProjeto: Date | null;
-  dataFimProjeto: Date | null;
-} {
+function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackages: WorkpackageSimples[]; dataInicioProjeto: Date | null; dataFimProjeto: Date | null; } {
   const wps: WorkpackageSimples[] = [];
-  let wpAtual: WorkpackageSimples | null = null;
+  let dataInicioProjeto: Date | null = null;
+  let dataFimProjeto: Date | null = null;
+  const salariosPorRecurso = new Map<string, number>();
 
-  const linhaAnos = data[3] || [];
-  const linhaMeses = data[4] || [];
-
-  const colunasDatasMap = new Map<number, { mes: number; ano: number }>();
-  let primeiraColunaIdx = -1;
-  let ultimaColunaIdx = -1;
-
-  const inicioBuscaColuna = 5; 
-  for (let i = inicioBuscaColuna; i < linhaMeses.length; i++) {
-    if (
-      typeof linhaAnos[i] === "number" &&
-      typeof linhaMeses[i] === "number" &&
-      linhaMeses[i] > 0 
-    ) {
-      try {
-        const { mes, ano } = excelDateToJS(linhaMeses[i]);
-        if (ano === linhaAnos[i]) { 
-          colunasDatasMap.set(i, { mes, ano });
-          if (primeiraColunaIdx === -1) {
-            primeiraColunaIdx = i;
-          }
-          ultimaColunaIdx = i; 
-        }
-      } catch {
-        // Ignorar erros
-      }
-    }
-  }
-
-  if (primeiraColunaIdx === -1) {
-    console.error("[Importação] Nenhuma coluna de data válida encontrada no cabeçalho da folha RH.");
-    return { workpackages: [], dataInicioProjeto: null, dataFimProjeto: null };
-  }
-
-  const primeiraDataInfo = colunasDatasMap.get(primeiraColunaIdx)!;
-  const ultimaDataInfo = colunasDatasMap.get(ultimaColunaIdx)!;
-  const dataInicioProjeto = new Date(primeiraDataInfo.ano, primeiraDataInfo.mes - 1, 1);
-  const dataFimProjeto = new Date(ultimaDataInfo.ano, ultimaDataInfo.mes, 0); 
-
-  const colunasDatasArray = Array.from(colunasDatasMap.entries())
-                               .map(([coluna, data]) => ({ coluna, ...data }))
-                               .sort((a, b) => a.coluna - b.coluna);
-
-  for (let i = 5; i < data.length; i++) {
-    const row = data[i];
-    if (!row) continue;
-
-    const codigo = typeof row[1] === "string" && row[1].match(/^A\d+$/) ? row[1].trim() : null;
-    const nome   = typeof row[2] === "string" && row[2].trim() ? row[2].trim() : null;
-
-    if (codigo && nome) {
-      wpAtual = { codigo, nome, recursos: [], materiais: [], dataInicio: null, dataFim: null };
-      wps.push(wpAtual);
-      continue; 
-    }
-
-    if (
-      wpAtual &&
-      !row[1] &&
-      typeof row[3] === "string" &&
-      row[3].trim() &&
-      row[3] !== "contagem células cinza" 
-    ) {
-      const nomeRecurso = row[3].trim();
-
-      const nomeRecursoLower = nomeRecurso.toLowerCase();
-      const excelNameTrimmedLower = nomeRecursoLower.trim(); // Processar nome do Excel uma vez
-
-      // 1. Encontrar todas as correspondências parciais (DB name inclui Excel name)
-      const potentialMatches = utilizadores.filter(u => {
-          const dbNameTrimmedLower = u.name?.trim().toLowerCase();
-          return dbNameTrimmedLower?.includes(excelNameTrimmedLower);
-      });
-
-      let userId: string | null = null;
-      let utilizador: { id: string; name: string | null } | null = null;
-
-      // 2. Verificar unicidade
-      if (potentialMatches.length === 1) {
-          utilizador = potentialMatches[0]!;
-          userId = utilizador?.id || null;
-          console.log(`[Importação - Match Único] Excel: '${excelNameTrimmedLower}' correspondeu UNICAMENTE a DB: '${utilizador?.name?.trim().toLowerCase()}' (ID: ${userId})`);
-      } else if (potentialMatches.length > 1) {
-          console.warn(`[Importação - Ambiguidade] Excel: '${excelNameTrimmedLower}' correspondeu a MÚLTIPLOS utilizadores na DB: ${potentialMatches.map(u => `'${u.name}'`).join(', ')}. Nenhuma alocação será feita.`);
-      } else {
-          // Nenhuma correspondência encontrada (nem parcial)
-          // console.log(`[Importação - Sem Match] Excel: '${excelNameTrimmedLower}' não correspondeu a nenhum utilizador na DB.`); // Opcional: log se não houver match
-      }
+  // Primeiro vamos extrair os salários e normalizar os nomes
+  for (const row of data) {
+    if (!row || row.length < 7) continue;
+    
+    const nomeRecurso = row[5];
+    const valorLido = row[6];
+    
+    if (typeof nomeRecurso === 'string' && 
+        typeof valorLido === 'number' && 
+        !nomeRecurso.toLowerCase().includes('contagem') &&
+        !nomeRecurso.toLowerCase().includes('células cinza') &&
+        !nomeRecurso.toLowerCase().includes('total') &&
+        !nomeRecurso.toLowerCase().includes('subtotal') &&
+        !nomeRecurso.toLowerCase().includes('eng.') &&
+        valorLido > 0) {
+      // Converter o valor lido para salário base mensal
+      // valor_lido = salario * 1.223 * 14/11
+      // então: salario = valor_lido / (1.223 * 14/11)
+      const salarioBase = valorLido / (1.223 * 14/11);
       
-      // Apenas continuar se encontrámos um utilizador único
-      if (userId) {
-          const recurso: Recurso = { nome: nomeRecurso, userId: userId, alocacoes: [] };
+      // Normalizar o nome do recurso para matching
+      const nomeNormalizado = nomeRecurso.trim().toLowerCase();
+      salariosPorRecurso.set(nomeNormalizado, salarioBase);
+      
+      // Também guardar versões alternativas do nome para matching mais flexível
+      if (nomeNormalizado.includes(' - ')) {
+        const partes = nomeNormalizado.split(' - ');
+        if (partes[0]) {
+          salariosPorRecurso.set(partes[0].trim(), salarioBase);
+        }
+      }
+      if (nomeNormalizado.includes('-')) {
+        const partes = nomeNormalizado.split('-');
+        if (partes[0]) {
+          salariosPorRecurso.set(partes[0].trim(), salarioBase);
+        }
+      }
+    }
+  }
 
-          let dataInicioRecurso: Date | null = null;
-          let dataFimRecurso: Date | null = null;
+  // 1. Encontrar linha dos cabeçalhos (onde está "Recurso")
+  const headerRowIdx = data.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toUpperCase().includes('RECURSO')));
 
-          for (const colData of colunasDatasArray) {
-              const valor = row[colData.coluna];
-              
-              if (typeof valor === "number" && !isNaN(valor) && valor > 0 && valor <= 1) {
-                 const percentagem = valor * 100;
-                 recurso.alocacoes.push({ mes: colData.mes, ano: colData.ano, percentagem: percentagem });
+  // 2. Encontrar linha dos meses (ExcelDate > 40000), ignorando linhas de anos
+  let mesesRow: any[] | undefined = undefined;
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (!row || !Array.isArray(row)) continue;
+    const anosCount = row.filter(c => typeof c === 'number' && c >= 2020 && c <= 2100).length;
+    const datasExcelCount = row.filter(c => typeof c === 'number' && c > 40000).length;
+    if (anosCount >= 3 && datasExcelCount === 0) continue;
+    if (datasExcelCount >= 3) {
+      mesesRow = row;
+      break;
+    }
+  }
 
-                 const dataAlocInicio = new Date(colData.ano, colData.mes - 1, 1);
-                 const dataAlocFim = new Date(colData.ano, colData.mes, 0); 
+  // 3. Mapear colunas de meses válidas (ExcelDate > 40000)
+  const mesesColMap: {col: number, excelDate: number}[] = [];
+  if (mesesRow) {
+    for (let i = 0; i < mesesRow.length; i++) {
+      const v = mesesRow[i];
+      if (typeof v === 'number' && v > 40000) {
+        mesesColMap.push({col: i, excelDate: v});
+      }
+    }
+  }
 
-                 if (!dataInicioRecurso || dataAlocInicio < dataInicioRecurso) {
-                   dataInicioRecurso = dataAlocInicio;
-                 }
-                 if (!dataFimRecurso || dataAlocFim > dataFimRecurso) {
-                   dataFimRecurso = dataAlocFim;
-                 }
-              } 
-          }
+  // 4. Detetar dinamicamente colunas de código WP, nome WP e recurso
+  function findWPCodeAndName(row: any[]): {idxCodigoWP: number, idxNomeWP: number, idxNomeRecurso: number} {
+    let idxCodigoWP = -1, idxNomeWP = -1, idxNomeRecurso = -1;
+    for (let i = 0; i < 5; i++) {
+      const v = row[i];
+      if (typeof v === 'string' && v.match(/^(WP|A)\d+$/i)) {
+        idxCodigoWP = i;
+        idxNomeWP = i + 1;
+        idxNomeRecurso = i + 2;
+        break;
+      }
+    }
+    return { idxCodigoWP, idxNomeWP, idxNomeRecurso };
+  }
 
-          if (recurso.alocacoes.length > 0 && wpAtual) { // Não precisa verificar userId aqui, já foi feito
-              wpAtual.recursos.push(recurso);
-              
-              const alocacoesString = recurso.alocacoes
-                  .map(a => `${String(a.mes).padStart(2, '0')}/${a.ano}: ${a.percentagem.toFixed(1)}%`)
-                  .join(', ');
-              console.log(`[Importação] Alocações para '${nomeRecurso}' (ID: ${recurso.userId}) no WP '${wpAtual.nome}': ${alocacoesString}`);
+  let wpAtual: WorkpackageSimples | null = null;
+  let currentWPIndices = {idxCodigoWP: -1, idxNomeWP: -1, idxNomeRecurso: -1};
 
-              if (dataInicioRecurso && (!wpAtual.dataInicio || dataInicioRecurso < wpAtual.dataInicio)) {
-                wpAtual.dataInicio = dataInicioRecurso;
-              }
-              if (dataFimRecurso && (!wpAtual.dataFim || dataFimRecurso > wpAtual.dataFim)) {
-                wpAtual.dataFim = dataFimRecurso;
-              }
-          } 
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (!row || row.length < 3) continue;
+
+    // Detetar início de WP
+    const wpColInfo = findWPCodeAndName(row);
+    if (wpColInfo.idxCodigoWP !== -1) {
+      wpAtual = {
+        codigo: row[wpColInfo.idxCodigoWP],
+        nome: typeof row[wpColInfo.idxNomeWP] === 'string' ? row[wpColInfo.idxNomeWP] : '',
+        recursos: [],
+        materiais: [],
+        dataInicio: null,
+        dataFim: null
+      };
+      wps.push(wpAtual);
+      currentWPIndices = wpColInfo;
+      continue;
+    }
+
+    if (!wpAtual) continue;
+
+    const nomeRecurso = row[currentWPIndices.idxNomeRecurso];
+    if (typeof nomeRecurso !== 'string' || 
+        nomeRecurso.trim() === '' || 
+        nomeRecurso.toLowerCase().includes('total') || 
+        nomeRecurso.toLowerCase().includes('subtotal') ||
+        nomeRecurso.toLowerCase().includes('células cinza')) {
+      continue;
+    }
+
+    // Encontrar o utilizador correspondente
+    const nomeRecursoLower = nomeRecurso.toLowerCase().trim();
+    const potentialMatches = utilizadores.filter(u => {
+      const dbNameTrimmedLower = u.name?.trim().toLowerCase();
+      return dbNameTrimmedLower?.includes(nomeRecursoLower);
+    });
+
+    let userId: string | null = null;
+    if (potentialMatches.length === 1) {
+      userId = potentialMatches[0]?.id || null;
+    }
+
+    // Tentar encontrar o salário usando diferentes variações do nome
+    const nomeNormalizado = nomeRecurso.trim().toLowerCase();
+    let salarioEncontrado = salariosPorRecurso.get(nomeNormalizado);
+    
+    if (!salarioEncontrado && nomeNormalizado.includes(' - ')) {
+      const partes = nomeNormalizado.split(' - ');
+      if (partes[0]) {
+        salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
+      }
+    }
+    
+    if (!salarioEncontrado && nomeNormalizado.includes('-')) {
+      const partes = nomeNormalizado.split('-');
+      if (partes[0]) {
+        salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
+      }
+    }
+
+    const recurso: Recurso = { 
+      nome: nomeRecurso, 
+      userId, 
+      alocacoes: [],
+      salario: salarioEncontrado
+    };
+
+    let dataInicioRecurso: Date | null = null;
+    let dataFimRecurso: Date | null = null;
+
+    for (const {col, excelDate} of mesesColMap) {
+      const valor = row[col];
+      if (valor && typeof valor === 'number' && valor > 0 && valor <= 1) {
+        const { mes, ano } = excelDateToJS(excelDate);
+        recurso.alocacoes.push({ mes, ano, percentagem: valor * 100 });
+
+        const dataAlocInicio = new Date(ano, mes - 1, 1);
+        const dataAlocFim = new Date(ano, mes, 0);
+
+        if (!dataInicioRecurso || dataAlocInicio < dataInicioRecurso) {
+          dataInicioRecurso = dataAlocInicio;
+        }
+        if (!dataFimRecurso || dataAlocFim > dataFimRecurso) {
+          dataFimRecurso = dataAlocFim;
+        }
+
+        // Atualizar datas do projeto
+        if (!dataInicioProjeto || dataAlocInicio < dataInicioProjeto) {
+          dataInicioProjeto = dataAlocInicio;
+        }
+        if (!dataFimProjeto || dataAlocFim > dataFimProjeto) {
+          dataFimProjeto = dataAlocFim;
+        }
+      }
+    }
+
+    if (recurso.alocacoes.length > 0) {
+      wpAtual.recursos.push(recurso);
+      
+      if (dataInicioRecurso && (!wpAtual.dataInicio || dataInicioRecurso < wpAtual.dataInicio)) {
+        wpAtual.dataInicio = dataInicioRecurso;
+      }
+      if (dataFimRecurso && (!wpAtual.dataFim || dataFimRecurso > wpAtual.dataFim)) {
+        wpAtual.dataFim = dataFimRecurso;
       }
     }
   }
@@ -390,28 +463,177 @@ export default function ImportarProjetoButton() {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modalFinanciamentosAberto, setModalFinanciamentosAberto] = useState(false);
+  const [showContratadoForm, setShowContratadoForm] = useState(false);
+  const [novoContratadoData, setNovoContratadoData] = useState<{
+    nome: string;
+    salario: number | undefined;
+  } | null>(null);
+  const [recursosNaoAssociados, setRecursosNaoAssociados] = useState<Array<{
+    nome: string;
+    salario: number | undefined;
+  }>>([]);
   const [dadosFinanciamento, setDadosFinanciamento] = useState<{
     nome: string;
     overhead: number | null;
     taxa_financiamento: number | null;
     valor_eti: number | null;
   } | null>(null);
+  
+  // Novo estado para guardar os dados da importação
+  const [estadoImportacao, setEstadoImportacao] = useState<EstadoImportacao | null>(null);
 
   const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
   const { data: utilizadoresData } = api.utilizador.findAll.useQuery();
+  const utils = api.useUtils();
+
+  // Função para processar a importação após todos os contratados serem criados
+  const processarImportacaoFinal = useCallback(() => {
+    if (!estadoImportacao) return;
+
+    const {
+      nomeProjeto,
+      tipoFinanciamento,
+      taxaFinanciamento,
+      overhead,
+      valorEti,
+      workpackages,
+      materiais,
+      dataInicioProjeto,
+      dataFimProjeto
+    } = estadoImportacao;
+
+    dispatch({ type: "RESET" });
+
+    dispatch({
+      type: "UPDATE_PROJETO",
+      data: {
+        nome: nomeProjeto,
+        inicio: dataInicioProjeto,
+        fim: dataFimProjeto,
+        overhead: overhead ? new Decimal(overhead / 100) : new Decimal(0),
+        taxa_financiamento: taxaFinanciamento ? new Decimal(taxaFinanciamento / 100) : new Decimal(0),
+        valor_eti: valorEti ? new Decimal(valorEti) : new Decimal(0),
+      },
+    });
+
+    // Processar workpackages com as alocações atualizadas
+    workpackages.forEach((wp) => {
+      const wpId = generateUUID();
+
+      dispatch({
+        type: "ADD_WORKPACKAGE",
+        workpackage: {
+          id: wpId,
+          nome: wp.nome,
+          descricao: null,
+          inicio: wp.dataInicio,
+          fim: wp.dataFim,
+          estado: false,
+          tarefas: [],
+          materiais: [],
+          recursos: [],
+        },
+      });
+
+      wp.recursos.forEach((recurso) => {
+        if (!recurso.userId) return;
+
+        recurso.alocacoes.forEach((alocacao) => {
+          dispatch({
+            type: "ADD_ALOCACAO",
+            workpackageId: wpId,
+            alocacao: {
+              userId: recurso.userId!,
+              mes: alocacao.mes,
+              ano: alocacao.ano,
+              ocupacao: new Decimal(alocacao.percentagem / 100),
+            },
+          });
+        });
+      });
+
+      wp.materiais.forEach((material) => {
+        dispatch({
+          type: "ADD_MATERIAL",
+          workpackageId: wpId,
+          material: {
+            id: Math.floor(Math.random() * 1000000),
+            nome: material.nome,
+            preco: new Decimal(material.preco),
+            quantidade: material.quantidade,
+            mes: wp.dataInicio ? wp.dataInicio.getMonth() + 1 : new Date().getMonth() + 1,
+            ano_utilizacao: material.ano_utilizacao,
+            rubrica: material.rubrica,
+            descricao: null,
+            estado: false,
+          },
+        });
+      });
+    });
+
+    // Processar financiamento
+    if (tipoFinanciamento) {
+      try {
+        const rawFinanciamentos = (financiamentosData?.items || []) as unknown as Array<{
+          id: number;
+          nome: string;
+          overhead: Decimal | string;
+          taxa_financiamento: Decimal | string;
+          valor_eti: Decimal | string;
+        }>;
+
+        const financiamentos: FinanciamentoAPI[] = rawFinanciamentos.map((f) => ({
+          id: f.id,
+          nome: f.nome,
+          overhead: String(f.overhead),
+          taxa_financiamento: String(f.taxa_financiamento),
+          valor_eti: String(f.valor_eti),
+        }));
+
+        const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
+        const financiamentoExistente = financiamentos.find(
+          (f) => f.nome.trim().toLowerCase() === tipoNormalizado
+        );
+
+        if (financiamentoExistente) {
+          dispatch({
+            type: "UPDATE_PROJETO",
+            data: {
+              financiamentoId: financiamentoExistente.id,
+            },
+          });
+        } else if (tipoFinanciamento) {
+          setDadosFinanciamento({
+            nome: tipoFinanciamento,
+            overhead,
+            taxa_financiamento: taxaFinanciamento,
+            valor_eti: valorEti,
+          });
+          setModalFinanciamentosAberto(true);
+        }
+      } catch (error) {
+        console.error("[Importação] Erro ao verificar financiamentos existentes:", error);
+      }
+    }
+
+    setEstadoImportacao(null);
+    setOpen(false);
+    toast.success("Projeto importado com sucesso!");
+  }, [dispatch, estadoImportacao, financiamentosData]);
 
   const handleFileUpload = useCallback(async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
+    setRecursosNaoAssociados([]);
 
     const utilizadores = extrairUtilizadores(utilizadoresData);
 
     if (utilizadores.length === 0) {
-        console.error("Não foi possível carregar a lista de utilizadores da base de dados.");
-        setIsLoading(false);
-        return;
+      console.error("Não foi possível carregar a lista de utilizadores da base de dados.");
+      setIsLoading(false);
+      return;
     }
 
     const reader = new FileReader();
@@ -442,159 +664,84 @@ export default function ImportarProjetoButton() {
           tipoFinanciamento = dadosFinanciamentoExt.tipoFinanciamento;
           taxaFinanciamento = dadosFinanciamentoExt.taxaFinanciamento;
           overhead = dadosFinanciamentoExt.overhead;
-          valorEti = dadosFinanciamentoExt.valorEti; 
+          valorEti = dadosFinanciamentoExt.valorEti;
         }
 
         if (sheetsData["RH_Budget_SUBM"]) {
           const valorEtiRH = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
           if (valorEtiRH !== null) {
-            valorEti = valorEtiRH; 
+            valorEti = valorEtiRH;
           }
           const resultado = extrairDadosRH(sheetsData["RH_Budget_SUBM"], utilizadores);
           wps = resultado.workpackages;
           dataInicioProjeto = resultado.dataInicioProjeto;
           dataFimProjeto = resultado.dataFimProjeto;
-        } else {
-          console.warn("[Importação] Folha 'RH_Budget_SUBM' não encontrada no Excel.");
+
+          // Coletar recursos não associados
+          const recursosNaoMatchados = wps.flatMap(wp => 
+            wp.recursos.filter(r => !r.userId).map(r => ({
+              nome: r.nome,
+              salario: r.salario
+            }))
+          );
+
+          // Remover duplicados baseado no nome
+          const recursosUnicos = Array.from(new Map(
+            recursosNaoMatchados.map(item => [item.nome, item])
+          ).values());
+
+          if (recursosUnicos.length > 0) {
+            setRecursosNaoAssociados(recursosUnicos);
+            if (recursosUnicos[0]) {
+              setNovoContratadoData(recursosUnicos[0]);
+              setShowContratadoForm(true);
+            }
+
+            // Guardar o estado atual da importação
+            setEstadoImportacao({
+              sheetsData,
+              nomeProjeto,
+              tipoFinanciamento,
+              taxaFinanciamento,
+              overhead,
+              valorEti,
+              workpackages: wps,
+              materiais,
+              dataInicioProjeto,
+              dataFimProjeto
+            });
+            
+            return; // Parar aqui e esperar a criação dos contratados
+          }
         }
 
         if (sheetsData["Outros_Budget"]) {
           materiais = extrairMateriais(sheetsData["Outros_Budget"]);
-        } else {
-          console.warn("[Importação] Folha 'Outros_Budget' não encontrada no Excel.");
         }
 
         if (wps.length > 0 && materiais.length > 0) {
           wps = atribuirMateriaisAosWorkpackages(wps, materiais);
         }
 
-        dispatch({ type: "RESET" });
-
-        dispatch({
-          type: "UPDATE_PROJETO",
-          data: {
-            nome: nomeProjeto,
-            inicio: dataInicioProjeto,
-            fim: dataFimProjeto,
-            overhead: overhead ? new Decimal(overhead / 100) : new Decimal(0),
-            taxa_financiamento: taxaFinanciamento
-              ? new Decimal(taxaFinanciamento / 100)
-              : new Decimal(0),
-            valor_eti: valorEti ? new Decimal(valorEti) : new Decimal(0),
-          },
+        // Se não houver recursos não associados, processar a importação diretamente
+        setEstadoImportacao({
+          sheetsData,
+          nomeProjeto,
+          tipoFinanciamento,
+          taxaFinanciamento,
+          overhead,
+          valorEti,
+          workpackages: wps,
+          materiais,
+          dataInicioProjeto,
+          dataFimProjeto
         });
 
-        wps.forEach((wp) => {
-          const wpId = generateUUID();
+        processarImportacaoFinal();
 
-          dispatch({
-            type: "ADD_WORKPACKAGE",
-            workpackage: {
-              id: wpId,
-              nome: wp.nome,
-              descricao: null,
-              inicio: wp.dataInicio,
-              fim: wp.dataFim,
-              estado: false,
-              tarefas: [],
-              materiais: [], 
-              recursos: [], 
-            },
-          });
-
-          wp.recursos.forEach((recurso) => {
-            if (!recurso.userId) {
-                return; 
-            }
-
-            recurso.alocacoes.forEach((alocacao) => {
-              dispatch({
-                type: "ADD_ALOCACAO",
-                workpackageId: wpId,
-                alocacao: {
-                  userId: recurso.userId!,
-                  mes: alocacao.mes,
-                  ano: alocacao.ano,
-                  ocupacao: new Decimal(alocacao.percentagem / 100),
-                },
-              });
-            });
-          });
-
-          wp.materiais.forEach((material) => {
-            dispatch({
-              type: "ADD_MATERIAL",
-              workpackageId: wpId,
-              material: {
-                id: Math.floor(Math.random() * 1000000),
-                nome: material.nome,
-                preco: new Decimal(material.preco),
-                quantidade: material.quantidade,
-                mes: wp.dataInicio ? wp.dataInicio.getMonth() + 1 : new Date().getMonth() + 1,
-                ano_utilizacao: material.ano_utilizacao,
-                rubrica: material.rubrica,
-                descricao: null,
-                estado: false,
-              },
-            });
-          });
-        });
-
-        if (tipoFinanciamento) {
-          try {
-            // ... (lógica de financiamento existente)
-
-            // First cast to unknown, then properly map to the expected type
-            const rawFinanciamentos = (financiamentosData?.items || []) as unknown as Array<{
-                id: number;
-                nome: string;
-                overhead: Decimal | string;
-                taxa_financiamento: Decimal | string;
-                valor_eti: Decimal | string;
-              }>;
-
-              const financiamentos: FinanciamentoAPI[] = rawFinanciamentos.map((f) => ({
-                id: f.id,
-                nome: f.nome,
-                overhead: String(f.overhead),
-                taxa_financiamento: String(f.taxa_financiamento),
-                valor_eti: String(f.valor_eti),
-              }));
-
-              const tipoNormalizado = tipoFinanciamento.trim().toLowerCase();
-
-              const financiamentoExistente = financiamentos.find(
-                (f) => f.nome.trim().toLowerCase() === tipoNormalizado
-              );
-
-              if (financiamentoExistente) {
-                dispatch({
-                  type: "UPDATE_PROJETO",
-                  data: {
-                    financiamentoId: financiamentoExistente.id,
-                  },
-                });
-                console.log(`[Importação] Financiamento '${financiamentoExistente.nome}' encontrado e aplicado.`);
-              } else if (tipoFinanciamento) {
-                 console.log(`[Importação] Financiamento '${tipoFinanciamento}' não encontrado. Abrindo modal para criação.`);
-                 setDadosFinanciamento({
-                  nome: tipoFinanciamento,
-                  overhead,
-                  taxa_financiamento: taxaFinanciamento,
-                  valor_eti: valorEti,
-                });
-
-                setModalFinanciamentosAberto(true);
-              }
-          } catch {
-            console.error("[Importação] Erro ao verificar financiamentos existentes:");
-          }
-        }
-
-        console.log("Projeto importado com sucesso do Excel!");
-        setOpen(false);
-      } catch {
-        console.error("[Importação] Erro GERAL na importação:"); 
+      } catch (error) {
+        console.error("[Importação] Erro GERAL na importação:", error);
+        toast.error("Ocorreu um erro durante a importação");
       } finally {
         setIsLoading(false);
         if (fileInputRef.current) {
@@ -604,13 +751,54 @@ export default function ImportarProjetoButton() {
     };
 
     reader.onerror = () => {
-      console.error("[Importação] Erro ao ler o ficheiro"); 
+      console.error("[Importação] Erro ao ler o ficheiro");
+      toast.error("Erro ao ler o ficheiro");
       setIsLoading(false);
     };
 
     reader.readAsArrayBuffer(file);
+  }, [dispatch, financiamentosData, utilizadoresData, processarImportacaoFinal]);
 
-  }, [dispatch, financiamentosData, utilizadoresData]);
+  const handleContratadoCriado = useCallback(async () => {
+    // Atualizar a lista de utilizadores após criar um novo
+    await utils.utilizador.findAll.invalidate();
+
+    // Remover o recurso atual da lista
+    const recursosRestantes = recursosNaoAssociados.slice(1);
+    setRecursosNaoAssociados(recursosRestantes);
+
+    // Se ainda houver recursos não associados, mostrar o próximo
+    if (recursosRestantes.length > 0 && recursosRestantes[0]) {
+      setNovoContratadoData(recursosRestantes[0]);
+      setShowContratadoForm(true);
+    } else {
+      setShowContratadoForm(false);
+      setNovoContratadoData(null);
+      
+      // Todos os contratados foram criados, processar a importação
+      if (estadoImportacao) {
+        // Reprocessar os dados RH com a lista atualizada de utilizadores
+        const utilizadores = extrairUtilizadores(await utils.utilizador.findAll.fetch());
+        const dadosRH = estadoImportacao.sheetsData["RH_Budget_SUBM"];
+        
+        if (!dadosRH) {
+          toast.error("Erro ao reprocessar dados RH");
+          return;
+        }
+
+        const resultado = extrairDadosRH(dadosRH, utilizadores);
+        
+        setEstadoImportacao(prev => prev ? {
+          ...prev,
+          workpackages: resultado.workpackages,
+          dataInicioProjeto: resultado.dataInicioProjeto,
+          dataFimProjeto: resultado.dataFimProjeto
+        } : null);
+
+        processarImportacaoFinal();
+      }
+    }
+  }, [recursosNaoAssociados, estadoImportacao, utils.utilizador.findAll, processarImportacaoFinal]);
 
   const handleFinanciamentoCriado = useCallback((financiamento: FinanciamentoAPI) => {
     dispatch({
@@ -708,6 +896,18 @@ export default function ImportarProjetoButton() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {showContratadoForm && novoContratadoData && (
+        <FormContratado
+          defaultValues={{
+            identificacao: novoContratadoData.nome,
+            salario: novoContratadoData.salario?.toString() || ""
+          }}
+          onSuccess={handleContratadoCriado}
+          open={showContratadoForm}
+          onOpenChange={setShowContratadoForm}
+        />
+      )}
 
       {modalFinanciamentosAberto && (
         <GerirFinanciamentosModal

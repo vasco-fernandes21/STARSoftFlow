@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Users as UsersIcon, UserCheck, UserCog, Clock } from "lucide-react";
+import { Users as UsersIcon, UserCheck, UserCog, Clock, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
@@ -12,6 +12,19 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import { Permissao, Regime } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 // Skeleton para estado de carregamento
 const TableSkeleton = () => (
@@ -126,6 +139,41 @@ type Utilizador = {
   contratacao?: string;
 };
 
+// Componente para o diálogo de confirmação de eliminação
+const DeleteUserDialog = ({ utilizador, onDelete }: { utilizador: any; onDelete: () => void }) => {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-600"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Apagar Utilizador</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tem a certeza que pretende apagar o utilizador {utilizador.name}? Esta ação não pode ser
+            revertida.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-600 hover:bg-red-700"
+            onClick={onDelete}
+          >
+            Apagar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
 const Users = () => {
   const router = useRouter();
   const [estadoFilter, setEstadoFilter] = useState<"all" | Permissao>("all");
@@ -235,6 +283,18 @@ const Users = () => {
     },
   ];
 
+  // Mutation para apagar utilizador
+  const utils = api.useUtils();
+  const { mutate: deleteUser } = api.utilizador.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Utilizador apagado com sucesso");
+      utils.utilizador.findAll.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Erro ao apagar utilizador: ${error.message}`);
+    },
+  });
+
   // Definição das colunas usando TanStack Table
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
@@ -293,8 +353,26 @@ const Users = () => {
           );
         },
       },
+      {
+        id: "actions",
+        header: () => <div className="text-center">Ações</div>,
+        cell: ({ row }) => {
+          const utilizador = row.original;
+          // Não mostrar opção de apagar para admins
+          if (utilizador.permissao === Permissao.ADMIN) return null;
+          
+          return (
+            <div className="flex items-center justify-center w-full" onClick={(e) => e.stopPropagation()}>
+              <DeleteUserDialog
+                utilizador={utilizador}
+                onDelete={() => deleteUser({ id: utilizador.id })}
+              />
+            </div>
+          );
+        },
+      },
     ],
-    []
+    [deleteUser]
   );
 
   // Cálculos estatísticos baseados no array total de utilizadores (não filtrado)

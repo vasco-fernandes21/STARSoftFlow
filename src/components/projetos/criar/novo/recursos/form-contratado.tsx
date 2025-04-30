@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -15,26 +13,55 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { UserPlus } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
+import { TextField, TextareaField, DecimalField } from "@/components/projetos/criar/components/FormFields";
 
 interface FormContratadoProps {
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  defaultValues?: {
+    identificacao: string;
+    salario: string;
+    descricao?: string;
+  };
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
-  const [open, setOpen] = useState(false);
+export function FormContratado({ 
+  onSuccess, 
+  trigger, 
+  defaultValues,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange 
+}: FormContratadoProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formValues, setFormValues] = useState({
-    identificacao: "",
-    descricao: "",
-    salario: "",
+    identificacao: defaultValues?.identificacao || "",
+    descricao: defaultValues?.descricao || "",
+    salario: defaultValues?.salario || "",
     contratado: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const utils = api.useUtils();
+
+  // Usar estado controlado se fornecido, caso contrário usar estado interno
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange || setInternalOpen;
+
+  // Atualizar valores do formulário quando defaultValues mudar
+  useEffect(() => {
+    if (defaultValues) {
+      setFormValues(prev => ({
+        ...prev,
+        identificacao: defaultValues.identificacao || prev.identificacao,
+        descricao: defaultValues.descricao || prev.descricao,
+        salario: defaultValues.salario || prev.salario,
+      }));
+    }
+  }, [defaultValues]);
 
   const resetFormAndClose = () => {
     setFormValues({ identificacao: "", descricao: "", salario: "", contratado: true });
@@ -48,7 +75,7 @@ export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
     if (!formValues.identificacao?.trim()) {
       newErrors.identificacao = "Identificação é obrigatória";
     }
-    if (formValues.salario && isNaN(Number(formValues.salario.replace(",",".")))) {
+    if (formValues.salario && isNaN(Number(formValues.salario))) {
       newErrors.salario = "Valor inválido";
     }
     setErrors(newErrors);
@@ -76,7 +103,7 @@ export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
       const userData = {
         name: formValues.identificacao.trim(),
         informacoes: formValues.descricao.trim() || undefined,
-        salario: formValues.salario ? Number(formValues.salario.replace(",",".")) : undefined,
+        salario: formValues.salario ? Number(formValues.salario) : undefined,
         contratado: true,
       };
       createUserMutation.mutate(userData);
@@ -86,8 +113,11 @@ export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
     }
   };
 
-  const handleChange = (field: string, value: string) => {
-    setFormValues((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field: string, value: string | number | null) => {
+    setFormValues((prev) => ({ 
+      ...prev, 
+      [field]: value !== null ? value.toString() : "" 
+    }));
     if (errors[field]) {
       setErrors({ ...errors, [field]: "" });
     }
@@ -95,7 +125,7 @@ export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="overflow-hidden rounded-2xl border-none bg-white/95 p-0 shadow-2xl backdrop-blur-md sm:max-w-[500px]">
         <form onSubmit={handleSubmit} className="flex max-h-[85vh] flex-col overflow-hidden">
           <DialogHeader className="border-b border-white/20 bg-gradient-to-b from-azul/10 to-transparent p-6">
@@ -117,56 +147,34 @@ export function FormContratado({ onSuccess, trigger }: FormContratadoProps) {
           <div className="space-y-6 overflow-y-auto p-6">
             <div className="grid grid-cols-1 gap-6">
               {/* Identificação */}
-              <div className="space-y-2">
-                <Label htmlFor="identificacao" className="flex items-center text-sm font-medium text-gray-700">
-                  Identificação do contratado <span className="ml-1 text-red-500">*</span>
-                </Label>
-                <Input
-                  id="identificacao"
-                  value={formValues.identificacao}
-                  onChange={(e) => handleChange("identificacao", e.target.value)}
-                  placeholder="Nome, código ou referência do contratado"
-                  className={cn(
-                    "rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20",
-                    errors.identificacao && "border-red-300 focus:ring-red-500/20"
-                  )}
-                />
-                {errors.identificacao && <p className="mt-1 text-xs text-red-500">{errors.identificacao}</p>}
-              </div>
+              <TextField
+                label="Identificação do contratado"
+                value={formValues.identificacao}
+                onChange={(value) => handleChange("identificacao", value)}
+                placeholder="Nome, código ou referência do contratado"
+                required
+                helpText={errors.identificacao}
+              />
 
               {/* Descrição */}
-              <div className="space-y-2">
-                <Label htmlFor="descricao" className="text-sm font-medium text-gray-700">
-                  Descrição da contratação
-                </Label>
-                <Input
-                  id="descricao"
-                  value={formValues.descricao}
-                  onChange={(e) => handleChange("descricao", e.target.value)}
-                  placeholder="Detalhes ou descrição da contratação"
-                  className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
-                />
-              </div>
+              <TextareaField
+                label="Descrição da contratação"
+                value={formValues.descricao}
+                onChange={(value) => handleChange("descricao", value)}
+                placeholder="Detalhes ou descrição da contratação"
+                rows={3}
+              />
 
               {/* Salário */}
-              <div className="mb-4">
-                <Label htmlFor="salario" className="block text-xs font-medium text-azul/80 mb-1">
-                  €/Mês
-                </Label>
-                <Input
-                  id="salario"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formValues.salario}
-                  onChange={(e) => setFormValues((v) => ({ ...v, salario: e.target.value }))}
-                  placeholder="Valor mensal do contratado"
-                  className="rounded-xl border-gray-200 bg-white/70 text-gray-700 shadow-sm backdrop-blur-sm focus:ring-2 focus:ring-azul/20"
-                />
-                {errors.salario && (
-                  <div className="text-xs text-red-500 mt-1">{errors.salario}</div>
-                )}
-              </div>
+              <DecimalField
+                label="€/Mês"
+                value={formValues.salario}
+                onChange={(value) => handleChange("salario", value)}
+                step={0.01}
+                min={0}
+                max={100000}
+                helpText={errors.salario}
+              />
             </div>
           </div>
 

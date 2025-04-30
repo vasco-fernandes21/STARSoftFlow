@@ -16,6 +16,7 @@ import {
   Check,
   X,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSession } from "next-auth/react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Dialog, DialogTrigger, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { WorkpackageForm } from "@/components/projetos/criar/novo/workpackages/workpackage/form";
 
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));
@@ -47,6 +50,7 @@ const ProjetoFinancas = lazy(() => import("@/components/projetos/tabs/ProjetoFin
 const ProjetoRecursos = lazy(() => import("@/components/projetos/tabs/ProjetoRecursos"));
 const ProjetoMateriais = lazy(() => import("@/components/projetos/tabs/ProjetoMateriais"));
 const VisaoGeral = lazy(() => import("@/components/projetos/tabs/VisaoGeral"));
+
 
 // Componente para validar projeto (aprovar/rejeitar)
 const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
@@ -121,7 +125,7 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
             <span>Rejeitar</span>
           </Button>
         </AlertDialogTrigger>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[380px] sm:max-w-[420px] w-full p-6">
           <AlertDialogHeader>
             <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -129,12 +133,12 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-3">
+            <AlertDialogCancel disabled={isSubmitting} className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRejeitar}
               disabled={isSubmitting}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto flex items-center justify-center"
             >
               {isSubmitting && validarProjetoMutation.isPending ? (
                 <Loader2 className="mr-1 h-4 w-4 animate-spin" />
@@ -353,6 +357,8 @@ const ProjectTabs = memo(
     onUpdateWorkPackage,
     onUpdateTarefa,
     disableInteractions,
+    openNovoWP,
+    setOpenNovoWP,
   }: {
     separadorAtivo: string;
     onTabChange: (value: string) => void;
@@ -361,126 +367,187 @@ const ProjectTabs = memo(
     onUpdateWorkPackage: () => Promise<void>;
     onUpdateTarefa: () => Promise<void>;
     disableInteractions: boolean;
-  }) => (
-    <Tabs value={separadorAtivo} onValueChange={onTabChange} className="flex flex-1 flex-col">
-      <div className="w-full">
-        <TabsList className="glass-bg inline-flex h-auto rounded-xl border border-white/30 p-1 shadow-md">
-          <TabsTrigger
-            value="cronograma"
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2",
-              separadorAtivo === "cronograma" ? "text-customBlue" : "text-gray-600"
-            )}
-          >
-            <CalendarClock className="h-4 w-4" />
-            <span>Cronograma</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="overview"
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2",
-              separadorAtivo === "overview" ? "text-customBlue" : "text-gray-600"
-            )}
-          >
-            <FileText className="h-4 w-4" />
-            <span>Visão Geral</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="resources"
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2",
-              separadorAtivo === "resources" ? "text-customBlue" : "text-gray-600"
-            )}
-          >
-            <Users className="h-4 w-4" />
-            <span>Recursos</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="materials"
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2",
-              separadorAtivo === "materials" ? "text-customBlue" : "text-gray-600"
-            )}
-          >
-            <Package className="h-4 w-4" />
-            <span>Materiais</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="finances"
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2",
-              separadorAtivo === "finances" ? "text-customBlue" : "text-gray-600"
-            )}
-          >
-            <DollarSign className="h-4 w-4" />
-            <span>Finanças</span>
-          </TabsTrigger>
-        </TabsList>
-      </div>
+    openNovoWP: boolean;
+    setOpenNovoWP: (open: boolean) => void;
+  }) => {
+    const params = useParams<{ id: string }>();
+    const projetoId = params?.id || "";
 
-      <div className="mt-3 min-h-[calc(100vh-250px)] flex-1">
-        <TabsContent value="cronograma" className="h-full">
-          {calculatedValues.dataInicio && calculatedValues.dataFim && (
-            <Suspense fallback={<div>A carregar cronograma...</div>}>
-              <Card className="glass-card h-full overflow-hidden rounded-2xl border-white/20 shadow-xl">
-                <div className="h-full">
-                  <CronogramaTab
-                    projeto={projeto}
-                    workpackages={projeto.workpackages}
-                    startDate={calculatedValues.dataInicio}
-                    endDate={calculatedValues.dataFim}
-                    onUpdateWorkPackage={onUpdateWorkPackage}
-                    onUpdateTarefa={onUpdateTarefa}
-                    projetoId={projeto.id}
-                    options={{
-                      leftColumnWidth: 300,
-                      disableInteractions: disableInteractions,
-                    }}
-                  />
-                </div>
-              </Card>
+    const utils = api.useUtils();
+
+    const createWorkpackage = api.workpackage.create.useMutation({
+      onSuccess: () => {
+        toast.success("Workpackage criado com sucesso!");
+        setOpenNovoWP(false);
+        utils.projeto.findById.invalidate();
+      },
+      onError: (error) => {
+        toast.error(error.message || "Erro ao criar workpackage");
+      },
+    });
+
+    return (
+      <Tabs value={separadorAtivo} onValueChange={onTabChange} className="flex flex-1 flex-col">
+        <div className="w-full flex items-center justify-between">
+          <TabsList className="glass-bg inline-flex h-auto rounded-xl border border-white/30 p-1 shadow-md">
+            <TabsTrigger
+              value="cronograma"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2",
+                separadorAtivo === "cronograma" ? "text-customBlue" : "text-gray-600"
+              )}
+            >
+              <CalendarClock className="h-4 w-4" />
+              <span>Cronograma</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="overview"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2",
+                separadorAtivo === "overview" ? "text-customBlue" : "text-gray-600"
+              )}
+            >
+              <FileText className="h-4 w-4" />
+              <span>Visão Geral</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="resources"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2",
+                separadorAtivo === "resources" ? "text-customBlue" : "text-gray-600"
+              )}
+            >
+              <Users className="h-4 w-4" />
+              <span>Recursos</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="materials"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2",
+                separadorAtivo === "materials" ? "text-customBlue" : "text-gray-600"
+              )}
+            >
+              <Package className="h-4 w-4" />
+              <span>Materiais</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="finances"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2",
+                separadorAtivo === "finances" ? "text-customBlue" : "text-gray-600"
+              )}
+            >
+              <DollarSign className="h-4 w-4" />
+              <span>Finanças</span>
+            </TabsTrigger>
+          </TabsList>
+          <Dialog open={openNovoWP} onOpenChange={setOpenNovoWP}>
+            <DialogTrigger asChild>
+              <Button
+                className={cn(
+                  "relative inline-flex h-10 items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200",
+                  "bg-azul text-white shadow-lg",
+                  "hover:bg-azul-light hover:shadow-azul/20",
+                  "active:bg-azul-dark",
+                  "focus:outline-none focus:ring-2 focus:ring-azul/20 focus:ring-offset-2",
+                  "disabled:pointer-events-none disabled:opacity-50",
+                  "before:absolute before:inset-0 before:-z-10 before:rounded-xl before:bg-gradient-to-b before:from-white/10 before:to-transparent before:opacity-0 before:transition-opacity",
+                  "hover:before:opacity-100"
+                )}
+                disabled={disableInteractions}
+              >
+                <Plus className="h-4 w-4" />
+                <span>Novo Workpackage</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="overflow-hidden rounded-2xl border-none bg-white/95 p-0 shadow-2xl backdrop-blur-md sm:max-w-[700px]">
+              <DialogTitle asChild>
+                <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                  Criar Novo Workpackage
+                </span>
+              </DialogTitle>
+              <WorkpackageForm
+                onSubmit={(data) => {
+                  createWorkpackage.mutate({
+                    ...data,
+                    descricao: data.descricao ?? undefined,
+                    inicio: data.inicio ? new Date(data.inicio) : undefined,
+                    fim: data.fim ? new Date(data.fim) : undefined,
+                    projetoId,
+                  });
+                }}
+                onCancel={() => setOpenNovoWP(false)}
+                projetoInicio={calculatedValues?.dataInicio || new Date()}
+                projetoFim={calculatedValues?.dataFim || new Date()}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="mt-3 min-h-[calc(100vh-250px)] flex-1">
+          <TabsContent value="cronograma" className="h-full">
+            {calculatedValues.dataInicio && calculatedValues.dataFim && (
+              <Suspense fallback={<div>A carregar cronograma...</div>}>
+                <Card className="glass-card h-full overflow-hidden rounded-2xl border-white/20 shadow-xl">
+                  <div className="h-full">
+                    <CronogramaTab
+                      projeto={projeto}
+                      workpackages={projeto.workpackages}
+                      startDate={calculatedValues.dataInicio}
+                      endDate={calculatedValues.dataFim}
+                      onUpdateWorkPackage={onUpdateWorkPackage}
+                      onUpdateTarefa={onUpdateTarefa}
+                      projetoId={projeto.id}
+                      options={{
+                        leftColumnWidth: 300,
+                        disableInteractions: disableInteractions,
+                      }}
+                    />
+                  </div>
+                </Card>
+              </Suspense>
+            )}
+          </TabsContent>
+
+          <TabsContent value="overview" className="h-full">
+            <Suspense fallback={<div>A carregar visão geral...</div>}>
+              <VisaoGeral projeto={projeto} />
             </Suspense>
-          )}
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="overview" className="h-full">
-          <Suspense fallback={<div>A carregar visão geral...</div>}>
-            <VisaoGeral projeto={projeto} />
-          </Suspense>
-        </TabsContent>
+          <TabsContent value="resources" className="h-full">
+            <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
+              <CardContent className="h-full p-6">
+                <Suspense fallback={<div>A carregar dados de recursos...</div>}>
+                  <ProjetoRecursos projetoId={projeto.id} />
+                </Suspense>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="resources" className="h-full">
-          <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
-            <CardContent className="h-full p-6">
-              <Suspense fallback={<div>A carregar dados de recursos...</div>}>
-                <ProjetoRecursos projetoId={projeto.id} />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="materials" className="h-full">
+            <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
+              <CardContent className="h-full p-6">
+                <Suspense fallback={<div>A carregar dados de materiais...</div>}>
+                  <ProjetoMateriais projetoId={projeto.id} />
+                </Suspense>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="materials" className="h-full">
-          <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
-            <CardContent className="h-full p-6">
-              <Suspense fallback={<div>A carregar dados de materiais...</div>}>
-                <ProjetoMateriais projetoId={projeto.id} />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="finances" className="h-full">
-          <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
-            <CardContent className="h-full p-6">
-              <Suspense fallback={<div>A carregar finanças...</div>}>
-                <ProjetoFinancas projetoId={projeto.id} />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </div>
-    </Tabs>
-  )
+          <TabsContent value="finances" className="h-full">
+            <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
+              <CardContent className="h-full p-6">
+                <Suspense fallback={<div>A carregar finanças...</div>}>
+                  <ProjetoFinancas projetoId={projeto.id} />
+                </Suspense>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </div>
+      </Tabs>
+    );
+  }
 );
 
 // Adicionar antes do componente principal:
@@ -509,6 +576,7 @@ export default function DetalheProjeto() {
   const { data: session } = useSession();
   const usuarioAtualId = session?.user?.id;
   const [viewMode, setViewMode] = useState<'real' | 'submetido'>('real');
+  const [openNovoWP, setOpenNovoWP] = useState(false);
 
   // Query principal do projeto
   const {
@@ -683,6 +751,8 @@ export default function DetalheProjeto() {
           onUpdateWorkPackage={handleUpdateWorkPackage}
           onUpdateTarefa={handleUpdateTarefa}
           disableInteractions={viewMode === 'submetido'}
+          openNovoWP={openNovoWP}
+          setOpenNovoWP={setOpenNovoWP}
         />
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar } from "lucide-react";
+import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -19,6 +19,9 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 // Interface básica para o projeto
 interface Projeto {
@@ -54,7 +57,7 @@ type PrazoFilter = "todos" | "este_mes" | "proximo_mes" | "este_ano" | "atrasado
 
 export default function Projetos() {
   const router = useRouter();
-  // Keeping the session for future authorization checks
+  // a  session for future authorization checks
   const {
     /* data: session */
   } = useSession();
@@ -93,6 +96,21 @@ export default function Projetos() {
   useEffect(() => {
     invalidateQueries();
   }, [invalidateQueries]);
+
+  // Mutation para apagar projeto
+  const deleteProjetoMutation = api.projeto.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Projeto apagado com sucesso");
+      invalidateQueries();
+    },
+    onError: (error) => {
+      toast.error(`Erro ao apagar projeto: ${error.message}`);
+    },
+  });
+
+  const deleteProjeto = useCallback((id: string) => {
+    deleteProjetoMutation.mutate(id);
+  }, [deleteProjetoMutation]);
 
   // Extrair todos os itens dos dados (projetos e rascunhos)
   const allItems = useMemo(() => {
@@ -237,8 +255,55 @@ export default function Projetos() {
           );
         },
       },
+      {
+        id: "actions",
+        meta: { align: "center" },
+        header: () => (
+          <div className="flex items-center justify-center w-full h-full">
+            AÇÕES
+          </div>
+        ),
+        cell: ({ row }) => {
+          const projeto = row.original;
+          // Não mostrar opção de apagar para projetos aprovados ou em desenvolvimento
+          if (projeto.estado === "APROVADO" || projeto.estado === "EM_DESENVOLVIMENTO") return null;
+          return (
+            <div className="flex items-center justify-center w-full h-full" onClick={(e) => e.stopPropagation()}>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Apagar Projeto</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem a certeza que pretende apagar o projeto {projeto.nome}? Esta ação não pode ser
+                      revertida.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={() => projeto.id && deleteProjeto(projeto.id)}
+                    >
+                      Apagar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          );
+        },
+      },
     ],
-    []
+    [deleteProjeto]
   );
 
   const filterOptions = useMemo<FilterOption[]>(

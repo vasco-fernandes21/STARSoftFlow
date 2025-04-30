@@ -1112,8 +1112,64 @@ export const projetoRouter = createTRPCRouter({
         } 
         // Se não for para aprovar, elimina o projeto
         else {
-          await ctx.db.projeto.delete({
-            where: { id },
+          // Antes de excluir o projeto, precisamos remover os relacionamentos para evitar violações de chave estrangeira
+          // 1. Buscar todos os workpackages relacionados ao projeto
+          const workpackages = await ctx.db.workpackage.findMany({
+            where: { projetoId: id },
+            include: {
+              tarefas: {
+                include: {
+                  entregaveis: true
+                }
+              },
+              recursos: true,
+              materiais: true
+            }
+          });
+
+          // 2. Para cada workpackage, remover seus relacionamentos em uma transação
+          await ctx.db.$transaction(async (tx) => {
+            for (const wp of workpackages) {
+              // 2.1 Remover recursos (alocações)
+              if (wp.recursos.length > 0) {
+                await tx.alocacaoRecurso.deleteMany({
+                  where: { workpackageId: wp.id }
+                });
+              }
+
+              // 2.2 Remover materiais
+              if (wp.materiais.length > 0) {
+                await tx.material.deleteMany({
+                  where: { workpackageId: wp.id }
+                });
+              }
+
+              // 2.3 Para cada tarefa, remover seus entregáveis
+              for (const tarefa of wp.tarefas) {
+                if (tarefa.entregaveis.length > 0) {
+                  await tx.entregavel.deleteMany({
+                    where: { tarefaId: tarefa.id }
+                  });
+                }
+              }
+
+              // 2.4 Remover tarefas
+              if (wp.tarefas.length > 0) {
+                await tx.tarefa.deleteMany({
+                  where: { workpackageId: wp.id }
+                });
+              }
+            }
+
+            // 3. Remover workpackages
+            await tx.workpackage.deleteMany({
+              where: { projetoId: id }
+            });
+
+            // 4. Finalmente, remover o projeto
+            await tx.projeto.delete({
+              where: { id }
+            });
           });
 
           return {

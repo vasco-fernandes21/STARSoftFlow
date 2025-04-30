@@ -50,15 +50,10 @@ export function WorkpackageForm({
 
   return (
     <Card className="border border-azul/10 bg-white/70 p-6 shadow-sm backdrop-blur-sm">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-azul/10">
-          <Briefcase className="h-5 w-5 text-azul" />
-        </div>
-        <h3 className="text-lg font-medium text-azul">
-          {initialData ? "Editar Workpackage" : "Novo Workpackage"}
-        </h3>
+      <div className="mb-4 flex items-center gap-2">
+        <Briefcase className="h-5 w-5 text-azul/80" />
+        <h2 className="text-lg font-semibold text-azul/80">Detalhes do Workpackage</h2>
       </div>
-
       <div className="grid gap-4">
         <div>
           <Label htmlFor="nome-wp" className="text-azul/80">

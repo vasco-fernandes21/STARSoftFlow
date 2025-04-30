@@ -5,7 +5,7 @@ import { WorkpackageRecursos } from "./recursos";
 import { WorkpackageMateriais } from "./materiais";
 import { ProgressoWorkpackage } from "./progresso";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { CheckCircle2, Circle, X } from "lucide-react";
+import { CheckCircle2, Circle, X, Trash } from "lucide-react";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -185,6 +185,7 @@ export function MenuWorkpackage({
       });
 
       toast.success("Estado da tarefa atualizado");
+      utils.projeto.findById.invalidate();
     } catch (error) {
       console.error("Erro ao atualizar estado:", error);
       toast.error("Erro ao atualizar estado da tarefa");
@@ -196,6 +197,7 @@ export function MenuWorkpackage({
     try {
       mutations.tarefa.delete.mutate(tarefaId);
       toast.success("Tarefa removida com sucesso");
+      utils.projeto.findById.invalidate();
     } catch (error) {
       console.error("Erro ao remover tarefa:", error);
       toast.error("Erro ao remover tarefa");
@@ -287,6 +289,9 @@ export function MenuWorkpackage({
     );
   }
 
+  const utils = api.useUtils();
+  const deleteWorkpackage = api.workpackage.delete.useMutation();
+
   return (
     <Sheet open={open} onOpenChange={onClose} modal={false}>
       <SheetContent className="fixed bottom-0 right-0 top-0 w-full overflow-hidden rounded-l-3xl border-l border-white/20 bg-white p-0 shadow-2xl sm:max-w-none lg:w-[600px]">
@@ -304,14 +309,35 @@ export function MenuWorkpackage({
                   </div>
                   <h1 className="text-xl font-bold text-gray-900">{fullWorkpackage.nome}</h1>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClose}
-                  className="h-9 w-9 rounded-full transition-colors hover:bg-gray-100"
-                >
-                  <X className="h-5 w-5 text-gray-500" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-9 rounded-full transition-colors hover:bg-red-100"
+                    onClick={async () => {
+                      if (confirm('Tem a certeza que deseja apagar este workpackage? Esta ação não pode ser desfeita.')) {
+                        try {
+                          await deleteWorkpackage.mutateAsync(fullWorkpackage.id);
+                          toast.success('Workpackage apagado com sucesso!');
+                          utils.projeto.findById.invalidate();
+                          onClose();
+                        } catch (error: any) {
+                          toast.error(error?.message || 'Erro ao apagar workpackage');
+                        }
+                      }
+                    }}
+                    title="Apagar Workpackage"
+                  >
+                    <Trash className="h-5 w-5 text-red-500" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClose}
+                    className="h-9 w-9 rounded-full transition-colors hover:bg-gray-100"
+                  >
+                    <X className="h-5 w-5 text-gray-500" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

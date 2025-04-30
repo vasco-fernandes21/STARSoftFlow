@@ -1527,4 +1527,60 @@ export const utilizadorRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Apagar utilizador
+  delete: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const user = ctx.session?.user as UserWithPermissao | undefined;
+        
+        // Verificar se o utilizador tem permissão de ADMIN
+        if (!user || user.permissao !== Permissao.ADMIN) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Apenas administradores podem apagar utilizadores",
+          });
+        }
+
+        // Verificar se o utilizador existe
+        const targetUser = await ctx.db.user.findUnique({
+          where: { id: input.id },
+          select: { permissao: true },
+        });
+
+        if (!targetUser) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        // Não permitir apagar administradores
+        if (targetUser.permissao === Permissao.ADMIN) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Não é possível apagar administradores",
+          });
+        }
+
+        // Apagar o utilizador
+        await ctx.db.user.delete({
+          where: { id: input.id },
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        
+        console.error("Erro ao apagar utilizador:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao apagar utilizador",
+          cause: error,
+        });
+      }
+    }),
 });

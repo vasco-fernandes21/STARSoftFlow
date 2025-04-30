@@ -287,6 +287,12 @@ export function WorkpackagesTab({
       {/* Dialog para adição de workpackage - sempre disponível independente do estado */}
       <Dialog open={addingWorkpackage} onOpenChange={setAddingWorkpackage}>
         <DialogContent className="max-w-3xl p-0">
+          {/* Accessibility: DialogTitle (hidden) for screen readers */}
+          <DialogTitle asChild>
+            <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+              {editingWorkpackage ? 'Editar Workpackage' : 'Criar Novo Workpackage'}
+            </span>
+          </DialogTitle>
           <WorkpackageForm
             onSubmit={handleAddWorkpackageLocal}
             onCancel={() => setAddingWorkpackage(false)}
