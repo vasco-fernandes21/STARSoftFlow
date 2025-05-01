@@ -119,6 +119,7 @@ model User {
   password             Password?
   projetoRascunhos     Rascunho[]
   sessions             Session[]
+  feedbacks            Feedback[]
 
   @@map("users")
 }
@@ -236,6 +237,19 @@ model Rascunho {
   @@map("rascunhos")
 }
 
+model Feedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id")
+  descricao String
+  estado    FeedbackEstado @default(PENDENTE)
+  imagemUrl String?  @map("imagem_url") // Armazena a URL ou caminho da imagem
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("feedbacks")
+}
+
 enum ProjetoEstado {
   RASCUNHO
   PENDENTE
@@ -269,4 +283,9 @@ enum Rubrica {
 enum ProjetoTipo {
   STANDARD
   ATIVIDADE_ECONOMICA
+}
+
+enum FeedbackEstado {
+  PENDENTE
+  RESOLVIDO
 }

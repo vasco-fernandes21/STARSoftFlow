@@ -17,6 +17,7 @@ import {
   Lock,
   Unlock,
   Euro,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ const menuItems: MenuItem[] = [
   { icon: Euro, label: "Atividade Económica", href: "/atividade-economica", requiredPermission: "ADMIN" },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
   { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: "ADMIN" },
+  { icon: MessageSquare, label: "Erros & Feedback", href: "/feedback", requiredPermission: null },
 ];
 
 export const AppSidebar = () => {

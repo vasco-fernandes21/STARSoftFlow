@@ -11,6 +11,7 @@ import { dashboardRouter } from "./routers/dashboard";
 import { financasRouter } from "./routers/financas";
 import { rascunhoRouter } from "./routers/rascunhos";
 import { configuracaoRouter } from "./routers/configuracoes";
+import { feedbackRouter } from "./routers/feedback";
 
 /**
  * This is the primary router for your server.
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   utilizador: utilizadorRouter,
   projeto: projetoRouter,
   financiamento: financiamentoRouter,
+  feedback: feedbackRouter,
   workpackage: workpackageRouter,
   tarefa: tarefaRouter,
   entregavel: entregavelRouter,

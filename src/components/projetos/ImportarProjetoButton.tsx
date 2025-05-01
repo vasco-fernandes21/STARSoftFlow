@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -193,28 +193,30 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
 }
 
 function extrairUtilizadores(apiResponse: any): any[] {
-  if (!apiResponse) return [];
-
-  if (apiResponse.result?.data?.json?.items && Array.isArray(apiResponse.result.data.json.items)) {
-    return apiResponse.result.data.json.items;
+  console.log("[Importação] Dados brutos recebidos:", apiResponse);
+  
+  if (!apiResponse) {
+    console.warn("[Importação] Nenhum dado recebido");
+    return [];
   }
 
-  if (apiResponse.items && Array.isArray(apiResponse.items)) {
-    return apiResponse.items;
+  // Tentar extrair items de várias formas possíveis
+  const possiveisLocais = [
+    apiResponse?.result?.data?.json?.items,
+    apiResponse?.items,
+    apiResponse?.json?.items,
+    apiResponse?.json,
+    Array.isArray(apiResponse) ? apiResponse : null
+  ];
+
+  for (const local of possiveisLocais) {
+    if (Array.isArray(local) && local.length > 0) {
+      console.log("[Importação] Dados encontrados em:", local);
+      return local;
+    }
   }
 
-  if (apiResponse.json?.items && Array.isArray(apiResponse.json.items)) {
-    return apiResponse.json.items;
-  }
-
-  if (apiResponse.json && Array.isArray(apiResponse.json)) {
-    return apiResponse.json;
-  }
-
-  if (Array.isArray(apiResponse)) {
-    return apiResponse;
-  }
-
+  console.warn("[Importação] Nenhum dado válido encontrado");
   return [];
 }
 
@@ -341,16 +343,39 @@ function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackages: Wor
       continue;
     }
 
-    // Encontrar o utilizador correspondente
+    // Encontrar o utilizador correspondente (fuzzy matching)
     const nomeRecursoLower = nomeRecurso.toLowerCase().trim();
-    const potentialMatches = utilizadores.filter(u => {
-      const dbNameTrimmedLower = u.name?.trim().toLowerCase();
-      return dbNameTrimmedLower?.includes(nomeRecursoLower);
-    });
-
+    // Função de similaridade simples baseada em número de palavras iguais (pode ser melhorada)
+    function similarity(a: string, b: string) {
+      const aWords = a.split(/\s+/).filter(Boolean);
+      const bWords = b.split(/\s+/).filter(Boolean);
+      const common = aWords.filter(word => bWords.includes(word)).length;
+      return common / Math.max(aWords.length, bWords.length);
+    }
+    let bestMatch: any = null;
+    let bestScore = 0.0;
+    for (const u of utilizadores) {
+      const dbName = u.name?.trim().toLowerCase();
+      if (!dbName) continue;
+      const score = similarity(nomeRecursoLower, dbName);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = u;
+      }
+    }
     let userId: string | null = null;
-    if (potentialMatches.length === 1) {
-      userId = potentialMatches[0]?.id || null;
+    // Considera match se pelo menos 60% das palavras coincidirem
+    if (bestScore >= 0.6) {
+      userId = bestMatch.id;
+    } else {
+      // fallback: tentar includes (como antes)
+      const potentialMatches = utilizadores.filter(u => {
+        const dbNameTrimmedLower = u.name?.trim().toLowerCase();
+        return dbNameTrimmedLower?.includes(nomeRecursoLower);
+      });
+      if (potentialMatches.length === 1) {
+        userId = potentialMatches[0]?.id || null;
+      }
     }
 
     // Tentar encontrar o salário usando diferentes variações do nome
@@ -479,16 +504,23 @@ export default function ImportarProjetoButton() {
     valor_eti: number | null;
   } | null>(null);
   
-  // Novo estado para guardar os dados da importação
   const [estadoImportacao, setEstadoImportacao] = useState<EstadoImportacao | null>(null);
+  const [processamentoPendente, setProcessamentoPendente] = useState(false);
 
   const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
   const { data: utilizadoresData } = api.utilizador.findAll.useQuery();
   const utils = api.useUtils();
 
-  // Função para processar a importação após todos os contratados serem criados
+  // Função para processar a importação final
   const processarImportacaoFinal = useCallback(() => {
-    if (!estadoImportacao) return;
+    if (!estadoImportacao) {
+      console.error("[Importação Final] Estado de importação não encontrado.");
+      toast.error("Erro interno ao processar importação.");
+      setIsLoading(false);
+      return;
+    }
+
+    console.log("[Importação Final] Iniciando processamento com estado:", estadoImportacao);
 
     const {
       nomeProjeto,
@@ -536,7 +568,12 @@ export default function ImportarProjetoButton() {
       });
 
       wp.recursos.forEach((recurso) => {
-        if (!recurso.userId) return;
+        if (!recurso.userId) {
+          console.warn(`[Importação Final] Recurso sem userId no WP ${wp.nome}:`, recurso.nome);
+          return;
+        }
+
+        console.log(`[Importação Final] Processando alocações para recurso ${recurso.nome} (ID: ${recurso.userId})`);
 
         recurso.alocacoes.forEach((alocacao) => {
           dispatch({
@@ -612,93 +649,107 @@ export default function ImportarProjetoButton() {
           setModalFinanciamentosAberto(true);
         }
       } catch (error) {
-        console.error("[Importação] Erro ao verificar financiamentos existentes:", error);
+        console.error("[Importação Final] Erro ao verificar financiamentos existentes:", error);
       }
     }
 
-    setEstadoImportacao(null);
+    setEstadoImportacao(null); 
     setOpen(false);
+    setIsLoading(false);
     toast.success("Projeto importado com sucesso!");
+
   }, [dispatch, estadoImportacao, financiamentosData]);
+
+  useEffect(() => {
+    if (processamentoPendente && estadoImportacao) {
+      console.log("[Importação useEffect] Trigger: Processando importação final");
+      processarImportacaoFinal(); 
+      setProcessamentoPendente(false);
+    }
+  }, [processamentoPendente, estadoImportacao, processarImportacaoFinal]);
 
   const handleFileUpload = useCallback(async () => {
     const file = fileInputRef.current?.files?.[0];
-    if (!file) return;
-
-    setIsLoading(true);
-    setRecursosNaoAssociados([]);
-
-    const utilizadores = extrairUtilizadores(utilizadoresData);
-
-    if (utilizadores.length === 0) {
-      console.error("Não foi possível carregar a lista de utilizadores da base de dados.");
-      setIsLoading(false);
+    if (!file) {
+      console.log("[Importação] Nenhum ficheiro selecionado");
       return;
     }
 
-    const reader = new FileReader();
+    setIsLoading(true);
+    setRecursosNaoAssociados([]);
+    setEstadoImportacao(null);
+    setProcessamentoPendente(false);
 
-    reader.onload = async (ev) => {
-      try {
-        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetsData = converterExcelParaJson(workbook);
+    try {
+      const dadosUtilizadores = utilizadoresData;
+      console.log("[Importação] Usando dados dos utilizadores em cache:", dadosUtilizadores);
+      
+      const utilizadores = extrairUtilizadores(dadosUtilizadores);
+      console.log("[Importação] Utilizadores extraídos (cache inicial):", utilizadores.length);
 
-        let wps: WorkpackageSimples[] = [];
-        let materiais: MaterialImportacao[] = [];
-        let dataInicioProjeto: Date | null = null;
-        let dataFimProjeto: Date | null = null;
-        let nomeProjeto = "";
-        let tipoFinanciamento = "";
-        let taxaFinanciamento: number | null = null;
-        let overhead: number | null = null;
-        let valorEti: number | null = null;
+      if (!utilizadores) {
+        toast.error("Não foi possível obter a lista de utilizadores inicial.");
+        setIsLoading(false);
+        return;
+      }
 
-        if (sheetsData["HOME"]) {
-          const dadosProjeto = extrairDadosProjeto(sheetsData["HOME"]);
-          nomeProjeto = dadosProjeto.nomeProjeto;
-        }
+      const reader = new FileReader();
 
-        if (sheetsData["BUDGET"]) {
-          const dadosFinanciamentoExt = extrairDadosFinanciamento(sheetsData["BUDGET"]);
-          tipoFinanciamento = dadosFinanciamentoExt.tipoFinanciamento;
-          taxaFinanciamento = dadosFinanciamentoExt.taxaFinanciamento;
-          overhead = dadosFinanciamentoExt.overhead;
-          valorEti = dadosFinanciamentoExt.valorEti;
-        }
+      reader.onload = async (ev) => {
+        try {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheetsData = converterExcelParaJson(workbook);
 
-        if (sheetsData["RH_Budget_SUBM"]) {
-          const valorEtiRH = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
-          if (valorEtiRH !== null) {
-            valorEti = valorEtiRH;
+          let wps: WorkpackageSimples[] = [];
+          let materiais: MaterialImportacao[] = [];
+          let dataInicioProjeto: Date | null = null;
+          let dataFimProjeto: Date | null = null;
+          let nomeProjeto = "";
+          let tipoFinanciamento = "";
+          let taxaFinanciamento: number | null = null;
+          let overhead: number | null = null;
+          let valorEti: number | null = null;
+
+          if (sheetsData["HOME"]) {
+            const dadosProjeto = extrairDadosProjeto(sheetsData["HOME"]);
+            nomeProjeto = dadosProjeto.nomeProjeto;
           }
-          const resultado = extrairDadosRH(sheetsData["RH_Budget_SUBM"], utilizadores);
-          wps = resultado.workpackages;
-          dataInicioProjeto = resultado.dataInicioProjeto;
-          dataFimProjeto = resultado.dataFimProjeto;
 
-          // Coletar recursos não associados
-          const recursosNaoMatchados = wps.flatMap(wp => 
-            wp.recursos.filter(r => !r.userId).map(r => ({
-              nome: r.nome,
-              salario: r.salario
-            }))
-          );
+          if (sheetsData["BUDGET"]) {
+            const dadosFinanciamentoExt = extrairDadosFinanciamento(sheetsData["BUDGET"]);
+            tipoFinanciamento = dadosFinanciamentoExt.tipoFinanciamento;
+            taxaFinanciamento = dadosFinanciamentoExt.taxaFinanciamento;
+            overhead = dadosFinanciamentoExt.overhead;
+            valorEti = dadosFinanciamentoExt.valorEti;
+          }
 
-          // Remover duplicados baseado no nome
-          const recursosUnicos = Array.from(new Map(
-            recursosNaoMatchados.map(item => [item.nome, item])
-          ).values());
-
-          if (recursosUnicos.length > 0) {
-            setRecursosNaoAssociados(recursosUnicos);
-            if (recursosUnicos[0]) {
-              setNovoContratadoData(recursosUnicos[0]);
-              setShowContratadoForm(true);
+          if (sheetsData["RH_Budget_SUBM"]) {
+            const valorEtiRH = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
+            if (valorEtiRH !== null) {
+              valorEti = valorEtiRH;
             }
+            const resultado = extrairDadosRH(sheetsData["RH_Budget_SUBM"], utilizadores);
+            wps = resultado.workpackages;
+            dataInicioProjeto = resultado.dataInicioProjeto;
+            dataFimProjeto = resultado.dataFimProjeto;
 
-            // Guardar o estado atual da importação
-            setEstadoImportacao({
+            const recursosNaoMatchados = wps.flatMap(wp => 
+              wp.recursos.filter(r => !r.userId).map(r => ({
+                nome: r.nome,
+                salario: r.salario ? Math.round(r.salario) : undefined
+              }))
+            );
+
+            console.log("[Importação] Recursos não matchados (inicial):", recursosNaoMatchados);
+
+            const recursosUnicos = Array.from(new Map(
+              recursosNaoMatchados.map(item => [item.nome, item])
+            ).values());
+
+            console.log("[Importação] Recursos únicos para contratação:", recursosUnicos);
+
+            const estadoAtual : EstadoImportacao = {
               sheetsData,
               nomeProjeto,
               tipoFinanciamento,
@@ -706,99 +757,154 @@ export default function ImportarProjetoButton() {
               overhead,
               valorEti,
               workpackages: wps,
-              materiais,
+              materiais: [],
               dataInicioProjeto,
               dataFimProjeto
-            });
+            };
+
+            if (sheetsData["Outros_Budget"]) {
+              materiais = extrairMateriais(sheetsData["Outros_Budget"]);
+              estadoAtual.materiais = materiais;
+            }
+
+            if (wps.length > 0 && materiais.length > 0) {
+               estadoAtual.workpackages = atribuirMateriaisAosWorkpackages(estadoAtual.workpackages, materiais);
+            }
             
-            return; // Parar aqui e esperar a criação dos contratados
+            setEstadoImportacao(estadoAtual);
+
+            if (recursosUnicos.length > 0) {
+              console.log("[Importação] Iniciando processo de contratação para:", recursosUnicos[0]);
+              setRecursosNaoAssociados(recursosUnicos);
+              if (recursosUnicos[0]) {
+                setNovoContratadoData(recursosUnicos[0]);
+                setShowContratadoForm(true);
+              }
+              setIsLoading(false);
+              return;
+            } else {
+               console.log("[Importação] Nenhum recurso por contratar. Iniciando processamento final.");
+               setProcessamentoPendente(true);
+            }
+          } else {
+             if (sheetsData["Outros_Budget"]) {
+                materiais = extrairMateriais(sheetsData["Outros_Budget"]);
+             }
+             
+             setEstadoImportacao({
+                sheetsData,
+                nomeProjeto,
+                tipoFinanciamento,
+                taxaFinanciamento,
+                overhead,
+                valorEti,
+                workpackages: [],
+                materiais,
+                dataInicioProjeto: null,
+                dataFimProjeto: null,
+             });
+             setProcessamentoPendente(true);
+          }
+
+        } catch (error) {
+          console.error("[Importação] Erro no reader.onload:", error);
+          toast.error("Ocorreu um erro durante a leitura dos dados do ficheiro");
+          setIsLoading(false);
+        } finally {
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
           }
         }
+      };
 
-        if (sheetsData["Outros_Budget"]) {
-          materiais = extrairMateriais(sheetsData["Outros_Budget"]);
-        }
-
-        if (wps.length > 0 && materiais.length > 0) {
-          wps = atribuirMateriaisAosWorkpackages(wps, materiais);
-        }
-
-        // Se não houver recursos não associados, processar a importação diretamente
-        setEstadoImportacao({
-          sheetsData,
-          nomeProjeto,
-          tipoFinanciamento,
-          taxaFinanciamento,
-          overhead,
-          valorEti,
-          workpackages: wps,
-          materiais,
-          dataInicioProjeto,
-          dataFimProjeto
-        });
-
-        processarImportacaoFinal();
-
-      } catch (error) {
-        console.error("[Importação] Erro GERAL na importação:", error);
-        toast.error("Ocorreu um erro durante a importação");
-      } finally {
+      reader.onerror = () => {
+        console.error("[Importação] Erro ao ler o ficheiro");
+        toast.error("Erro ao ler o ficheiro");
         setIsLoading(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      }
-    };
+      };
 
-    reader.onerror = () => {
-      console.error("[Importação] Erro ao ler o ficheiro");
-      toast.error("Erro ao ler o ficheiro");
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error("[Importação] Erro GERAL na importação:", error);
+      toast.error("Ocorreu um erro durante a importação");
       setIsLoading(false);
-    };
+    }
+  }, [dispatch, utilizadoresData, utils]);
 
-    reader.readAsArrayBuffer(file);
-  }, [dispatch, financiamentosData, utilizadoresData, processarImportacaoFinal]);
-
-  const handleContratadoCriado = useCallback(async () => {
-    // Atualizar a lista de utilizadores após criar um novo
-    await utils.utilizador.findAll.invalidate();
-
-    // Remover o recurso atual da lista
+  const handleContratadoCriado = useCallback(async (novoUserId: string) => {
+    console.log("[Importação] Contratado criado callback com ID:", novoUserId);
+    
     const recursosRestantes = recursosNaoAssociados.slice(1);
     setRecursosNaoAssociados(recursosRestantes);
+    console.log("[Importação] Recursos restantes para processar:", recursosRestantes.length);
 
-    // Se ainda houver recursos não associados, mostrar o próximo
     if (recursosRestantes.length > 0 && recursosRestantes[0]) {
       setNovoContratadoData(recursosRestantes[0]);
       setShowContratadoForm(true);
     } else {
+      console.log("[Importação] Todos os contratados foram processados. Atualizando associações...");
       setShowContratadoForm(false);
-      setNovoContratadoData(null);
       
-      // Todos os contratados foram criados, processar a importação
-      if (estadoImportacao) {
-        // Reprocessar os dados RH com a lista atualizada de utilizadores
-        const utilizadores = extrairUtilizadores(await utils.utilizador.findAll.fetch());
-        const dadosRH = estadoImportacao.sheetsData["RH_Budget_SUBM"];
-        
-        if (!dadosRH) {
-          toast.error("Erro ao reprocessar dados RH");
+      await utils.utilizador.findAll.invalidate();
+      const dadosUtilizadoresFinais = await utils.utilizador.findAll.fetch();
+      const utilizadoresFinais = extrairUtilizadores(dadosUtilizadoresFinais);
+      
+      if (!utilizadoresFinais || utilizadoresFinais.length === 0) {
+          console.error("[Importação] Falha ao buscar utilizadores finais após contratações.");
+          toast.error("Erro ao atualizar lista de utilizadores após contratações.");
+          setIsLoading(false);
           return;
-        }
-
-        const resultado = extrairDadosRH(dadosRH, utilizadores);
-        
-        setEstadoImportacao(prev => prev ? {
-          ...prev,
-          workpackages: resultado.workpackages,
-          dataInicioProjeto: resultado.dataInicioProjeto,
-          dataFimProjeto: resultado.dataFimProjeto
-        } : null);
-
-        processarImportacaoFinal();
       }
+      
+      if (!estadoImportacao) {
+        console.error("[Importação] Estado de importação não encontrado após contratações.");
+        toast.error("Erro interno: estado de importação perdido.");
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("[Importação] Utilizadores FINAIS encontrados:", utilizadoresFinais.length);
+
+      const workpackagesAtualizados = estadoImportacao.workpackages.map(wp => ({
+        ...wp,
+        recursos: wp.recursos.map(recurso => {
+          if (recurso.userId) return recurso; 
+
+          const utilizadorEncontrado = utilizadoresFinais.find(u => {
+            const nomeUtilizador = u.name?.toLowerCase().trim() || "";
+            const nomeRecurso = recurso.nome.toLowerCase().trim();
+            return nomeUtilizador === nomeRecurso || 
+                   nomeUtilizador.includes(nomeRecurso) || 
+                   nomeRecurso.includes(nomeUtilizador) ||
+                   similarity(nomeUtilizador, nomeRecurso) > 0.6;
+          });
+
+          if (utilizadorEncontrado) {
+            console.log(`[Importação Final Assoc] Recurso ${recurso.nome} associado a ${utilizadorEncontrado.name} (ID: ${utilizadorEncontrado.id})`);
+            return {
+              ...recurso,
+              userId: utilizadorEncontrado.id
+            };
+          } else {
+             console.warn(`[Importação Final Assoc] Recurso ${recurso.nome} NÃO encontrado na lista final.`);
+             return recurso;
+          }
+        })
+      }));
+
+      setEstadoImportacao(prev => {
+        if (!prev) return null;
+        console.log("[Importação] Atualizando estado com WPs finais associados.");
+        return {
+          ...prev,
+          workpackages: workpackagesAtualizados as WorkpackageSimples[]
+        };
+      });
+
+      console.log("[Importação] Triggering processamento final via useEffect.");
+      setProcessamentoPendente(true); 
     }
-  }, [recursosNaoAssociados, estadoImportacao, utils.utilizador.findAll, processarImportacaoFinal]);
+  }, [utils.utilizador.findAll, estadoImportacao, recursosNaoAssociados]);
 
   const handleFinanciamentoCriado = useCallback((financiamento: FinanciamentoAPI) => {
     dispatch({
@@ -898,6 +1004,14 @@ export default function ImportarProjetoButton() {
       </Dialog>
 
       {showContratadoForm && novoContratadoData && (
+        console.log("[Importação] Renderizando FormContratado com dados:", {
+          showContratadoForm,
+          novoContratadoData,
+          defaultValues: {
+            identificacao: novoContratadoData.nome,
+            salario: novoContratadoData.salario?.toString() || ""
+          }
+        }),
         <FormContratado
           defaultValues={{
             identificacao: novoContratadoData.nome,
@@ -924,4 +1038,12 @@ export default function ImportarProjetoButton() {
       )}
     </>
   );
+}
+
+function similarity(a: string, b: string): number {
+  const aWords = a.toLowerCase().split(/\\s+/).filter(Boolean);
+  const bWords = b.toLowerCase().split(/\\s+/).filter(Boolean);
+  if (aWords.length === 0 || bWords.length === 0) return 0;
+  const common = aWords.filter(word => bWords.includes(word)).length;
+  return common / Math.max(aWords.length, bWords.length);
 }
