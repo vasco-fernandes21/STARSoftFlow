@@ -1,6 +1,6 @@
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabNavigation } from "../../components/TabNavigation";
-import { MoneyField, PercentageField } from "../../components/FormFields";
+import { MoneyField, PercentageField, IntegerPercentageField } from "../../components/FormFields";
 import { api } from "@/trpc/react";
 import { useState } from "react";
 import { Settings2 } from "lucide-react";
@@ -41,6 +41,11 @@ interface FinancasTabProps {
 export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabProps) {
   const { state, dispatch } = useProjetoForm();
   const [modalAberto, setModalAberto] = useState(false);
+  const [localValues, setLocalValues] = useState({
+    overhead: state.overhead?.toString() ?? '',
+    taxa_financiamento: state.taxa_financiamento?.toString() ?? '',
+    valor_eti: state.valor_eti?.toString() ?? ''
+  });
 
   const { data: financiamentosResponse } = api.financiamento.findAll.useQuery({
     limit: 100,
@@ -62,10 +67,15 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
   };
 
   const handleTaxaFinanciamentoChange = (value: number | null) => {
+    console.log("handleTaxaFinanciamentoChange recebeu:", value);
+    
+    // Se o valor for null, definimos como null no estado (em vez de 0)
+    const validValue = value === null ? null : value;
+    
     dispatch({
       type: "SET_FIELD",
       field: "taxa_financiamento",
-      value: value ?? 0,
+      value: validValue,
     });
   };
 
@@ -90,19 +100,19 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
       dispatch({
         type: "SET_FIELD",
         field: "overhead",
-        value: selectedFinanciamento.overhead,
+        value: Number(selectedFinanciamento.overhead.toFixed(2)),
       });
 
       dispatch({
         type: "SET_FIELD",
         field: "taxa_financiamento",
-        value: selectedFinanciamento.taxa_financiamento,
+        value: Number(selectedFinanciamento.taxa_financiamento.toFixed(2)),
       });
 
       dispatch({
         type: "SET_FIELD",
         field: "valor_eti",
-        value: selectedFinanciamento.valor_eti,
+        value: Number(selectedFinanciamento.valor_eti.toFixed(2)),
       });
     }
   };
@@ -178,25 +188,25 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
         <div className="flex flex-col gap-6">
           <PercentageField
             label="Overhead"
-            value={Number(state.overhead ?? 0)}
+            value={state.overhead ? Number(state.overhead) : null}
             onChange={handleOverheadChange}
             required
-            tooltip="Percentagem de overhead aplicada ao projeto"
+            tooltip="Percentagem de overhead aplicada ao projeto (valor entre 0 e 100 com 2 casas decimais)"
             id="overhead"
           />
 
-          <PercentageField
+          <IntegerPercentageField
             label="Taxa de Financiamento"
-            value={Number(state.taxa_financiamento ?? 0)}
+            value={state.taxa_financiamento !== null && state.taxa_financiamento !== undefined ? Number(state.taxa_financiamento) : null}
             onChange={handleTaxaFinanciamentoChange}
             required
-            tooltip="Taxa de financiamento do projeto"
+            tooltip="Taxa de financiamento do projeto (valor inteiro entre 0 e 100)"
             id="taxa-financiamento"
           />
 
           <MoneyField
             label="Valor ETI"
-            value={Number(state.valor_eti ?? 0)}
+            value={state.valor_eti ? Number(state.valor_eti) : null}
             onChange={handleValorEtiChange}
             required
             tooltip="Valor do ETI (Equivalente a Tempo Integral)"

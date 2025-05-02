@@ -28,7 +28,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDecimalValue } from "@/lib/utils";
 
 // Componente para o cabeçalho do projeto aprovado
 const ApprovedProjectHeader = ({
@@ -447,7 +447,7 @@ const FinanciamentoSection = ({ financiamento, projeto }: { financiamento?: any;
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-gray-500">Overhead</p>
-            <p className="text-base font-semibold">{Number(projeto.overhead || financiamento.overhead).toFixed(2)}%</p>
+            <p className="text-base font-semibold">{formatDecimalValue(projeto.overhead || financiamento.overhead)}%</p>
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-gray-500">Taxa de Financiamento</p>

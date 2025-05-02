@@ -125,7 +125,7 @@ export function TextField({
 
 // DecimalField atualizado
 interface DecimalFieldProps extends BaseFieldProps {
-  value: string | number | null;  // Alterado para incluir string
+  value: string | number | null;
   onChange: (value: number | null) => void;
   prefix?: ReactNode;
   suffix?: ReactNode;
@@ -150,7 +150,11 @@ export function DecimalField({
   id,
   disabled,
 }: DecimalFieldProps) {
-  const _disabled = disabled;
+  // Converter para string mantendo apenas as casas decimais significativas
+  const displayValue = value === null || value === '' ? '' : 
+    typeof value === 'string' ? value :
+    value.toString().replace(/\.?0+$/, ''); // Remove zeros à direita
+
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
@@ -165,14 +169,32 @@ export function DecimalField({
         <Input
           id={id}
           type="number"
-          value={typeof value === 'string' ? value : (value ?? '')}  // Passa string diretamente
+          value={displayValue}
           onChange={(e) => {
             const val = e.target.value;
             if (val === '') {
-              if (onChange) onChange(null);
+              onChange(null);
             } else {
-              const newValue = parseFloat(val);
-              if (onChange) onChange(isNaN(newValue) ? null : newValue);
+              const numValue = parseFloat(val);
+              if (!isNaN(numValue)) {
+                // Permitir digitar o valor antes de validar os limites
+                if (val.endsWith('.')) {
+                  // Se estiver digitando um decimal, não valida ainda
+                  onChange(numValue);
+                } else {
+                  // Validar limites apenas quando terminar de digitar
+                  const finalValue = min !== undefined ? Math.max(min, numValue) : numValue;
+                  const boundedValue = max !== undefined ? Math.min(max, finalValue) : finalValue;
+                  
+                  // Limitar casas decimais se necessário
+                  const parts = val.split('.');
+                  if (parts[1] && parts[1].length > 3) {
+                    onChange(parseFloat(boundedValue.toFixed(3)));
+                  } else {
+                    onChange(boundedValue);
+                  }
+                }
+              }
             }
           }}
           className={cn(
@@ -181,10 +203,8 @@ export function DecimalField({
             suffix && "pr-8"
           )}
           step={step}
-          min={min}
-          max={max}
           required={required}
-          disabled={_disabled}
+          disabled={disabled}
         />
         {suffix && (
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
@@ -202,22 +222,37 @@ export function MoneyField(props: Omit<DecimalFieldProps, "prefix" | "step" | "m
   return <DecimalField {...props} prefix="€" step={0.01} min={0} max={1000000} />;
 }
 
-// PercentageField atualizado
+// PercentageField atualizado para manter apenas as casas decimais digitadas
 export function PercentageField(props: Omit<DecimalFieldProps, "suffix" | "step" | "min" | "max">) {
-  // Componente modificado para exibir percentual como número inteiro (0-100)
-  // mas armazenar internamente como decimal (0-1)
   const { value, onChange, ...restProps } = props;
 
-  // Converter o valor decimal para exibição (0.85 -> 85)
-  const displayValue = value !== null ? (value as number) * 100 : null;
+  // Função para formatar o valor com base nas regras
+  const formatValue = (val: number): number => {
+    if (val === 0) return 0;
+    if (val === 100) return 100;
+    
+    // Para outros valores, limitar a 3 casas decimais
+    const formatted = Number(val.toFixed(3));
+    return formatted;
+  };
+
+  // Converter o valor decimal para exibição (0.85 -> 85) e formatar
+  const displayValue = value !== null ? formatValue((value as number) * 100) : null;
 
   // Função para converter o valor de entrada (85) para decimal (0.85)
   const handleChange = (newValue: number | null) => {
     if (newValue === null) {
       onChange(null);
     } else {
-      // Dividir por 100 para transformar em decimal
-      onChange(newValue / 100);
+      // Validar se está entre 0 e 100
+      let validValue = Math.min(100, Math.max(0, newValue));
+      
+      // Aplicar regras de formatação
+      validValue = formatValue(validValue);
+      
+      // Converter para decimal e garantir precisão
+      const decimalValue = Number((validValue / 100).toFixed(5));
+      onChange(decimalValue);
     }
   };
 
@@ -227,10 +262,92 @@ export function PercentageField(props: Omit<DecimalFieldProps, "suffix" | "step"
       value={displayValue}
       onChange={handleChange}
       suffix="%"
-      step={1}
+      step={0.001}
       min={0}
-      max={10000}
+      max={100}
     />
+  );
+}
+
+// Novo componente para percentagem inteira simplificado
+export function IntegerPercentageField(props: Omit<DecimalFieldProps, "suffix" | "step" | "min" | "max">) {
+  const { label, value, onChange, required = false, tooltip, helpText, className = "", id, disabled } = props;
+
+  // Converter o valor decimal para exibição (0.85 -> 85)
+  const displayValue = value === 0 || value === null || value === undefined 
+    ? '' 
+    : Math.round((value as number) * 100);
+
+  // Handler para quando o valor muda
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputVal = e.target.value;
+    
+    // Permitir campo vazio
+    if (inputVal === '') {
+      onChange(null);
+      return;
+    }
+    
+    // Converter para número
+    const numValue = parseInt(inputVal);
+    
+    // Se for um número válido, passa diretamente (sem validação de limites durante a digitação)
+    if (!isNaN(numValue)) {
+      // Converter para decimal
+      onChange(numValue / 100);
+    }
+  };
+  
+  // Handler para quando o campo perde o foco
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const inputVal = e.target.value;
+    
+    // Permitir campo vazio
+    if (inputVal === '') {
+      onChange(null);
+      return;
+    }
+    
+    // Converter para número
+    const numValue = parseInt(inputVal);
+    
+    // Se for um número válido, valida os limites
+    if (!isNaN(numValue)) {
+      // Limitar entre 0 e 100
+      const validValue = Math.min(100, Math.max(0, numValue));
+      // Converter para decimal
+      onChange(validValue / 100);
+    }
+  };
+
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
+        {label}
+      </FormLabel>
+      <div className="relative">
+        <Input
+          id={id}
+          type="number"
+          value={displayValue}
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          className={cn(
+            "rounded-lg border-azul/20 bg-white/90 shadow-sm transition-all duration-200 hover:border-azul/30 focus:border-azul focus:ring-1 focus:ring-azul/30",
+            "pr-8" // Espaço para o símbolo de %
+          )}
+          min={0}
+          max={100}
+          step={1}
+          required={required}
+          disabled={disabled}
+        />
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+          <span className="text-azul/50">%</span>
+        </div>
+      </div>
+      {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
+    </div>
   );
 }
 

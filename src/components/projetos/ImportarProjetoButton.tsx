@@ -137,9 +137,9 @@ function extrairDadosFinanciamento(dadosBudget: any[][]): {
       if (linha[6] === "Tipo de projeto " && linha[7]) {
         tipoFinanciamento = linha[7];
       } else if (linha[6] === "Taxa de financiamento" && typeof linha[7] === "number") {
-        taxaFinanciamento = linha[7] * 100; // Converter para percentagem
+        taxaFinanciamento = Number((linha[7] * 100).toFixed(2)); // Limitar a 2 casas decimais
       } else if (linha[6] === "Custos indiretos" && typeof linha[7] === "number") {
-        overhead = linha[7] * 100; // Converter para percentagem
+        overhead = Number((linha[7] * 100).toFixed(2)); // Limitar a 2 casas decimais
       }
     }
   }
@@ -153,7 +153,7 @@ function extrairValorEti(dadosRH: any[][]): number | null {
     if (!row || row.length < 6) continue;
 
     if (row[4] && typeof row[4] === "string" && row[5] && typeof row[5] === "number") {
-      return row[5]; // O valor ETI está na coluna 6 (índice 5)
+      return Number(Number(row[5]).toFixed(2)); // Limitar a 2 casas decimais
     }
   }
   return null;
@@ -543,9 +543,9 @@ export default function ImportarProjetoButton() {
         nome: nomeProjeto,
         inicio: dataInicioProjeto,
         fim: dataFimProjeto,
-        overhead: overhead ? new Decimal(overhead / 100) : new Decimal(0),
-        taxa_financiamento: taxaFinanciamento ? new Decimal(taxaFinanciamento / 100) : new Decimal(0),
-        valor_eti: valorEti ? new Decimal(valorEti) : new Decimal(0),
+        overhead: overhead ? new Decimal(Number((overhead / 100).toFixed(2))) : new Decimal(0),
+        taxa_financiamento: taxaFinanciamento ? new Decimal(Number((taxaFinanciamento / 100).toFixed(2))) : new Decimal(0),
+        valor_eti: valorEti ? new Decimal(Number(valorEti).toFixed(2)) : new Decimal(0),
       },
     });
 
@@ -921,9 +921,9 @@ export default function ImportarProjetoButton() {
       type: "UPDATE_PROJETO",
       data: {
         financiamentoId: financiamento.id,
-        overhead: new Decimal(financiamento.overhead),
-        taxa_financiamento: new Decimal(financiamento.taxa_financiamento),
-        valor_eti: new Decimal(financiamento.valor_eti),
+        overhead: new Decimal(Number(financiamento.overhead).toFixed(2)),
+        taxa_financiamento: new Decimal(Number(financiamento.taxa_financiamento).toFixed(2)),
+        valor_eti: new Decimal(Number(financiamento.valor_eti).toFixed(2)),
       },
     });
 

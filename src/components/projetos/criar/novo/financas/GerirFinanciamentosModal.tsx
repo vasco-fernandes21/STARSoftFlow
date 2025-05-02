@@ -167,9 +167,9 @@ export function GerirFinanciamentosModal({
 
     const dadosParaEnviar = {
       nome: novoFinanciamento.nome,
-      overhead: Number((novoFinanciamento.overhead ?? 0) / 100), // Converte para decimal (25 -> 0.25)
-      taxa_financiamento: Number((novoFinanciamento.taxa_financiamento ?? 0) / 100), // Converte para decimal (85 -> 0.85)
-      valor_eti: Number(novoFinanciamento.valor_eti ?? 0), // Garante que é número
+      overhead: Number(novoFinanciamento.overhead ?? 0),
+      taxa_financiamento: Number(novoFinanciamento.taxa_financiamento ?? 0),
+      valor_eti: Number(novoFinanciamento.valor_eti ?? 0),
     };
 
     if (modoEdicao) {
@@ -186,9 +186,9 @@ export function GerirFinanciamentosModal({
     setModoEdicao(financiamento.id);
     setNovoFinanciamento({
       nome: financiamento.nome,
-      overhead: Number((Number(financiamento.overhead) * 100).toFixed(2)), // Converte para percentagem (0.25 -> 25) com 2 casas
-      taxa_financiamento: Number((Number(financiamento.taxa_financiamento) * 100).toFixed(2)), // Converte para percentagem (0.85 -> 85) com 2 casas
-      valor_eti: Number(Number(financiamento.valor_eti).toFixed(2)), // Garante 2 casas decimais
+      overhead: Number(Number(financiamento.overhead).toFixed(2)), // Já vem em percentagem
+      taxa_financiamento: Number(Number(financiamento.taxa_financiamento).toFixed(2)), // Já vem em percentagem
+      valor_eti: Number(Number(financiamento.valor_eti).toFixed(2)),
     });
   };
 
@@ -222,77 +222,84 @@ export function GerirFinanciamentosModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogOverlay className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogContent className="max-w-5xl z-[1001] bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-semibold tracking-tight text-azul">
-              Gerir Financiamentos
+        <DialogContent className="max-w-5xl z-[1001] bg-white rounded-xl border border-azul/10 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
+          <DialogHeader className="border-b border-azul/10 pb-4">
+            <DialogTitle className="text-2xl font-semibold tracking-tight text-azul flex items-center gap-2">
+              <AlertCircle className="h-6 w-6 text-azul/80" />
+              Financiamentos Existentes
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-2">
             {/* Formulário */}
-            <div className="space-y-6 rounded-xl border border-azul/10 bg-white/80 p-6">
-              <div className="flex items-center gap-2 border-b border-azul/10 pb-2 text-azul">
-                <Plus className="h-5 w-5" />
-                <h3 className="text-lg font-medium">
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 border-b border-azul/10 pb-3">
+                <Plus className="h-5 w-5 text-azul/80" />
+                <h3 className="text-lg font-medium text-azul">
                   {modoEdicao ? "Editar Financiamento" : "Novo Financiamento"}
                 </h3>
               </div>
 
-              <TextField
-                label="Nome do Financiamento"
-                value={novoFinanciamento.nome}
-                onChange={(value) => setNovoFinanciamento((prev) => ({ ...prev, nome: value }))}
-                placeholder="Ex: Financiamento Base"
-                required
-                tooltip="Nome identificativo do financiamento"
-              />
+              <div className="space-y-4">
+                <TextField
+                  label="Nome do Financiamento"
+                  value={novoFinanciamento.nome}
+                  onChange={(value) => setNovoFinanciamento((prev) => ({ ...prev, nome: value }))}
+                  placeholder="Ex: Financiamento Base"
+                  required
+                  tooltip="Nome identificativo do financiamento"
+                  className="bg-white"
+                />
 
-              <DecimalField
-                label="Overhead"
-                value={novoFinanciamento.overhead ?? 0}
-                onChange={(value) => setNovoFinanciamento((prev) => ({ 
-                  ...prev, 
-                  overhead: value !== null ? Number(Number(value).toFixed(2)) : 0 
-                }))}
-                suffix="%"
-                min={0}
-                max={100}
-                step={0.01}
-                tooltip="Percentagem de overhead aplicada ao financiamento (opcional)"
-              />
+                <DecimalField
+                  label="Overhead"
+                  value={parseFloat(novoFinanciamento.overhead?.toFixed(2) ?? "0")}
+                  onChange={(value) => setNovoFinanciamento((prev) => ({ 
+                    ...prev, 
+                    overhead: value !== null ? parseFloat(value.toFixed(2)) : 0 
+                  }))}
+                  suffix="%"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  tooltip="Percentagem de overhead aplicada ao financiamento (opcional)"
+                  className="bg-white"
+                />
 
-              <DecimalField
-                label="Taxa de Financiamento"
-                value={novoFinanciamento.taxa_financiamento ?? 0}
-                onChange={(value) => setNovoFinanciamento((prev) => ({ 
-                  ...prev, 
-                  taxa_financiamento: value !== null ? Number(Number(value).toFixed(2)) : 0 
-                }))}
-                suffix="%"
-                min={0}
-                max={100}
-                step={0.01}
-                required
-                tooltip="Taxa de financiamento aplicada ao projeto"
-              />
+                <DecimalField
+                  label="Taxa de Financiamento"
+                  value={novoFinanciamento.taxa_financiamento ?? 0}
+                  onChange={(value) => setNovoFinanciamento((prev) => ({ 
+                    ...prev, 
+                    taxa_financiamento: value !== null ? Number(Number(value).toFixed(2)) : 0 
+                  }))}
+                  suffix="%"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  required
+                  tooltip="Taxa de financiamento aplicada ao projeto"
+                  className="bg-white"
+                />
 
-              <MoneyField
-                label="Valor ETI"
-                value={novoFinanciamento.valor_eti ?? 0}
-                onChange={(value) => setNovoFinanciamento((prev) => ({ 
-                  ...prev, 
-                  valor_eti: value !== null ? Number(Number(value).toFixed(2)) : 0 
-                }))}
-                required
-                tooltip="Valor do ETI (Equivalente a Tempo Integral)"
-              />
+                <MoneyField
+                  label="Valor ETI"
+                  value={novoFinanciamento.valor_eti ?? 0}
+                  onChange={(value) => setNovoFinanciamento((prev) => ({ 
+                    ...prev, 
+                    valor_eti: value !== null ? Number(Number(value).toFixed(2)) : 0 
+                  }))}
+                  required
+                  tooltip="Valor do ETI (Equivalente a Tempo Integral)"
+                  className="bg-white"
+                />
+              </div>
 
-              <div className="flex justify-end gap-3 border-t border-azul/10 pt-4">
+              <div className="flex justify-end gap-3 pt-4 border-t border-azul/10">
                 {modoEdicao && (
                   <Button
                     variant="outline"
-                    className="border-azul/20 hover:bg-azul/5"
+                    className="rounded-full border-azul/20 text-azul hover:bg-azul/5 hover:text-azul/80 transition-all duration-200"
                     onClick={() => {
                       setModoEdicao(null);
                       limparForm();
@@ -301,53 +308,57 @@ export function GerirFinanciamentosModal({
                     Cancelar
                   </Button>
                 )}
-                <Button className="bg-azul hover:bg-azul/90" onClick={handleSubmit}>
-                  {modoEdicao ? "Atualizar" : "Criar"}
+                <Button 
+                  className="rounded-full bg-azul text-white shadow-sm hover:bg-azul/90 hover:shadow-md transition-all duration-200"
+                  onClick={handleSubmit}
+                >
+                  {modoEdicao ? "Atualizar" : "Criar Financiamento"}
                 </Button>
               </div>
             </div>
 
             {/* Lista de Financiamentos */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 border-b border-azul/10 pb-4 text-azul">
-                <AlertCircle className="h-5 w-5" />
-                <h3 className="text-lg font-medium">Financiamentos Existentes</h3>
-              </div>
-
-              <div className="max-h-[500px] space-y-3 overflow-y-auto pr-2">
+            <div className="space-y-4 lg:border-l lg:border-azul/10 lg:pl-8">
+              <div className="max-h-[500px] overflow-y-auto pr-2 space-y-3">
                 {financiamentos.map((financiamento: FinanciamentoAPI) => (
-                  <Card
+                  <div
                     key={financiamento.id}
-                    className="group relative mb-4 p-4 transition-shadow hover:shadow-md"
+                    className="group relative mb-4 p-4 rounded-lg border border-azul/10 bg-white/80 hover:bg-white hover:shadow-sm transition-all duration-200"
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-medium text-azul">{financiamento.nome}</h4>
-                        <div className="mt-2 space-y-1 text-sm text-azul/80">
-                          <p>
-                            Overhead:{" "}
-                            {(Number(financiamento.overhead) * 100).toLocaleString("pt-PT", {
-                              style: "percent",
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                        <h4 className="font-medium text-azul text-lg">{financiamento.nome}</h4>
+                        <div className="mt-2 space-y-2 text-sm text-azul/80">
+                          <p className="flex items-center gap-2">
+                            <span className="font-medium">Overhead:</span>
+                            <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
+                              {Number(financiamento.overhead).toLocaleString("pt-PT", {
+                                style: "percent",
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
                           </p>
-                          <p>
-                            Taxa:{" "}
-                            {(Number(financiamento.taxa_financiamento) * 100).toLocaleString("pt-PT", {
-                              style: "percent",
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                          <p className="flex items-center gap-2">
+                            <span className="font-medium">Taxa:</span>
+                            <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
+                              {Number(financiamento.taxa_financiamento).toLocaleString("pt-PT", {
+                                style: "percent",
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
                           </p>
-                          <p>
-                            ETI:{" "}
-                            {Number(financiamento.valor_eti).toLocaleString("pt-PT", {
-                              style: "currency",
-                              currency: "EUR",
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                          <p className="flex items-center gap-2">
+                            <span className="font-medium">ETI:</span>
+                            <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
+                              {Number(financiamento.valor_eti).toLocaleString("pt-PT", {
+                                style: "currency",
+                                currency: "EUR",
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -356,7 +367,7 @@ export function GerirFinanciamentosModal({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-azul/60 hover:bg-azul/10 hover:text-azul"
+                          className="rounded-full text-azul/60 hover:bg-azul/5 hover:text-azul transition-colors"
                           onClick={() => iniciarEdicao(financiamento)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -364,14 +375,14 @@ export function GerirFinanciamentosModal({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-red-500/60 hover:bg-red-50 hover:text-red-500"
+                          className="rounded-full text-red-500/60 hover:bg-red-50 hover:text-red-500 transition-colors"
                           onClick={() => openDeleteDialog(financiamento.id, financiamento.nome)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 ))}
               </div>
             </div>
@@ -381,19 +392,19 @@ export function GerirFinanciamentosModal({
 
       {/* AlertDialog para confirmação de exclusão */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border border-azul/10 bg-white rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover Financiamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem a certeza que deseja remover o financiamento "{deleteFinanciamentoNome}"? Esta
+            <AlertDialogTitle className="text-xl text-azul font-semibold">Remover Financiamento</AlertDialogTitle>
+            <AlertDialogDescription className="text-azul/70">
+              Tem a certeza que deseja remover o financiamento <span className="font-medium text-azul">"{deleteFinanciamentoNome}"</span>? Esta
               ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full border-azul/20 text-azul hover:bg-azul/5">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
             >
               Remover
             </AlertDialogAction>

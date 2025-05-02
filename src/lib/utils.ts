@@ -184,3 +184,14 @@ export function agruparAlocacoesPorAnoMes(
     {} as Record<string, Record<number, number>>
   );
 }
+
+/**
+ * Formata um número decimal para ter sempre 2 casas decimais
+ * @param value - Valor a ser formatado
+ * @param defaultValue - Valor padrão se o input for null/undefined (default: 0)
+ * @returns Número formatado com 2 casas decimais
+ */
+export function formatDecimalValue(value: number | null | undefined, defaultValue = 0): number {
+  if (value === null || value === undefined) return defaultValue;
+  return parseFloat(value.toFixed(2));
+}
