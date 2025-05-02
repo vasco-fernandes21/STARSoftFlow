@@ -174,23 +174,11 @@ function ImportarExcelContent() {
         // valor_lido = salario * 1.223 * 14/11
         // então: salario = valor_lido / (1.223 * 14/11)
         const salarioBase = valorLido / (1.223 * 14/11);
-        
-        // console.log('Salário calculado:', {
-        //   nomeRecurso,
-        //   valorLido,
-        //   salarioBase
-        // });
-        
+ 
         // Normalizar o nome do recurso para matching
         const nomeNormalizado = nomeRecurso.trim().toLowerCase();
         salariosPorRecurso.set(nomeNormalizado, salarioBase);
-        
-        // Debug do Map após inserção
-        // console.log('Salários armazenados:', {
-        //   nomeNormalizado,
-        //   salarioArmazenado: salariosPorRecurso.get(nomeNormalizado)
-        // });
-        
+
         // Também guardar versões alternativas do nome para matching mais flexível
         if (nomeNormalizado.includes(' - ')) {
           const partes = nomeNormalizado.split(' - ');
@@ -207,12 +195,7 @@ function ImportarExcelContent() {
       }
     }
 
-    // 1. Encontrar linha dos cabeçalhos (onde está "Recurso")
-    const headerRowIdx = data.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toUpperCase().includes('RECURSO')));
-    const headerRow = headerRowIdx !== -1 ? data[headerRowIdx] : undefined;
-
     // 2. Encontrar linha dos meses (ExcelDate > 40000), ignorando linhas de anos (ex: 2024,2025,...)
-    let mesesRowIdx = -1;
     let mesesRow: any[] | undefined = undefined;
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -221,7 +204,6 @@ function ImportarExcelContent() {
       const datasExcelCount = row.filter(c => typeof c === 'number' && c > 40000).length;
       if (anosCount >= 3 && datasExcelCount === 0) continue;
       if (datasExcelCount >= 3) {
-        mesesRowIdx = i;
         mesesRow = row;
         break;
       }

@@ -184,7 +184,6 @@ export function MenuWorkpackage({
         },
       });
 
-      toast.success("Estado da tarefa atualizado");
       utils.projeto.findById.invalidate();
     } catch (error) {
       console.error("Erro ao atualizar estado:", error);

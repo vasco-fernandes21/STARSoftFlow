@@ -83,7 +83,7 @@ async function main() {
       username: "helga.carvalho",
       permissao: Permissao.GESTOR,
       regime: Regime.INTEGRAL,
-      salario: new Decimal(2000.0),
+      salario: new Decimal(3500.0),
     },
     "gestor123"
   );
@@ -97,6 +97,7 @@ async function main() {
       contratacao: new Date("2021-01-10"),
       username: "ricardo.correia",
       regime: Regime.PARCIAL,
+      salario: new Decimal(2000.0),
     },
     {
       name: "Ana Isabel Carvalho",
@@ -196,6 +197,7 @@ async function main() {
       contratacao: new Date("2023-11-01"),
       username: "jose.c.lopes",
       regime: Regime.INTEGRAL,
+      salario: new Decimal(5500.0),
     },
     {
       name: "Joana Matos",
@@ -205,6 +207,7 @@ async function main() {
       contratacao: new Date("2023-12-01"),
       username: "joana.matos",
       regime: Regime.INTEGRAL,
+      salario: new Decimal(2500.0),
     },
     {
       name: "Mariana Domingos",
@@ -214,6 +217,7 @@ async function main() {
       contratacao: new Date("2024-01-01"),
       username: "mariana.domingos",
       regime: Regime.INTEGRAL,
+      salario: new Decimal(3500.0),
     },
     {
       name: "Carla Gomes",
@@ -223,6 +227,7 @@ async function main() {
       contratacao: new Date("2024-01-01"),
       username: "carla.gomes",
       regime: Regime.INTEGRAL,
+      salario: new Decimal(3250.0),
     },
     {
       name: "Nelson Lorenzoni",
@@ -232,6 +237,7 @@ async function main() {
       contratacao: new Date("2024-01-01"),
       username: "nelson.lorenzoni",
       regime: Regime.INTEGRAL,
+      salario: new Decimal(3500.0),
     },
     {
       name: "André Fernandes",
@@ -259,6 +265,7 @@ async function main() {
       contratacao: new Date("2024-12-01"),
       username: "ricardo.carvalho",
       regime: Regime.INTEGRAL,
+      salario: new Decimal(1700.0),
     },
     {
       name: "Filipe Ramalho",
@@ -278,7 +285,6 @@ async function main() {
           ...userData,
           emailVerified: new Date(),
           permissao: Permissao.COMUM,
-          salario: new Decimal(2000.0),
         },
         "password123"
       )

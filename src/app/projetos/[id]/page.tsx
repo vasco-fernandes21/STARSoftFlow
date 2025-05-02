@@ -17,6 +17,7 @@ import {
   X,
   Loader2,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,9 @@ const VisaoGeral = lazy(() => import("@/components/projetos/tabs/VisaoGeral"));
 const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAprovando, setIsAprovando] = useState(false);
+  const [isRejeitando, setIsRejeitando] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const validarProjetoMutation = api.projeto.validarProjeto.useMutation({
     onSuccess: (data) => {
@@ -73,15 +76,19 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
           });
         }
       }
+      setIsAprovando(false);
+      setIsRejeitando(false);
+      setDialogOpen(false);
     },
     onError: (error) => {
       toast.error(`Erro: ${error.message}`);
-      setIsSubmitting(false);
+      setIsAprovando(false);
+      setIsRejeitando(false);
     },
   });
 
   const handleAprovar = () => {
-    setIsSubmitting(true);
+    setIsAprovando(true);
     validarProjetoMutation.mutate({ 
       id, 
       aprovar: true 
@@ -89,7 +96,7 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
   };
 
   const handleRejeitar = () => {
-    setIsSubmitting(true);
+    setIsRejeitando(true);
     validarProjetoMutation.mutate({ 
       id, 
       aprovar: false 
@@ -100,12 +107,12 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
     <div className="flex items-center gap-2">
       <Button
         onClick={handleAprovar}
-        disabled={isSubmitting}
+        disabled={isAprovando || isRejeitando}
         variant="outline"
         size="sm"
         className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
       >
-        {isSubmitting && validarProjetoMutation.isPending ? (
+        {isAprovando ? (
           <Loader2 className="mr-1 h-4 w-4 animate-spin" />
         ) : (
           <Check className="mr-1 h-4 w-4" />
@@ -113,39 +120,37 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
         <span>Aprovar</span>
       </Button>
 
-      <AlertDialog>
+      <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <AlertDialogTrigger asChild>
           <Button
             variant="outline"
             size="sm"
             className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700"
-            disabled={isSubmitting}
+            disabled={isAprovando || isRejeitando}
           >
             <X className="mr-1 h-4 w-4" />
             <span>Rejeitar</span>
           </Button>
         </AlertDialogTrigger>
-        <AlertDialogContent className="max-w-[380px] sm:max-w-[420px] w-full p-6">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogTitle>Rejeitar Projeto</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação irá rejeitar e eliminar o projeto &quot;{nome}&quot; permanentemente.
-              Esta ação não pode ser desfeita.
+              {`Tem a certeza que pretende rejeitar o projeto "${nome}"? Esta ação não pode ser revertida.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-3">
-            <AlertDialogCancel disabled={isSubmitting} className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
               onClick={handleRejeitar}
-              disabled={isSubmitting}
-              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto flex items-center justify-center"
+              disabled={isRejeitando}
             >
-              {isSubmitting && validarProjetoMutation.isPending ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              {isRejeitando ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <X className="mr-1 h-4 w-4" />
+                "Rejeitar"
               )}
-              Rejeitar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

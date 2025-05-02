@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Users as UsersIcon, UserCheck, UserCog, Clock, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
@@ -176,13 +176,19 @@ const DeleteUserDialog = ({ utilizador, onDelete }: { utilizador: any; onDelete:
 
 const Users = () => {
   const router = useRouter();
+  const utils = api.useUtils();
   const [estadoFilter, setEstadoFilter] = useState<"all" | Permissao>("all");
   const [regimeFilter, setRegimeFilter] = useState<"all" | Regime>("all");
 
+  // Prefetch na montagem do componente
+  useEffect(() => {
+    void utils.utilizador.findAll.prefetch();
+  }, [utils]);
+
   // Fetch all data at once since we're using client-side pagination
   const { data, isLoading } = api.utilizador.findAll.useQuery(undefined, {
-    staleTime: 0, 
-    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutos de staleTime
+    refetchOnWindowFocus: true,
   });
 
   // Extrair utilizadores usando a função utilitária
@@ -284,7 +290,6 @@ const Users = () => {
   ];
 
   // Mutation para apagar utilizador
-  const utils = api.useUtils();
   const { mutate: deleteUser } = api.utilizador.delete.useMutation({
     onSuccess: () => {
       toast.success("Utilizador apagado com sucesso");
@@ -355,7 +360,12 @@ const Users = () => {
       },
       {
         id: "actions",
-        header: () => <div className="text-center">Ações</div>,
+        meta: { align: "center" },
+        header: () => (
+          <div className="flex items-center justify-center w-full h-full">
+            Ações
+          </div>
+        ),
         cell: ({ row }) => {
           const utilizador = row.original;
           // Não mostrar opção de apagar para admins

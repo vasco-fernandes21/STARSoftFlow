@@ -1566,9 +1566,17 @@ export const utilizadorRouter = createTRPCRouter({
           });
         }
 
-        // Apagar o utilizador
-        await ctx.db.user.delete({
-          where: { id: input.id },
+        // Usar uma transação para garantir que todas as operações são feitas ou nenhuma é feita
+        await ctx.db.$transaction(async (tx) => {
+          // Primeiro apagar todas as alocações do utilizador
+          await tx.alocacaoRecurso.deleteMany({
+            where: { userId: input.id },
+          });
+
+          // Depois apagar o utilizador
+          await tx.user.delete({
+            where: { id: input.id },
+          });
         });
 
         return { success: true };

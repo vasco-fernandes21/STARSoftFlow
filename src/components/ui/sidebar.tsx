@@ -115,7 +115,7 @@ export const AppSidebar = () => {
       <Link
         href={item.href}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300 ease-in-out",
+          "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300 ease-in-out",
           isActive
             ? "bg-gradient-to-r from-azul/15 to-azul/5 font-semibold text-azul shadow-sm"
             : "font-medium text-slate-600 hover:bg-azul/5 hover:text-azul",
@@ -126,7 +126,7 @@ export const AppSidebar = () => {
       >
         <div
           className={cn(
-            "relative flex items-center justify-center rounded-xl p-2 transition-all duration-300 ease-in-out",
+            "relative flex shrink-0 items-center justify-center rounded-xl p-2 transition-all duration-300 ease-in-out",
             "min-h-[40px] min-w-[40px]",
             isActive
               ? "bg-azul text-white shadow-md"
@@ -147,7 +147,7 @@ export const AppSidebar = () => {
         </div>
         <span
           className={cn(
-            "transform transition-all duration-300 ease-in-out",
+            "transform whitespace-nowrap transition-all duration-300 ease-in-out",
             collapsed
               ? "pointer-events-none w-0 -translate-x-2 opacity-0"
               : "w-auto translate-x-0 opacity-100",
@@ -166,7 +166,7 @@ export const AppSidebar = () => {
       <div
         ref={sidebarRef}
         className={cn(
-          "-p-2 mt-2 flex h-screen flex-col bg-[#F0F4FA]",
+          "flex h-screen flex-col bg-[#F0F4FA] -p-2 mt-2",
           "transition-all duration-200 ease-in-out",
           collapsed ? "w-20" : "w-64",
           "backdrop-blur-xl supports-[backdrop-filter]:bg-[#F0F4FA]/90"
@@ -203,8 +203,8 @@ export const AppSidebar = () => {
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 px-2 py-6 pr-0">
-          <nav className="space-y-1.5">
+        <ScrollArea className="flex-1 px-2 py-6">
+          <nav className="flex flex-col gap-2 pr-2">
             {filteredMenuItems.map((item) => (
               <MenuItem key={item.href} item={item} />
             ))}

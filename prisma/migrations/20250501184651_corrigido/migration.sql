@@ -13,6 +13,9 @@ CREATE TYPE "Rubrica" AS ENUM ('MATERIAIS', 'SERVICOS_TERCEIROS', 'OUTROS_SERVIC
 -- CreateEnum
 CREATE TYPE "ProjetoTipo" AS ENUM ('STANDARD', 'ATIVIDADE_ECONOMICA');
 
+-- CreateEnum
+CREATE TYPE "FeedbackEstado" AS ENUM ('PENDENTE', 'RESOLVIDO');
+
 -- CreateTable
 CREATE TABLE "Projetos" (
     "id" UUID NOT NULL,
@@ -187,7 +190,10 @@ CREATE TABLE "sessions" (
 CREATE TABLE "verificationtokens" (
     "identifier" TEXT NOT NULL,
     "token" TEXT NOT NULL,
-    "expires" TIMESTAMP(3) NOT NULL
+    "expires" TIMESTAMP(3) NOT NULL,
+    "id" UUID NOT NULL,
+
+    CONSTRAINT "verificationtokens_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -220,6 +226,19 @@ CREATE TABLE "rascunhos" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "rascunhos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "feedbacks" (
+    "id" UUID NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "estado" "FeedbackEstado" NOT NULL DEFAULT 'PENDENTE',
+    "imagem_url" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "feedbacks_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -299,3 +318,6 @@ ALTER TABLE "passwords" ADD CONSTRAINT "passwords_userId_fkey" FOREIGN KEY ("use
 
 -- AddForeignKey
 ALTER TABLE "rascunhos" ADD CONSTRAINT "rascunhos_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "feedbacks" ADD CONSTRAINT "feedbacks_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

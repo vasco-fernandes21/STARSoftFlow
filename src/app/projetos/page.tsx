@@ -57,6 +57,7 @@ type PrazoFilter = "todos" | "este_mes" | "proximo_mes" | "este_ano" | "atrasado
 
 export default function Projetos() {
   const router = useRouter();
+  const utils = api.useUtils();
   // a  session for future authorization checks
   const {
     /* data: session */
@@ -78,6 +79,11 @@ export default function Projetos() {
     }),
     []
   );
+
+  // Prefetch na montagem do componente
+  useEffect(() => {
+    void utils.projeto.findAll.prefetch(queryParams);
+  }, [utils, queryParams]);
 
   // Consulta projetos (que já incluem os rascunhos na resposta)
   const { data: projetosData, isLoading } = api.projeto.findAll.useQuery(queryParams, {
@@ -265,8 +271,20 @@ export default function Projetos() {
         ),
         cell: ({ row }) => {
           const projeto = row.original;
-          // Não mostrar opção de apagar para projetos aprovados ou em desenvolvimento
-          if (projeto.estado === "APROVADO" || projeto.estado === "EM_DESENVOLVIMENTO") return null;
+          
+          const getMensagemConfirmacao = (estado: string) => {
+            switch (estado) {
+              case "APROVADO":
+                return "Este projeto está aprovado. Apagar este projeto pode ter consequências graves.";
+              case "EM_DESENVOLVIMENTO":
+                return "Este projeto está em desenvolvimento. Apagar este projeto pode ter consequências graves.";
+              case "CONCLUIDO":
+                return "Este projeto está concluído. Tem a certeza que pretende apagá-lo?";
+              default:
+                return "Tem a certeza que pretende apagar este projeto?";
+            }
+          };
+
           return (
             <div className="flex items-center justify-center w-full h-full" onClick={(e) => e.stopPropagation()}>
               <AlertDialog>
@@ -283,8 +301,9 @@ export default function Projetos() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Apagar Projeto</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Tem a certeza que pretende apagar o projeto {projeto.nome}? Esta ação não pode ser
-                      revertida.
+                      {getMensagemConfirmacao(projeto.estado)}
+                      <br />
+                      <span className="mt-2 block font-medium">Esta ação não pode ser revertida.</span>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

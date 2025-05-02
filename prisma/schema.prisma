@@ -23,7 +23,7 @@ model Projeto {
   tipo               ProjetoTipo    @default(STANDARD)
   financiamento      Financiamento? @relation(fields: [financiamentoId], references: [id])
   responsavel        User?          @relation("ProjetosResponsavel", fields: [responsavelId], references: [id])
-  workpackages       Workpackage[]
+  workpackages       Workpackage[]  @relation("ProjetoWorkpackages")
 
   @@map("Projetos")
 }
@@ -48,9 +48,9 @@ model Workpackage {
   fim       DateTime?         @db.Date
   estado    Boolean           @default(false)
   materiais Material[]
-  tarefas   Tarefa[]
-  projeto   Projeto           @relation(fields: [projetoId], references: [id])
-  recursos  AlocacaoRecurso[]
+  tarefas   Tarefa[]         @relation("WorkpackageTarefas")
+  projeto   Projeto           @relation("ProjetoWorkpackages", fields: [projetoId], references: [id], onDelete: Cascade)
+  recursos  AlocacaoRecurso[] @relation("WorkpackageRecursos")
 
   @@map("Workpackages")
 }
@@ -63,8 +63,8 @@ model Tarefa {
   inicio        DateTime?    @db.Date
   fim           DateTime?    @db.Date
   estado        Boolean      @default(false)
-  entregaveis   Entregavel[]
-  workpackage   Workpackage  @relation(fields: [workpackageId], references: [id])
+  entregaveis   Entregavel[] @relation("TarefaEntregaveis")
+  workpackage   Workpackage  @relation("WorkpackageTarefas", fields: [workpackageId], references: [id], onDelete: Cascade)
 
   @@map("Tarefas")
 }
@@ -77,7 +77,7 @@ model Entregavel {
   data      DateTime? @db.Date
   anexo     String?
   estado    Boolean   @default(false)
-  tarefa    Tarefa    @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  tarefa    Tarefa    @relation("TarefaEntregaveis", fields: [tarefaId], references: [id], onDelete: Cascade)
 
   @@map("Entregaveis")
 }
@@ -93,7 +93,7 @@ model Material {
   workpackageId  String?      @map("workpackage_id") @db.Uuid
   descricao      String?
   estado         Boolean      @default(false)
-  workpackage    Workpackage? @relation(fields: [workpackageId], references: [id])
+  workpackage    Workpackage? @relation(fields: [workpackageId], references: [id], onDelete: Cascade)
 
   @@map("Materiais")
 }
@@ -158,8 +158,8 @@ model AlocacaoRecurso {
   mes           Int
   ano           Int
   ocupacao      Decimal     @db.Decimal(4, 3)
-  user          User        @relation(fields: [userId], references: [id])
-  workpackage   Workpackage @relation(fields: [workpackageId], references: [id])
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workpackage   Workpackage @relation("WorkpackageRecursos", fields: [workpackageId], references: [id], onDelete: Cascade)
 
   @@id([workpackageId, userId, mes, ano])
   @@index([userId, ano, mes])

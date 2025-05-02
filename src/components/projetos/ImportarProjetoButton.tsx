@@ -489,6 +489,7 @@ export default function ImportarProjetoButton() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modalFinanciamentosAberto, setModalFinanciamentosAberto] = useState(false);
   const [showContratadoForm, setShowContratadoForm] = useState(false);
+  const [shouldRenderContratadoForm, setShouldRenderContratadoForm] = useState(false);
   const [novoContratadoData, setNovoContratadoData] = useState<{
     nome: string;
     salario: number | undefined;
@@ -776,10 +777,19 @@ export default function ImportarProjetoButton() {
             if (recursosUnicos.length > 0) {
               console.log("[Importação] Iniciando processo de contratação para:", recursosUnicos[0]);
               setRecursosNaoAssociados(recursosUnicos);
-              if (recursosUnicos[0]) {
-                setNovoContratadoData(recursosUnicos[0]);
-                setShowContratadoForm(true);
-              }
+              
+              // Fechar o modal de upload primeiro
+              setOpen(false);
+              
+              // Aguardar o modal fechar completamente antes de mostrar o form de contratação
+              setTimeout(() => {
+                if (recursosUnicos[0]) {
+                  setNovoContratadoData(recursosUnicos[0]);
+                  setShouldRenderContratadoForm(true);
+                  setShowContratadoForm(true);
+                }
+              }, 500);
+              
               setIsLoading(false);
               return;
             } else {
@@ -930,7 +940,7 @@ export default function ImportarProjetoButton() {
             Importar Excel
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md z-[1001] bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
           <DialogHeader>
             <DialogTitle className="text-center">Importar Projeto a partir de Excel</DialogTitle>
           </DialogHeader>
@@ -1003,7 +1013,7 @@ export default function ImportarProjetoButton() {
         </DialogContent>
       </Dialog>
 
-      {showContratadoForm && novoContratadoData && (
+      {shouldRenderContratadoForm && showContratadoForm && novoContratadoData && (
         console.log("[Importação] Renderizando FormContratado com dados:", {
           showContratadoForm,
           novoContratadoData,
@@ -1019,7 +1029,14 @@ export default function ImportarProjetoButton() {
           }}
           onSuccess={handleContratadoCriado}
           open={showContratadoForm}
-          onOpenChange={setShowContratadoForm}
+          onOpenChange={(newOpen) => {
+            setShowContratadoForm(newOpen);
+            if (!newOpen) {
+              setTimeout(() => {
+                setShouldRenderContratadoForm(false);
+              }, 300);
+            }
+          }}
         />
       )}
 
