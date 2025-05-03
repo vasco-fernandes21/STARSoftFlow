@@ -401,7 +401,7 @@ export function Form({
             className="h-9 rounded-lg px-6"
           >
             Cancelar
-          </Button>q
+          </Button>
           <Button type="submit" className="h-9 rounded-lg bg-azul px-6 hover:bg-azul/90">
             {_isEditMode ? (
               <>

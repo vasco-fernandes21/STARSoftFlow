@@ -146,9 +146,13 @@ function ProjetoFormContent() {
           new Date(state.fim) > new Date(state.inicio)
       ),
       financas: Boolean(
-        state.overhead !== undefined &&
-          state.taxa_financiamento !== undefined &&
-          state.valor_eti !== undefined
+        state.overhead !== undefined && 
+        state.overhead !== null &&
+        state.taxa_financiamento !== undefined && 
+        state.taxa_financiamento !== null &&
+        state.valor_eti !== undefined && 
+        state.valor_eti !== null &&
+        state.financiamentoId // Adicionar verificação do tipo de financiamento
       ),
       workpackages: Boolean(state.workpackages?.length),
       recursos: Boolean(state.workpackages?.some((wp) => wp.recursos?.length > 0)),
@@ -157,8 +161,12 @@ function ProjetoFormContent() {
           state.inicio &&
           state.fim &&
           state.overhead !== undefined &&
+          state.overhead !== null &&
           state.taxa_financiamento !== undefined &&
+          state.taxa_financiamento !== null &&
           state.valor_eti !== undefined &&
+          state.valor_eti !== null &&
+          state.financiamentoId && // Adicionar verificação do tipo de financiamento
           state.workpackages?.length
       ),
     }));

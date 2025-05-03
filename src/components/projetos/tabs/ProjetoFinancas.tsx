@@ -11,118 +11,6 @@ import { OverviewTab } from "./projeto-financas/OverviewTab";
 import { OrcamentoSubmetidoTab } from "./projeto-financas/OrcamentoSubmetidoTab";
 import { OrcamentoRealTab } from "./projeto-financas/OrcamentoRealTab";
 import { FolgaTab } from "./projeto-financas/FolgaTab";
-import type { ProjetoEstado } from "@prisma/client";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@/server/api/root";
-
-// --- Type Definitions ---
-
-// Base output type inferred from tRPC
-type RouterOutput = inferRouterOutputs<AppRouter>;
-type FinancasBaseOutput = RouterOutput["financas"]["getTotaisFinanceiros"];
-
-// Types matching the *mapped* structure returned by getTotaisFinanceiros when details=true
-interface DetalheRecursoCalculoMapped {
-  salarioBase: number;
-  salarioAjustado: number;
-  alocacao: number;
-  formulaUsada: string;
-}
-
-interface DetalheRecursoMapped {
-  userId: string;
-  userName: string | null;
-  salario: number;
-  alocacao: number;
-  custoAjustado: number;
-  detalhesCalculo: DetalheRecursoCalculoMapped;
-}
-
-export interface DetalheAnualMapped {
-  ano: number;
-  orcamento: {
-    submetido: number;
-    real: {
-      recursos: number;
-      materiais: number;
-      total: number;
-      detalhesRecursos: DetalheRecursoMapped[];
-    };
-  };
-  custosConcluidos: {
-    recursos: number;
-    materiais: number;
-    total: number;
-  };
-  alocacoes: number;
-  valorFinanciado: number;
-  overhead: number;
-  resultado: number;
-  folga: number;
-  vab: number;
-  margem: number;
-  vabCustosPessoal: number;
-}
-
-// Use type intersection instead of extends for better compatibility with inferred types
-interface FinancasBase {
-  estado: ProjetoEstado;
-  orcamentoSubmetidoTipo: 'DB_PENDENTE' | 'ETI_SNAPSHOT' | 'DETALHADO_SNAPSHOT' | 'INVALIDO';
-  orcamentoSubmetidoDetalhes: {
-    recursos: number;
-    materiais: number;
-    overhead: number;
-    overheadPercent: number;
-  } | null;
-  orcamentoSubmetido: number;
-  taxaFinanciamento: number;
-  valorFinanciado: number;
-  custosReais: {
-    recursos: number;
-    materiais: number;
-    total: number;
-    detalhesRecursos: DetalheRecursoMapped[];
-  };
-  custosConcluidos: {
-    recursos: number;
-    materiais: number;
-    total: number;
-  };
-  overhead: number;
-  resultado: number;
-  folga: number;
-  vab: number;
-  margem: number;
-  vabCustosPessoal: number;
-  meta: {
-    tipo: "projeto_individual";
-    projetoId: string;
-    filtroAno: number | undefined;
-    incluiDetalhes: boolean;
-  };
-}
-
-export type FinancasComDetalhes = FinancasBase & {
-  anos: number[];
-  detalhesAnuais: DetalheAnualMapped[];
-};
-
-// Type Guard: Checks if the fetched data has the detailed structure
-function isFinancasComDetalhes(
-  data: FinancasBaseOutput | undefined | null
-): data is FinancasComDetalhes {
-  return (
-    !!data &&
-    typeof data === "object" &&
-    "orcamentoSubmetido" in data &&
-    "custosReais" in data &&
-    "detalhesAnuais" in data &&
-    Array.isArray((data as any).detalhesAnuais) &&
-    "anos" in data &&
-    Array.isArray((data as any).anos) &&
-    data.meta?.tipo === "projeto_individual"
-  );
-}
 
 // Tipos para o Badge de Status
 type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>;
@@ -153,23 +41,17 @@ export interface DisplayData {
   vab: number | null;
   vabCustosPessoal: number | null;
 }
-// --- End Type Definitions ---
 
 interface ProjetoFinancasProps {
   projetoId: string;
 }
 
-// --- Formatting Functions ---
-
-// --- End Formatting Functions ---
-
-// --- UI Components ---
-
-// --- End UI Components ---
-
 export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   const [selectedYear, setSelectedYear] = useState<string>("todos");
-  const [selectedWorkpackageId, setSelectedWorkpackageId] = useState<string | undefined>("todos"); // Estado para WP
+  const [selectedWorkpackageId, setSelectedWorkpackageId] = useState<string | undefined>("todos");
+  
+  // Usamos trpc.useUtils para acessar utilitários do TanStack Query
+  const utils = api.useUtils();
 
   const {
     data: financas,
@@ -180,7 +62,6 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     incluirDetalhesPorAno: true,
   });
 
-  // Nova query para comparação de gastos
   const {
     data: comparacaoGastos,
     isLoading: isLoadingComparacao,
@@ -188,11 +69,9 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   } = api.financas.getComparacaoGastos.useQuery({
     projetoId,
   }, {
-    // Re-fetch quando selectedWorkpackageId muda
-    enabled: !!projetoId, // Só executa se projetoId estiver definido
+    enabled: !!projetoId,
   });
 
-  // Extrair lista de workpackages para o seletor
   const workpackagesList = comparacaoGastos?.workpackages ?? [];
 
   // --- Helper Functions ---
@@ -216,9 +95,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     if (percentagemGasta < 100) return { label: "Próximo do limite", variant: "orange" };
     return { label: "Acima do orçamento", variant: "red" };
   };
-  // --- End Helper Functions ---
 
-  // --- Loading and Error States --- Combinar loading/error
   const isLoading = isLoadingFinancas || isLoadingComparacao;
   const error = errorFinancas || errorComparacao;
 
@@ -247,8 +124,8 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     );
   }
 
-  // --- Data Validation and Processing ---
-  if (!isFinancasComDetalhes(financas)) {
+  // Verificar se temos os dados completos necessários
+  if (!financas || !('detalhesAnuais' in financas) || !Array.isArray(financas.detalhesAnuais) || !('anos' in financas) || !Array.isArray(financas.anos)) {
     return (
       <div className="rounded-lg bg-gray-50 p-8 text-center">
         <p className="text-sm text-gray-500">
@@ -258,9 +135,9 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     );
   }
 
-  // Now 'financas' is guaranteed to be of type FinancasComDetalhes
-  const detalhesAnuais = financas.detalhesAnuais; // Use the correctly typed array
-  const anosDisponiveis = financas.anos.sort((a, b) => b - a); // Sort years descending
+  // Já sabemos que os dados estão corretos
+  const detalhesAnuais = financas.detalhesAnuais;
+  const anosDisponiveis = financas.anos.sort((a, b) => b - a);
 
   // --- Data Filtering for Overview Tab ---
   let displayData: DisplayData;
@@ -288,7 +165,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
     };
   } else {
     const yearNum = parseInt(selectedYear, 10);
-    // Find data in the correctly typed detalhesAnuais array
+    // Find data in the detalhesAnuais array
     const anoSelecionadoData = detalhesAnuais.find((d) => d.ano === yearNum);
 
     if (anoSelecionadoData) {
@@ -297,14 +174,14 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
         orcamentoSubmetido: anoSelecionadoData.orcamento.submetido,
         taxaFinanciamento: financas.taxaFinanciamento, // Taxa is project-wide
         custosReais: {
-          total: anoSelecionadoData.orcamento.real.total,
+          total: anoSelecionadoData.orcamento.real.recursos + anoSelecionadoData.orcamento.real.materiais,
           recursos: anoSelecionadoData.orcamento.real.recursos,
           materiais: anoSelecionadoData.orcamento.real.materiais,
         },
         custosConcluidos: {
-          total: anoSelecionadoData.custosConcluidos.total,
-          recursos: anoSelecionadoData.custosConcluidos.recursos,
-          materiais: anoSelecionadoData.custosConcluidos.materiais,
+          total: anoSelecionadoData.custosConcluidos?.total,
+          recursos: anoSelecionadoData.custosConcluidos?.recursos,
+          materiais: anoSelecionadoData.custosConcluidos?.materiais,
         },
         valorFinanciado: anoSelecionadoData.valorFinanciado,
         overhead: anoSelecionadoData.overhead,
@@ -329,7 +206,6 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
       };
     }
   }
-  // --- End Data Filtering Logic ---
 
   // Status based on filtered data
   const statusOrcamento = getOrcamentoStatus(
@@ -338,24 +214,22 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
   );
 
   // --- Chart Data Preparation (Unfiltered) ---
-  const dadosGraficoSubmissao = detalhesAnuais.map((detalhe: DetalheAnualMapped) => ({
+  const dadosGraficoSubmissao = detalhesAnuais.map((detalhe) => ({
     ano: detalhe.ano.toString(),
     orcamento: detalhe.orcamento.submetido,
-    alocacoes: detalhe.alocacoes,
+    totalAlocacao: detalhe.totalAlocacao,
     valorFinanciado: detalhe.valorFinanciado,
   }));
 
-  const dadosGraficoReal = detalhesAnuais.map((detalhe: DetalheAnualMapped) => ({
+  const dadosGraficoReal = detalhesAnuais.map((detalhe) => ({
     ano: detalhe.ano.toString(),
     recursos: detalhe.orcamento.real.recursos,
     materiais: detalhe.orcamento.real.materiais,
-    total: detalhe.orcamento.real.total,
+    total: detalhe.orcamento.real.recursos + detalhe.orcamento.real.materiais,
     overhead: detalhe.overhead,
   }));
-  // --- End Chart Data Preparation ---
 
   // Progress calculation based on filtered data - using custosConcluidos instead of custosReais
-  // Modificando para usar os custos reais como base para 100% da barra de progresso
   const baseOrcamento = displayData.custosReais.total ?? 0;
   const progressoOrcamento =
     baseOrcamento > 0
@@ -369,12 +243,17 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
       : 0;
 
   // Overall total ETIs (unfiltered)
-  const totalEtis = (detalhesAnuais as DetalheAnualMapped[]).reduce(
-    (acc: number, item: DetalheAnualMapped) => acc + (item.alocacoes ?? 0),
+  const totalEtis = detalhesAnuais.reduce(
+    (acc, item) => acc + (item.totalAlocacao ?? 0),
     0
   );
 
-  // --- Component Return ---
+  // Função para atualizar os dados utilizando o TanStack Query invalidation
+  const handleRefreshData = () => {
+    utils.financas.getTotaisFinanceiros.invalidate({ projetoId });
+    utils.financas.getComparacaoGastos.invalidate({ projetoId });
+  };
+
   return (
     <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
@@ -408,6 +287,7 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
             comparacaoGastos={comparacaoGastos}
             isLoadingComparacao={isLoadingComparacao}
             errorComparacao={errorComparacao}
+            onRefreshData={handleRefreshData}
           />
         </TabsContent>
 

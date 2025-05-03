@@ -9,7 +9,6 @@ import {
   Home,
   FolderKanban,
   Users,
-  Bell,
   User,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +18,7 @@ import {
   Euro,
   MessageSquare,
 } from "lucide-react";
+import { NotificacoesSino } from "@/components/common/NotificacoesSino";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,7 +40,6 @@ const menuItems: MenuItem[] = [
   { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
   { icon: Euro, label: "Atividade Económica", href: "/atividade-economica", requiredPermission: "ADMIN" },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
-  { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: "ADMIN" },
   { icon: MessageSquare, label: "Erros & Feedback", href: "/feedback", requiredPermission: null },
 ];
 

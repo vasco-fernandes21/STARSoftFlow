@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { DatePicker } from "@/components/ui/date-picker";
-import { X, Save, Calendar } from "lucide-react";
+import { X, Save } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { toast } from "sonner";
 import type { TarefaWithRelations } from "../../../../types";
+import { TextField, TextareaField, DateField } from "@/components/projetos/criar/components/FormFields";
 
 interface TarefaFormProps {
   workpackageId: string;
@@ -71,79 +68,62 @@ export function TarefaForm({
   return (
     <div className="rounded-lg border border-azul/10 bg-white/70 p-4 backdrop-blur-sm">
       <div className="grid gap-2.5">
-        <div>
-          <Label htmlFor="nome-tarefa" className="text-xs text-azul/80">
-            Nome da Tarefa
-          </Label>
-          <Input
-            id="nome-tarefa"
-            placeholder="Ex: Desenvolvimento do Frontend"
-            value={formData.nome}
-            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-            className="mt-1 h-8 text-sm"
-          />
-        </div>
+        <TextField
+          label="Nome da Tarefa"
+          value={formData.nome}
+          onChange={(value) => setFormData({ ...formData, nome: value })}
+          placeholder="Ex: Desenvolvimento do Frontend"
+          required
+          id="nome-tarefa"
+        />
 
-        <div>
-          <Label htmlFor="descricao-tarefa" className="text-xs text-azul/80">
-            Descrição
-          </Label>
-          <Textarea
-            id="descricao-tarefa"
-            placeholder="Descreva a tarefa..."
-            value={formData.descricao || ""}
-            onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-            className="mt-1 min-h-[50px] text-sm"
-          />
-        </div>
+        <TextareaField
+          label="Descrição"
+          value={formData.descricao}
+          onChange={(value) => setFormData({ ...formData, descricao: value })}
+          placeholder="Descreva a tarefa..."
+          id="descricao-tarefa"
+          rows={3}
+        />
 
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <div className="mb-1 flex items-center gap-1.5">
-              <Calendar className="h-3 w-3 text-azul/60" />
-              <Label htmlFor="data-inicio" className="text-xs text-azul/80">
-                Data de Início
-              </Label>
-            </div>
-            <DatePicker
-              value={formData.inicio}
-              onChange={(date) => {
-                if (date) {
-                  // Adjust fim if it's before the new inicio
-                  if (formData.fim && date > formData.fim) {
-                    setFormData({ ...formData, inicio: date, fim: date });
-                  } else {
-                    setFormData({ ...formData, inicio: date });
-                  }
+          <DateField
+            label="Data de Início"
+            value={formData.inicio}
+            onChange={(date) => {
+              if (date) {
+                // Adjust fim if it's before the new inicio
+                if (formData.fim && date > formData.fim) {
+                  setFormData({ ...formData, inicio: date, fim: date });
+                } else {
+                  setFormData({ ...formData, inicio: date });
                 }
-              }}
-              minDate={workpackageInicio}
-              maxDate={workpackageFim}
-            />
-          </div>
-          <div>
-            <div className="mb-1 flex items-center gap-1.5">
-              <Calendar className="h-3 w-3 text-azul/60" />
-              <Label htmlFor="data-fim" className="text-xs text-azul/80">
-                Data de Fim
-              </Label>
-            </div>
-            <DatePicker
-              value={formData.fim}
-              onChange={(date) => {
-                if (date) {
-                  // Adjust inicio if it's after the new fim
-                  if (formData.inicio && date < formData.inicio) {
-                    setFormData({ ...formData, inicio: date, fim: date });
-                  } else {
-                    setFormData({ ...formData, fim: date });
-                  }
+              }
+            }}
+            minDate={workpackageInicio}
+            maxDate={workpackageFim}
+            required
+            id="data-inicio"
+          />
+
+          <DateField
+            label="Data de Fim"
+            value={formData.fim}
+            onChange={(date) => {
+              if (date) {
+                // Adjust inicio if it's after the new fim
+                if (formData.inicio && date < formData.inicio) {
+                  setFormData({ ...formData, inicio: date, fim: date });
+                } else {
+                  setFormData({ ...formData, fim: date });
                 }
-              }}
-              minDate={formData.inicio || workpackageInicio}
-              maxDate={workpackageFim}
-            />
-          </div>
+              }
+            }}
+            minDate={formData.inicio || workpackageInicio}
+            maxDate={workpackageFim}
+            required
+            id="data-fim"
+          />
         </div>
 
         <div className="mt-1.5 flex justify-end gap-2">

@@ -120,6 +120,7 @@ model User {
   projetoRascunhos     Rascunho[]
   sessions             Session[]
   feedbacks            Feedback[]
+  notificacoes         Notificacao[]                  @relation("UserNotificacoes")
 
   @@map("users")
 }
@@ -250,6 +251,25 @@ model Feedback {
   @@map("feedbacks")
 }
 
+model Notificacao {
+  id            String             @id @default(uuid())
+  titulo        String
+  descricao     String
+  entidade      EntidadeNotificacao
+  entidadeId    String
+  urgencia      UrgenciaNotificacao
+  estado        EstadoNotificacao  @default(NAO_LIDA)
+  dataEmissao   DateTime           @default(now())
+  destinatario  User               @relation("UserNotificacoes", fields: [destinatarioId], references: [id], onDelete: Cascade)
+  destinatarioId String
+
+  @@index([destinatarioId])
+  @@index([estado])
+  @@index([urgencia])
+  @@index([entidade])
+  @@index([dataEmissao])
+}
+
 enum ProjetoEstado {
   RASCUNHO
   PENDENTE
@@ -288,4 +308,25 @@ enum ProjetoTipo {
 enum FeedbackEstado {
   PENDENTE
   RESOLVIDO
+}
+
+enum EntidadeNotificacao {
+  PROJETO
+  WORKPACKAGE
+  ENTREGAVEL
+  TAREFA
+  ALOCACAO
+  SISTEMA
+}
+
+enum UrgenciaNotificacao {
+  ALTA
+  MEDIA
+  BAIXA
+}
+
+enum EstadoNotificacao {
+  NAO_LIDA
+  LIDA
+  ARQUIVADA
 }

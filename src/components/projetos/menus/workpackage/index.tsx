@@ -14,6 +14,17 @@ import { Decimal } from "decimal.js";
 import { useMutations } from "@/hooks/useMutations";
 import { toast } from "sonner";
 import type { Prisma } from "@prisma/client";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 interface MenuWorkpackageProps {
   workpackageId: string;
@@ -112,6 +123,7 @@ export function MenuWorkpackage({
   projeto,
 }: MenuWorkpackageProps) {
   const [addingTarefa, setAddingTarefa] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
 
   // Usar mutations com o projetoId
   const mutations = useMutations(projetoId);
@@ -309,25 +321,47 @@ export function MenuWorkpackage({
                   <h1 className="text-xl font-bold text-gray-900">{fullWorkpackage.nome}</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    className="h-9 w-9 rounded-full transition-colors hover:bg-red-100"
-                    onClick={async () => {
-                      if (confirm('Tem a certeza que deseja apagar este workpackage? Esta ação não pode ser desfeita.')) {
-                        try {
-                          await deleteWorkpackage.mutateAsync(fullWorkpackage.id);
-                          toast.success('Workpackage apagado com sucesso!');
-                          utils.projeto.findById.invalidate();
-                          onClose();
-                        } catch (error: any) {
-                          toast.error(error?.message || 'Erro ao apagar workpackage');
-                        }
-                      }
-                    }}
-                    title="Apagar Workpackage"
-                  >
-                    <Trash className="h-5 w-5 text-red-500" />
-                  </Button>
+                  <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="h-9 w-9 rounded-full transition-colors hover:bg-red-100"
+                        title="Apagar Workpackage"
+                      >
+                        <Trash className="h-5 w-5 text-red-500" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Apagar Workpackage</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação não pode ser desfeita. Tem a certeza que deseja apagar este workpackage?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={async () => {
+                            try {
+                              await deleteWorkpackage.mutateAsync(fullWorkpackage.id);
+                              toast.success('Workpackage apagado com sucesso!');
+                              utils.projeto.findById.invalidate();
+                              utils.financas.getTotaisFinanceiros.invalidate();
+                              utils.financas.getComparacaoGastos.invalidate();
+                              onClose();
+                            } catch (error: any) {
+                              toast.error(error?.message || 'Erro ao apagar workpackage');
+                            } finally {
+                              setOpenDeleteDialog(false);
+                            }
+                          }}
+                        >
+                          Apagar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                   <Button
                     variant="ghost"
                     size="icon"

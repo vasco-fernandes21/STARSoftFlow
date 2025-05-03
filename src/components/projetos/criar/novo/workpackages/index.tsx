@@ -1,6 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-// Remove WorkpackageWithRelations import if no longer needed elsewhere
-// import type { WorkpackageWithRelations } from "../../../types";
 import {
   Briefcase,
   Plus,
@@ -16,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkpackageForm } from "./workpackage/form";
 import { TarefaForm } from "./tarefas/form";
+import { Form as MaterialForm } from "./material/form";
 // Import *exported* state types from context
 import type { WorkpackageState, TarefaState, MaterialState } from "../../ProjetoFormContext";
 // Remove unused Prisma import
@@ -36,8 +35,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 
@@ -50,6 +47,8 @@ import { pt } from 'date-fns/locale';
 
 // Importar tipo WorkpackageHandlers de onde for necessário (now uses 'any')
 import type { WorkpackageHandlers } from "@/app/projetos/criar/page";
+import type { Rubrica } from "@prisma/client";
+import { Decimal } from "decimal.js";
 
 interface WorkpackagesTabProps {
   // Use WorkpackageState from context
@@ -61,6 +60,16 @@ interface WorkpackagesTabProps {
   // Update project dates to allow null
   projetoInicio: Date | null;
   projetoFim: Date | null;
+}
+
+interface MaterialData {
+  nome: string;
+  descricao: string | null;
+  preco: number;
+  quantidade: number;
+  ano_utilizacao: number;
+  mes: number;
+  rubrica: Rubrica;
 }
 
 export function WorkpackagesTab({
@@ -79,6 +88,7 @@ export function WorkpackagesTab({
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddingTarefa, setIsAddingTarefa] = useState(false);
+  const [isAddingMaterial, setIsAddingMaterial] = useState(false);
 
   // Verificar se há workpackages
   const hasWorkpackages = workpackages && workpackages.length > 0;
@@ -255,14 +265,13 @@ export function WorkpackagesTab({
     handlers.removeEntregavel(workpackageId, tarefaId, entregavelId);
   };
 
-  const handleAddMaterialLocal = (workpackageId: string, materialData: any) => {
+  const handleAddMaterialLocal = (workpackageId: string, materialData: MaterialData) => {
     // Process material data to match expected format
-    const processedData = {
+    const processedData: MaterialState = {
       ...materialData,
-      descricao: materialData.descricao === undefined ? null : materialData.descricao,
-      preco: materialData.preco, // Let the handler handle Decimal conversion
-      quantidade: Number(materialData.quantidade || 1),
-      ano_utilizacao: Number(materialData.ano_utilizacao || new Date().getFullYear()),
+      id: 0, // ID temporário, será substituído pelo backend
+      estado: false, // Estado inicial para novo material
+      preco: new Decimal(materialData.preco), // Converter number para Decimal
     };
     handlers.addMaterial(workpackageId, processedData);
   };
@@ -630,17 +639,7 @@ export function WorkpackagesTab({
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() =>
-                                  handleAddMaterialLocal(selectedWorkpackage.id, {
-                                    nome: "Novo Material",
-                                    descricao: "",
-                                    estado: false,
-                                    preco: 0,
-                                    quantidade: 1,
-                                    ano_utilizacao: new Date().getFullYear(),
-                                    rubrica: "MATERIAIS",
-                                  })
-                                }
+                                onClick={() => setIsAddingMaterial(true)}
                                 className="h-8 border-azul/20 text-azul hover:bg-azul/5"
                               >
                                 <Plus className="mr-2 h-4 w-4" />
@@ -736,13 +735,7 @@ export function WorkpackagesTab({
 
       {/* Dialog para adicionar tarefa */}
       <Dialog open={isAddingTarefa} onOpenChange={setIsAddingTarefa}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Nova Tarefa</DialogTitle>
-            <DialogDescription>
-              Adicione uma nova tarefa ao workpackage {selectedWorkpackage?.nome}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl p-0">
           {selectedWorkpackage && (
             <TarefaForm
               workpackageId={selectedWorkpackage.id}
@@ -753,6 +746,26 @@ export function WorkpackagesTab({
                 setIsAddingTarefa(false);
               }}
               onCancel={() => setIsAddingTarefa(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para adicionar material */}
+      <Dialog open={isAddingMaterial} onOpenChange={setIsAddingMaterial}>
+        <DialogContent className="max-w-3xl p-0 [&>button]:hidden">
+          {selectedWorkpackage && (
+            <MaterialForm
+              workpackageId={selectedWorkpackage.id}
+              workpackageDates={{
+                inicio: selectedWorkpackage.inicio,
+                fim: selectedWorkpackage.fim,
+              }}
+              onSubmit={(workpackageId: string, material: MaterialData) => {
+                handleAddMaterialLocal(workpackageId, material);
+                setIsAddingMaterial(false);
+              }}
+              onCancel={() => setIsAddingMaterial(false)}
             />
           )}
         </DialogContent>

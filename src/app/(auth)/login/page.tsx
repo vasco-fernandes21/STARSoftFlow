@@ -63,17 +63,37 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen w-full">
-      {/* Lado esquerdo - Animação e imagem */}
-      <div className="relative hidden bg-azul/20 lg:flex lg:w-1/2">
-        {/* Fundo gradiente com desfoque */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(120deg, rgba(255,255,255,0.9) 0%, rgba(59,130,246,0.5) 100%)",
-            backdropFilter: "blur(16px)",
-          }}
-        />
+      {/* Lado esquerdo - Design mais profissional */}
+      <div className="relative hidden lg:flex lg:w-1/2">
+        {/* Fundo gradiente com padrão geométrico e desfoque */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Padrão geométrico */}
+          <div className="absolute inset-0 opacity-10">
+            <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" className="text-azul" />
+            </svg>
+          </div>
+          
+          {/* Círculos decorativos */}
+          <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-azul opacity-10"></div>
+          <div className="absolute -right-20 -bottom-20 h-80 w-80 rounded-full bg-azul opacity-10"></div>
+          
+          {/* Gradiente principal */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(59,130,246,0.7) 100%)",
+              backdropFilter: "blur(24px)",
+            }}
+          />
+        </div>
+        
+        {/* Conteúdo */}
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -81,36 +101,67 @@ export default function LoginPage() {
             transition={{ delay: 0.2, duration: 0.8 }}
             className="w-full max-w-md"
           >
-            <Image
-              src="/star-institute-logo.png"
-              alt="STAR Institute"
-              width={280}
-              height={80}
-              priority
-              unoptimized={true}
-              className="mb-12 drop-shadow-lg"
-              onError={(e) => {
-                console.error("Error loading logo:", e);
-                e.currentTarget.src = "/favicon.ico";
-              }}
-            />
+            <div className="mb-16 flex items-center">
+              <Image
+                src="/star-institute-logo.png"
+                alt="STAR Institute"
+                width={220}
+                height={60}
+                priority
+                unoptimized={true}
+                className="drop-shadow-sm"
+                onError={(e) => {
+                  console.error("Error loading logo:", e);
+                  e.currentTarget.src = "/favicon.ico";
+                }}
+              />
+            </div>
+            
             <motion.h1
-              className="mb-6 text-4xl font-bold text-azul"
+              className="mb-6 text-4xl font-bold tracking-tight text-gray-800"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.8 }}
             >
-              STARSoftFlow
+            <span className="text-azul">STARSoftFlow</span>
             </motion.h1>
+            
             <motion.p
-              className="text-lg text-azul/80"
+              className="mb-8 text-lg leading-relaxed text-gray-600"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
             >
-              Acompanhe em tempo real o progresso, simplifique a alocação de recursos e maximize a
-              sua eficiência.
+              Plataforma de gestão de projetos profissional para acompanhamento em tempo real, 
+              alocação eficiente de recursos e maximização da produtividade.
             </motion.p>
+            
+            <motion.div
+              className="grid grid-cols-2 gap-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.8 }}
+            >
+              <div className="rounded-lg bg-white/50 p-4 shadow-sm backdrop-blur-sm">
+                <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-azul/10">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-azul" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-medium text-gray-700">Gestão Integrada</h3>
+                <p className="mt-1 text-xs text-gray-500">Ferramentas completas para gestão de projetos</p>
+              </div>
+              
+              <div className="rounded-lg bg-white/50 p-4 shadow-sm backdrop-blur-sm">
+                <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-azul/10">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-azul" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-medium text-gray-700">Análise de Dados</h3>
+                <p className="mt-1 text-xs text-gray-500">Métricas e relatórios em tempo real</p>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </div>

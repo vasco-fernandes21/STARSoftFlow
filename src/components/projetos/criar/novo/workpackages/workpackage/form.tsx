@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Briefcase, X, Save } from "lucide-react";
 import { type Prisma } from "@prisma/client";
-import { Briefcase, Calendar, X, Save } from "lucide-react";
 import { toast } from "sonner";
+import { TextField, TextareaField, DateField } from "@/components/projetos/criar/components/FormFields";
 
 type WorkpackageFormProps = {
   onSubmit: (workpackage: Omit<Prisma.WorkpackageCreateInput, "projeto">) => void;
@@ -55,61 +52,44 @@ export function WorkpackageForm({
         <h2 className="text-lg font-semibold text-azul/80">Detalhes do Workpackage</h2>
       </div>
       <div className="grid gap-4">
-        <div>
-          <Label htmlFor="nome-wp" className="text-azul/80">
-            Nome do Workpackage
-          </Label>
-          <Input
-            id="nome-wp"
-            placeholder="Ex: Desenvolvimento de Software"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            className="mt-1.5"
-          />
-        </div>
+        <TextField
+          label="Nome do Workpackage"
+          value={nome}
+          onChange={setNome}
+          placeholder="Ex: Desenvolvimento de Software"
+          required
+          id="nome-wp"
+        />
 
-        <div>
-          <Label htmlFor="descricao-wp" className="text-azul/80">
-            Descrição
-          </Label>
-          <Textarea
-            id="descricao-wp"
-            placeholder="Descreva o workpackage e seus objetivos..."
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            className="mt-1.5"
-          />
-        </div>
+        <TextareaField
+          label="Descrição"
+          value={descricao}
+          onChange={setDescricao}
+          placeholder="Descreva o workpackage e seus objetivos..."
+          id="descricao-wp"
+          rows={4}
+        />
 
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="mb-1.5 flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-azul/60" />
-              <Label htmlFor="data-inicio-wp" className="text-azul/80">
-                Data de Início
-              </Label>
-            </div>
-            <DatePicker
-              value={inicio}
-              onChange={(date) => date && setInicio(date)}
-              minDate={projetoInicio}
-              maxDate={projetoFim}
-            />
-          </div>
-          <div>
-            <div className="mb-1.5 flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-azul/60" />
-              <Label htmlFor="data-fim-wp" className="text-azul/80">
-                Data de Conclusão
-              </Label>
-            </div>
-            <DatePicker
-              value={fim}
-              onChange={(date) => date && setFim(date)}
-              minDate={inicio}
-              maxDate={projetoFim}
-            />
-          </div>
+          <DateField
+            label="Data de Início"
+            value={inicio}
+            onChange={(date) => date && setInicio(date)}
+            minDate={projetoInicio}
+            maxDate={projetoFim}
+            required
+            id="data-inicio-wp"
+          />
+
+          <DateField
+            label="Data de Conclusão"
+            value={fim}
+            onChange={(date) => date && setFim(date)}
+            minDate={inicio}
+            maxDate={projetoFim}
+            required
+            id="data-fim-wp"
+          />
         </div>
 
         <div className="mt-2 flex justify-end gap-2">

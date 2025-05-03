@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
-import { loggerLink, unstable_httpBatchStreamLink } from "@trpc/client";
+import { httpBatchLink, loggerLink, splitLink, httpSubscriptionLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
@@ -13,36 +13,65 @@ import superjson from "superjson";
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {
   if (typeof window === "undefined") {
-    // Server: Always create a new QueryClient
+    // Server: always make a new query client
     return createQueryClient();
   }
-  // Browser: Create a QueryClient singleton
-  return (clientQueryClientSingleton ??= createQueryClient());
+  // Browser: use singleton
+  if (!clientQueryClientSingleton) {
+    clientQueryClientSingleton = createQueryClient();
+  }
+  return clientQueryClientSingleton;
 };
+
+function getBaseUrl() {
+  if (typeof window !== "undefined") {
+    // browser should use relative path
+    return "";
+  }
+
+  if (process.env.VERCEL_URL) {
+    // reference for vercel.com
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // assume localhost
+  return `http://localhost:${process.env.PORT ?? 3000}`;
+}
 
 export const api = createTRPCReact<AppRouter>();
 
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
-  const [queryClient] = useState(getQueryClient);
+  const queryClient = getQueryClient();
+  const baseUrl = getBaseUrl();
+
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
         loggerLink({
-          enabled: (op) =>
+          enabled: (opts) =>
             process.env.NODE_ENV === "development" ||
-            (op.direction === "down" && op.result instanceof Error),
+            (opts.direction === "down" && opts.result instanceof Error),
         }),
-        unstable_httpBatchStreamLink({
-          url: getBaseUrl() + "/api/trpc",
-          headers: () => {
-            const headers = new Headers();
-            headers.set("x-trpc-source", "nextjs-react");
-            return headers;
+        splitLink({
+          condition(op) {
+            return op.type === "subscription";
           },
-          transformer: superjson,
+          true: httpSubscriptionLink({
+            url: `${baseUrl}/api/trpc`,
+            transformer: superjson,
+          }),
+          false: httpBatchLink({
+            url: `${baseUrl}/api/trpc`,
+            transformer: superjson,
+            headers() {
+              const headers = new Headers();
+              headers.set("x-trpc-source", "nextjs-react");
+              return headers;
+            },
+          }),
         }),
       ],
-    })
+    }),
   );
 
   return (
@@ -54,22 +83,5 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
   );
 }
 
-function getBaseUrl() {
-  if (typeof window !== "undefined") return window.location.origin;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return `http://localhost:${process.env.PORT ?? 3000}`;
-}
-
-/**
- * Inference helper for inputs.
- *
- * @example type HelloInput = RouterInputs['example']['hello']
- */
 export type RouterInputs = inferRouterInputs<AppRouter>;
-
-/**
- * Inference helper for outputs.
- *
- * @example type HelloOutput = RouterOutputs['example']['hello']
- */
 export type RouterOutputs = inferRouterOutputs<AppRouter>;

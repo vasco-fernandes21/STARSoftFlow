@@ -312,6 +312,15 @@ function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackages: Wor
   let wpAtual: WorkpackageSimples | null = null;
   let currentWPIndices = {idxCodigoWP: -1, idxNomeWP: -1, idxNomeRecurso: -1};
 
+  // Função de similaridade (pode ser movida para fora se usada em mais locais)
+  function similarity(a: string, b: string) {
+    const aWords = a.toLowerCase().split(/\s+/).filter(Boolean);
+    const bWords = b.toLowerCase().split(/\s+/).filter(Boolean);
+    if (aWords.length === 0 || bWords.length === 0) return 0;
+    const common = aWords.filter(word => bWords.includes(word)).length;
+    return common / Math.max(aWords.length, bWords.length);
+  }
+
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length < 3) continue;
@@ -343,39 +352,43 @@ function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackages: Wor
       continue;
     }
 
-    // Encontrar o utilizador correspondente (fuzzy matching)
-    const nomeRecursoLower = nomeRecurso.toLowerCase().trim();
-    // Função de similaridade simples baseada em número de palavras iguais (pode ser melhorada)
-    function similarity(a: string, b: string) {
-      const aWords = a.split(/\s+/).filter(Boolean);
-      const bWords = b.split(/\s+/).filter(Boolean);
-      const common = aWords.filter(word => bWords.includes(word)).length;
-      return common / Math.max(aWords.length, bWords.length);
-    }
-    let bestMatch: any = null;
-    let bestScore = 0.0;
-    for (const u of utilizadores) {
-      const dbName = u.name?.trim().toLowerCase();
-      if (!dbName) continue;
-      const score = similarity(nomeRecursoLower, dbName);
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = u;
-      }
-    }
     let userId: string | null = null;
-    // Considera match se pelo menos 60% das palavras coincidirem
-    if (bestScore >= 0.6) {
-      userId = bestMatch.id;
-    } else {
-      // fallback: tentar includes (como antes)
-      const potentialMatches = utilizadores.filter(u => {
-        const dbNameTrimmedLower = u.name?.trim().toLowerCase();
-        return dbNameTrimmedLower?.includes(nomeRecursoLower);
-      });
-      if (potentialMatches.length === 1) {
-        userId = potentialMatches[0]?.id || null;
+    const nomeRecursoLower = nomeRecurso.toLowerCase().trim();
+    
+    // Verificar se o nome corresponde ao padrão "Contratado X"
+    const isContratadoGenerico = /^contratado\s+\d+$/i.test(nomeRecursoLower);
+
+    if (!isContratadoGenerico) {
+      // Se NÃO for um contratado genérico, tentar encontrar correspondência
+      let bestMatch: any = null;
+      let bestScore = 0.0;
+      for (const u of utilizadores) {
+        const dbName = u.name?.trim().toLowerCase();
+        if (!dbName) continue;
+        const score = similarity(nomeRecursoLower, dbName);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = u;
+        }
       }
+      
+      // Considera match se pelo menos 60% das palavras coincidirem
+      if (bestScore >= 0.6) {
+        userId = bestMatch.id;
+      } else {
+        // fallback: tentar includes (como antes), mas talvez mais restritivo?
+        const potentialMatches = utilizadores.filter(u => {
+          const dbNameTrimmedLower = u.name?.trim().toLowerCase();
+          // Apenas faz match se o nome da DB incluir exatamente o nome lido (evita matches parciais indesejados)
+          return dbNameTrimmedLower?.includes(nomeRecursoLower) || nomeRecursoLower.includes(dbNameTrimmedLower ?? ""); 
+        });
+        if (potentialMatches.length === 1) {
+          userId = potentialMatches[0]?.id || null;
+        }
+      }
+    } else {
+       console.log(`[extrairDadosRH] Recurso '${nomeRecurso}' identificado como contratado genérico. Não será associado automaticamente.`);
+       // Se for "Contratado X", userId permanece null, forçando a criação.
     }
 
     // Tentar encontrar o salário usando diferentes variações do nome
@@ -398,7 +411,7 @@ function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackages: Wor
 
     const recurso: Recurso = { 
       nome: nomeRecurso, 
-      userId, 
+      userId, // userId será null se for contratado genérico ou se não houver match
       alocacoes: [],
       salario: salarioEncontrado
     };
@@ -507,9 +520,9 @@ export default function ImportarProjetoButton() {
   
   const [estadoImportacao, setEstadoImportacao] = useState<EstadoImportacao | null>(null);
   const [processamentoPendente, setProcessamentoPendente] = useState(false);
+  const [mapaContratadosCriados, setMapaContratadosCriados] = useState<Map<string, string>>(new Map());
 
   const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
-  const { data: utilizadoresData } = api.utilizador.findAll.useQuery();
   const utils = api.useUtils();
 
   // Função para processar a importação final
@@ -680,13 +693,14 @@ export default function ImportarProjetoButton() {
     setRecursosNaoAssociados([]);
     setEstadoImportacao(null);
     setProcessamentoPendente(false);
+    setMapaContratadosCriados(new Map());
 
     try {
-      const dadosUtilizadores = utilizadoresData;
-      console.log("[Importação] Usando dados dos utilizadores em cache:", dadosUtilizadores);
+      const dadosUtilizadores = await utils.utilizador.findAll.fetch();
+      console.log("[Importação] Usando dados dos utilizadores:", dadosUtilizadores);
       
       const utilizadores = extrairUtilizadores(dadosUtilizadores);
-      console.log("[Importação] Utilizadores extraídos (cache inicial):", utilizadores.length);
+      console.log("[Importação] Utilizadores extraídos (fetch inicial):", utilizadores.length);
 
       if (!utilizadores) {
         toast.error("Não foi possível obter a lista de utilizadores inicial.");
@@ -769,7 +783,7 @@ export default function ImportarProjetoButton() {
             }
 
             if (wps.length > 0 && materiais.length > 0) {
-               estadoAtual.workpackages = atribuirMateriaisAosWorkpackages(estadoAtual.workpackages, materiais);
+               estadoAtual.workpackages = atribuirMateriaisAosWorkpackages(estadoAtual.workpackages, estadoAtual.materiais);
             }
             
             setEstadoImportacao(estadoAtual);
@@ -778,10 +792,8 @@ export default function ImportarProjetoButton() {
               console.log("[Importação] Iniciando processo de contratação para:", recursosUnicos[0]);
               setRecursosNaoAssociados(recursosUnicos);
               
-              // Fechar o modal de upload primeiro
               setOpen(false);
               
-              // Aguardar o modal fechar completamente antes de mostrar o form de contratação
               setTimeout(() => {
                 if (recursosUnicos[0]) {
                   setNovoContratadoData(recursosUnicos[0]);
@@ -824,6 +836,9 @@ export default function ImportarProjetoButton() {
           if (fileInputRef.current) {
             fileInputRef.current.value = "";
           }
+          if (!processamentoPendente && recursosNaoAssociados.length === 0) {
+             //setIsLoading(false); // Só desliga se não for contratar nem processar imediatamente
+          }
         }
       };
 
@@ -839,64 +854,60 @@ export default function ImportarProjetoButton() {
       toast.error("Ocorreu um erro durante a importação");
       setIsLoading(false);
     }
-  }, [dispatch, utilizadoresData, utils]);
+  }, [dispatch, utils]);
 
   const handleContratadoCriado = useCallback(async (novoUserId: string) => {
-    console.log("[Importação] Contratado criado callback com ID:", novoUserId);
+    if (!novoContratadoData) {
+      console.error("[Contratado Criado] Faltam dados do contratado que acabou de ser criado.");
+      toast.error("Erro interno ao associar contratado.");
+      setShowContratadoForm(false);
+      setIsLoading(false);
+      return;
+    }
+    
+    console.log(`[Contratado Criado] Callback com ID: ${novoUserId} para nome original: ${novoContratadoData.nome}`);
+    
+    const nomeOriginal = novoContratadoData.nome;
+    setMapaContratadosCriados(prevMap => new Map(prevMap).set(nomeOriginal, novoUserId));
     
     const recursosRestantes = recursosNaoAssociados.slice(1);
     setRecursosNaoAssociados(recursosRestantes);
-    console.log("[Importação] Recursos restantes para processar:", recursosRestantes.length);
+    console.log("[Contratado Criado] Recursos restantes para processar:", recursosRestantes.length);
 
     if (recursosRestantes.length > 0 && recursosRestantes[0]) {
       setNovoContratadoData(recursosRestantes[0]);
+      setShouldRenderContratadoForm(true);
       setShowContratadoForm(true);
     } else {
-      console.log("[Importação] Todos os contratados foram processados. Atualizando associações...");
+      console.log("[Contratado Criado] Todos os contratados foram processados. Atualizando associações finais...");
       setShowContratadoForm(false);
       
-      await utils.utilizador.findAll.invalidate();
-      const dadosUtilizadoresFinais = await utils.utilizador.findAll.fetch();
-      const utilizadoresFinais = extrairUtilizadores(dadosUtilizadoresFinais);
-      
-      if (!utilizadoresFinais || utilizadoresFinais.length === 0) {
-          console.error("[Importação] Falha ao buscar utilizadores finais após contratações.");
-          toast.error("Erro ao atualizar lista de utilizadores após contratações.");
-          setIsLoading(false);
-          return;
-      }
-      
       if (!estadoImportacao) {
-        console.error("[Importação] Estado de importação não encontrado após contratações.");
+        console.error("[Contratado Criado] Estado de importação não encontrado após contratações.");
         toast.error("Erro interno: estado de importação perdido.");
         setIsLoading(false);
         return;
       }
 
-      console.log("[Importação] Utilizadores FINAIS encontrados:", utilizadoresFinais.length);
+      const mapaFinal = new Map(mapaContratadosCriados);
+      mapaFinal.set(nomeOriginal, novoUserId);
+
+      console.log("[Contratado Criado] Mapa final de associações:", mapaFinal);
 
       const workpackagesAtualizados = estadoImportacao.workpackages.map(wp => ({
         ...wp,
         recursos: wp.recursos.map(recurso => {
           if (recurso.userId) return recurso; 
 
-          const utilizadorEncontrado = utilizadoresFinais.find(u => {
-            const nomeUtilizador = u.name?.toLowerCase().trim() || "";
-            const nomeRecurso = recurso.nome.toLowerCase().trim();
-            return nomeUtilizador === nomeRecurso || 
-                   nomeUtilizador.includes(nomeRecurso) || 
-                   nomeRecurso.includes(nomeUtilizador) ||
-                   similarity(nomeUtilizador, nomeRecurso) > 0.6;
-          });
-
-          if (utilizadorEncontrado) {
-            console.log(`[Importação Final Assoc] Recurso ${recurso.nome} associado a ${utilizadorEncontrado.name} (ID: ${utilizadorEncontrado.id})`);
+          const novoIdMapeado = mapaFinal.get(recurso.nome);
+          if (novoIdMapeado) {
+            console.log(`[Associação Final] Recurso ${recurso.nome} associado ao novo ID: ${novoIdMapeado} do mapa.`);
             return {
               ...recurso,
-              userId: utilizadorEncontrado.id
+              userId: novoIdMapeado
             };
           } else {
-             console.warn(`[Importação Final Assoc] Recurso ${recurso.nome} NÃO encontrado na lista final.`);
+             console.warn(`[Associação Final] Recurso ${recurso.nome} não tinha ID e não foi encontrado no mapa de criados.`);
              return recurso;
           }
         })
@@ -904,17 +915,23 @@ export default function ImportarProjetoButton() {
 
       setEstadoImportacao(prev => {
         if (!prev) return null;
-        console.log("[Importação] Atualizando estado com WPs finais associados.");
+        console.log("[Contratado Criado] Atualizando estado com WPs finais associados usando o mapa.");
         return {
           ...prev,
           workpackages: workpackagesAtualizados as WorkpackageSimples[]
         };
       });
 
-      console.log("[Importação] Triggering processamento final via useEffect.");
-      setProcessamentoPendente(true); 
+      setMapaContratadosCriados(new Map());
+      console.log("[Contratado Criado] Triggering processamento final via useEffect.");
+      setProcessamentoPendente(true);
     }
-  }, [utils.utilizador.findAll, estadoImportacao, recursosNaoAssociados]);
+  }, [
+      estadoImportacao, 
+      recursosNaoAssociados, 
+      novoContratadoData, 
+      mapaContratadosCriados
+  ]);
 
   const handleFinanciamentoCriado = useCallback((financiamento: FinanciamentoAPI) => {
     dispatch({
@@ -1055,12 +1072,4 @@ export default function ImportarProjetoButton() {
       )}
     </>
   );
-}
-
-function similarity(a: string, b: string): number {
-  const aWords = a.toLowerCase().split(/\\s+/).filter(Boolean);
-  const bWords = b.toLowerCase().split(/\\s+/).filter(Boolean);
-  if (aWords.length === 0 || bWords.length === 0) return 0;
-  const common = aWords.filter(word => bWords.includes(word)).length;
-  return common / Math.max(aWords.length, bWords.length);
 }

@@ -19,8 +19,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { formatNumber, formatCurrency, formatPercentage } from "./utils";
 import type { DisplayData } from "../ProjetoFinancas";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@/server/api/root";
+import { api } from "@/trpc/react";
+import type { Rubrica } from "@prisma/client";
 import {
   Table,
   TableBody,
@@ -29,12 +29,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Rubrica } from "@prisma/client";
 import { DropdownField } from "@/components/projetos/criar/components/FormFields";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Inferir o tipo de output da nova query
-type ComparacaoGastosOutput = inferRouterOutputs<AppRouter>["financas"]["getComparacaoGastos"];
+// Removemos a definição de tipo manual e usamos inferência automática do tRPC
 
 // --- Tipos de Dados --- 
 type RubricaFinanceira = { rubrica: Rubrica; estimado: number; real: number };
@@ -98,10 +96,11 @@ export interface OverviewTabProps {
   baseOrcamento: number;
   selectedWorkpackageId: string | undefined;
   setSelectedWorkpackageId: (wpId: string | undefined) => void;
-  workpackagesList: ComparacaoGastosOutput["workpackages"];
-  comparacaoGastos: ComparacaoGastosOutput | undefined | null;
+  workpackagesList: any[]; // Usaremos inferência automática de tipos do tRPC
+  comparacaoGastos: any; // Usaremos inferência automática de tipos do tRPC
   isLoadingComparacao: boolean;
   errorComparacao: any;
+  onRefreshData?: () => void; // Função opcional de callback para atualizar dados
 }
 
 // Helper para formatar nome da Rubrica
@@ -123,7 +122,11 @@ export function OverviewTab({
   comparacaoGastos,
   isLoadingComparacao,
   errorComparacao,
+  onRefreshData,
 }: OverviewTabProps) {
+  // Acesso ao useUtils do tRPC para operações de cache
+  const utils = api.useUtils();
+  
   const handleWorkpackageChange = (value: string) => {
     setSelectedWorkpackageId(value === "todos" ? undefined : value);
   };
@@ -147,7 +150,7 @@ export function OverviewTab({
         } as FonteDadosComparacao;
     } else {
         // Encontrar o workpackage específico
-        const wpSelecionado = comparacaoGastos.workpackages.find(wp => wp.id === selectedWorkpackageId);
+        const wpSelecionado = comparacaoGastos.workpackages.find((wp: { id: string }) => wp.id === selectedWorkpackageId);
         if (!wpSelecionado) return null;
 
         // Mapear dados do WP para a estrutura FonteDadosComparacao
@@ -244,6 +247,17 @@ export function OverviewTab({
       ];
   }, [workpackagesList]);
 
+  // Função para forçar o refetch dos dados usando o utils do tRPC
+  const refreshData = () => {
+    // Usar o callback se disponível
+    if (onRefreshData) {
+      onRefreshData();
+    } else if (comparacaoGastos?.projetoId) {
+      // Fallback para invalidação direta
+      utils.financas.getComparacaoGastos.invalidate({ projetoId: comparacaoGastos.projetoId });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Year Filter */}
@@ -255,7 +269,6 @@ export function OverviewTab({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os Anos</SelectItem>
-            {/* Corrected map function */}
             {anosDisponiveis.map((ano: number) => (
               <SelectItem key={ano} value={ano.toString()}>
                 {ano}
@@ -265,34 +278,85 @@ export function OverviewTab({
         </Select>
       </div>
 
-      {/* Stat Cards Row 1 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-        <StatCard
-          title="Orçamento Submetido"
-          value={formatCurrency(displayData.orcamentoSubmetido)}
-          subtitle={`Taxa: ${formatPercentage(displayData.taxaFinanciamento)}`}
-          icon={<Wallet className="h-6 w-6 text-blue-600" />}
-          colorClass="bg-blue-50"
-          tooltipText="Valor total do orçamento planeado e submetido."
-        />
-        <StatCard
-          title="Orçamento Real"
-          value={formatCurrency(displayData.custosReais.total)}
-          subtitle={`Concluído: ${formatPercentage(progressoOrcamento)}`}
-          icon={<DollarSign className="h-6 w-6 text-blue-500" />}
-          colorClass="bg-blue-50"
-          tooltipText="Custos reais totais projetados (Recursos + Materiais). A percentagem 'Concluído' mostra quanto do orçamento já foi gasto."
-        />
-        <StatCard
-          title="Valor Financiado"
-          value={formatCurrency(displayData.valorFinanciado)}
-          subtitle={`Overhead: ${formatCurrency(displayData.overhead)}`}
-          icon={<ArrowUpDown className="h-6 w-6 text-green-600" />}
-          colorClass="bg-green-50"
-          tooltipText="Valor recebido do financiamento (Orçamento Submetido * Taxa Financiamento)."
-        />
+      {/* NOVA Seção - Cards de Orçamento e Financiamento */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2">
+        {/* Card Orçamento Submetido e Valor Financiado */}
+        <div className="flex items-center">
+          <Card className="h-full w-full border-none shadow-sm">
+            <CardContent className="flex h-full flex-col p-6">
+              <div className="grid grid-cols-2 gap-6">
+                {/* Lado Esquerdo - Orçamento Submetido */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-500">Orçamento Submetido</h3>
+                    <div className="rounded-full bg-blue-50 p-2">
+                      <Wallet className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold">{formatCurrency(displayData.orcamentoSubmetido)}</div>
+                  <p className="mt-1 text-xs text-gray-500">Taxa: {formatPercentage(displayData.taxaFinanciamento)}</p>
+                </div>
+                
+                {/* Lado Direito - Valor Financiado */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-500">Valor Financiado</h3>
+                    <div className="rounded-full bg-green-50 p-2">
+                      <ArrowUpDown className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-primary">{formatCurrency(displayData.valorFinanciado)}</div>
+                  <p className="mt-1 text-xs text-gray-500">{formatPercentage(displayData.taxaFinanciamento)} do submetido</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Card Orçamento Real e Valor Financiado */}
+        <div className="flex items-center">
+          <Card className="h-full w-full border-none shadow-sm">
+            <CardContent className="flex h-full flex-col p-6">
+              <div className="grid grid-cols-2 gap-6">
+                {/* Lado Esquerdo - Orçamento Real */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-500">Orçamento Real</h3>
+                    <div className="rounded-full bg-blue-50 p-2">
+                      <DollarSign className="h-5 w-5 text-blue-500" />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold">{formatCurrency(displayData.custosReais.total)}</div>
+                  <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+                    <p>Recursos: {formatCurrency(displayData.custosReais.recursos)}</p>
+                    <p>Materiais: {formatCurrency(displayData.custosReais.materiais)}</p>
+                  </div>
+                </div>
+                
+                {/* Lado Direito - Valor Financiado */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-500">Valor Financiado</h3>
+                    <div className="rounded-full bg-green-50 p-2">
+                      <ArrowUpDown className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-primary">
+                    {formatCurrency(
+                      displayData.custosReais.total && displayData.taxaFinanciamento
+                        ? displayData.custosReais.total * displayData.taxaFinanciamento
+                        : 0
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">{formatPercentage(displayData.taxaFinanciamento)} do real</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-      {/* Stat Cards Row 2 */}
+
+      {/* Stat Cards EXISTENTES (Segunda linha) - SEM ALTERAÇÕES */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         <StatCard
           title="Resultado Financeiro"

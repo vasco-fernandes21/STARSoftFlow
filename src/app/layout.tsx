@@ -5,6 +5,7 @@ import { type Metadata } from "next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { RootLayoutContent } from "@/layouts/root-layout-content";
 import { SessionProvider } from "next-auth/react";
+import { NotificacoesProvider } from "@/components/providers/NotificacoesProvider";
 
 // Initialize Inter font
 const inter = Inter({
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           refetchOnWindowFocus={true} // Refetch session when window is focused
         >
           <TRPCReactProvider>
-            <RootLayoutContent>{children}</RootLayoutContent>
+            <NotificacoesProvider>
+              <RootLayoutContent>{children}</RootLayoutContent>
+            </NotificacoesProvider>
             <Toaster />
           </TRPCReactProvider>
         </SessionProvider>

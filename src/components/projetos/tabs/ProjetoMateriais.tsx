@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import type { Rubrica } from "@prisma/client";
 import { useMutations } from "@/hooks/useMutations";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 interface ProjetoMateriaisProps {
   projetoId: string;
@@ -61,13 +62,6 @@ const RUBRICA_COLORS: Record<Rubrica, { bg: string; text: string; border: string
   SUBCONTRATOS: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
 };
 
-// Formatar valor monetário
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
-};
 
 // Função para obter o nome do mês
 function obterNomeMes(mes: number): string {

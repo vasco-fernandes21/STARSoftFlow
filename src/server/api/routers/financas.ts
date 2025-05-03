@@ -101,7 +101,7 @@ async function getOrcamentoSubmetido(
   // Tipo de retorno mais complexo para acomodar os cenários
   type ResultadoOrcamentoSubmetido = {
     orcamentoTotal: Decimal;
-    tipoCalculo: 'DB_PENDENTE' | 'ETI_SNAPSHOT' | 'DETALHADO_SNAPSHOT' | 'INVALIDO';
+    tipoCalculo: 'DB_PENDENTE' | 'ETI_SNAPSHOT' | 'DETALHADO_SNAPSHOT' | 'INVALIDO' | 'REAL_SEM_ETI';
     valorETI: Decimal | null; // Valor ETI usado no cálculo (se aplicável)
     totalAlocacao: Decimal | null; // Alocação total usada no cálculo (se aplicável)
     detalhes?: { // Apenas para DETALHADO_SNAPSHOT
@@ -149,6 +149,21 @@ async function getOrcamentoSubmetido(
   if (projeto.estado !== 'APROVADO' || !projeto.aprovado) {
     const valorETIAtual = projeto.valor_eti ?? new Decimal(0);
     
+    // --- NOVA LÓGICA: Se não tem valor ETI, orçamento submetido = orçamento real ---
+    if (valorETIAtual.isZero()) {
+      // buscar orçamento real
+      const orcamentoReal = await getOrcamentoReal(db, projetoId, filtros);
+      // comentário júnior: aqui devolvemos o orçamento real como submetido porque não há ETI
+      return {
+        orcamentoTotal: orcamentoReal.total,
+        tipoCalculo: 'REAL_SEM_ETI',
+        valorETI: null,
+        totalAlocacao: null,
+        detalhes: null,
+        detalhesPorAno: [], // podes adaptar se quiseres detalhes anuais
+      };
+    }
+
     // Calcula alocações TOTAIS atuais do DB
     const alocacoesDB = await db.alocacaoRecurso.findMany({
       where: {

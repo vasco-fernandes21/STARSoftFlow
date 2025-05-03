@@ -394,58 +394,45 @@ const ProjectTabs = memo(
     return (
       <Tabs value={separadorAtivo} onValueChange={onTabChange} className="flex flex-1 flex-col">
         <div className="w-full flex items-center justify-between">
-          <TabsList className="glass-bg inline-flex h-auto rounded-xl border border-white/30 p-1 shadow-md">
-            <TabsTrigger
-              value="cronograma"
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2",
-                separadorAtivo === "cronograma" ? "text-customBlue" : "text-gray-600"
-              )}
-            >
-              <CalendarClock className="h-4 w-4" />
-              <span>Cronograma</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="overview"
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2",
-                separadorAtivo === "overview" ? "text-customBlue" : "text-gray-600"
-              )}
-            >
-              <FileText className="h-4 w-4" />
-              <span>Visão Geral</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="resources"
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2",
-                separadorAtivo === "resources" ? "text-customBlue" : "text-gray-600"
-              )}
-            >
-              <Users className="h-4 w-4" />
-              <span>Recursos</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="materials"
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2",
-                separadorAtivo === "materials" ? "text-customBlue" : "text-gray-600"
-              )}
-            >
-              <Package className="h-4 w-4" />
-              <span>Materiais</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="finances"
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2",
-                separadorAtivo === "finances" ? "text-customBlue" : "text-gray-600"
-              )}
-            >
-              <DollarSign className="h-4 w-4" />
-              <span>Finanças</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex space-x-3">
+            {[
+              { id: "cronograma", label: "Cronograma", icon: CalendarClock },
+              { id: "overview", label: "Visão Geral", icon: FileText },
+              { id: "resources", label: "Recursos", icon: Users },
+              { id: "materials", label: "Materiais", icon: Package },
+              { id: "finances", label: "Finanças", icon: DollarSign }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = separadorAtivo === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => onTabChange(tab.id)}
+                  className={cn(
+                    "group flex items-center rounded-full border transition-all duration-300 ease-in-out",
+                    isActive
+                      ? "border-azul/20 bg-white/80 px-5 py-2 text-azul shadow-sm"
+                      : "border-transparent bg-white/10 px-3 py-2 text-slate-600 hover:bg-white/30"
+                  )}
+                >
+                  <div className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300",
+                    isActive
+                      ? "bg-azul/10 text-azul"
+                      : "bg-white/70 text-slate-600 group-hover:bg-azul/5 group-hover:text-azul"
+                  )}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <span className={cn(
+                    "ml-2 text-sm font-medium",
+                    !isActive && "group-hover:text-azul"
+                  )}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
           <Dialog open={openNovoWP} onOpenChange={setOpenNovoWP}>
             <DialogTrigger asChild>
               <Button

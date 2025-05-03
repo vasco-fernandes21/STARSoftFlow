@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
 import { FileText, X, Save } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { toast } from "sonner";
+import { TextField, DateField } from "@/components/projetos/criar/components/FormFields";
 
 interface EntregavelFormProps {
   tarefaId: string;
@@ -81,43 +79,37 @@ export function EntregavelForm({
       </div>
 
       <div className="grid gap-3">
-        <div>
-          <Label htmlFor="nome-entregavel" className="text-sm text-azul/80">
-            Nome do Entregável
-          </Label>
-          <Input
-            id="nome-entregavel"
-            placeholder="Ex: Relatório Final"
-            value={formData.nome}
-            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-            className="mt-1"
-          />
-        </div>
+        <TextField
+          label="Nome do Entregável"
+          value={formData.nome}
+          onChange={(value) => setFormData({ ...formData, nome: value })}
+          placeholder="Ex: Relatório Final"
+          required
+          id="nome-entregavel"
+        />
 
-        <div>
-          <Label htmlFor="data-entrega" className="text-sm text-azul/80">
-            Data de Entrega
-          </Label>
-          <DatePicker
-            value={formData.data}
-            onChange={(date) => {
-              if (date) {
-                // Ensure the date is within the task's date range
-                if (date < tarefaDates.inicio) {
-                  setFormData({ ...formData, data: tarefaDates.inicio });
-                  toast.warning("Data ajustada para a data de início da tarefa");
-                } else if (date > tarefaDates.fim) {
-                  setFormData({ ...formData, data: tarefaDates.fim });
-                  toast.warning("Data ajustada para a data de fim da tarefa");
-                } else {
-                  setFormData({ ...formData, data: date });
-                }
+        <DateField
+          label="Data de Entrega"
+          value={formData.data}
+          onChange={(date) => {
+            if (date) {
+              // Ensure the date is within the task's date range
+              if (date < tarefaDates.inicio) {
+                setFormData({ ...formData, data: tarefaDates.inicio });
+                toast.warning("Data ajustada para a data de início da tarefa");
+              } else if (date > tarefaDates.fim) {
+                setFormData({ ...formData, data: tarefaDates.fim });
+                toast.warning("Data ajustada para a data de fim da tarefa");
+              } else {
+                setFormData({ ...formData, data: date });
               }
-            }}
-            minDate={tarefaDates.inicio}
-            maxDate={tarefaDates.fim}
-          />
-        </div>
+            }
+          }}
+          minDate={tarefaDates.inicio}
+          maxDate={tarefaDates.fim}
+          required
+          id="data-entrega"
+        />
 
         <div className="mt-2 flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel} className="text-gray-500 hover:text-gray-700">

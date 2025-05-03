@@ -391,7 +391,7 @@ export const tarefaRouter = createTRPCRouter({
         where: { id },
       });
 
-      return { success: true };
+      return { success: true, message: "Entregável removido com sucesso" };
     } catch (error) {
       return handlePrismaError(error);
     }
@@ -408,6 +408,70 @@ export const tarefaRouter = createTRPCRouter({
         });
 
         return entregaveis;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+
+  // <<< INÍCIO: Novo procedimento para buscar Entregavel por ID >>>
+  entregavelFindById: protectedProcedure
+    .input(z.object({ id: z.string().uuid("ID do entregável inválido") }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const entregavel = await ctx.db.entregavel.findUnique({
+          where: { id: input.id },
+          include: {
+            tarefa: {
+              include: {
+                workpackage: {
+                  include: {
+                    projeto: true, // Inclui o projeto
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!entregavel) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Entregável não encontrado" });
+        }
+
+        return entregavel;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+  // <<< FIM: Novo procedimento para buscar Entregavel por ID >>>
+
+  // Ações específicas
+  marcarComoConcluida: protectedProcedure
+    .input(z.string().uuid("ID da tarefa inválido"))
+    .mutation(async ({ ctx, input: id }) => {
+      try {
+        // Verificar se a tarefa existe
+        const tarefa = await ctx.db.tarefa.findUnique({
+          where: { id },
+          select: { id: true, workpackageId: true },
+        });
+
+        if (!tarefa) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Tarefa não encontrada",
+          });
+        }
+
+        // Marcar tarefa como concluída
+        const tarefaAtualizada = await ctx.db.tarefa.update({
+          where: { id },
+          data: { estado: true },
+        });
+
+        // Atualizar estado do workpackage
+        await atualizarEstadoWorkpackage(ctx, tarefa.workpackageId);
+
+        return tarefaAtualizada;
       } catch (error) {
         return handlePrismaError(error);
       }
