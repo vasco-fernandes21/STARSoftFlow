@@ -193,14 +193,10 @@ function extrairMateriais(data: any[][]): MaterialImportacao[] {
 }
 
 function extrairUtilizadores(apiResponse: any): any[] {
-  console.log("[Importação] Dados brutos recebidos:", apiResponse);
-  
   if (!apiResponse) {
-    console.warn("[Importação] Nenhum dado recebido");
     return [];
   }
 
-  // Tentar extrair items de várias formas possíveis
   const possiveisLocais = [
     apiResponse?.result?.data?.json?.items,
     apiResponse?.items,
@@ -211,12 +207,10 @@ function extrairUtilizadores(apiResponse: any): any[] {
 
   for (const local of possiveisLocais) {
     if (Array.isArray(local) && local.length > 0) {
-      console.log("[Importação] Dados encontrados em:", local);
       return local;
     }
   }
 
-  console.warn("[Importação] Nenhum dado válido encontrado");
   return [];
 }
 
@@ -528,13 +522,10 @@ export default function ImportarProjetoButton() {
   // Função para processar a importação final
   const processarImportacaoFinal = useCallback(() => {
     if (!estadoImportacao) {
-      console.error("[Importação Final] Estado de importação não encontrado.");
       toast.error("Erro interno ao processar importação.");
       setIsLoading(false);
       return;
     }
-
-    console.log("[Importação Final] Iniciando processamento com estado:", estadoImportacao);
 
     const {
       nomeProjeto,
@@ -583,11 +574,8 @@ export default function ImportarProjetoButton() {
 
       wp.recursos.forEach((recurso) => {
         if (!recurso.userId) {
-          console.warn(`[Importação Final] Recurso sem userId no WP ${wp.nome}:`, recurso.nome);
           return;
         }
-
-        console.log(`[Importação Final] Processando alocações para recurso ${recurso.nome} (ID: ${recurso.userId})`);
 
         recurso.alocacoes.forEach((alocacao) => {
           dispatch({
@@ -663,7 +651,7 @@ export default function ImportarProjetoButton() {
           setModalFinanciamentosAberto(true);
         }
       } catch (error) {
-        console.error("[Importação Final] Erro ao verificar financiamentos existentes:", error);
+        toast.error("Erro ao verificar financiamentos existentes.");
       }
     }
 
@@ -685,7 +673,6 @@ export default function ImportarProjetoButton() {
   const handleFileUpload = useCallback(async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      console.log("[Importação] Nenhum ficheiro selecionado");
       return;
     }
 
@@ -697,10 +684,7 @@ export default function ImportarProjetoButton() {
 
     try {
       const dadosUtilizadores = await utils.utilizador.findAll.fetch();
-      console.log("[Importação] Usando dados dos utilizadores:", dadosUtilizadores);
-      
       const utilizadores = extrairUtilizadores(dadosUtilizadores);
-      console.log("[Importação] Utilizadores extraídos (fetch inicial):", utilizadores.length);
 
       if (!utilizadores) {
         toast.error("Não foi possível obter a lista de utilizadores inicial.");
@@ -756,13 +740,9 @@ export default function ImportarProjetoButton() {
               }))
             );
 
-            console.log("[Importação] Recursos não matchados (inicial):", recursosNaoMatchados);
-
             const recursosUnicos = Array.from(new Map(
               recursosNaoMatchados.map(item => [item.nome, item])
             ).values());
-
-            console.log("[Importação] Recursos únicos para contratação:", recursosUnicos);
 
             const estadoAtual : EstadoImportacao = {
               sheetsData,
@@ -789,9 +769,7 @@ export default function ImportarProjetoButton() {
             setEstadoImportacao(estadoAtual);
 
             if (recursosUnicos.length > 0) {
-              console.log("[Importação] Iniciando processo de contratação para:", recursosUnicos[0]);
               setRecursosNaoAssociados(recursosUnicos);
-              
               setOpen(false);
               
               setTimeout(() => {
@@ -805,7 +783,6 @@ export default function ImportarProjetoButton() {
               setIsLoading(false);
               return;
             } else {
-               console.log("[Importação] Nenhum recurso por contratar. Iniciando processamento final.");
                setProcessamentoPendente(true);
             }
           } else {
@@ -829,7 +806,6 @@ export default function ImportarProjetoButton() {
           }
 
         } catch (error) {
-          console.error("[Importação] Erro no reader.onload:", error);
           toast.error("Ocorreu um erro durante a leitura dos dados do ficheiro");
           setIsLoading(false);
         } finally {
@@ -837,20 +813,18 @@ export default function ImportarProjetoButton() {
             fileInputRef.current.value = "";
           }
           if (!processamentoPendente && recursosNaoAssociados.length === 0) {
-             //setIsLoading(false); // Só desliga se não for contratar nem processar imediatamente
+             //setIsLoading(false);
           }
         }
       };
 
       reader.onerror = () => {
-        console.error("[Importação] Erro ao ler o ficheiro");
         toast.error("Erro ao ler o ficheiro");
         setIsLoading(false);
       };
 
       reader.readAsArrayBuffer(file);
     } catch (error) {
-      console.error("[Importação] Erro GERAL na importação:", error);
       toast.error("Ocorreu um erro durante a importação");
       setIsLoading(false);
     }
@@ -858,32 +832,26 @@ export default function ImportarProjetoButton() {
 
   const handleContratadoCriado = useCallback(async (novoUserId: string) => {
     if (!novoContratadoData) {
-      console.error("[Contratado Criado] Faltam dados do contratado que acabou de ser criado.");
       toast.error("Erro interno ao associar contratado.");
       setShowContratadoForm(false);
       setIsLoading(false);
       return;
     }
     
-    console.log(`[Contratado Criado] Callback com ID: ${novoUserId} para nome original: ${novoContratadoData.nome}`);
-    
     const nomeOriginal = novoContratadoData.nome;
     setMapaContratadosCriados(prevMap => new Map(prevMap).set(nomeOriginal, novoUserId));
     
     const recursosRestantes = recursosNaoAssociados.slice(1);
     setRecursosNaoAssociados(recursosRestantes);
-    console.log("[Contratado Criado] Recursos restantes para processar:", recursosRestantes.length);
 
     if (recursosRestantes.length > 0 && recursosRestantes[0]) {
       setNovoContratadoData(recursosRestantes[0]);
       setShouldRenderContratadoForm(true);
       setShowContratadoForm(true);
     } else {
-      console.log("[Contratado Criado] Todos os contratados foram processados. Atualizando associações finais...");
       setShowContratadoForm(false);
       
       if (!estadoImportacao) {
-        console.error("[Contratado Criado] Estado de importação não encontrado após contratações.");
         toast.error("Erro interno: estado de importação perdido.");
         setIsLoading(false);
         return;
@@ -892,8 +860,6 @@ export default function ImportarProjetoButton() {
       const mapaFinal = new Map(mapaContratadosCriados);
       mapaFinal.set(nomeOriginal, novoUserId);
 
-      console.log("[Contratado Criado] Mapa final de associações:", mapaFinal);
-
       const workpackagesAtualizados = estadoImportacao.workpackages.map(wp => ({
         ...wp,
         recursos: wp.recursos.map(recurso => {
@@ -901,13 +867,11 @@ export default function ImportarProjetoButton() {
 
           const novoIdMapeado = mapaFinal.get(recurso.nome);
           if (novoIdMapeado) {
-            console.log(`[Associação Final] Recurso ${recurso.nome} associado ao novo ID: ${novoIdMapeado} do mapa.`);
             return {
               ...recurso,
               userId: novoIdMapeado
             };
           } else {
-             console.warn(`[Associação Final] Recurso ${recurso.nome} não tinha ID e não foi encontrado no mapa de criados.`);
              return recurso;
           }
         })
@@ -915,7 +879,6 @@ export default function ImportarProjetoButton() {
 
       setEstadoImportacao(prev => {
         if (!prev) return null;
-        console.log("[Contratado Criado] Atualizando estado com WPs finais associados usando o mapa.");
         return {
           ...prev,
           workpackages: workpackagesAtualizados as WorkpackageSimples[]
@@ -923,7 +886,6 @@ export default function ImportarProjetoButton() {
       });
 
       setMapaContratadosCriados(new Map());
-      console.log("[Contratado Criado] Triggering processamento final via useEffect.");
       setProcessamentoPendente(true);
     }
   }, [
@@ -1031,14 +993,6 @@ export default function ImportarProjetoButton() {
       </Dialog>
 
       {shouldRenderContratadoForm && showContratadoForm && novoContratadoData && (
-        console.log("[Importação] Renderizando FormContratado com dados:", {
-          showContratadoForm,
-          novoContratadoData,
-          defaultValues: {
-            identificacao: novoContratadoData.nome,
-            salario: novoContratadoData.salario?.toString() || ""
-          }
-        }),
         <FormContratado
           defaultValues={{
             identificacao: novoContratadoData.nome,

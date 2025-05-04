@@ -3,10 +3,9 @@ import { EventEmitter } from "events";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { EntidadeNotificacao, UrgenciaNotificacao, EstadoNotificacao, type Notificacao } from "@prisma/client";
 import { observable } from "@trpc/server/observable";
-import { type TrackedEnvelope, tracked } from "@trpc/server";
 
 // Event emitter para notificações em tempo real
-const ee = new EventEmitter();
+export const ee = new EventEmitter();
 
 // Schema para validação de notificações
 const notificacaoSchema = z.object({
@@ -24,53 +23,51 @@ const notificacaoComDestinatarioSchema = notificacaoSchema.extend({
 
 export const notificacoesRouter = createTRPCRouter({
   // Subscription para receber notificações em tempo real
-  onNotificacao: protectedProcedure
-    .input(
-      z.object({
-        lastEventId: z.string().uuid().nullish(),
-      }).optional(),
-    )
-    .subscription(({ ctx, input }) => {
-      return observable<TrackedEnvelope<Notificacao>>((emit) => {
-        const onNotificacao = (notificacao: Notificacao) => {
-          if (notificacao.destinatarioId === ctx.session.user.id) {
-            // Emitir notificação com tracking para SSE
-            emit.next(tracked(notificacao.id, notificacao));
-          }
-        };
+  onNotificacao: protectedProcedure.subscription(async ({ ctx }) => {
+    // Buscar informações do utilizador para os logs
+    const user = await ctx.db.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { username: true }
+    });
 
-        // Primeiro, vamos buscar notificações não lidas desde o último ID
-        if (input?.lastEventId) {
-          void ctx.db.notificacao.findMany({
-            where: {
-              id: {
-                gt: input.lastEventId,
-              },
-              destinatarioId: ctx.session.user.id,
-              estado: EstadoNotificacao.NAO_LIDA,
-            },
-            orderBy: {
-              dataEmissao: "asc",
-            },
-          }).then((notificacoes) => {
-            for (const notificacao of notificacoes) {
-              onNotificacao(notificacao);
-            }
-          }).catch((error) => {
-            console.error("Erro ao buscar notificações perdidas na subscrição:", error);
-            emit.error(new Error("Falha ao recuperar histórico de notificações"));
+    console.log("[Notificações SSE] Nova subscrição iniciada", {
+      userId: ctx.session.user.id,
+      username: user?.username ?? "unknown",
+      timestamp: new Date().toISOString(),
+    });
+
+    return observable<Notificacao>((emit) => {
+      const onNotificacao = (notificacao: Notificacao) => {
+        if (notificacao.destinatarioId === ctx.session.user.id) {
+          console.log("[Notificações SSE] A emitir notificação", {
+            id: notificacao.id,
+            destinatarioId: notificacao.destinatarioId,
+            destinatarioUsername: user?.username ?? "unknown",
+            tipo: notificacao.entidade,
+            timestamp: new Date().toISOString(),
           });
+          emit.next(notificacao);
         }
+      };
 
-        // Escutar por novas notificações
-        ee.on("notificacao", onNotificacao);
-
-        // Cleanup quando a subscription for cancelada
-        return () => {
-          ee.off("notificacao", onNotificacao);
-        };
+      console.log("[Notificações SSE] Listener adicionado", {
+        userId: ctx.session.user.id,
+        username: user?.username ?? "unknown",
+        timestamp: new Date().toISOString(),
       });
-    }),
+
+      ee.on("notificacao", onNotificacao);
+
+      return () => {
+        console.log("[Notificações SSE] Listener removido", {
+          userId: ctx.session.user.id,
+          username: user?.username ?? "unknown",
+          timestamp: new Date().toISOString(),
+        });
+        ee.off("notificacao", onNotificacao);
+      };
+    });
+  }),
 
   // Criar nova notificação para o próprio utilizador
   criar: protectedProcedure

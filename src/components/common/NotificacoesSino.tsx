@@ -14,13 +14,41 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useNotificacoes } from "@/components/providers/NotificacoesProvider";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/trpc/react";
 
 export function NotificacoesSino() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  const { notificacoes, naoLidas, marcarComoLida } = useNotificacoes();
+  const utils = api.useUtils();
+
+  // Buscar notificações com tRPC
+  const { data: notificacoes = [], isLoading: isLoadingNotificacoes } = api.notificacao.listar.useQuery(
+    { estado: "NAO_LIDA" },
+    { 
+      staleTime: 1 * 60 * 1000, // 1 minuto
+      refetchOnWindowFocus: true,
+      refetchInterval: 30 * 1000 // Atualizar a cada 30 segundos
+    }
+  );
+  
+  const { data: naoLidas = 0 } = api.notificacao.contarNaoLidas.useQuery(
+    undefined,
+    { 
+      staleTime: 1 * 60 * 1000, 
+      refetchOnWindowFocus: true,
+      refetchInterval: 30 * 1000 // Atualizar a cada 30 segundos
+    }
+  );
+
+  // Mutação para marcar como lida
+  const { mutate: marcarComoLida } = api.notificacao.marcarComoLida.useMutation({
+    onSuccess: () => {
+      // Invalidar as queries para atualizar os dados
+      void utils.notificacao.listar.invalidate();
+      void utils.notificacao.contarNaoLidas.invalidate();
+    }
+  });
 
   // Pegar apenas as 5 notificações mais recentes não arquivadas
   const notificacoesRecentes = notificacoes
@@ -28,7 +56,7 @@ export function NotificacoesSino() {
     .slice(0, 5);
 
   const handleNotificacaoClick = async (id: string, entidade: string, entidadeId: string) => {
-    await marcarComoLida(id);
+    marcarComoLida(id);
     setOpen(false);
 
     // Navegar para a entidade correspondente
@@ -37,13 +65,10 @@ export function NotificacoesSino() {
         router.push(`/projetos/${entidadeId}`);
         break;
       case "WORKPACKAGE":
-        router.push(`/projetos/${entidadeId}/workpackages`);
-        break;
       case "ENTREGAVEL":
-        router.push(`/projetos/entregaveis/${entidadeId}`);
-        break;
       case "TAREFA":
-        router.push(`/projetos/tarefas/${entidadeId}`);
+        // Navegação simplificada temporariamente
+        router.push(`/notificacoes`);
         break;
       case "ALOCACAO":
         router.push(`/utilizadores/${entidadeId}`);
@@ -89,7 +114,11 @@ export function NotificacoesSino() {
         </div>
 
         <ScrollArea className="h-[min(calc(5*5rem),calc(100vh-15rem))]">
-          {notificacoesRecentes.length > 0 ? (
+          {isLoadingNotificacoes ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-azul border-t-transparent"></div>
+            </div>
+          ) : notificacoesRecentes.length > 0 ? (
             notificacoesRecentes.map((notificacao) => (
               <DropdownMenuItem
                 key={notificacao.id}

@@ -1,193 +1,254 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import React, { createContext, useContext, useCallback, ReactNode, useEffect, useState } from "react";
+import { type EntidadeNotificacao, type UrgenciaNotificacao, type EstadoNotificacao } from "@prisma/client";
 import { api } from "@/trpc/react";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import type { Notificacao, EntidadeNotificacao } from "@prisma/client";
-import type { TrackedEnvelope } from "@trpc/server";
-import { TRPCError } from "@trpc/server";
+import { toast } from "sonner";
 
+// Interface para o objeto de notificação
+export interface Notificacao {
+  id: string;
+  titulo: string;
+  descricao: string;
+  entidade: EntidadeNotificacao;
+  entidadeId: string;
+  urgencia: UrgenciaNotificacao;
+  estado: EstadoNotificacao;
+  dataEmissao: Date;
+  destinatarioId: string;
+}
+
+// Interface para o contexto de notificações
 interface NotificacoesContextType {
   notificacoes: Notificacao[];
   naoLidas: number;
+  isLoading: boolean;
   marcarComoLida: (id: string) => Promise<void>;
   arquivar: (id: string) => Promise<void>;
-  atualizarNotificacoes: () => Promise<void>;
+  filtrarPorEstado: (estado?: EstadoNotificacao) => Notificacao[];
 }
 
-const NotificacoesContext = createContext<NotificacoesContextType | null>(null);
+// Valor default do contexto
+const defaultContext: NotificacoesContextType = {
+  notificacoes: [],
+  naoLidas: 0,
+  isLoading: true,
+  marcarComoLida: async () => {},
+  arquivar: async () => {},
+  filtrarPorEstado: () => [],
+};
 
-export function NotificacoesProvider({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
-  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
-  const [naoLidas, setNaoLidas] = useState(0);
-  const router = useRouter();
+// Criar o contexto
+const NotificacoesContext = createContext<NotificacoesContextType>(defaultContext);
 
-  // Queries e Mutations
+// Hook personalizado para usar o contexto
+export const useNotificacoes = () => useContext(NotificacoesContext);
+
+/**
+ * Busca o ID do projeto associado a uma entidade (WorkPackage, Tarefa, Entregável).
+ */
+async function buscarIdProjetoRelacionado(
+  entidadeId: string,
+  tipo: EntidadeNotificacao,
+  utils: ReturnType<typeof api.useUtils>,
+): Promise<string | undefined> {
+  try {
+    let projetoId: string | undefined;
+
+    switch (tipo) {
+      case "WORKPACKAGE": {
+        const wp = await utils.client.workpackage.findById.query({ id: entidadeId });
+        projetoId = wp?.projetoId;
+        break;
+      }
+      case "ENTREGAVEL": {
+        const entregavel = await utils.client.tarefa.entregavelFindById.query({ id: entidadeId });
+        projetoId = entregavel?.tarefa?.workpackage?.projetoId;
+        break;
+      }
+      case "TAREFA": {
+        const tarefa = await utils.client.tarefa.findById.query(entidadeId);
+        projetoId = tarefa?.workpackage?.projetoId;
+        break;
+      }
+      default:
+        return undefined;
+    }
+    return projetoId;
+  } catch (error) {
+    console.error(`Erro ao buscar ID do projeto para ${tipo} ${entidadeId}:`, error);
+    return undefined;
+  }
+}
+
+// Provider component
+export function NotificacoesProvider({ children }: { children: ReactNode }) {
   const utils = api.useUtils();
-  const { data: notificacoesIniciais } = api.notificacao.listar.useQuery(undefined, {
-    enabled: !!session?.user?.id,
-  });
-  const { data: contagem } = api.notificacao.contarNaoLidas.useQuery(undefined, {
-    enabled: !!session?.user?.id,
-  });
-  const { mutateAsync: marcarComoLidaMutation } = api.notificacao.marcarComoLida.useMutation();
-  const { mutateAsync: arquivarMutation } = api.notificacao.arquivar.useMutation();
+  const router = useRouter();
+  const [localNaoLidas, setLocalNaoLidas] = useState(0);
 
-  // Subscription para notificações em tempo real
-  api.notificacao.onNotificacao.useSubscription(
-    {
-      lastEventId: notificacoes[0]?.id,
+  // Buscar notificações
+  const { data: notificacoes = [], isLoading } = api.notificacao.listar.useQuery(undefined, {
+    staleTime: 1 * 60 * 1000, // 1 minuto
+    refetchOnWindowFocus: true,
+  });
+
+  // Contar não lidas
+  const { data: naoLidas = 0 } = api.notificacao.contarNaoLidas.useQuery(undefined, {
+    staleTime: 1 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  // Atualizar contador local quando naoLidas mudar
+  useEffect(() => {
+    setLocalNaoLidas(naoLidas);
+  }, [naoLidas]);
+
+  // Mutações
+  const { mutateAsync: mutateMarcarComoLida } = api.notificacao.marcarComoLida.useMutation({
+    onSuccess: () => {
+      setLocalNaoLidas((prev) => Math.max(0, prev - 1));
+      void utils.notificacao.listar.invalidate();
+      void utils.notificacao.contarNaoLidas.invalidate();
     },
-    {
-      enabled: !!session?.user?.id,
-      onData: (envelope: TrackedEnvelope<Notificacao>) => {
-        // O envelope é uma tupla [id, data, symbol] - o dado real está no índice 1
-        const novaNotificacao = envelope[1];
+  });
 
-        // Atualizar estado local
-        setNotificacoes((prev) => [novaNotificacao, ...prev]);
-        setNaoLidas((prev) => prev + 1);
+  const { mutateAsync: mutateArquivar } = api.notificacao.arquivar.useMutation({
+    onSuccess: () => {
+      void utils.notificacao.listar.invalidate();
+      void utils.notificacao.contarNaoLidas.invalidate();
+    },
+  });
 
-        // Mostrar toast
-        toast(novaNotificacao.titulo, {
-          description: novaNotificacao.descricao,
-          action: {
-            label: "Ver",
-            onClick: () => {
-              void marcarComoLidaMutation(novaNotificacao.id);
+  // Subscrição para notificações em tempo real
+  api.notificacao.onNotificacao.useSubscription(undefined, {
+    onStarted: () => {
+      console.log("[SSE] Conexão iniciada", {
+        timestamp: new Date().toISOString()
+      });
+    },
+    onData: (novaNotificacao) => {
+      console.log("[SSE] Notificação recebida", {
+        id: novaNotificacao.id,
+        titulo: novaNotificacao.titulo,
+        tipo: novaNotificacao.entidade,
+        timestamp: new Date().toISOString()
+      });
 
-              // Função auxiliar para buscar o ID do projeto
-              const buscarIdProjeto = async (entidadeId: string, tipo: EntidadeNotificacao) => {
-                try {
-                  let projetoId: string | undefined;
+      // Atualizar contador local imediatamente
+      setLocalNaoLidas((prev) => prev + 1);
 
-                  switch (tipo) {
-                    case "WORKPACKAGE":
-                      // Workpackage tem relação direta com projeto
-                      const wp = await utils.client.workpackage.findById.query({ id: entidadeId });
-                      projetoId = wp?.projetoId;
-                      break;
-                    case "ENTREGAVEL":
-                      // Entregável -> Tarefa -> Workpackage -> Projeto
-                      // Nota: Assumindo que existe um entregavel.obterPorId.
-                      // Se não existir, terá de ser criado.
-                      const entregavel = await utils.client.tarefa.entregavelFindById.query({ id: entidadeId });
-                      if (entregavel?.tarefa?.workpackage) {
-                        projetoId = entregavel.tarefa.workpackage.projetoId;
-                      }
-                      break;
-                    case "TAREFA":
-                      // Tarefa -> Workpackage -> Projeto
-                      const tarefa = await utils.client.tarefa.findById.query(entidadeId);
-                      if (tarefa?.workpackage) {
-                        projetoId = tarefa.workpackage.projetoId;
-                      }
-                      break;
-                    default:
-                      return undefined;
-                  }
+      // Invalidar queries para atualizar dados
+      void utils.notificacao.listar.invalidate();
+      void utils.notificacao.contarNaoLidas.invalidate();
 
-                  return projetoId;
-                } catch (error) {
-                  console.error('Erro ao buscar ID do projeto:', error);
-                  // Verificar se o erro é 'NOT_FOUND' para o entregável e tratar
-                  if (error instanceof TRPCError && error.code === 'NOT_FOUND' && tipo === 'ENTREGAVEL') {
-                    console.warn(`Entregável com ID ${entidadeId} não encontrado ou procedimento 'obterPorId' não existe.`);
-                  } else if (error instanceof TRPCError && error.code === 'NOT_FOUND') {
-                     console.warn(`Recurso não encontrado para ${tipo} com ID ${entidadeId}.`);
-                  }
-                  return undefined;
-                }
-              };
+      // Mostrar toast imediatamente
+      toast(novaNotificacao.titulo, {
+        description: novaNotificacao.descricao,
+        position: "top-right",
+        duration: 5000,
+        action: {
+          label: "Ver",
+          onClick: () => {
+            void (async () => {
+              try {
+                console.log("[SSE] Notificação clicada", {
+                  id: novaNotificacao.id,
+                  tipo: novaNotificacao.entidade,
+                  timestamp: new Date().toISOString()
+                });
 
-              // Redirecionar com base no tipo de entidade
-              switch (novaNotificacao.entidade as EntidadeNotificacao) {
-                case "PROJETO":
-                  router.push(`/projetos/${novaNotificacao.entidadeId}`);
-                  break;
-                case "WORKPACKAGE":
-                case "ENTREGAVEL":
-                case "TAREFA": {
-                  void (async () => {
-                    const projetoId = await buscarIdProjeto(novaNotificacao.entidadeId, novaNotificacao.entidade);
+                // Marcar como lida
+                await mutateMarcarComoLida(novaNotificacao.id);
+
+                // Navegar para o item
+                const entidade = novaNotificacao.entidade;
+                const entidadeId = novaNotificacao.entidadeId;
+
+                switch (entidade) {
+                  case "PROJETO":
+                    router.push(`/projetos/${entidadeId}`);
+                    break;
+                  case "WORKPACKAGE":
+                  case "ENTREGAVEL":
+                  case "TAREFA": {
+                    const projetoId = await buscarIdProjetoRelacionado(entidadeId, entidade, utils);
                     if (projetoId) {
                       router.push(`/projetos/${projetoId}`);
                     } else {
-                      // Se não encontrar o projeto (ex: entregável não encontrado), vai para notificações
+                      toast.warning("Não foi possível encontrar o projeto associado.");
                       router.push("/notificacoes");
                     }
-                  })();
-                  break;
+                    break;
+                  }
+                  case "ALOCACAO":
+                    router.push(`/utilizadores/${entidadeId}`);
+                    break;
+                  default:
+                    router.push("/notificacoes");
                 }
-                case "ALOCACAO":
-                  router.push(`/utilizadores/${novaNotificacao.entidadeId}`);
-                  break;
-                default:
-                  router.push("/notificacoes");
+              } catch (error) {
+                console.error("[SSE] Erro ao processar clique", {
+                  erro: error instanceof Error ? error.message : "Erro desconhecido",
+                  id: novaNotificacao.id,
+                  tipo: novaNotificacao.entidade,
+                  timestamp: new Date().toISOString()
+                });
+                toast.error("Ocorreu um erro ao processar a notificação");
               }
-            },
+            })();
           },
-        });
-      },
-      onError: (err) => {
-        console.error('Erro na subscrição:', err);
-      },
+        },
+      });
     },
-  );
+    onError: (error) => {
+      console.error("[SSE] Erro na conexão", {
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        timestamp: new Date().toISOString()
+      });
+      toast.error("Erro ao receber notificações em tempo real", {
+        position: "top-right"
+      });
+    },
+  });
 
-  // Atualizar estado inicial
+  // Log quando o componente é montado/desmontado
   useEffect(() => {
-    if (notificacoesIniciais) {
-      setNotificacoes(notificacoesIniciais);
-    }
-  }, [notificacoesIniciais]);
+    console.log("[SSE] Provider montado", {
+      timestamp: new Date().toISOString()
+    });
 
-  useEffect(() => {
-    if (typeof contagem === "number") {
-      setNaoLidas(contagem);
-    }
-  }, [contagem]);
+    return () => {
+      console.log("[SSE] Provider desmontado", {
+        timestamp: new Date().toISOString()
+      });
+    };
+  }, []);
 
-  // Funções de manipulação
-  const marcarComoLida = async (id: string) => {
-    await marcarComoLidaMutation(id);
-    await utils.notificacao.listar.invalidate();
-    await utils.notificacao.contarNaoLidas.invalidate();
+  // Funções auxiliares
+  const marcarComoLida = useCallback(async (id: string) => {
+    await mutateMarcarComoLida(id);
+  }, [mutateMarcarComoLida]);
+
+  const arquivar = useCallback(async (id: string) => {
+    await mutateArquivar(id);
+  }, [mutateArquivar]);
+
+  const filtrarPorEstado = useCallback((estado?: EstadoNotificacao) => {
+    if (!estado) return notificacoes;
+    return notificacoes.filter((n) => n.estado === estado);
+  }, [notificacoes]);
+
+  // Valor do contexto
+  const value = {
+    notificacoes,
+    naoLidas: localNaoLidas,
+    isLoading,
+    marcarComoLida,
+    arquivar,
+    filtrarPorEstado,
   };
 
-  const arquivar = async (id: string) => {
-    await arquivarMutation(id);
-    await utils.notificacao.listar.invalidate();
-    await utils.notificacao.contarNaoLidas.invalidate();
-  };
-
-  const atualizarNotificacoes = async () => {
-    await utils.notificacao.listar.invalidate();
-    await utils.notificacao.contarNaoLidas.invalidate();
-  };
-
-  return (
-    <NotificacoesContext.Provider
-      value={{
-        notificacoes,
-        naoLidas,
-        marcarComoLida,
-        arquivar,
-        atualizarNotificacoes,
-      }}
-    >
-      {children}
-    </NotificacoesContext.Provider>
-  );
-}
-
-export function useNotificacoes() {
-  const context = useContext(NotificacoesContext);
-  if (!context) {
-    throw new Error("useNotificacoes deve ser usado dentro de NotificacoesProvider");
-  }
-  return context;
+  return <NotificacoesContext.Provider value={value}>{children}</NotificacoesContext.Provider>;
 } 

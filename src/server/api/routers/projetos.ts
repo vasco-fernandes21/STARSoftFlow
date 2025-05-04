@@ -6,6 +6,7 @@ import type { Prisma } from "@prisma/client";
 import { handlePrismaError } from "../utils";
 import { paginationSchema } from "../schemas/common";
 import { Decimal } from "decimal.js";
+import { ee } from "./notificacoes";
 
 // Schema base para projeto
 export const projetoBaseSchema = z.object({
@@ -468,6 +469,65 @@ export const projetoRouter = createTRPCRouter({
           },
         },
       });
+
+      // Buscar todos os admins
+      const admins = await ctx.db.user.findMany({
+        where: {
+          permissao: "ADMIN"
+        },
+        select: {
+          id: true
+        }
+      });
+
+      // Criar notificações
+      const notificacoes = [];
+
+      // Notificação para o responsável
+      notificacoes.push(
+        ctx.db.notificacao.create({
+          data: {
+            titulo: `Novo projeto criado: ${nome}`,
+            descricao: `O projeto "${nome}" foi criado e você é o responsável.`,
+            entidade: "PROJETO",
+            entidadeId: projeto.id,
+            urgencia: "MEDIA",
+            destinatario: {
+              connect: { id: userId },
+            },
+            estado: "NAO_LIDA",
+          },
+        })
+      );
+
+      // Notificação para cada admin (exceto se for o próprio criador)
+      for (const admin of admins) {
+        if (admin.id !== userId) {
+          notificacoes.push(
+            ctx.db.notificacao.create({
+              data: {
+                titulo: `Novo projeto criado por ${ctx.session.user.name}`,
+                descricao: `Um novo projeto "${nome}" foi criado.`,
+                entidade: "PROJETO",
+                entidadeId: projeto.id,
+                urgencia: "MEDIA",
+                destinatario: {
+                  connect: { id: admin.id },
+                },
+                estado: "NAO_LIDA",
+              },
+            })
+          );
+        }
+      }
+
+      // Criar todas as notificações e emitir eventos
+      const notificacoesCriadas = await Promise.all(notificacoes);
+      
+      // Emitir eventos para cada notificação
+      for (const notificacao of notificacoesCriadas) {
+        ee.emit("notificacao", notificacao);
+      }
 
       return projeto;
     } catch (error) {
@@ -941,6 +1001,103 @@ export const projetoRouter = createTRPCRouter({
                 },
               });
             }
+          }
+
+          // Buscar todos os admins
+          const admins = await tx.user.findMany({
+            where: {
+              permissao: "ADMIN"
+            },
+            select: {
+              id: true
+            }
+          });
+
+          // Criar notificações
+          const notificacoes = [];
+
+          // Notificação para o responsável
+          notificacoes.push(
+            tx.notificacao.create({
+              data: {
+                titulo: `Novo projeto criado: ${input.nome}`,
+                descricao: `O projeto "${input.nome}" foi criado e você é o responsável.`,
+                entidade: "PROJETO",
+                entidadeId: projeto.id,
+                urgencia: "MEDIA",
+                destinatario: {
+                  connect: { id: targetUserId },
+                },
+                estado: "NAO_LIDA",
+              },
+            })
+          );
+
+          // Notificação para cada admin (exceto se for o próprio criador/responsável)
+          for (const admin of admins) {
+            if (admin.id !== targetUserId) {
+              notificacoes.push(
+                tx.notificacao.create({
+                  data: {
+                    titulo: `Novo projeto criado por ${ctx.session.user.name}`,
+                    descricao: `Um novo projeto "${input.nome}" foi criado.`,
+                    entidade: "PROJETO",
+                    entidadeId: projeto.id,
+                    urgencia: "MEDIA",
+                    destinatario: {
+                      connect: { id: admin.id },
+                    },
+                    estado: "NAO_LIDA",
+                  },
+                })
+              );
+            }
+          }
+
+          // Notificações para recursos alocados
+          const recursosUnicos = new Set<string>();
+          for (const wp of input.workpackages) {
+            for (const recurso of wp.recursos) {
+              if (!recursosUnicos.has(recurso.userId)) {
+                recursosUnicos.add(recurso.userId);
+                notificacoes.push(
+                  tx.notificacao.create({
+                    data: {
+                      titulo: `Nova alocação no projeto ${input.nome}`,
+                      descricao: `Você foi alocado no projeto "${input.nome}".`,
+                      entidade: "ALOCACAO",
+                      entidadeId: projeto.id,
+                      urgencia: "MEDIA",
+                      destinatario: {
+                        connect: { id: recurso.userId },
+                      },
+                      estado: "NAO_LIDA",
+                    },
+                  })
+                );
+              }
+            }
+          }
+
+          // Executar criação das notificações
+          const notificacoesCriadas = await Promise.all(notificacoes);
+
+          // Emitir eventos para cada notificação criada
+          console.log("[Notificações Projeto] Iniciando emissão de eventos:", {
+            count: notificacoesCriadas.length,
+            projetoId: projeto.id,
+            timestamp: new Date().toISOString(),
+          });
+
+          for (const notificacao of notificacoesCriadas) {
+            console.log("[Notificações Projeto] Emitindo notificação:", {
+              id: notificacao.id,
+              destinatario: notificacao.destinatarioId,
+              tipo: notificacao.entidade,
+              titulo: notificacao.titulo,
+              timestamp: new Date().toISOString(),
+            });
+            ee.emit("notificacao", notificacao);
           }
 
           return { projeto };

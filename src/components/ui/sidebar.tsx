@@ -17,6 +17,7 @@ import {
   Unlock,
   Euro,
   MessageSquare,
+  Bell,
 } from "lucide-react";
 import { NotificacoesSino } from "@/components/common/NotificacoesSino";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import type { User as PrismaUser } from "@prisma/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { Permissao } from "@prisma/client";
 import { signOut } from "next-auth/react";
+import { api } from "@/trpc/react";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -38,6 +40,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { icon: Home, label: "Início", href: "/", requiredPermission: null },
   { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
+  { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: null },
   { icon: Euro, label: "Atividade Económica", href: "/atividade-economica", requiredPermission: "ADMIN" },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
   { icon: MessageSquare, label: "Erros & Feedback", href: "/feedback", requiredPermission: null },
@@ -110,6 +113,19 @@ export const AppSidebar = () => {
           : pathname.startsWith(`${item.href}/`) || pathname === item.href;
     const isHovered = hoveredItem === item.href;
 
+    // Buscar contagem de notificações não lidas
+    const { data: naoLidas = 0 } = api.notificacao.contarNaoLidas.useQuery(
+      undefined,
+      { 
+        enabled: item.href === "/notificacoes",
+        staleTime: 1 * 60 * 1000, 
+        refetchOnWindowFocus: true,
+        refetchInterval: 30 * 1000
+      }
+    );
+
+    const showBadge = item.href === "/notificacoes" && naoLidas > 0;
+
     return (
       <Link
         href={item.href}
@@ -140,6 +156,15 @@ export const AppSidebar = () => {
               isHovered && !isActive && "scale-110"
             )}
           />
+          {showBadge && (
+            <span className={cn(
+              "absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white",
+              "animate-in fade-in duration-300",
+              collapsed ? "scale-75" : "scale-100"
+            )}>
+              {naoLidas > 99 ? "99+" : naoLidas}
+            </span>
+          )}
           {isActive && (
             <div className="absolute inset-0 -z-10 animate-pulse rounded-xl bg-azul/50 opacity-30 blur-sm" />
           )}

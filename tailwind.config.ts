@@ -24,7 +24,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)"],
+        sans: ["var(--font-inter)", "sans-serif"],
       },
       colors: {
         azul: {

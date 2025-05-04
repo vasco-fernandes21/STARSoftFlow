@@ -1,38 +1,33 @@
 import "@/styles/globals.css";
-import { Toaster } from "@/components/ui/sonner";
 import { Inter } from "next/font/google";
 import { type Metadata } from "next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { RootLayoutContent } from "@/layouts/root-layout-content";
 import { SessionProvider } from "next-auth/react";
-import { NotificacoesProvider } from "@/components/providers/NotificacoesProvider";
 
-// Initialize Inter font
+// Configurar Inter
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-inter", // Variável CSS para Inter
 });
 
 export const metadata: Metadata = {
-  title: "STAR Institute",
-  description: "Sistema de Gestão de Projetos",
+  title: "STARSoftFlow",
+  description: "Gestão simplificada de projetos de software",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt" className={inter.variable}>
-      <body className="font-sans antialiased">
+    <html lang="pt" className={`${inter.variable}`} suppressHydrationWarning>
+      <body className="antialiased">
         <SessionProvider
-          refetchInterval={5 * 60} // Refetch session every 5 minutes
-          refetchOnWindowFocus={true} // Refetch session when window is focused
+          refetchInterval={5 * 60}
+          refetchOnWindowFocus={true}
         >
           <TRPCReactProvider>
-            <NotificacoesProvider>
-              <RootLayoutContent>{children}</RootLayoutContent>
-            </NotificacoesProvider>
-            <Toaster />
+            <RootLayoutContent>{children}</RootLayoutContent>
           </TRPCReactProvider>
         </SessionProvider>
       </body>

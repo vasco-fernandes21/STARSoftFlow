@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 import { useEffect, useState } from "react";
 import { AlertDialogProvider } from "@/components/ui/alert-dialog/alert-dialog-provider";
+import { NotificacoesProvider } from "@/components/providers/NotificacoesProvider";
+import { Toaster } from "@/components/ui/sonner";
 
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,7 +34,12 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const shouldHideSidebar = pathname ? pagesWithoutSidebar.includes(pathname) : false;
 
   if (shouldHideSidebar) {
-    return children;
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
+    );
   }
 
   return (
@@ -42,11 +49,14 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
         <div className="h-full w-full flex-1 overflow-clip rounded-xl bg-bgApp shadow-sm">
           <div className="h-full max-h-full w-full overflow-y-auto">
             <AlertDialogProvider>
-              <ProjetoFormProvider>{children}</ProjetoFormProvider>
+              <NotificacoesProvider>
+                <ProjetoFormProvider>{children}</ProjetoFormProvider>
+              </NotificacoesProvider>
             </AlertDialogProvider>
           </div>
         </div>
       </main>
+      <Toaster />
     </div>
   );
 }
