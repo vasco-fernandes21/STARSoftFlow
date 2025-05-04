@@ -466,7 +466,7 @@ export default function Projetos() {
 
         <StatsGrid stats={stats} />
 
-        <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
+        <div className="rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow">
           <TabelaDados<Projeto>
             title=""
             subtitle=""

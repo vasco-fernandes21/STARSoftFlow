@@ -187,7 +187,7 @@ export function TabelaDados<TData>({
   }, [table]);
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md transition-all hover:shadow-lg">
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md">
       {(title || subtitle || actionButton) && (
         <div className="mb-4 flex-none px-6 pt-6">
           <div className="flex items-center justify-between">
@@ -201,155 +201,193 @@ export function TabelaDados<TData>({
       )}
 
       <div className="flex-none border-b border-slate-100 px-6 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="relative max-w-sm flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={globalFilter ?? ""}
-              onChange={(e) => {
-                setGlobalFilter(e.target.value);
-                setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-              }}
-              className="h-9 w-full rounded-full border-slate-200 bg-slate-50/50 py-2 pl-10 pr-4 text-slate-700 shadow-inner transition-all duration-200 ease-in-out focus:border-azul/30 focus:bg-white focus:ring-1 focus:ring-azul/20"
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            {filterConfigs.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-2 rounded-full border-slate-200 bg-white text-xs font-medium text-slate-600 shadow-sm transition-all duration-200 ease-in-out hover:border-azul/30 hover:bg-azul/5 hover:text-azul hover:shadow-md"
-                  >
-                    <Filter className="h-3.5 w-3.5" />
-                    <span>Filtros</span>
-                    {activeFiltersCount > 0 && (
-                      <Badge className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-azul p-0 text-[10px] font-semibold text-white">
-                        {activeFiltersCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-72 rounded-xl border border-slate-100/80 bg-white/95 p-3 shadow-lg backdrop-blur-sm"
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative max-w-sm flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={globalFilter ?? ""}
+                onChange={(e) => {
+                  setGlobalFilter(e.target.value);
+                  setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+                }}
+                className="h-9 w-full rounded-full border-slate-200 bg-slate-50/50 py-2 pl-10 pr-4 text-slate-700 shadow-inner transition-all duration-200 ease-in-out focus:border-azul/30 focus:bg-white focus:ring-1 focus:ring-azul/20"
+              />
+              {globalFilter && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setGlobalFilter("");
+                    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+                  }}
+                  className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full p-0 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 >
-                  <DropdownMenuLabel className="mb-2 flex items-center justify-between px-2 py-1">
-                    <span className="text-sm font-medium text-slate-700">Filtrar por</span>
-                    {activeFiltersCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          clearAllFilters();
-                        }}
-                        className="h-7 rounded-full px-2 text-xs text-slate-500 hover:bg-slate-100 hover:text-azul"
-                      >
-                        <X className="mr-1 h-3 w-3" />
-                        Limpar
-                      </Button>
-                    )}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="-mx-3 my-1 bg-slate-100" />
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
 
-                  <div className="space-y-3 p-1.5">
-                    {filterConfigs.map((config) => (
-                      <div key={config.id}>
-                        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500">
-                          {config.label}
-                        </p>
-                        <div className="grid grid-cols-1 gap-1">
-                          {config.options.map((option) => (
-                            <DropdownMenuItem
-                              key={option.id}
-                              className={cn(
-                                "mb-0.5 flex cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-sm font-normal transition-colors duration-150 ease-in-out",
-                                config.value === option.value
-                                  ? "bg-azul/10 font-medium text-azul"
-                                  : "text-slate-700 hover:bg-slate-100"
-                              )}
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                config.onChange(option.value);
-                                setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                {option.badge ? (
-                                  <BadgeEstado
-                                    status={option.badge.status}
-                                    label=""
-                                    variant={option.badge.variant as any}
-                                    customClassName="w-2 h-2 p-0 rounded-full min-w-0"
-                                  />
-                                ) : (
-                                  option.value !== "all" && (
-                                    <div className="h-2 w-2 rounded-full bg-slate-300" />
-                                  )
-                                )}
-                                <span>{option.label}</span>
-                              </div>
-                              {config.value === option.value && (
-                                <Check className="h-4 w-4 text-azul" />
-                              )}
-                            </DropdownMenuItem>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {activeFiltersCount > 0 && (
-              <div className="hidden flex-wrap items-center gap-2 md:flex">
-                {filterConfigs
-                  .filter((config) => config.value !== "todos" && config.value !== "all")
-                  .map((config) => {
-                    const selectedOption = config.options.find((opt) => opt.value === config.value);
-                    return (
-                      <Badge
-                        key={config.id}
-                        variant="outline"
-                        className="flex h-7 items-center gap-1.5 rounded-full border-blue-200 bg-blue-50/80 px-2.5 py-0.5 text-xs font-medium text-blue-700 shadow-sm"
-                      >
-                        {selectedOption?.badge && (
-                          <BadgeEstado
-                            status={selectedOption.badge.status}
-                            label=""
-                            variant={selectedOption.badge.variant as any}
-                            customClassName="w-1.5 h-1.5 p-0 rounded-full min-w-0"
-                          />
-                        )}
-                        <span>
-                          {config.label}: {selectedOption?.label}
-                        </span>
+            {filterConfigs.length > 0 && (
+              <div className="flex items-center gap-2">
+                {activeFiltersCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      clearAllFilters();
+                    }}
+                    className="h-9 rounded-full px-3 text-xs font-medium text-slate-500 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <X className="mr-1.5 h-3.5 w-3.5" />
+                    Limpar filtros
+                  </Button>
+                )}
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={activeFiltersCount > 0 ? "default" : "outline"}
+                      size="sm"
+                      className={cn(
+                        "h-9 gap-2 rounded-full text-xs font-medium shadow-sm transition-all duration-200 ease-in-out",
+                        activeFiltersCount > 0 
+                          ? "bg-azul text-white hover:bg-azul/90" 
+                          : "border-slate-200 bg-white text-slate-600 hover:border-azul/30 hover:bg-azul/5 hover:text-azul hover:shadow-none"
+                      )}
+                    >
+                      <Filter className="h-3.5 w-3.5" />
+                      <span>Filtros</span>
+                      {activeFiltersCount > 0 && (
+                        <Badge className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-white p-0 text-[10px] font-semibold text-azul">
+                          {activeFiltersCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-80 rounded-xl border border-slate-100/80 bg-white/95 p-4 shadow-lg backdrop-blur-sm"
+                  >
+                    <DropdownMenuLabel className="mb-3 flex items-center justify-between px-1">
+                      <span className="text-sm font-semibold text-slate-800">Filtros avançados</span>
+                      {activeFiltersCount > 0 && (
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="sm"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            config.onChange("all");
-                            table.resetColumnFilters();
-                            setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+                            clearAllFilters();
                           }}
-                          className="ml-1 h-4 w-4 rounded-full p-0 text-blue-500 hover:bg-blue-100 hover:text-blue-700"
+                          className="h-7 rounded-full px-2 text-xs text-slate-500 hover:bg-red-50 hover:text-red-600"
                         >
-                          <X className="h-2.5 w-2.5" />
+                          <X className="mr-1 h-3 w-3" />
+                          Limpar todos
                         </Button>
-                      </Badge>
-                    );
-                  })}
+                      )}
+                    </DropdownMenuLabel>
+
+                    <div className="space-y-4">
+                      {filterConfigs.map((config) => (
+                        <div key={config.id} className="border-b border-slate-100 pb-3 last:border-0">
+                          <p className="mb-2 px-1 text-xs font-semibold text-slate-700">
+                            {config.label}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 px-1">
+                            {config.options.map((option) => {
+                              const isSelected = config.value === option.value;
+                              return (
+                                <button
+                                  key={option.id}
+                                  className={cn(
+                                    "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
+                                    isSelected
+                                      ? "border-azul/30 bg-azul/10 text-azul shadow-sm"
+                                      : "border-slate-200 bg-white text-slate-700 hover:border-azul/20 hover:bg-slate-50"
+                                  )}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    config.onChange(option.value);
+                                    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+                                  }}
+                                >
+                                  {option.badge ? (
+                                    <BadgeEstado
+                                      status={option.badge.status}
+                                      label=""
+                                      variant={option.badge.variant as any}
+                                      customClassName="w-2 h-2 p-0 rounded-full min-w-0"
+                                    />
+                                  ) : (
+                                    option.value !== "all" && option.value !== "todos" && (
+                                      <div className="h-2 w-2 rounded-full bg-slate-300" />
+                                    )
+                                  )}
+                                  <span>{option.label}</span>
+                                  {isSelected && (
+                                    <Check className="ml-1 h-3 w-3 text-azul" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
+
+          {activeFiltersCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {filterConfigs
+                .filter((config) => config.value !== "todos" && config.value !== "all")
+                .map((config) => {
+                  const selectedOption = config.options.find((opt) => opt.value === config.value);
+                  return (
+                    <Badge
+                      key={config.id}
+                      variant="outline"
+                      className="flex h-8 items-center gap-1.5 rounded-lg border border-azul/20 bg-azul/5 px-3 py-0.5 text-xs font-medium text-azul shadow-sm"
+                    >
+                      {selectedOption?.badge && (
+                        <BadgeEstado
+                          status={selectedOption.badge.status}
+                          label=""
+                          variant={selectedOption.badge.variant as any}
+                          customClassName="w-2 h-2 p-0 rounded-full min-w-0"
+                        />
+                      )}
+                      <span className="text-slate-700 font-semibold">
+                        {config.label}:
+                      </span>
+                      <span className="text-azul">
+                        {selectedOption?.label}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          config.onChange("all");
+                          table.resetColumnFilters();
+                          setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+                        }}
+                        className="ml-1 h-5 w-5 rounded-full p-0 text-azul hover:bg-red-50 hover:text-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  );
+                })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -361,7 +399,7 @@ export function TabelaDados<TData>({
             <EmptyState message={emptyStateMessage} onClearFilters={clearAllFilters} />
           ) : (
             <div className="h-full">
-              <Table className="h-full border-separate border-spacing-y-0.5 px-6">
+              <Table className="h-full border-separate border-spacing-y-1 px-6">
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id} className="border-b-0">
@@ -369,7 +407,7 @@ export function TabelaDados<TData>({
                         <TableHead
                           key={header.id}
                           className={cn(
-                            "sticky top-0 z-10 h-10 bg-white/95 px-3 py-2 align-middle text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm",
+                            "sticky top-0 z-10 h-10 bg-white/95 px-3 py-2 align-middle text-xs font-medium uppercase tracking-wider text-slate-500 backdrop-blur-sm",
                             (header.column.columnDef.meta as any)?.align === "right"
                               ? "text-right"
                               : "text-left"
@@ -391,7 +429,7 @@ export function TabelaDados<TData>({
                                   variant="ghost"
                                   size="icon"
                                   className={cn(
-                                    "h-5 w-5 rounded-full p-0 text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-azul",
+                                    "h-5 w-5 rounded-md p-0 text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-azul",
                                     header.column.getIsSorted() ? "bg-azul/10 text-azul" : ""
                                   )}
                                 >
@@ -410,9 +448,9 @@ export function TabelaDados<TData>({
                     <TableRow
                       key={row.id}
                       className={cn(
-                        "group transition-all duration-150 ease-in-out",
-                        onRowClick ? "cursor-pointer hover:bg-slate-50/70 hover:shadow-sm" : "",
-                        row.getIsSelected() && "bg-azul/5 hover:bg-azul/10",
+                        "group transition-colors duration-150 ease-in-out",
+                        onRowClick ? "cursor-pointer hover:bg-blue-50/40" : "",
+                        row.getIsSelected() && "bg-blue-50/70 hover:bg-blue-50/90",
                         "border-b-0"
                       )}
                       onClick={() => onRowClick?.(row.original)}
@@ -422,9 +460,10 @@ export function TabelaDados<TData>({
                         <TableCell
                           key={cell.id}
                           className={cn(
-                            "h-[44px] px-3 py-2.5 align-middle text-sm font-normal text-slate-700 transition-colors duration-150",
-                            "first:rounded-l-lg last:rounded-r-lg group-hover:text-slate-800",
-                            row.getIsSelected() && "font-medium text-azul/90",
+                            "h-[46px] px-3 py-3 align-middle text-sm font-normal text-slate-700 transition-colors duration-150",
+                            "first:rounded-l-lg last:rounded-r-lg",
+                            onRowClick && "group-hover:text-slate-900",
+                            row.getIsSelected() && "font-medium text-azul",
                             (cell.column.columnDef.meta as any)?.align === "right" && "text-right",
                             (cell.column.columnDef.meta as any)?.align === "center" && "text-center",
                             !((cell.column.columnDef.meta as any)?.align) && "text-left"
@@ -468,7 +507,7 @@ export function TabelaDados<TData>({
                 disabled={!table.getCanPreviousPage()}
                 onClick={() => table.previousPage()}
                 aria-label="Página anterior"
-                className="h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow disabled:opacity-50 disabled:hover:shadow-sm"
+                className="h-7 w-7 rounded-md border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow-none disabled:opacity-50 disabled:hover:shadow-none"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -482,7 +521,7 @@ export function TabelaDados<TData>({
                     }}
                     aria-label={`Ir para página ${page + 1}`}
                     className={cn(
-                      "h-7 w-7 rounded-full p-0 text-xs shadow-sm transition-all duration-150 hover:shadow",
+                      "h-7 w-7 rounded-md p-0 text-xs shadow-sm transition-all duration-150 hover:shadow-none",
                       pagination.pageIndex === page
                         ? "bg-azul font-medium text-white hover:bg-azul/90"
                         : "border border-slate-200 bg-white font-normal text-slate-600 hover:border-azul/30 hover:bg-slate-50 hover:text-azul"
@@ -493,7 +532,7 @@ export function TabelaDados<TData>({
                 ) : (
                   <span
                     key={`ellipsis-${index}`}
-                    className="flex h-7 w-7 items-center justify-center p-0 text-xs text-slate-400"
+                    className="flex h-7 w-4 items-center justify-center p-0 text-xs text-slate-400"
                   >
                     ...
                   </span>
@@ -506,7 +545,7 @@ export function TabelaDados<TData>({
                 disabled={!table.getCanNextPage()}
                 onClick={() => table.nextPage()}
                 aria-label="Próxima página"
-                className="h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow disabled:opacity-50 disabled:hover:shadow-sm"
+                className="h-7 w-7 rounded-md border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow-none disabled:opacity-50 disabled:hover:shadow-none"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -532,9 +571,9 @@ const LoadingTable = ({
           {columns.map((column, idx) => (
             <TableHead
               key={idx}
-              className="h-10 px-3 py-2 text-left align-middle text-xs font-semibold uppercase tracking-wider text-slate-500"
+              className="h-10 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-slate-500"
             >
-              <div className="h-4 w-20 animate-pulse rounded bg-slate-200/80"></div>
+              <div className="h-4 w-24 animate-pulse rounded bg-slate-200/80"></div>
             </TableHead>
           ))}
         </TableRow>
@@ -543,8 +582,11 @@ const LoadingTable = ({
         {[...Array(itemsPerPage)].map((_, i) => (
           <TableRow key={i} className="border-b-0 hover:bg-transparent">
             {columns.map((_, idx) => (
-              <TableCell key={idx} className="h-[44px] px-3 py-2.5 align-middle">
-                <div className="h-4 w-full animate-pulse rounded bg-slate-100/80 shadow-sm" />
+              <TableCell key={idx} className="h-[46px] px-3 py-3 align-middle">
+                <div className={cn(
+                  "h-4 w-full animate-pulse rounded bg-slate-100/80",
+                  idx === 0 ? "w-full max-w-[180px]" : "w-full"
+                )} />
               </TableCell>
             ))}
           </TableRow>
@@ -563,19 +605,20 @@ const EmptyState = ({
 }) => (
   <div className="flex h-full items-center justify-center py-12 text-center">
     <div className="flex flex-col items-center justify-center space-y-4">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/50 bg-slate-50/80 shadow-sm backdrop-blur-sm">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-50 shadow-sm">
         <Search className="h-6 w-6 text-slate-400" />
       </div>
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <p className="text-base font-medium text-slate-700">{message.title}</p>
         <p className="text-sm text-slate-500">{message.description}</p>
       </div>
       <Button
         variant="outline"
         size="sm"
-        className="rounded-full border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-300 ease-in-out hover:border-azul/20 hover:bg-white/50 hover:text-azul hover:shadow-md"
+        className="mt-2 rounded-full border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:border-azul/30 hover:bg-azul/5 hover:text-azul hover:shadow-none"
         onClick={onClearFilters}
       >
+        <X className="mr-1.5 h-3.5 w-3.5" />
         Limpar filtros
       </Button>
     </div>

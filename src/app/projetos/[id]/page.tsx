@@ -337,10 +337,7 @@ const StatisticsCards = memo(
             : progresso >= 0.5
               ? "bg-amber-50/80"
               : "bg-rose-50/80",
-        secondaryText: estado
-          .split("_")
-          .map((word: string) => word.charAt(0) + word.slice(1).toLowerCase())
-          .join(" "),
+        secondaryText: "de execução"
       },
     ];
 

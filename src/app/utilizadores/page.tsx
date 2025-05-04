@@ -28,7 +28,7 @@ import { toast } from "sonner";
 
 // Skeleton para estado de carregamento
 const TableSkeleton = () => (
-  <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
+  <div className="rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow">
     <div className="flex-none border-b border-slate-100 px-6 py-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="h-9 w-64 animate-pulse rounded-full bg-slate-100" />
@@ -446,7 +446,7 @@ const Users = () => {
           {isLoading ? (
             <TableSkeleton />
           ) : (
-            <div className="rounded-xl border border-gray-100 bg-white shadow-md transition-all duration-200 hover:shadow-lg">
+            <div className="rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow">
               <TabelaDados<any>
                 data={utilizadoresFiltrados}
                 isLoading={isLoading}

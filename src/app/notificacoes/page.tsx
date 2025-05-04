@@ -18,14 +18,14 @@ import {
   CircleAlert,
   Filter,
   Search,
-  XCircle,
   Archive,
   MailOpen,
+  X,
+  Trash,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { Input } from "@/components/ui/input";
@@ -41,9 +41,24 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useNotificacoes } from "@/components/providers/NotificacoesProvider";
 import type { EntidadeNotificacao, UrgenciaNotificacao, EstadoNotificacao } from "@prisma/client";
 import type { Notificacao } from "@/components/providers/NotificacoesProvider";
+import { StatCard } from "@/components/common/StatCard";
+import { StatsGrid } from "@/components/common/StatsGrid";
+import type { StatItem } from "@/components/common/StatsGrid";
+import { api } from "@/trpc/react";
+
 
 // Labels e utilidades
 const TIPO_LABELS: Record<EntidadeNotificacao, string> = {
@@ -140,11 +155,74 @@ function getCardBorderColor(urgencia: UrgenciaNotificacao, isRead: boolean): str
 // Componente principal
 export default function Notificacoes() {
   const router = useRouter();
-  const { notificacoes, marcarComoLida, arquivar, naoLidas, filtrarPorEstado, isLoading } = useNotificacoes();
+  const { 
+    notificacoes, 
+    marcarComoLida, 
+    arquivar, 
+    naoLidas, 
+    filtrarPorEstado, 
+    isLoading 
+  } = useNotificacoes();
+  const utils = api.useUtils();
+  
   const [activeTab, setActiveTab] = useState<string>("todas");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
+  // Estados para o AlertDialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [notificacaoToDelete, setNotificacaoToDelete] = useState<string | null>(null);
+  const [deleteMultiple, setDeleteMultiple] = useState(false);
+  
+  // Adicionar mutation para apagar notificações
+  const apagarNotificacaoMutation = api.notificacao.apagar.useMutation({
+    onSuccess: () => {
+      utils.notificacao.listar.invalidate();
+      utils.notificacao.contarNaoLidas.invalidate();
+    },
+  });
+  
+  // Função para confirmar exclusão
+  const handleOpenDeleteDialog = useCallback((id?: string) => {
+    if (id) {
+      // Exclusão de uma única notificação
+      setNotificacaoToDelete(id);
+      setDeleteMultiple(false);
+    } else {
+      // Exclusão múltipla
+      setDeleteMultiple(true);
+    }
+    setIsDeleteDialogOpen(true);
+  }, []);
+  
+  // Função para executar a exclusão após confirmação
+  const handleConfirmDelete = useCallback(async () => {
+    try {
+      if (deleteMultiple) {
+        // Apagar múltiplas notificações
+        const idsToDelete = Array.from(selectedIds);
+        for (const id of idsToDelete) {
+          await apagarNotificacaoMutation.mutateAsync(id);
+        }
+        setSelectedIds(new Set());
+      } else if (notificacaoToDelete) {
+        // Apagar uma única notificação
+        await apagarNotificacaoMutation.mutateAsync(notificacaoToDelete);
+      }
+    } catch (error) {
+      console.error("Erro ao apagar notificações:", error);
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setNotificacaoToDelete(null);
+    }
+  }, [deleteMultiple, selectedIds, notificacaoToDelete, apagarNotificacaoMutation]);
+  
+  // Função para apagar notificações selecionadas
+  const handleApagarSelecionadas = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    handleOpenDeleteDialog();
+  }, [selectedIds, handleOpenDeleteDialog]);
+
   // Filtrar notificações baseado na aba e termo de pesquisa
   const filteredNotificacoes = useMemo(() => {
     let filtered = notificacoes;
@@ -241,12 +319,12 @@ export default function Notificacoes() {
   };
 
   // Estatísticas
-  const stats = useMemo(() => {
+  const stats = useMemo<StatItem[]>(() => {
     const total = notificacoes.length;
     const naoLidas = filtrarPorEstado("NAO_LIDA").length;
     const alta = notificacoes.filter(n => n.urgencia === "ALTA").length;
     
-      const hoje = new Date();
+    const hoje = new Date();
     const notificacoesHoje = notificacoes.filter(n => {
       const data = new Date(n.dataEmissao);
       return (
@@ -256,35 +334,68 @@ export default function Notificacoes() {
       );
     }).length;
 
-    return { total, naoLidas, alta, notificacoesHoje };
+    return [
+      {
+        icon: Bell,
+        label: "Total",
+        value: total,
+        iconClassName: "text-blue-600",
+        iconContainerClassName: "bg-blue-50/80",
+        badgeText: "Notificações no sistema",
+        badgeClassName: "text-slate-500 bg-slate-50",
+      },
+      {
+        icon: BellRing,
+        label: "Não lidas",
+        value: naoLidas,
+        iconClassName: "text-amber-600",
+        iconContainerClassName: "bg-amber-50/80",
+        badgeText: `${total ? Math.round((naoLidas / total) * 100) : 0}% não lidas`,
+        badgeClassName: "text-amber-600 bg-amber-50/80 border-amber-100",
+      },
+      {
+        icon: AlertTriangle,
+        label: "Urgentes",
+        value: alta,
+        iconClassName: "text-red-600",
+        iconContainerClassName: "bg-red-50/80",
+        badgeText: "Requerem atenção imediata",
+        badgeClassName: "text-red-600 bg-red-50/80 border-red-100",
+      },
+      {
+        icon: Clock,
+        label: "Hoje",
+        value: notificacoesHoje,
+        iconClassName: "text-green-600",
+        iconContainerClassName: "bg-green-50/80",
+        badgeText: "Novidades nas últimas 24h",
+        badgeClassName: "text-slate-500 bg-slate-50",
+      },
+    ];
   }, [notificacoes, filtrarPorEstado]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F7F9FC] to-white p-6 pb-12 sm:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="min-h-fit flex flex-col overflow-hidden bg-[#F7F9FC] p-4 md:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-8xl flex-1 flex flex-col overflow-hidden">
         {/* Cabeçalho */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-              Centro de Notificações
+              Notificações
             </h1>
             <p className="text-sm text-slate-500">
-              Gerencie mensagens, alertas e novidades do sistema
+              Consulte as mensagens, alertas e novidades do sistema
             </p>
-        </div>
+          </div>
 
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSearchTerm("")}
-              disabled={!searchTerm}
+          <div className="flex items-center gap-3 self-end sm:self-auto">            
+            <Button 
+              variant="default" 
+              size="sm" 
+              disabled={selectedIds.size === 0} 
+              onClick={handleMarcarSelecionadasComoLidas}
+              className="h-9 rounded-full text-xs font-medium shadow-sm"
             >
-              <XCircle className="mr-2 h-4 w-4" />
-              Limpar filtros
-            </Button>
-            
-            <Button variant="default" size="sm" disabled={selectedIds.size === 0} onClick={handleMarcarSelecionadasComoLidas}>
               <MailOpen className="mr-2 h-4 w-4" />
               Marcar como lida
             </Button>
@@ -292,94 +403,35 @@ export default function Notificacoes() {
             <Button
               variant="outline"
               size="sm"
-              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              className="h-9 rounded-full border-red-200 text-xs font-medium text-red-600 shadow-sm transition-all hover:bg-red-50 hover:text-red-700 hover:shadow-none"
               disabled={selectedIds.size === 0}
               onClick={handleArquivarSelecionadas}
             >
               <Archive className="mr-2 h-4 w-4" />
               Arquivar
             </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 rounded-full border-red-200 text-xs font-medium text-red-600 shadow-sm transition-all hover:bg-red-50 hover:text-red-700 hover:shadow-none"
+              disabled={selectedIds.size === 0}
+              onClick={handleApagarSelecionadas}
+            >
+              <Trash className="mr-2 h-4 w-4" />
+              Apagar
+            </Button>
           </div>
         </div>
         
         {/* Cards de estatísticas */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <motion.div 
-            className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">Total</p>
-              <div className="rounded-full bg-blue-50 p-2 text-blue-600">
-                <Bell className="h-5 w-5" />
-              </div>
-            </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">{stats.total}</p>
-            <p className="mt-1 text-xs text-slate-500">Notificações no sistema</p>
-          </motion.div>
-          
-          <motion.div 
-            className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">Não lidas</p>
-              <div className="rounded-full bg-amber-50 p-2 text-amber-600">
-                <BellRing className="h-5 w-5" />
-              </div>
-            </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">{stats.naoLidas}</p>
-            <div className="mt-1 flex items-center gap-1">
-              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
-                {stats.total ? Math.round((stats.naoLidas / stats.total) * 100) : 0}% não lidas
-              </Badge>
-            </div>
-          </motion.div>
-          
-          <motion.div 
-            className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">Urgentes</p>
-              <div className="rounded-full bg-red-50 p-2 text-red-600">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-            </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">{stats.alta}</p>
-            <div className="mt-1 flex items-center gap-1">
-              <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
-                Requerem atenção imediata
-              </Badge>
-            </div>
-          </motion.div>
-          
-          <motion.div 
-            className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-500">Hoje</p>
-              <div className="rounded-full bg-green-50 p-2 text-green-600">
-                <Clock className="h-5 w-5" />
-              </div>
-            </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">{stats.notificacoesHoje}</p>
-            <p className="mt-1 text-xs text-slate-500">Novidades nas últimas 24h</p>
-          </motion.div>
+        <div className="mb-4 flex-shrink-0">
+          <StatsGrid stats={stats} />
         </div>
         
         {/* Interface principal */}
-        <div className="mt-6 rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-100">
-          <Tabs defaultValue="todas" value={activeTab} onValueChange={handleTabChange}>
+        <div className="flex-1 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow">
+          <Tabs defaultValue="todas" value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col">
             <div className="flex flex-col items-start gap-4 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
               <TabsList className="h-10 rounded-lg bg-slate-50 p-1">
                 <TabsTrigger 
@@ -393,8 +445,10 @@ export default function Notificacoes() {
                   className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 >
                   Não lidas
-                  {stats.naoLidas > 0 && (
-                    <Badge className="ml-2 bg-amber-500">{stats.naoLidas}</Badge>
+                  {filtrarPorEstado("NAO_LIDA").length > 0 && (
+                    <Badge className="ml-2 h-5 rounded-full bg-azul px-2 text-xs text-white hover:bg-azul/80">
+                      {filtrarPorEstado("NAO_LIDA").length}
+                    </Badge>
                   )}
                 </TabsTrigger>
                 <TabsTrigger 
@@ -415,71 +469,112 @@ export default function Notificacoes() {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   placeholder="Pesquisar notificações..."
-                  className="w-full border-slate-200 pl-9 shadow-none"
+                  className="h-9 w-full rounded-full border-slate-200 bg-slate-50/50 pl-9 pr-4 text-slate-700 shadow-inner transition-all duration-200 ease-in-out focus:border-azul/30 focus:bg-white focus:ring-1 focus:ring-azul/20"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full p-0 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
             
-            <TabsContent value="todas" className="p-0 pt-1 focus-visible:outline-none focus-visible:ring-0">
-              <NotificacoesLista 
-                notificacoes={filteredNotificacoes} 
-                selectedIds={selectedIds}
-                toggleSelect={toggleSelect}
-                toggleSelectAll={toggleSelectAll}
-                onNavigate={handleNavigate}
-                isLoading={isLoading}
-                isEmpty={filteredNotificacoes.length === 0}
-                showCheckboxes={true}
-                searchTerm={searchTerm}
-              />
-            </TabsContent>
-            
-            <TabsContent value="nao_lidas" className="p-0 pt-1 focus-visible:outline-none focus-visible:ring-0">
-              <NotificacoesLista 
-                notificacoes={filteredNotificacoes} 
-                selectedIds={selectedIds}
-                toggleSelect={toggleSelect}
-                toggleSelectAll={toggleSelectAll}
-                onNavigate={handleNavigate}
-                isLoading={isLoading}
-                isEmpty={filteredNotificacoes.length === 0}
-                showCheckboxes={true}
-                searchTerm={searchTerm}
-              />
-            </TabsContent>
-            
-            <TabsContent value="lidas" className="p-0 pt-1 focus-visible:outline-none focus-visible:ring-0">
-              <NotificacoesLista 
-                notificacoes={filteredNotificacoes} 
-                selectedIds={selectedIds}
-                toggleSelect={toggleSelect}
-                toggleSelectAll={toggleSelectAll}
-                onNavigate={handleNavigate}
-                isLoading={isLoading}
-                isEmpty={filteredNotificacoes.length === 0}
-                showCheckboxes={true}
-                searchTerm={searchTerm}
-              />
-            </TabsContent>
-            
-            <TabsContent value="arquivadas" className="p-0 pt-1 focus-visible:outline-none focus-visible:ring-0">
-              <NotificacoesLista 
-                notificacoes={filteredNotificacoes} 
-                selectedIds={selectedIds}
-                toggleSelect={toggleSelect}
-                toggleSelectAll={toggleSelectAll}
-                onNavigate={handleNavigate}
-                isLoading={isLoading}
-                isEmpty={filteredNotificacoes.length === 0}
-                showCheckboxes={true}
-                searchTerm={searchTerm}
-              />
-            </TabsContent>
+            <div className="flex-1 overflow-hidden">
+              <TabsContent value="todas" className="h-full p-0 data-[state=active]:flex data-[state=active]:flex-col focus-visible:outline-none focus-visible:ring-0">
+                <NotificacoesLista 
+                  notificacoes={filteredNotificacoes} 
+                  selectedIds={selectedIds}
+                  toggleSelect={toggleSelect}
+                  toggleSelectAll={toggleSelectAll}
+                  onNavigate={handleNavigate}
+                  isLoading={isLoading}
+                  isEmpty={filteredNotificacoes.length === 0}
+                  showCheckboxes={true}
+                  searchTerm={searchTerm}
+                />
+              </TabsContent>
+              
+              <TabsContent value="nao_lidas" className="h-full p-0 data-[state=active]:flex data-[state=active]:flex-col focus-visible:outline-none focus-visible:ring-0">
+                <NotificacoesLista 
+                  notificacoes={filteredNotificacoes} 
+                  selectedIds={selectedIds}
+                  toggleSelect={toggleSelect}
+                  toggleSelectAll={toggleSelectAll}
+                  onNavigate={handleNavigate}
+                  isLoading={isLoading}
+                  isEmpty={filteredNotificacoes.length === 0}
+                  showCheckboxes={true}
+                  searchTerm={searchTerm}
+                />
+              </TabsContent>
+              
+              <TabsContent value="lidas" className="h-full p-0 data-[state=active]:flex data-[state=active]:flex-col focus-visible:outline-none focus-visible:ring-0">
+                <NotificacoesLista 
+                  notificacoes={filteredNotificacoes} 
+                  selectedIds={selectedIds}
+                  toggleSelect={toggleSelect}
+                  toggleSelectAll={toggleSelectAll}
+                  onNavigate={handleNavigate}
+                  isLoading={isLoading}
+                  isEmpty={filteredNotificacoes.length === 0}
+                  showCheckboxes={true}
+                  searchTerm={searchTerm}
+                />
+              </TabsContent>
+              
+              <TabsContent value="arquivadas" className="h-full p-0 data-[state=active]:flex data-[state=active]:flex-col focus-visible:outline-none focus-visible:ring-0">
+                <NotificacoesLista 
+                  notificacoes={filteredNotificacoes} 
+                  selectedIds={selectedIds}
+                  toggleSelect={toggleSelect}
+                  toggleSelectAll={toggleSelectAll}
+                  onNavigate={handleNavigate}
+                  isLoading={isLoading}
+                  isEmpty={filteredNotificacoes.length === 0}
+                  showCheckboxes={true}
+                  searchTerm={searchTerm}
+                />
+              </TabsContent>
+            </div>
           </Tabs>
         </div>
       </div>
+      
+      {/* AlertDialog para confirmar exclusão */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent tipo="erro">
+          <AlertDialogHeader>
+            <AlertDialogTitle tipo="erro">
+              {deleteMultiple 
+                ? `Apagar ${selectedIds.size} notificação${selectedIds.size > 1 ? 'ções' : ''}?`
+                : "Apagar notificação?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteMultiple 
+                ? `Tem a certeza que deseja apagar ${selectedIds.size} notificação${selectedIds.size > 1 ? 'ções' : ''}?`
+                : "Tem a certeza que deseja apagar esta notificação?"}
+              <span className="mt-2 block font-medium text-red-600">Esta ação não pode ser revertida.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete} 
+              destrutivo 
+              tipo="erro"
+            >
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -508,7 +603,7 @@ function NotificacoesLista({
 }) {
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div className="flex h-full min-h-[400px] items-center justify-center">
         <div className="text-center">
           <Clock className="mx-auto h-10 w-10 animate-pulse text-slate-300" />
           <p className="mt-2 text-sm text-slate-500">A carregar notificações...</p>
@@ -519,22 +614,22 @@ function NotificacoesLista({
 
   if (isEmpty) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center">
-        <div className="text-center">
-          <Bell className="mx-auto h-12 w-12 text-slate-300" />
-          <h3 className="mt-4 text-xl font-semibold text-slate-700">Nenhuma notificação encontrada</h3>
-          <p className="mt-2 text-sm text-slate-500">
-            {searchTerm 
-              ? "Tente ajustar a sua pesquisa para encontrar o que procura."
-              : "Não existem notificações nesta categoria."}
-          </p>
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-50 shadow-sm">
+          <Bell className="h-6 w-6 text-slate-400" />
         </div>
+        <h3 className="mt-4 text-base font-medium text-slate-700">Nenhuma notificação encontrada</h3>
+        <p className="mt-1.5 text-sm text-slate-500">
+          {searchTerm 
+            ? "Tente ajustar a sua pesquisa para encontrar o que procura."
+            : "Não existem notificações nesta categoria."}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div className="flex flex-1 flex-col overflow-hidden">
       {showCheckboxes && (
         <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-2 text-sm font-medium text-slate-500">
           <Checkbox
@@ -557,22 +652,20 @@ function NotificacoesLista({
         </div>
       )}
 
-      <ScrollArea className="max-h-[70vh]">
-        <AnimatePresence>
-          <div className="divide-y divide-slate-100">
-            {notificacoes.map((notificacao) => (
-              <NotificacaoItem
-                key={notificacao.id}
-                notificacao={notificacao}
-                isSelected={selectedIds.has(notificacao.id)}
-                onSelect={() => toggleSelect(notificacao.id)}
-                onNavigate={() => onNavigate(notificacao)}
-                showCheckbox={showCheckboxes}
-              />
-            ))}
-          </div>
-        </AnimatePresence>
-      </ScrollArea>
+      <div className="flex-1 min-h-[400px] overflow-y-auto">
+        <div className="divide-y divide-slate-100">
+          {notificacoes.map((notificacao) => (
+            <NotificacaoItem
+              key={notificacao.id}
+              notificacao={notificacao}
+              isSelected={selectedIds.has(notificacao.id)}
+              onSelect={() => toggleSelect(notificacao.id)}
+              onNavigate={() => onNavigate(notificacao)}
+              showCheckbox={showCheckboxes}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -592,93 +685,150 @@ function NotificacaoItem({
   showCheckbox: boolean;
 }) {
   const isRead = notificacao.estado !== "NAO_LIDA";
+  const utils = api.useUtils();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // Mutation para apagar notificação
+  const apagarNotificacaoMutation = api.notificacao.apagar.useMutation({
+    onSuccess: () => {
+      utils.notificacao.listar.invalidate();
+      utils.notificacao.contarNaoLidas.invalidate();
+    },
+  });
+  
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDeleteDialogOpen(true);
+  }, []);
+  
+  const handleConfirmDelete = useCallback(() => {
+    apagarNotificacaoMutation.mutate(notificacao.id);
+    setIsDeleteDialogOpen(false);
+  }, [notificacao.id, apagarNotificacaoMutation]);
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.2 }}
-      className={cn(
-        "group flex cursor-pointer gap-3 border-l-4 bg-white p-4 hover:bg-slate-50",
-        isSelected ? "border-l-azul/80 bg-azul/5" : getCardBorderColor(notificacao.urgencia, isRead),
-        isRead ? "bg-white" : "bg-slate-50/50"
-      )}
-      onClick={onNavigate}
-    >
-      {showCheckbox && (
-        <div className="mt-1 flex-none" onClick={(e) => { e.stopPropagation(); onSelect(); }}>
-          <Checkbox
-            checked={isSelected}
-            className="h-4 w-4 border-slate-300 data-[state=checked]:border-azul data-[state=checked]:bg-azul"
-          />
-        </div>
-      )}
-      
-      <div className={cn(
-        "flex h-10 w-10 flex-none items-center justify-center rounded-full",
-        getIconBgColor(notificacao.urgencia, true)
-      )}>
-        {getIconByType(notificacao.entidade)}
-      </div>
-      
-      <div className="flex-1 space-y-1">
-        <div className="flex items-center justify-between">
-          <h4 className={cn(
-            "text-base",
-            isRead ? "font-medium text-slate-700" : "font-semibold text-slate-900"
-          )}>
-            {notificacao.titulo}
-          </h4>
-          
-          <div className="flex items-center gap-2">
-            <BadgeEstado
-              status={notificacao.entidade}
-              label={TIPO_LABELS[notificacao.entidade]}
-              variant="notificacao"
-              customClassName={cn(
-                notificacao.entidade === "ENTREGAVEL" && "border-blue-200 bg-blue-50/70 text-blue-600",
-                notificacao.entidade === "PROJETO" && "border-purple-200 bg-purple-50/70 text-purple-600",
-                notificacao.entidade === "WORKPACKAGE" && "border-green-200 bg-green-50/70 text-green-600",
-                notificacao.entidade === "ALOCACAO" && "border-amber-200 bg-amber-50/70 text-amber-600",
-                notificacao.entidade === "TAREFA" && "border-cyan-200 bg-cyan-50/70 text-cyan-600",
-                notificacao.entidade === "SISTEMA" && "border-slate-200 bg-slate-50/70 text-slate-600",
-                "text-xs"
-              )}
+    <>
+      <div
+        className={cn(
+          "group flex cursor-pointer gap-3 border-l-4 bg-white p-4 transition-colors hover:bg-slate-50/70",
+          isSelected ? "border-l-azul bg-azul/5" : getCardBorderColor(notificacao.urgencia, isRead),
+          isRead ? "bg-white" : "bg-slate-50/50"
+        )}
+        onClick={onNavigate}
+      >
+        {showCheckbox && (
+          <div className="mt-1 flex-none" onClick={(e) => { e.stopPropagation(); onSelect(); }}>
+            <Checkbox
+              checked={isSelected}
+              className="h-4 w-4 border-slate-300 data-[state=checked]:border-azul data-[state=checked]:bg-azul"
             />
+          </div>
+        )}
+        
+        <div className={cn(
+          "flex h-9 w-9 flex-none items-center justify-center rounded-full",
+          getIconBgColor(notificacao.urgencia, true)
+        )}>
+          {getIconByType(notificacao.entidade)}
+        </div>
+        
+        <div className="flex-1 space-y-1">
+          <div className="flex items-center justify-between">
+            <h4 className={cn(
+              "text-base",
+              isRead ? "font-medium text-slate-700" : "font-semibold text-slate-800"
+            )}>
+              {notificacao.titulo}
+            </h4>
             
-            {notificacao.urgencia === "ALTA" && (
-              <Badge className="border-0 bg-red-100 px-2 text-xs font-medium text-red-600">
-                Urgente
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              <BadgeEstado
+                status={notificacao.entidade}
+                label={TIPO_LABELS[notificacao.entidade]}
+                variant="notificacao"
+                customClassName={cn(
+                  notificacao.entidade === "ENTREGAVEL" && "border-blue-200 bg-blue-50/70 text-blue-600",
+                  notificacao.entidade === "PROJETO" && "border-purple-200 bg-purple-50/70 text-purple-600",
+                  notificacao.entidade === "WORKPACKAGE" && "border-green-200 bg-green-50/70 text-green-600",
+                  notificacao.entidade === "ALOCACAO" && "border-amber-200 bg-amber-50/70 text-amber-600",
+                  notificacao.entidade === "TAREFA" && "border-cyan-200 bg-cyan-50/70 text-cyan-600",
+                  notificacao.entidade === "SISTEMA" && "border-slate-200 bg-slate-50/70 text-slate-600",
+                  "text-xs"
+                )}
+              />
+              
+              {notificacao.urgencia === "ALTA" && (
+                <Badge className="border-0 bg-red-100 px-2 text-xs font-medium text-red-600">
+                  Urgente
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          <p className="text-sm text-slate-600">
+            {notificacao.descricao}
+          </p>
+          
+          <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              {getRelativeTime(notificacao.dataEmissao)}
+            </span>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="invisible h-8 w-8 rounded-full p-0 text-slate-400 transition-colors group-hover:visible hover:bg-slate-100 hover:text-azul"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigate();
+                }}
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span className="sr-only">Ver detalhes</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                className="invisible h-8 w-8 rounded-full p-0 text-slate-400 transition-colors group-hover:visible hover:bg-red-50 hover:text-red-600"
+                onClick={handleDelete}
+              >
+                <Trash className="h-4 w-4" />
+                <span className="sr-only">Apagar notificação</span>
+              </Button>
+            </div>
           </div>
         </div>
-        
-        <p className="text-sm text-slate-600">
-          {notificacao.descricao}
-        </p>
-        
-        <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5" />
-            {getRelativeTime(notificacao.dataEmissao)}
-          </span>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className="invisible h-8 w-8 p-0 group-hover:visible"
-            onClick={(e) => {
-              e.stopPropagation();
-              onNavigate();
-            }}
-          >
-            <ExternalLink className="h-4 w-4" />
-            <span className="sr-only">Ver detalhes</span>
-          </Button>
-        </div>
       </div>
-    </motion.div>
+      
+      {/* AlertDialog para confirmar exclusão individual */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent tipo="erro">
+          <AlertDialogHeader>
+            <AlertDialogTitle tipo="erro">
+              Apagar notificação?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza que deseja apagar esta notificação?
+              <span className="mt-2 block font-medium text-red-600">Esta ação não pode ser revertida.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete} 
+              destrutivo 
+              tipo="erro"
+            >
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
+
+

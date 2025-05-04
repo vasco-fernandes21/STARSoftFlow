@@ -155,6 +155,20 @@ export const notificacoesRouter = createTRPCRouter({
       return notificacao;
     }),
 
+  // Apagar notificação
+  apagar: protectedProcedure
+    .input(z.string().uuid())
+    .mutation(async ({ ctx, input }) => {
+      const notificacao = await ctx.db.notificacao.delete({
+        where: {
+          id: input,
+          destinatarioId: ctx.session.user.id,
+        },
+      });
+
+      return notificacao;
+    }),
+
   // Listar notificações do utilizador
   listar: protectedProcedure
     .input(

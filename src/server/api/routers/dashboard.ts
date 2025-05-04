@@ -22,9 +22,11 @@ export interface DashboardData {
     percentualConcluido: number;
   }[];
   projetosAtivos: number;
+  projetosPendentes: number;
   tarefasPendentes: number;
   ocupacaoMensal: number;
   entregaveisProximos: EntregavelAlerta[];
+  entregaveisMesAtual: EntregavelAlerta[];
   ocupacaoRecursos: OcupacaoRecurso[];
   atividadesRecentes: AtividadeRecente[];
 }
@@ -162,6 +164,61 @@ async function obterDadosDashboard(
     },
     orderBy: { data: "asc" },
   });
+  
+  // Buscar entregáveis do mês atual
+  const dataAtual = new Date();
+  const mesAtual = dataAtual.getMonth() + 1; // JavaScript usa meses 0-11
+  const anoAtual = dataAtual.getFullYear();
+  
+  // Primeiro dia do mês atual
+  const primeiroDiaMes = new Date(anoAtual, mesAtual - 1, 1);
+  // Último dia do mês atual (primeiro dia do próximo mês - 1)
+  const ultimoDiaMes = new Date(anoAtual, mesAtual, 0);
+  
+  const entregaveisMesAtual = await ctx.db.entregavel.findMany({
+    where: {
+      AND: [
+        {
+          OR: [
+            {
+              data: {
+                equals: null
+              }
+            },
+            {
+              data: {
+                gte: primeiroDiaMes,
+                lte: ultimoDiaMes
+              }
+            }
+          ]
+        },
+        isAdmin
+          ? {}
+          : {
+              tarefa: {
+                workpackage: {
+                  recursos: {
+                    some: { userId },
+                  },
+                },
+              },
+            },
+      ]
+    },
+    include: {
+      tarefa: {
+        include: {
+          workpackage: {
+            include: {
+              projeto: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { data: "asc" },
+  });
 
   // Buscar atividades recentes
   const tarefas = await ctx.db.tarefa.findMany({
@@ -244,10 +301,17 @@ async function obterDadosDashboard(
 
   return {
     projetos,
-    projetosAtivos: projetos.filter((p) => p.estado === "EM_DESENVOLVIMENTO").length,
+    projetosAtivos: projetos.filter((p) => p.estado === "EM_DESENVOLVIMENTO" || p.estado === "APROVADO").length,
+    projetosPendentes: projetos.filter((p) => p.estado === "PENDENTE").length,
     tarefasPendentes: projetos.reduce((acc, p) => acc + (p.totalTarefas - p.tarefasConcluidas), 0),
     ocupacaoMensal: Number(ocupacaoMensal._sum.ocupacao) || 0,
     entregaveisProximos: entregaveisProximos.map((e) => ({
+      ...e,
+      diasRestantes: e.data
+        ? Math.ceil((new Date(e.data).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+        : 0,
+    })),
+    entregaveisMesAtual: entregaveisMesAtual.map((e) => ({
       ...e,
       diasRestantes: e.data
         ? Math.ceil((new Date(e.data).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
@@ -465,5 +529,250 @@ export const dashboardRouter = createTRPCRouter({
         anos,
         anoAtual,
       };
+    }),
+
+  // Obter próximos eventos (tarefas e entregáveis) de um utilizador
+  proximosEventos: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        limit: z.number().int().min(1).max(50).optional().default(10),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const { userId, limit } = input;
+        const hoje = new Date();
+        
+        // 1. Encontrar todos os workpackages em que o utilizador está alocado
+        const workpackagesAlocados = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId,
+            workpackage: {
+              projeto: {
+                estado: {
+                  in: ['APROVADO', 'EM_DESENVOLVIMENTO']
+                }
+              }
+            }
+          },
+          select: {
+            workpackageId: true,
+            workpackage: {
+              select: {
+                id: true,
+                nome: true,
+                projetoId: true,
+                projeto: {
+                  select: {
+                    id: true,
+                    nome: true,
+                    estado: true,
+                  }
+                }
+              }
+            }
+          },
+          distinct: ['workpackageId'],
+        });
+        
+        const workpackageIds = workpackagesAlocados.map(wa => wa.workpackageId);
+        
+        if (workpackageIds.length === 0) {
+          return {
+            tarefas: [],
+            entregaveis: [],
+            eventos: []
+          };
+        }
+        
+        // 2. Obter tarefas desses workpackages que estão por completar
+        const tarefas = await ctx.db.tarefa.findMany({
+          where: {
+            workpackageId: {
+              in: workpackageIds
+            },
+            estado: false, // Tarefas não concluídas
+            workpackage: {
+              projeto: {
+                estado: {
+                  in: ['APROVADO', 'EM_DESENVOLVIMENTO']
+                }
+              }
+            }
+          },
+          select: {
+            id: true,
+            nome: true,
+            descricao: true,
+            inicio: true,
+            fim: true,
+            estado: true,
+            workpackageId: true,
+            workpackage: {
+              select: {
+                id: true,
+                nome: true,
+                projetoId: true,
+                projeto: {
+                  select: {
+                    id: true,
+                    nome: true,
+                    estado: true,
+                  }
+                }
+              }
+            }
+          },
+          orderBy: {
+            fim: 'asc'
+          },
+          take: limit,
+        });
+        
+        // 3. Obter entregáveis dessas tarefas
+        const tarefasIds = tarefas.map(t => t.id);
+        
+        const entregaveis = await ctx.db.entregavel.findMany({
+          where: {
+            tarefaId: {
+              in: tarefasIds
+            },
+            // Entregáveis com data futura ou sem data definida
+            OR: [
+              { 
+                data: {
+                  gte: hoje
+                }
+              },
+              {
+                data: null
+              }
+            ],
+            tarefa: {
+              workpackage: {
+                projeto: {
+                  estado: {
+                    in: ['APROVADO', 'EM_DESENVOLVIMENTO']
+                  }
+                }
+              }
+            }
+          },
+          select: {
+            id: true,
+            nome: true,
+            descricao: true,
+            data: true,
+            anexo: true,
+            tarefaId: true,
+            tarefa: {
+              select: {
+                id: true,
+                nome: true,
+                workpackageId: true,
+                workpackage: {
+                  select: {
+                    id: true,
+                    nome: true,
+                    projetoId: true,
+                    projeto: {
+                      select: {
+                        id: true,
+                        nome: true,
+                        estado: true,
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: {
+            data: 'asc'
+          },
+          take: limit,
+        });
+        
+        // 4. Calcular dias restantes e formatar respostas
+        const tarefasFormatadas = tarefas
+          .filter(t => ['APROVADO', 'EM_DESENVOLVIMENTO'].includes(t.workpackage.projeto.estado))
+          .map(tarefa => {
+            // Calcular dias restantes para a data limite da tarefa
+            const diasRestantes = tarefa.fim
+              ? Math.ceil((new Date(tarefa.fim).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+              : null;
+               
+            return {
+              id: tarefa.id,
+              tipo: 'tarefa',
+              nome: tarefa.nome,
+              descricao: tarefa.descricao,
+              dataLimite: tarefa.fim,
+              dataCriacao: tarefa.inicio,
+              diasRestantes,
+              workpackage: {
+                id: tarefa.workpackage.id,
+                nome: tarefa.workpackage.nome,
+              },
+              projeto: {
+                id: tarefa.workpackage.projeto.id,
+                nome: tarefa.workpackage.projeto.nome,
+              }
+            };
+          });
+        
+        const entregaveisFormatados = entregaveis
+          .filter(e => ['APROVADO', 'EM_DESENVOLVIMENTO'].includes(e.tarefa.workpackage.projeto.estado))
+          .map(entregavel => {
+            // Calcular dias restantes para a data de entrega
+            const diasRestantes = entregavel.data
+              ? Math.ceil((new Date(entregavel.data).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+              : null;
+               
+            return {
+              id: entregavel.id,
+              tipo: 'entregavel',
+              nome: entregavel.nome,
+              descricao: entregavel.descricao,
+              dataLimite: entregavel.data,
+              diasRestantes,
+              tarefaId: entregavel.tarefaId,
+              tarefaNome: entregavel.tarefa.nome,
+              workpackage: {
+                id: entregavel.tarefa.workpackage.id,
+                nome: entregavel.tarefa.workpackage.nome,
+              },
+              projeto: {
+                id: entregavel.tarefa.workpackage.projeto.id,
+                nome: entregavel.tarefa.workpackage.projeto.nome,
+              }
+            };
+          });
+        
+        // 5. Combinar resultados ordenados por dias restantes (eventos mais próximos primeiro)
+        const todosEventos = [...tarefasFormatadas, ...entregaveisFormatados].sort((a, b) => {
+          // Se não tiver dataLimite, colocar por último
+          if (a.diasRestantes === null && b.diasRestantes === null) return 0;
+          if (a.diasRestantes === null) return 1;
+          if (b.diasRestantes === null) return -1;
+          
+          // Ordenar por dias restantes (crescente)
+          return a.diasRestantes - b.diasRestantes;
+        });
+        
+        return {
+          eventos: todosEventos.slice(0, limit),
+          tarefas: tarefasFormatadas,
+          entregaveis: entregaveisFormatados
+        };
+      } catch (error) {
+        console.error("Erro ao obter próximos eventos:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter próximos eventos",
+          cause: error,
+        });
+      }
     }),
 });
