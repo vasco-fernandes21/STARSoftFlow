@@ -11,6 +11,7 @@ import { OverviewTab } from "./projeto-financas/OverviewTab";
 import { OrcamentoSubmetidoTab } from "./projeto-financas/OrcamentoSubmetidoTab";
 import { OrcamentoRealTab } from "./projeto-financas/OrcamentoRealTab";
 import { FolgaTab } from "./projeto-financas/FolgaTab";
+import { Loader } from "@/components/ui/loader";
 
 // Tipos para o Badge de Status
 type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>;
@@ -40,6 +41,61 @@ export interface DisplayData {
   margem: number | null;
   vab: number | null;
   vabCustosPessoal: number | null;
+}
+
+// Interface para os detalhes anuais mapeados
+export interface DetalheAnualMapped {
+  ano: number;
+  orcamento: {
+    submetido: number;
+    submetidoTipo: string;
+    submetidoDetalhes: {
+      recursos: number;
+      materiais: number;
+      overhead: number;
+      overheadPercent: number;
+    } | null;
+    real: {
+      recursos: number;
+      materiais: number;
+    };
+  };
+  custosConcluidos?: {
+    total: number | null;
+    recursos: number | null;
+    materiais: number | null;
+  };
+  valorFinanciado: number;
+  overhead: number;
+  resultado: number;
+  margem: number;
+  vab: number;
+  vabCustosPessoal: number;
+  totalAlocacao: number | undefined;
+}
+
+// Interface para dados financeiros com detalhes
+export interface FinancasComDetalhes {
+  orcamentoSubmetido: number;
+  taxaFinanciamento: number;
+  custosReais: {
+    total: number;
+    recursos: number;
+    materiais: number;
+  };
+  custosConcluidos: {
+    total: number;
+    recursos: number;
+    materiais: number;
+  };
+  valorFinanciado: number;
+  overhead: number;
+  resultado: number;
+  margem: number;
+  vab: number;
+  vabCustosPessoal: number;
+  anos: number[];
+  detalhesAnuais: DetalheAnualMapped[];
 }
 
 interface ProjetoFinancasProps {
@@ -101,11 +157,34 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} className="h-[120px] w-full rounded-xl" />
-        ))}
-        <Skeleton className="col-span-1 h-[400px] w-full rounded-xl sm:col-span-2 md:col-span-3" />
+      <div className="animate-fade-in space-y-6">
+        <div className="flex items-center justify-between">
+          <Loader.SkeletonCard header={true} rows={0} className="w-64 border-none p-0" />
+          <Loader.SkeletonCard header={true} rows={0} className="w-32 border-none p-0" />
+        </div>
+
+        <div className="space-y-6">
+          <Loader.SkeletonCard headerHeight="h-8" rows={0} className="mb-4 border-none p-0" />
+          
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <Loader.SkeletonCard 
+                key={i} 
+                headerHeight="h-6" 
+                rows={2} 
+                rowHeight="h-8" 
+                className="border-slate-100"
+              />
+            ))}
+          </div>
+          
+          <Loader.SkeletonCard 
+            headerHeight="h-6" 
+            rows={1} 
+            rowHeight="h-64" 
+            className="mt-6 border-slate-100"
+          />
+        </div>
       </div>
     );
   }

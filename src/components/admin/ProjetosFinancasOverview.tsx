@@ -627,7 +627,7 @@ export function ProjetosFinancasOverview({ className }: ProjetosFinancasOverview
                                       {formatCurrency(detalhe.orcamento.submetido)}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                      {formatCurrency(detalhe.orcamento.real.total)}
+                                      {formatCurrency(detalhe.orcamento.real.recursos + detalhe.orcamento.real.materiais)}
                                     </TableCell>
                                     <TableCell className="text-right">
                                       {formatCurrency(detalhe.valorFinanciado)}

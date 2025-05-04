@@ -35,6 +35,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export type FilterOption = {
   id: string;
@@ -72,6 +73,7 @@ type TabelaDadosProps<TData> = {
   rowSelection?: Record<string, boolean>;
   setRowSelection?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   getRowId?: (row: TData) => string;
+  hideActionForPermissions?: boolean;
 };
 
 export function TabelaDados<TData>({
@@ -92,16 +94,28 @@ export function TabelaDados<TData>({
   rowSelection,
   setRowSelection,
   getRowId,
+  hideActionForPermissions = false,
 }: TabelaDadosProps<TData>) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: itemsPerPage,
   });
+  const { isGestor } = usePermissions();
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
+  // Filtrar colunas de ação quando o utilizador não tem permissão
+  const filteredColumns = useMemo(() => {
+    if (!hideActionForPermissions || isGestor) {
+      return columns;
+    }
+    
+    // Filtrar colunas que são de ações (geralmente última coluna ou colunas com meta.isAction)
+    return columns.filter(col => !(col.meta as any)?.isAction);
+  }, [columns, hideActionForPermissions, isGestor]);
 
   useEffect(() => {
     setPagination((prev) => ({
@@ -112,7 +126,7 @@ export function TabelaDados<TData>({
 
   const table = useReactTable({
     data,
-    columns,
+    columns: filteredColumns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

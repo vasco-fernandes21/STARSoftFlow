@@ -36,6 +36,7 @@ interface ItemProps {
   onUpdateAlocacao: (userId: string, alocacoes: Alocacao[]) => void;
   workpackageId: string;
   utilizadores: User[];
+  readOnly?: boolean;
 }
 
 export function Item({
@@ -50,6 +51,7 @@ export function Item({
   onUpdateAlocacao,
   workpackageId,
   utilizadores,
+  readOnly = false,
 }: ItemProps) {
   const [isEditing] = useState(false);
 
@@ -162,7 +164,7 @@ export function Item({
         </div>
 
         <div className="flex items-center gap-1">
-          {!isEditing && !showForm ? (
+          {!isEditing && !showForm && !readOnly ? (
             <>
               <Button
                 variant="ghost"

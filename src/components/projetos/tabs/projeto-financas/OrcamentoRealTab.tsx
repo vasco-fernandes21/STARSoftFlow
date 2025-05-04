@@ -105,7 +105,7 @@ export function OrcamentoRealTab({ financas, detalhesAnuais, dadosGraficoReal }:
                         {formatCurrency(detalhe.orcamento.real.materiais)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {formatCurrency(detalhe.orcamento.real.total)}
+                        {formatCurrency(detalhe.orcamento.real.recursos + detalhe.orcamento.real.materiais)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {formatCurrency(detalhe.overhead)}

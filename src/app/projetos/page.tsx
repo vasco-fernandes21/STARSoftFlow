@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar, Trash2 } from "lucide-react";
+import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar, Trash2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -259,7 +259,7 @@ export default function Projetos() {
       },
       {
         id: "actions",
-        meta: { align: "center" },
+        meta: { align: "center", isAction: true },
         header: () => (
           <div className="flex items-center justify-center w-full h-full">
             AÇÕES
@@ -481,6 +481,7 @@ export default function Projetos() {
               description:
                 "Experimente ajustar os filtros de pesquisa ou remover o texto na pesquisa.",
             }}
+            hideActionForPermissions
           />
         </div>
       </div>

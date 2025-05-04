@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Users as UsersIcon, UserCheck, UserCog, Clock, Trash2 } from "lucide-react";
+import { Users as UsersIcon, UserCheck, UserCog, Clock, Trash2, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
@@ -360,7 +360,7 @@ const Users = () => {
       },
       {
         id: "actions",
-        meta: { align: "center" },
+        meta: { align: "center", isAction: true },
         header: () => (
           <div className="flex items-center justify-center w-full h-full">
             Ações
@@ -460,6 +460,7 @@ const Users = () => {
                   description:
                     "Experimente ajustar os filtros de pesquisa ou remover o texto na pesquisa para ver todos os utilizadores.",
                 }}
+                hideActionForPermissions
               />
             </div>
           )}

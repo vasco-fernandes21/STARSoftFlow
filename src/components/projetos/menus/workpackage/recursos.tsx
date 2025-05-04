@@ -12,12 +12,14 @@ interface WorkpackageRecursosProps {
   workpackage: WorkpackageCompleto;
   _workpackageId: string;
   projetoId: string;
+  canEdit?: boolean;
 }
 
 export function WorkpackageRecursos({
   workpackage,
   _workpackageId,
   projetoId,
+  canEdit = true,
 }: WorkpackageRecursosProps) {
   // Estado para controlar adição de recurso
   const [addingRecurso, setAddingRecurso] = useState(false);
@@ -175,7 +177,7 @@ export function WorkpackageRecursos({
           <p className="text-sm text-gray-500">Gerir recursos alocados</p>
         </div>
 
-        {!addingRecurso && (
+        {!addingRecurso && canEdit && (
           <Button
             onClick={() => setAddingRecurso(true)}
             className="h-10 bg-azul text-white hover:bg-azul/90"
@@ -188,7 +190,7 @@ export function WorkpackageRecursos({
       </div>
 
       {/* Formulário para adicionar novo recurso */}
-      {addingRecurso && (
+      {addingRecurso && canEdit && (
         <div className="w-full h-full animate-in fade-in-50 slide-in-from-top-5">
           <RecursoForm
             workpackageId={workpackage.id}
@@ -250,23 +252,29 @@ export function WorkpackageRecursos({
                 inicio={workpackage.inicio || new Date()}
                 fim={workpackage.fim || new Date()}
                 projetoEstado={workpackage.projeto?.estado || "RASCUNHO"}
-                workpackageId={_workpackageId}
+                workpackageId={workpackage.id}
                 utilizadores={utilizadoresList}
+                readOnly={!canEdit}
               />
             );
           })}
         </div>
       ) : (
-        <div className="rounded-lg border border-azul/10 bg-white py-16 text-center shadow-sm">
-          <Users className="mx-auto mb-4 h-12 w-12 text-azul/20" />
-          <h3 className="mb-2 text-lg font-medium text-azul">Nenhum recurso alocado</h3>
-          <p className="mx-auto max-w-md text-sm text-azul/60">
-            {utilizadoresDisponiveis.length > 0 ? (
-              'Clique em "Novo Recurso" para alocar recursos humanos a este workpackage'
-            ) : (
-              'Todos os recursos já estão alocados a este workpackage'
-            )}
+        <div className="rounded-xl border border-gray-200 p-8 text-center">
+          <Users className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+          <h3 className="mb-1 text-lg font-medium text-gray-700">Nenhum recurso alocado</h3>
+          <p className="mb-4 text-sm text-gray-500">
+            Aloque recursos humanos a este workpackage
           </p>
+          {canEdit && utilizadoresDisponiveis.length > 0 && (
+            <Button
+              className="bg-azul text-white hover:bg-azul/90"
+              onClick={() => setAddingRecurso(true)}
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Alocar Recurso
+            </Button>
+          )}
         </div>
       )}
     </div>

@@ -14,6 +14,8 @@ import { Decimal } from "decimal.js";
 import { useMutations } from "@/hooks/useMutations";
 import { toast } from "sonner";
 import type { Prisma } from "@prisma/client";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useSession } from "next-auth/react";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -124,7 +126,11 @@ export function MenuWorkpackage({
 }: MenuWorkpackageProps) {
   const [addingTarefa, setAddingTarefa] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-
+  
+  // Usar hook de permissões
+  const { isAdmin, isGestor } = usePermissions();
+  const { data: session } = useSession();
+  
   // Usar mutations com o projetoId
   const mutations = useMutations(projetoId);
 
@@ -148,6 +154,12 @@ export function MenuWorkpackage({
   useEffect(() => {
     if (!open) setAddingTarefa(false);
   }, [open]);
+
+  // Verificar se o usuário atual é responsável pelo projeto
+  const isResponsavel = projeto?.responsavelId === session?.user?.id;
+  
+  // Verificar se o usuário tem permissão para editar
+  const canEdit = isAdmin || isGestor || isResponsavel;
 
   // --- Handlers para tarefas ---
 
@@ -321,47 +333,49 @@ export function MenuWorkpackage({
                   <h1 className="text-xl font-bold text-gray-900">{fullWorkpackage.nome}</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                  <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="h-9 w-9 rounded-full transition-colors hover:bg-red-100"
-                        title="Apagar Workpackage"
-                      >
-                        <Trash className="h-5 w-5 text-red-500" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Apagar Workpackage</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta ação não pode ser desfeita. Tem a certeza que deseja apagar este workpackage?
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-red-600 hover:bg-red-700"
-                          onClick={async () => {
-                            try {
-                              await deleteWorkpackage.mutateAsync(fullWorkpackage.id);
-                              toast.success('Workpackage apagado com sucesso!');
-                              utils.projeto.findById.invalidate();
-                              utils.financas.getTotaisFinanceiros.invalidate();
-                              utils.financas.getComparacaoGastos.invalidate();
-                              onClose();
-                            } catch (error: any) {
-                              toast.error(error?.message || 'Erro ao apagar workpackage');
-                            } finally {
-                              setOpenDeleteDialog(false);
-                            }
-                          }}
+                  {canEdit && (
+                    <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="h-9 w-9 rounded-full transition-colors hover:bg-red-100"
+                          title="Apagar Workpackage"
                         >
-                          Apagar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <Trash className="h-5 w-5 text-red-500" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Apagar Workpackage</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. Tem a certeza que deseja apagar este workpackage?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={async () => {
+                              try {
+                                await deleteWorkpackage.mutateAsync(fullWorkpackage.id);
+                                toast.success('Workpackage apagado com sucesso!');
+                                utils.projeto.findById.invalidate();
+                                utils.financas.getTotaisFinanceiros.invalidate();
+                                utils.financas.getComparacaoGastos.invalidate();
+                                onClose();
+                              } catch (error: any) {
+                                toast.error(error?.message || 'Erro ao apagar workpackage');
+                              } finally {
+                                setOpenDeleteDialog(false);
+                              }
+                            }}
+                          >
+                            Apagar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -385,6 +399,7 @@ export function MenuWorkpackage({
                       projetoId={fullWorkpackage.projetoId}
                       _onClose={onClose}
                       workpackage={fullWorkpackage}
+                      readOnly={!canEdit}
                     />
                   </div>
                   <div className="px-5 py-6">
@@ -403,6 +418,7 @@ export function MenuWorkpackage({
                       onAddEntregavel={handleAddEntregavel}
                       onEditEntregavel={handleEditEntregavel}
                       onDeleteEntregavel={handleDeleteEntregavel}
+                      canEdit={canEdit}
                     />
                   </div>
                   <div className="px-5 py-6">
@@ -410,6 +426,7 @@ export function MenuWorkpackage({
                       workpackage={fullWorkpackage}
                       _workpackageId={fullWorkpackage.id}
                       projetoId={projetoId}
+                      canEdit={canEdit}
                     />
                   </div>
                   <div className="px-5 py-6">
@@ -417,6 +434,7 @@ export function MenuWorkpackage({
                       workpackage={fullWorkpackage}
                       _workpackageId={fullWorkpackage.id}
                       projetoId={projetoId}
+                      canEdit={canEdit}
                     />
                   </div>
                 </>

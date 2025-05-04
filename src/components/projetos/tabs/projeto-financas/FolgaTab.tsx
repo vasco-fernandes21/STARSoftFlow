@@ -35,14 +35,16 @@ export function FolgaTab({ financas, detalhesAnuais }: FolgaTabProps) {
                 <BarChart
                   data={detalhesAnuais.map((detalhe) => {
                     const primeiroAno = Math.min(...detalhesAnuais.map((d) => d.ano)) === detalhe.ano;
+                    // Calcular o total dos custos reais
+                    const custosReaisTotal = detalhe.orcamento.real.recursos + detalhe.orcamento.real.materiais;
                     return {
                       ano: detalhe.ano.toString(),
                       folga:
                         primeiroAno
-                          ? detalhe.orcamento.submetido - detalhe.orcamento.real.total
-                          : detalhe.orcamento.submetido - detalhe.orcamento.real.total + detalhe.overhead,
+                          ? detalhe.orcamento.submetido - custosReaisTotal
+                          : detalhe.orcamento.submetido - custosReaisTotal + detalhe.overhead,
                       orcamentoSubmetido: detalhe.orcamento.submetido,
-                      custosReais: detalhe.orcamento.real.total,
+                      custosReais: custosReaisTotal,
                       overhead: detalhe.overhead,
                     };
                   })}
@@ -91,9 +93,11 @@ export function FolgaTab({ financas, detalhesAnuais }: FolgaTabProps) {
                 <tbody>
                   {detalhesAnuais.map((detalhe: DetalheAnualMapped) => {
                     const primeiroAno = Math.min(...detalhesAnuais.map((d) => d.ano)) === detalhe.ano;
+                    // Calcular o total dos custos reais
+                    const custosReaisTotal = detalhe.orcamento.real.recursos + detalhe.orcamento.real.materiais;
                     const folga = primeiroAno
-                      ? detalhe.orcamento.submetido - detalhe.orcamento.real.total
-                      : detalhe.orcamento.submetido - detalhe.orcamento.real.total + detalhe.overhead;
+                      ? detalhe.orcamento.submetido - custosReaisTotal
+                      : detalhe.orcamento.submetido - custosReaisTotal + detalhe.overhead;
                     const percentagemFolga = (folga / detalhe.orcamento.submetido) * 100;
 
                     return (
@@ -103,7 +107,7 @@ export function FolgaTab({ financas, detalhesAnuais }: FolgaTabProps) {
                           {formatCurrency(detalhe.orcamento.submetido)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {formatCurrency(detalhe.orcamento.real.total)}
+                          {formatCurrency(custosReaisTotal)}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {formatCurrency(primeiroAno ? 0 : detalhe.overhead)}
@@ -199,7 +203,7 @@ export function FolgaTab({ financas, detalhesAnuais }: FolgaTabProps) {
                       financas.orcamentoSubmetido -
                       financas.custosReais.total +
                       (financas.overhead - primeiroAnoOverhead);
-                    return folgaTotal >= 0 ? "text-green-900" : "text-red-900";
+                    return folgaTotal >= 0 ? "text-green-700" : "text-red-700";
                   })()}`}
                 >
                   {(() => {
@@ -207,61 +211,42 @@ export function FolgaTab({ financas, detalhesAnuais }: FolgaTabProps) {
                       detalhesAnuais.find(
                         (d) => d.ano === Math.min(...detalhesAnuais.map((d) => d.ano))
                       )?.overhead ?? 0;
-                    return formatCurrency(
+                    const folgaTotal =
                       financas.orcamentoSubmetido -
-                        financas.custosReais.total +
-                        (financas.overhead - primeiroAnoOverhead)
-                    );
+                      financas.custosReais.total +
+                      (financas.overhead - primeiroAnoOverhead);
+                    return formatCurrency(folgaTotal);
                   })()}
                 </p>
-              </div>
-              <div className="rounded-lg bg-blue-50 p-4">
-                <h3 className="text-sm font-medium text-blue-800">Média Anual da Folga</h3>
-                <p className="text-2xl font-semibold text-blue-900">
-                  {formatCurrency(
-                    (detalhesAnuais as DetalheAnualMapped[]).reduce(
-                      (acc: number, detalhe: DetalheAnualMapped) => {
-                        const primeiroAno =
-                          Math.min(...detalhesAnuais.map((d) => d.ano)) === detalhe.ano;
-                        return (
-                          acc +
-                          (primeiroAno
-                            ? detalhe.orcamento.submetido - detalhe.orcamento.real.total
-                            : detalhe.orcamento.submetido -
-                              detalhe.orcamento.real.total +
-                              detalhe.overhead)
-                        );
-                      },
-                      0
-                    ) / detalhesAnuais.length
-                  )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Diferença entre orçamento submetido e custos reais + overhead
                 </p>
               </div>
-              <div className="rounded-lg bg-gray-100 p-4">
-                <h3 className="text-sm font-medium text-gray-700">% Média da Folga</h3>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {formatPercentage(
-                    (detalhesAnuais as DetalheAnualMapped[]).reduce(
-                      (acc: number, detalhe: DetalheAnualMapped) => {
-                        const primeiroAno =
-                          Math.min(...detalhesAnuais.map((d) => d.ano)) === detalhe.ano;
-                        const folga = primeiroAno
-                          ? detalhe.orcamento.submetido - detalhe.orcamento.real.total
-                          : detalhe.orcamento.submetido -
-                            detalhe.orcamento.real.total +
-                            detalhe.overhead;
-                        return acc + (folga / detalhe.orcamento.submetido) * 100;
-                      },
-                      0
-                    ) / detalhesAnuais.length
-                  )}
+
+              <div className="rounded-lg bg-blue-50 p-4">
+                <h3 className="text-sm font-medium text-gray-700">Taxa de Financiamento</h3>
+                <p className="text-2xl font-semibold text-blue-700">
+                  {formatPercentage(financas.taxaFinanciamento * 100)}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Percentagem financiada do orçamento submetido
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-purple-50 p-4">
+                <h3 className="text-sm font-medium text-gray-700">Valor Financiado</h3>
+                <p className="text-2xl font-semibold text-purple-700">
+                  {formatCurrency(financas.valorFinanciado)}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Valor total a receber do financiamento
                 </p>
               </div>
             </div>
           </>
         ) : (
-          <div className="rounded-lg bg-gray-50 p-8 text-center">
-            <p className="text-sm text-gray-500">Sem dados de folga financeira disponíveis.</p>
+          <div className="flex h-64 items-center justify-center">
+            <p className="text-gray-500">Sem dados de folga disponíveis</p>
           </div>
         )}
       </CardContent>

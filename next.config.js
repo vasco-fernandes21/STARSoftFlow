@@ -39,7 +39,7 @@ const nextConfig = {
   },
 
   // Configuração mínima do Turbopack
-  turbopack: true
+  turbopack: {}
 };
 
 export default nextConfig;

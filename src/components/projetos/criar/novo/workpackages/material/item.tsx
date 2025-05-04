@@ -51,6 +51,7 @@ interface MaterialItemProps {
   onRemove: () => void;
   onUpdate?: () => void;
   onToggleEstado?: (id: number, estado: boolean) => Promise<void>;
+  readOnly?: boolean;
 }
 
 // Mapeamento de rubricas para variantes de badge
@@ -94,7 +95,7 @@ function obterNomeMes(mes: number): string {
   return meses[mes - 1] || String(mes);
 }
 
-export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado }: MaterialItemProps) {
+export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, readOnly = false }: MaterialItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [localMaterial, setLocalMaterial] = useState(material);
@@ -297,29 +298,33 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado }: M
           </div>
 
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditing(true);
-              }}
-              className="h-7 w-7 rounded-lg p-0 text-azul hover:bg-azul/10"
-            >
-              <Edit className="h-3.5 w-3.5" />
-            </Button>
+            {!readOnly && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditing(true);
+                  }}
+                  className="h-7 w-7 rounded-lg p-0 text-azul hover:bg-azul/10"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRemove();
-              }}
-              className="h-7 w-7 rounded-lg p-0 text-red-500 hover:bg-red-50"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemove();
+                  }}
+                  className="h-7 w-7 rounded-lg p-0 text-red-500 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
 
             <Button
               variant="ghost"

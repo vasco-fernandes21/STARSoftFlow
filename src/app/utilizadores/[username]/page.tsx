@@ -18,7 +18,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { api } from "@/trpc/react";
 import type { Permissao, Regime, ProjetoEstado } from "@prisma/client";
-import { TabelaAlocacoes } from "./TabelaAlocacoes";
+import { TabelaAlocacoes } from "./components/TabelaAlocacoes";
 import { z } from "zod";
 import { toast } from "sonner";
 

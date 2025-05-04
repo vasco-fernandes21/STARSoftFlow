@@ -27,6 +27,7 @@ interface TarefaItemProps {
   onEditEntregavel: (id: string, data: any) => Promise<void>;
   onRemoveEntregavel: (id: string) => void;
   hideState?: boolean;
+  readOnly?: boolean;
 }
 
 export function TarefaItem({
@@ -41,6 +42,7 @@ export function TarefaItem({
   onEditEntregavel,
   onRemoveEntregavel,
   hideState = false,
+  readOnly = false,
 }: TarefaItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
@@ -124,27 +126,31 @@ export function TarefaItem({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setIsExpanded(true);
-              setIsEditing(true);
-              setAddingEntregavel(false);
-            }}
-            className="h-6 w-6 rounded-md p-0 text-azul hover:bg-azul/10"
-          >
-            <Edit className="h-3 w-3" />
-          </Button>
+          {!readOnly && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsExpanded(true);
+                  setIsEditing(true);
+                  setAddingEntregavel(false);
+                }}
+                className="h-6 w-6 rounded-md p-0 text-azul hover:bg-azul/10"
+              >
+                <Edit className="h-3 w-3" />
+              </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRemove}
-            className="h-6 w-6 rounded-md p-0 text-red-500 hover:bg-red-50"
-          >
-            <Trash className="h-3 w-3" />
-          </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                className="h-6 w-6 rounded-md p-0 text-red-500 hover:bg-red-50"
+              >
+                <Trash className="h-3 w-3" />
+              </Button>
+            </>
+          )}
 
           <Button
             variant="ghost"
@@ -188,7 +194,7 @@ export function TarefaItem({
                     <Plus className="h-4 w-4 text-azul" />
                     <h6 className="text-sm font-medium text-azul">Entregáveis</h6>
                   </div>
-                  {!addingEntregavel && (
+                  {!addingEntregavel && !readOnly && (
                     <Button
                       variant="ghost"
                       size="sm"

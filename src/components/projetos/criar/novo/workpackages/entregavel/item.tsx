@@ -26,6 +26,7 @@ interface EntregavelItemProps {
   onToggleEstado: (estado: boolean) => void;
   showTarefaInfo?: boolean;
   hideState?: boolean;
+  readOnly?: boolean;
   tarefaDates: {
     inicio: Date;
     fim: Date;
@@ -39,6 +40,7 @@ export function EntregavelItem({
   onToggleEstado,
   showTarefaInfo = false,
   hideState = false,
+  readOnly = false,
   tarefaDates,
 }: EntregavelItemProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -133,25 +135,27 @@ export function EntregavelItem({
             </Button>
           )}
 
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-              className="h-6 w-6 rounded-md p-0 text-azul hover:bg-azul/10"
-            >
-              <Edit className="h-3 w-3" />
-            </Button>
+          {!readOnly && (
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="h-6 w-6 rounded-md p-0 text-azul hover:bg-azul/10"
+              >
+                <Edit className="h-3 w-3" />
+              </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              className="h-6 w-6 rounded-md p-0 text-red-500 hover:bg-red-50"
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                className="h-6 w-6 rounded-md p-0 text-red-500 hover:bg-red-50"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

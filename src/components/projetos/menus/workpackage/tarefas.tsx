@@ -22,6 +22,7 @@ interface WorkpackageTarefasProps {
   addingTarefa: boolean;
   setAddingTarefa: (adding: boolean) => void;
   projetoId?: string;
+  canEdit?: boolean;
   // Handlers para tarefas
   onSubmitTarefa: (
     workpackageId: string,
@@ -89,6 +90,7 @@ export function WorkpackageTarefas({
   onAddEntregavel,
   onEditEntregavel,
   onDeleteEntregavel,
+  canEdit = true,
 }: WorkpackageTarefasProps) {
   // Estados para os diálogos de confirmação
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -143,7 +145,7 @@ export function WorkpackageTarefas({
           <p className="text-sm text-gray-500">Gerir tarefas do workpackage</p>
         </div>
 
-        {!addingTarefa && (
+        {!addingTarefa && canEdit && (
           <Button
             onClick={() => setAddingTarefa(true)}
             className="h-10 bg-azul text-white hover:bg-azul/90"
@@ -155,7 +157,7 @@ export function WorkpackageTarefas({
       </div>
 
       {/* Formulário para adicionar nova tarefa */}
-      {addingTarefa && (
+      {addingTarefa && canEdit && (
         <motion.div
           className="mb-6 rounded-xl border border-gray-100 bg-white p-6 shadow-sm"
           initial={{ opacity: 0, y: 20 }}
@@ -203,6 +205,7 @@ export function WorkpackageTarefas({
                   onAddEntregavel={onAddEntregavel}
                   onEditEntregavel={onEditEntregavel}
                   onRemoveEntregavel={(id) => openDeleteDialog("entregavel", id, tarefa.id)}
+                  readOnly={!canEdit}
                 />
               </Card>
             ))}
@@ -216,13 +219,15 @@ export function WorkpackageTarefas({
             Adicione tarefas e entregáveis a este workpackage para acompanhar o progresso
           </p>
 
-          <Button
-            onClick={() => setAddingTarefa(true)}
-            className="bg-azul text-white hover:bg-azul/90"
-          >
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Adicionar primeira tarefa
-          </Button>
+          {canEdit && (
+            <Button
+              onClick={() => setAddingTarefa(true)}
+              className="bg-azul text-white hover:bg-azul/90"
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Adicionar primeira tarefa
+            </Button>
+          )}
         </div>
       )}
     </div>

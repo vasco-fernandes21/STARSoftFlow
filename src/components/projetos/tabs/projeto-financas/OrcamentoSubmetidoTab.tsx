@@ -105,7 +105,7 @@ export function OrcamentoSubmetidoTab({
                     <tr key={detalhe.ano} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">{detalhe.ano}</td>
                       <td className="px-4 py-3 text-right">
-                        {formatNumber(detalhe.alocacoes, 1)}
+                        {formatNumber(detalhe.totalAlocacao, 1)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {formatCurrency(detalhe.orcamento.submetido)}

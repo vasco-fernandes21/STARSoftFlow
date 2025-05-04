@@ -13,6 +13,7 @@ interface WorkpackageInformacoesProps {
   _onClose: () => void;
   projetoId: string;
   workpackage?: WorkpackageCompleto;
+  readOnly?: boolean;
 }
 
 export function WorkpackageInformacoes({
@@ -20,6 +21,7 @@ export function WorkpackageInformacoes({
   _onClose,
   projetoId,
   workpackage,
+  readOnly = false,
 }: WorkpackageInformacoesProps) {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -119,6 +121,7 @@ export function WorkpackageInformacoes({
         helpText={erros.nome || ""}
         className={cn(erros.nome && "error")}
         onBlur={handleNameBlur}
+        disabled={readOnly}
       />
 
       <div className="grid grid-cols-2 gap-4">
@@ -128,6 +131,7 @@ export function WorkpackageInformacoes({
           onChange={handleStartDateChange}
           helpText={erros.dataInicio || ""}
           required
+          disabled={readOnly}
         />
         <DateField
           label="Data de conclusão"
@@ -135,6 +139,7 @@ export function WorkpackageInformacoes({
           onChange={handleEndDateChange}
           helpText={erros.dataFim || ""}
           required
+          disabled={readOnly}
         />
       </div>
 
@@ -145,6 +150,7 @@ export function WorkpackageInformacoes({
         placeholder="Descreva este pacote de trabalho"
         rows={4}
         helpText={erros.descricao || ""}
+        disabled={readOnly}
       />
     </div>
   );

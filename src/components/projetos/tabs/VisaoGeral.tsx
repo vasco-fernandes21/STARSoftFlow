@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, DollarSign, Percent, Info, Users, User } from "lucide-react";
+import { Calendar, DollarSign, Percent, Info, Users, User, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,8 @@ import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import type { User as PrismaUser, Workpackage, AlocacaoRecurso } from "@prisma/client";
 import { ProjetoEstado } from "@prisma/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader } from "@/components/ui/loader";
 
 interface RecursoComUser extends AlocacaoRecurso {
   user: Pick<PrismaUser, "id" | "name" | "foto"> | null;
@@ -32,6 +34,7 @@ interface ProjetoVisaoGeral {
   overhead: string | null;
   financiamento?: { nome?: string | null } | null;
   workpackages: WPComRecursos[];
+  responsavel?: Pick<PrismaUser, "id" | "name" | "foto"> | null;
 }
 
 interface VisaoGeralProps {
@@ -74,6 +77,24 @@ const formatPercentage = (value: string | number | null | undefined): string => 
   });
 };
 
+interface InfoCardProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function InfoCard({ title, children }: InfoCardProps) {
+  return (
+    <Card className="overflow-hidden rounded-xl border border-slate-100 bg-white/80 shadow-sm backdrop-blur-sm">
+      <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-4 pb-3">
+        <CardTitle className="text-md font-medium text-slate-700">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="p-4">
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface InfoItemProps {
   icon: React.ElementType;
   label: string;
@@ -83,7 +104,7 @@ interface InfoItemProps {
 
 function InfoItem({ icon: Icon, label, value, iconClassName }: InfoItemProps) {
   return (
-    <div className="flex items-start space-x-3">
+    <div className="flex items-start space-x-3 py-2">
       <Icon className={cn("mt-0.5 h-5 w-5 flex-shrink-0 text-slate-400", iconClassName)} />
       <div className="flex-1">
         <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</p>
@@ -106,30 +127,21 @@ interface ResourceListProps {
 function ResourceList({ users }: ResourceListProps) {
   if (!users || users.length === 0) {
     return (
-      <div className="space-y-2">
-        <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-500">
-          <Users className="h-5 w-5 flex-shrink-0 text-slate-400" />
-          Recursos Envolvidos
-        </p>
-        <p className="text-sm italic text-slate-400">Nenhum recurso alocado.</p>
-      </div>
+      <p className="text-sm italic text-slate-400">Nenhum recurso alocado.</p>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-500">
-        <Users className="h-5 w-5 flex-shrink-0 text-slate-400" />
-        Recursos Envolvidos ({users.length})
-      </p>
-      <div className="max-h-32 space-y-1 overflow-y-auto pr-2">
+    <div className="space-y-3">
+      <p className="text-sm text-slate-500">{users.length} recursos alocados</p>
+      <div className="max-h-48 space-y-1.5 overflow-y-auto pr-2">
         {users.map((user) => (
           <div
             key={user.id}
-            className="flex items-center gap-2 rounded bg-slate-50/50 px-2 py-1 text-sm text-slate-700"
+            className="flex items-center gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm"
           >
-            <User className="h-3.5 w-3.5 flex-shrink-0 text-slate-500" />
-            <span>{user.name}</span>
+            <User className="h-4 w-4 flex-shrink-0 text-slate-500" />
+            <span className="font-medium">{user.name}</span>
           </div>
         ))}
       </div>
@@ -323,19 +335,57 @@ export default function VisaoGeral({ projeto }: VisaoGeralProps) {
   if (!projeto) {
     // useMemo is now before this check
     return (
-      <Card className="border-amber-200 bg-amber-50">
-        <CardContent className="p-6 text-center text-amber-700">
-          <p className="font-semibold">Dados do projeto não disponíveis</p>
-        </CardContent>
-      </Card>
+      <div className="animate-fade-in space-y-6">
+        <Loader.SkeletonCard 
+          header={true} 
+          headerHeight="h-8" 
+          rows={1} 
+          rowHeight="h-24" 
+          className="border-slate-100"
+        />
+        
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Loader.SkeletonCard 
+            headerHeight="h-5" 
+            rows={2} 
+            rowHeight="h-6" 
+            className="border-slate-100"
+          />
+          <Loader.SkeletonCard 
+            headerHeight="h-5" 
+            rows={4} 
+            rowHeight="h-6" 
+            className="border-slate-100"
+          />
+          <Loader.SkeletonCard 
+            headerHeight="h-5" 
+            rows={5} 
+            rowHeight="h-6" 
+            className="border-slate-100"
+          />
+        </div>
+        
+        <Loader.SkeletonCard 
+          header={true} 
+          headerHeight="h-6" 
+          rows={1} 
+          rowHeight="h-64" 
+          className="border-slate-100"
+        />
+      </div>
     );
   }
 
   const getBadgeClass = (estado: ProjetoEstado) => {
     if (estado === ProjetoEstado.EM_DESENVOLVIMENTO)
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    if (estado === ProjetoEstado.CONCLUIDO) return "border-blue-200 bg-blue-50 text-blue-700";
-    return "border-amber-200 bg-amber-50 text-amber-700";
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100";
+    if (estado === ProjetoEstado.CONCLUIDO)
+      return "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100";
+    if (estado === ProjetoEstado.APROVADO)
+      return "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100";
+    if (estado === ProjetoEstado.PENDENTE)
+      return "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100";
+    return "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100";
   };
 
   const getBadgeLabel = (estado: ProjetoEstado) => {
@@ -349,57 +399,96 @@ export default function VisaoGeral({ projeto }: VisaoGeralProps) {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="rounded-xl border border-slate-100 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <h1 className="min-w-0 flex-1 break-words text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-slate-900">
             {projeto.nome}
           </h1>
-          <Badge
-            variant="outline"
-            className={cn(
-              "w-fit flex-shrink-0 px-3 py-1 text-sm font-semibold shadow-sm sm:w-auto",
-              getBadgeClass(projeto.estado)
-            )}
-          >
-            {getBadgeLabel(projeto.estado)}
-          </Badge>
+          {projeto.descricao && (
+            <p className="mt-2 max-w-prose text-sm text-slate-600">{projeto.descricao}</p>
+          )}
         </div>
-        {projeto.descricao ? (
-          <p className="max-w-prose text-sm text-slate-600">{projeto.descricao}</p>
-        ) : (
-          <p className="text-sm italic text-slate-400">Sem descrição disponível.</p>
-        )}
+        <Badge
+          variant="outline"
+          className={cn(
+            "w-fit flex-shrink-0 px-3 py-1 text-sm font-semibold shadow-sm sm:w-auto",
+            getBadgeClass(projeto.estado)
+          )}
+        >
+          {getBadgeLabel(projeto.estado)}
+        </Badge>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <div className="space-y-5 rounded-xl border border-slate-100 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
-          <InfoItem icon={Calendar} label="Data de Início" value={formatarData(projeto.inicio)} />
-          <InfoItem icon={Calendar} label="Data de Fim" value={formatarData(projeto.fim)} />
-        </div>
+        {/* Detalhes do Projeto */}
+        <InfoCard title="Detalhes do Projeto">
+          <div className="divide-y divide-slate-100">
+            <InfoItem 
+              icon={User} 
+              label="Responsável" 
+              value={projeto.responsavel?.name || "Não definido"} 
+            />
+            <InfoItem 
+              icon={Calendar} 
+              label="Início" 
+              value={formatarData(projeto.inicio)} 
+            />
+            <InfoItem 
+              icon={Calendar} 
+              label="Fim" 
+              value={formatarData(projeto.fim)} 
+            />
+            {projeto.inicio && projeto.fim && (
+              <InfoItem 
+                icon={Clock} 
+                label="Duração" 
+                value={`${Math.ceil((new Date(projeto.fim).getTime() - new Date(projeto.inicio).getTime()) / (1000 * 60 * 60 * 24 * 30))} meses`} 
+              />
+            )}
+          </div>
+        </InfoCard>
 
-        <div className="space-y-5 rounded-xl border border-slate-100 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
-          <InfoItem
-            icon={Info}
-            label="Tipo de Financiamento"
-            value={projeto.financiamento?.nome || "N/A"}
-          />
-          <InfoItem icon={DollarSign} label="Valor ETI" value={formatCurrency(projeto.valor_eti)} />
-          <InfoItem
-            icon={Percent}
-            label="Taxa de Financiamento"
-            value={formatPercentage(projeto.taxa_financiamento)}
-          />
-          <InfoItem icon={Percent} label="Overhead" value={formatPercentage(projeto.overhead)} />
-        </div>
+        {/* Financiamento */}
+        <InfoCard title="Detalhes Financeiros">
+          <div className="divide-y divide-slate-100">
+            <InfoItem
+              icon={Info}
+              label="Tipo de Financiamento"
+              value={projeto.financiamento?.nome || "N/A"}
+            />
+            <InfoItem 
+              icon={DollarSign} 
+              label="Valor ETI" 
+              value={formatCurrency(projeto.valor_eti)} 
+            />
+            <InfoItem
+              icon={Percent}
+              label="Taxa de Financiamento"
+              value={formatPercentage(projeto.taxa_financiamento)}
+            />
+            <InfoItem 
+              icon={Percent} 
+              label="Overhead" 
+              value={formatPercentage(projeto.overhead)} 
+            />
+          </div>
+        </InfoCard>
 
-        <div className="rounded-xl border border-slate-100 bg-white/80 p-6 shadow-sm backdrop-blur-sm md:col-span-2 lg:col-span-1">
+        {/* Recursos Envolvidos */}
+        <InfoCard title="Recursos Envolvidos">
           <ResourceList users={involvedUsers} />
-        </div>
+        </InfoCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <CostChart projetoId={projeto.id} projeto={projeto} />
-      </div>
+      {/* Gráfico de Custos */}
+      <Tabs defaultValue="custos" className="w-full">
+        <TabsList className="mb-4 grid w-full grid-cols-1">
+          <TabsTrigger value="custos">Análise de Custos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="custos">
+          <CostChart projetoId={projeto.id} projeto={projeto} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

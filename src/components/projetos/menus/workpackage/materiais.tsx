@@ -17,6 +17,7 @@ interface WorkpackageMateriaisProps {
   workpackage: WorkpackageCompleto;
   _workpackageId: string;
   projetoId: string;
+  canEdit?: boolean;
 }
 
 // Interface base para material
@@ -50,6 +51,7 @@ export function WorkpackageMateriais({
   workpackage,
   _workpackageId,
   projetoId,
+  canEdit = true,
 }: WorkpackageMateriaisProps) {
   const [showForm, setShowForm] = useState(false);
   const [expandedRubricas, setExpandedRubricas] = useState<Record<string, boolean>>({});
@@ -140,7 +142,7 @@ export function WorkpackageMateriais({
           <p className="text-sm text-gray-500">Gerir materiais do workpackage</p>
         </div>
 
-        {!showForm && (
+        {!showForm && canEdit && (
           <Button
             onClick={() => setShowForm(true)}
             className="h-10 bg-azul text-white hover:bg-azul/90"
@@ -152,7 +154,7 @@ export function WorkpackageMateriais({
       </div>
 
       {/* Formulário para adicionar/editar material */}
-      {showForm && (
+      {showForm && canEdit && (
         <Card>
           <motion.div
             className="p-6"
@@ -200,13 +202,15 @@ export function WorkpackageMateriais({
             <Package className="mx-auto mb-3 h-12 w-12 text-gray-400" />
             <h3 className="mb-1 font-medium text-gray-500">Nenhum material adicionado</h3>
             <p className="mb-4 text-sm text-gray-400">Adicione materiais a este workpackage</p>
-            <Button
-              className="bg-azul text-white hover:bg-azul/90"
-              onClick={() => setShowForm(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Material
-            </Button>
+            {canEdit && (
+              <Button
+                className="bg-azul text-white hover:bg-azul/90"
+                onClick={() => setShowForm(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Material
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
@@ -248,55 +252,50 @@ export function WorkpackageMateriais({
                       {formatCurrency(grupo.total)}
                     </span>
                     {expandedRubricas[grupo.rubrica] ? (
-                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                      <ChevronDown className="h-4 w-4 text-gray-500" />
                     ) : (
-                      <ChevronRight className="h-5 w-5 text-gray-500" />
+                      <ChevronRight className="h-4 w-4 text-gray-500" />
                     )}
                   </div>
                 </div>
 
                 {expandedRubricas[grupo.rubrica] && (
-                  <div className="divide-y divide-gray-100 border-t border-gray-100">
-                    {grupo.materiais.map((material: any) => {
-                      // Garantir que descricao é sempre string | null
-                      const descricao =
-                        material.descricao === undefined ? null : material.descricao;
-
-                      return (
+                  <div className="divide-y divide-gray-100">
+                    {grupo.materiais.map((material) => (
+                      <div key={material.id} className="bg-white px-2 py-2">
                         <MaterialItem
-                          key={`${material.id}-${workpackage.id}`}
-                          material={{
-                            id: material.id,
-                            nome: material.nome,
-                            descricao,
-                            preco: Number(material.preco),
-                            quantidade: material.quantidade,
-                            ano_utilizacao: material.ano_utilizacao,
-                            mes: material.mes ?? 1,
-                            rubrica: material.rubrica,
-                            workpackageId: workpackage.id,
-                            estado: material.estado,
-                          }}
-                          onEdit={(_, material) =>
+                          material={material}
+                          onEdit={(wpId, mat) => {
                             handleItemEdit({
-                              ...material,
-                              descricao: material.descricao || null,
-                            })
-                          }
-                          onRemove={() =>
-                            materialMutations.handleRemove(material.id, materialMutations)
-                          }
-                          onToggleEstado={(id, estado) =>
-                            materialMutations.handleToggleEstado(
-                              id,
-                              estado,
-                              workpackage.id,
-                              materialMutations
-                            )
-                          }
+                              id: mat.id,
+                              nome: mat.nome,
+                              descricao: mat.descricao || null,
+                              preco: mat.preco,
+                              quantidade: mat.quantidade,
+                              ano_utilizacao: mat.ano_utilizacao,
+                              rubrica: mat.rubrica,
+                            });
+                          }}
+                          onRemove={() => materialMutations.delete.mutate(material.id || 0)}
+                          onToggleEstado={async (id, estado) => {
+                            try {
+                              await materialMutations.update.mutateAsync({
+                                id,
+                                data: {
+                                  estado
+                                }
+                              });
+                            } catch (error) {
+                              console.error("Erro ao alternar estado:", error);
+                            }
+                          }}
+                          onUpdate={() => {
+                            // Refresh data
+                          }}
+                          readOnly={!canEdit}
                         />
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
