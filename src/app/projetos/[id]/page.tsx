@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, memo, lazy, Suspense } from "react";
+import { useState, useCallback, useMemo, memo, lazy, Suspense, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
@@ -377,6 +377,15 @@ const ProjectTabs = memo(
   }) => {
     const params = useParams<{ id: string }>();
     const projetoId = params?.id || "";
+    const { isGestor, isAdmin } = usePermissions();
+    const { data: session } = useSession();
+    const usuarioAtualId = session?.user?.id;
+
+    // Verifica se o utilizador atual é o responsável pelo projeto
+    const isResponsavel = projeto?.responsavel?.id === usuarioAtualId;
+
+    // Define quais tabs o utilizador pode ver
+    const podeVerTodasTabs = isAdmin || isGestor || isResponsavel;
 
     const utils = api.useUtils();
 
@@ -391,17 +400,31 @@ const ProjectTabs = memo(
       },
     });
 
+    // Define as tabs disponíveis baseado nas permissões
+    const availableTabs = [
+      { id: "cronograma", label: "Cronograma", icon: CalendarClock },
+      { id: "overview", label: "Visão Geral", icon: FileText },
+      ...(podeVerTodasTabs
+        ? [
+            { id: "resources", label: "Recursos", icon: Users },
+            { id: "materials", label: "Materiais", icon: Package },
+            { id: "finances", label: "Finanças", icon: DollarSign }
+          ]
+        : [])
+    ];
+
+    // Se o separador ativo não estiver disponível, muda para o primeiro disponível
+    useEffect(() => {
+      if (!availableTabs.some(tab => tab.id === separadorAtivo)) {
+        onTabChange(availableTabs[0]?.id || "");
+      }
+    }, [separadorAtivo, availableTabs, onTabChange]);
+
     return (
       <Tabs value={separadorAtivo} onValueChange={onTabChange} className="flex flex-1 flex-col">
         <div className="w-full flex items-center justify-between">
           <div className="flex space-x-3">
-            {[
-              { id: "cronograma", label: "Cronograma", icon: CalendarClock },
-              { id: "overview", label: "Visão Geral", icon: FileText },
-              { id: "resources", label: "Recursos", icon: Users },
-              { id: "materials", label: "Materiais", icon: Package },
-              { id: "finances", label: "Finanças", icon: DollarSign }
-            ].map((tab) => {
+            {availableTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = separadorAtivo === tab.id;
               return (
@@ -433,52 +456,54 @@ const ProjectTabs = memo(
               );
             })}
           </div>
-          <Dialog open={openNovoWP} onOpenChange={setOpenNovoWP}>
-            <DialogTrigger asChild>
-              <Button
-                className={cn(
-                  "relative inline-flex h-10 items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200",
-                  "bg-azul text-white shadow-lg",
-                  "hover:bg-azul-light hover:shadow-azul/20",
-                  "active:bg-azul-dark",
-                  "focus:outline-none focus:ring-2 focus:ring-azul/20 focus:ring-offset-2",
-                  "disabled:pointer-events-none disabled:opacity-50",
-                  "before:absolute before:inset-0 before:-z-10 before:rounded-xl before:bg-gradient-to-b before:from-white/10 before:to-transparent before:opacity-0 before:transition-opacity",
-                  "hover:before:opacity-100"
-                )}
-                disabled={disableInteractions}
-              >
-                <Plus className="h-4 w-4" />
-                <span>Novo Workpackage</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="overflow-hidden rounded-2xl border-none bg-white/95 p-0 shadow-2xl backdrop-blur-md sm:max-w-[700px]">
-              <DialogTitle asChild>
-                <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
-                  Criar Novo Workpackage
-                </span>
-              </DialogTitle>
-              <WorkpackageForm
-                onSubmit={(data) => {
-                  createWorkpackage.mutate({
-                    ...data,
-                    descricao: data.descricao ?? undefined,
-                    inicio: data.inicio ? new Date(data.inicio) : undefined,
-                    fim: data.fim ? new Date(data.fim) : undefined,
-                    projetoId,
-                  });
-                }}
-                onCancel={() => setOpenNovoWP(false)}
-                projetoInicio={calculatedValues?.dataInicio || new Date()}
-                projetoFim={calculatedValues?.dataFim || new Date()}
-              />
-            </DialogContent>
-          </Dialog>
+          {podeVerTodasTabs && (
+            <Dialog open={openNovoWP} onOpenChange={setOpenNovoWP}>
+              <DialogTrigger asChild>
+                <Button
+                  className={cn(
+                    "relative inline-flex h-10 items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200",
+                    "bg-azul text-white shadow-lg",
+                    "hover:bg-azul-light hover:shadow-azul/20",
+                    "active:bg-azul-dark",
+                    "focus:outline-none focus:ring-2 focus:ring-azul/20 focus:ring-offset-2",
+                    "disabled:pointer-events-none disabled:opacity-50",
+                    "before:absolute before:inset-0 before:-z-10 before:rounded-xl before:bg-gradient-to-b before:from-white/10 before:to-transparent before:opacity-0 before:transition-opacity",
+                    "hover:before:opacity-100"
+                  )}
+                  disabled={disableInteractions}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Novo Workpackage</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="overflow-hidden rounded-2xl border-none bg-white/95 p-0 shadow-2xl backdrop-blur-md sm:max-w-[700px]">
+                <DialogTitle asChild>
+                  <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                    Criar Novo Workpackage
+                  </span>
+                </DialogTitle>
+                <WorkpackageForm
+                  onSubmit={(data) => {
+                    createWorkpackage.mutate({
+                      ...data,
+                      descricao: data.descricao ?? undefined,
+                      inicio: data.inicio ? new Date(data.inicio) : undefined,
+                      fim: data.fim ? new Date(data.fim) : undefined,
+                      projetoId,
+                    });
+                  }}
+                  onCancel={() => setOpenNovoWP(false)}
+                  projetoInicio={calculatedValues?.dataInicio || new Date()}
+                  projetoFim={calculatedValues?.dataFim || new Date()}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <div className="mt-3 min-h-[calc(100vh-250px)] flex-1">
           <TabsContent value="cronograma" className="h-full">
-            {calculatedValues.dataInicio && calculatedValues.dataFim && (
+            {calculatedValues?.dataInicio && calculatedValues?.dataFim && (
               <Suspense fallback={<div>A carregar cronograma...</div>}>
                 <Card className="glass-card h-full overflow-hidden rounded-2xl border-white/20 shadow-xl">
                   <div className="h-full">
@@ -507,35 +532,39 @@ const ProjectTabs = memo(
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="resources" className="h-full">
-            <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
-              <CardContent className="h-full p-6">
-                <Suspense fallback={<div>A carregar dados de recursos...</div>}>
-                  <ProjetoRecursos projetoId={projeto.id} />
-                </Suspense>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {podeVerTodasTabs && (
+            <>
+              <TabsContent value="resources" className="h-full">
+                <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
+                  <CardContent className="h-full p-6">
+                    <Suspense fallback={<div>A carregar dados de recursos...</div>}>
+                      <ProjetoRecursos projetoId={projeto.id} />
+                    </Suspense>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-          <TabsContent value="materials" className="h-full">
-            <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
-              <CardContent className="h-full p-6">
-                <Suspense fallback={<div>A carregar dados de materiais...</div>}>
-                  <ProjetoMateriais projetoId={projeto.id} />
-                </Suspense>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <TabsContent value="materials" className="h-full">
+                <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
+                  <CardContent className="h-full p-6">
+                    <Suspense fallback={<div>A carregar dados de materiais...</div>}>
+                      <ProjetoMateriais projetoId={projeto.id} />
+                    </Suspense>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-          <TabsContent value="finances" className="h-full">
-            <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
-              <CardContent className="h-full p-6">
-                <Suspense fallback={<div>A carregar finanças...</div>}>
-                  <ProjetoFinancas projetoId={projeto.id} />
-                </Suspense>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <TabsContent value="finances" className="h-full">
+                <Card className="glass-card h-full rounded-2xl border-white/20 shadow-xl">
+                  <CardContent className="h-full p-6">
+                    <Suspense fallback={<div>A carregar finanças...</div>}>
+                      <ProjetoFinancas projetoId={projeto.id} />
+                    </Suspense>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </>
+          )}
         </div>
       </Tabs>
     );

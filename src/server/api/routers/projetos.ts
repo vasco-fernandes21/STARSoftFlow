@@ -483,23 +483,6 @@ export const projetoRouter = createTRPCRouter({
       // Criar notificações
       const notificacoes = [];
 
-      // Notificação para o responsável
-      notificacoes.push(
-        ctx.db.notificacao.create({
-          data: {
-            titulo: `Novo projeto criado: ${nome}`,
-            descricao: `O projeto "${nome}" foi criado e você é o responsável.`,
-            entidade: "PROJETO",
-            entidadeId: projeto.id,
-            urgencia: "MEDIA",
-            destinatario: {
-              connect: { id: userId },
-            },
-            estado: "NAO_LIDA",
-          },
-        })
-      );
-
       // Notificação para cada admin (exceto se for o próprio criador)
       for (const admin of admins) {
         if (admin.id !== userId) {
@@ -1135,6 +1118,7 @@ export const projetoRouter = createTRPCRouter({
             id: true,
             nome: true,
             estado: true,
+            responsavelId: true,
           },
         });
 
@@ -1156,7 +1140,7 @@ export const projetoRouter = createTRPCRouter({
         // Verificar permissões do utilizador (apenas ADMIN ou GESTOR)
         const user = await ctx.db.user.findUnique({
           where: { id: ctx.session.user.id },
-          select: { permissao: true },
+          select: { permissao: true, name: true },
         });
 
         if (!user) {
@@ -1261,6 +1245,24 @@ export const projetoRouter = createTRPCRouter({
             },
           });
 
+          // Criar notificação para o responsável sobre a aprovação
+          const notificacaoAprovacao = await ctx.db.notificacao.create({
+            data: {
+              titulo: `Projeto "${projeto.nome}" foi aprovado`,
+              descricao: `O seu projeto "${projeto.nome}" foi aprovado por ${user.name}.`,
+              entidade: "PROJETO",
+              entidadeId: projeto.id,
+              urgencia: "ALTA",
+              destinatario: {
+                connect: { id: projeto.responsavelId! },
+              },
+              estado: "NAO_LIDA",
+            },
+          });
+
+          // Emitir evento de notificação
+          ee.emit("notificacao", notificacaoAprovacao);
+
           return {
             success: true,
             message: `Projeto "${projeto.nome}" aprovado com sucesso`,
@@ -1269,6 +1271,24 @@ export const projetoRouter = createTRPCRouter({
         } 
         // Se não for para aprovar, elimina o projeto
         else {
+          // Criar notificação para o responsável sobre a rejeição antes de eliminar
+          const notificacaoRejeicao = await ctx.db.notificacao.create({
+            data: {
+              titulo: `Projeto "${projeto.nome}" foi rejeitado`,
+              descricao: `O seu projeto "${projeto.nome}" foi rejeitado por ${user.name} e foi eliminado.`,
+              entidade: "PROJETO",
+              entidadeId: projeto.id,
+              urgencia: "ALTA",
+              destinatario: {
+                connect: { id: projeto.responsavelId! },
+              },
+              estado: "NAO_LIDA",
+            },
+          });
+
+          // Emitir evento de notificação
+          ee.emit("notificacao", notificacaoRejeicao);
+
           // Antes de excluir o projeto, precisamos remover os relacionamentos para evitar violações de chave estrangeira
           // 1. Buscar todos os workpackages relacionados ao projeto
           const workpackages = await ctx.db.workpackage.findMany({

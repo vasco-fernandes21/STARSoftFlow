@@ -19,7 +19,6 @@ import {
   MessageSquare,
   Bell,
 } from "lucide-react";
-import { NotificacoesSino } from "@/components/common/NotificacoesSino";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,11 +39,122 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { icon: Home, label: "Início", href: "/", requiredPermission: null },
   { icon: FolderKanban, label: "Projetos", href: "/projetos", requiredPermission: null },
-  { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: null },
-  { icon: Euro, label: "Atividade Económica", href: "/atividade-economica", requiredPermission: "ADMIN" },
   { icon: Users, label: "Utilizadores", href: "/utilizadores", requiredPermission: "GESTOR" },
+  { icon: Euro, label: "Atividade Económica", href: "/atividade-economica", requiredPermission: "ADMIN" },
+  { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: null },
   { icon: MessageSquare, label: "Erros & Feedback", href: "/feedback", requiredPermission: null },
 ];
+
+// Novo componente NotificationBadge
+const NotificationBadge = React.memo(({ count }: { count: number }) => {
+  if (count === 0) return null;
+  
+  return (
+    <span className={cn(
+      "absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-semibold text-white ring-2 ring-white",
+      "animate-in fade-in duration-300"
+    )}>
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+});
+
+NotificationBadge.displayName = "NotificationBadge";
+
+// Props do MenuItem
+interface MenuItemProps {
+  item: MenuItem;
+  className?: string;
+  isCollapsed: boolean;
+  onHover: (href: string | null) => void;
+  isHovered: boolean;
+  pathname: string | null;
+}
+
+// MenuItem extraído e memorizado
+const MenuItemComponent = React.memo(
+  ({ item, className = "", isCollapsed, onHover, isHovered, pathname }: MenuItemProps) => {
+    const isActive =
+      pathname === null
+        ? false
+        : item.href === "/"
+          ? pathname === "/"
+          : pathname.startsWith(`${item.href}/`) || pathname === item.href;
+
+    // Buscar contagem de notificações não lidas
+    const { data: naoLidas = 0 } = api.notificacao.contarNaoLidas.useQuery(
+      undefined,
+      {
+        enabled: item.href === "/notificacoes",
+        staleTime: 1 * 60 * 1000,
+        refetchOnWindowFocus: true,
+        refetchInterval: 30 * 1000
+      }
+    );
+
+    return (
+      <Link
+        href={item.href}
+        className={cn(
+          "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300 ease-in-out",
+          isActive
+            ? "bg-gradient-to-r from-azul/15 to-azul/5 font-semibold text-azul shadow-sm"
+            : "font-medium text-slate-600 hover:bg-azul/5 hover:text-azul",
+          className
+        )}
+        onMouseEnter={() => onHover(item.href)}
+        onMouseLeave={() => onHover(null)}
+      >
+        <div
+          className={cn(
+            "relative flex shrink-0 items-center justify-center rounded-xl p-2 transition-all duration-300 ease-in-out",
+            "min-h-[40px] min-w-[40px]",
+            isActive
+              ? "bg-azul text-white shadow-md"
+              : "text-slate-500 group-hover:bg-azul/5 group-hover:text-azul group-hover:shadow-sm"
+          )}
+        >
+          <item.icon
+            size={20}
+            strokeWidth={isActive ? 2 : 2}
+            className={cn(
+              "transition-transform duration-300 ease-in-out",
+              isHovered && !isActive && "scale-110"
+            )}
+          />
+          {item.href === "/notificacoes" && <NotificationBadge count={naoLidas} />}
+          {isActive && (
+            <div className="absolute inset-0 -z-10 animate-pulse rounded-xl bg-azul/50 opacity-30 blur-sm" />
+          )}
+        </div>
+        <span
+          className={cn(
+            "transform whitespace-nowrap transition-all duration-300 ease-in-out",
+            isCollapsed
+              ? "pointer-events-none w-0 -translate-x-2 opacity-0"
+              : "w-auto translate-x-0 opacity-100",
+            isActive ? "font-semibold" : "font-medium",
+            isHovered && !isActive && "translate-x-0.5"
+          )}
+        >
+          {item.label}
+        </span>
+      </Link>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Comparação personalizada para evitar re-renders desnecessários
+    return (
+      prevProps.item === nextProps.item &&
+      prevProps.className === nextProps.className &&
+      prevProps.isCollapsed === nextProps.isCollapsed &&
+      prevProps.isHovered === nextProps.isHovered &&
+      prevProps.pathname === nextProps.pathname
+    );
+  }
+);
+
+MenuItemComponent.displayName = "MenuItemComponent";
 
 export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -104,87 +214,6 @@ export const AppSidebar = () => {
     }
   }, [collapsed, isPinned]);
 
-  const MenuItem = ({ item, className = "" }: { item: MenuItem; className?: string }) => {
-    const isActive =
-      pathname === null
-        ? false
-        : item.href === "/"
-          ? pathname === "/"
-          : pathname.startsWith(`${item.href}/`) || pathname === item.href;
-    const isHovered = hoveredItem === item.href;
-
-    // Buscar contagem de notificações não lidas
-    const { data: naoLidas = 0 } = api.notificacao.contarNaoLidas.useQuery(
-      undefined,
-      { 
-        enabled: item.href === "/notificacoes",
-        staleTime: 1 * 60 * 1000, 
-        refetchOnWindowFocus: true,
-        refetchInterval: 30 * 1000
-      }
-    );
-
-    const showBadge = item.href === "/notificacoes" && naoLidas > 0;
-
-    return (
-      <Link
-        href={item.href}
-        className={cn(
-          "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300 ease-in-out",
-          isActive
-            ? "bg-gradient-to-r from-azul/15 to-azul/5 font-semibold text-azul shadow-sm"
-            : "font-medium text-slate-600 hover:bg-azul/5 hover:text-azul",
-          className
-        )}
-        onMouseEnter={() => setHoveredItem(item.href)}
-        onMouseLeave={() => setHoveredItem(null)}
-      >
-        <div
-          className={cn(
-            "relative flex shrink-0 items-center justify-center rounded-xl p-2 transition-all duration-300 ease-in-out",
-            "min-h-[40px] min-w-[40px]",
-            isActive
-              ? "bg-azul text-white shadow-md"
-              : "text-slate-500 group-hover:bg-azul/5 group-hover:text-azul group-hover:shadow-sm"
-          )}
-        >
-          <item.icon
-            size={20}
-            strokeWidth={isActive ? 2 : 2}
-            className={cn(
-              "transition-transform duration-300 ease-in-out",
-              isHovered && !isActive && "scale-110"
-            )}
-          />
-          {showBadge && (
-            <span className={cn(
-              "absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white",
-              "animate-in fade-in duration-300",
-              collapsed ? "scale-75" : "scale-100"
-            )}>
-              {naoLidas > 99 ? "99+" : naoLidas}
-            </span>
-          )}
-          {isActive && (
-            <div className="absolute inset-0 -z-10 animate-pulse rounded-xl bg-azul/50 opacity-30 blur-sm" />
-          )}
-        </div>
-        <span
-          className={cn(
-            "transform whitespace-nowrap transition-all duration-300 ease-in-out",
-            collapsed
-              ? "pointer-events-none w-0 -translate-x-2 opacity-0"
-              : "w-auto translate-x-0 opacity-100",
-            isActive ? "font-semibold" : "font-medium",
-            isHovered && !isActive && "translate-x-0.5"
-          )}
-        >
-          {item.label}
-        </span>
-      </Link>
-    );
-  };
-
   return (
     <div className="relative h-screen">
       <div
@@ -230,7 +259,14 @@ export const AppSidebar = () => {
         <ScrollArea className="flex-1 px-2 py-6">
           <nav className="flex flex-col gap-2 pr-2">
             {filteredMenuItems.map((item) => (
-              <MenuItem key={item.href} item={item} />
+              <MenuItemComponent
+                key={item.href}
+                item={item}
+                isCollapsed={collapsed}
+                onHover={setHoveredItem}
+                isHovered={hoveredItem === item.href}
+                pathname={pathname}
+              />
             ))}
           </nav>
         </ScrollArea>

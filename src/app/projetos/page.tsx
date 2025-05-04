@@ -124,10 +124,6 @@ export default function Projetos() {
 
     const items = projetosData.data.items || [];
 
-    console.log("--- Dados recebidos ---");
-    console.log("Total de itens:", items.length);
-    console.log("Projetos e rascunhos recebidos:", items);
-
     // Os itens já vêm ordenados por nome do backend, mas podemos garantir isso aqui
     return items;
   }, [projetosData]);
