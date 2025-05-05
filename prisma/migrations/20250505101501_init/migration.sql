@@ -16,6 +16,15 @@ CREATE TYPE "ProjetoTipo" AS ENUM ('STANDARD', 'ATIVIDADE_ECONOMICA');
 -- CreateEnum
 CREATE TYPE "FeedbackEstado" AS ENUM ('PENDENTE', 'RESOLVIDO');
 
+-- CreateEnum
+CREATE TYPE "EntidadeNotificacao" AS ENUM ('PROJETO', 'WORKPACKAGE', 'ENTREGAVEL', 'TAREFA', 'ALOCACAO', 'SISTEMA');
+
+-- CreateEnum
+CREATE TYPE "UrgenciaNotificacao" AS ENUM ('ALTA', 'MEDIA', 'BAIXA');
+
+-- CreateEnum
+CREATE TYPE "EstadoNotificacao" AS ENUM ('NAO_LIDA', 'LIDA', 'ARQUIVADA');
+
 -- CreateTable
 CREATE TABLE "Projetos" (
     "id" UUID NOT NULL,
@@ -241,6 +250,21 @@ CREATE TABLE "feedbacks" (
     CONSTRAINT "feedbacks_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Notificacao" (
+    "id" TEXT NOT NULL,
+    "titulo" TEXT NOT NULL,
+    "descricao" TEXT NOT NULL,
+    "entidade" "EntidadeNotificacao" NOT NULL,
+    "entidadeId" TEXT NOT NULL,
+    "urgencia" "UrgenciaNotificacao" NOT NULL,
+    "estado" "EstadoNotificacao" NOT NULL DEFAULT 'NAO_LIDA',
+    "dataEmissao" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "destinatarioId" TEXT NOT NULL,
+
+    CONSTRAINT "Notificacao_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Financiamentos_nome_key" ON "Financiamentos"("nome");
 
@@ -280,6 +304,21 @@ CREATE UNIQUE INDEX "password_resets_token_key" ON "password_resets"("token");
 -- CreateIndex
 CREATE UNIQUE INDEX "passwords_userId_key" ON "passwords"("userId");
 
+-- CreateIndex
+CREATE INDEX "Notificacao_destinatarioId_idx" ON "Notificacao"("destinatarioId");
+
+-- CreateIndex
+CREATE INDEX "Notificacao_estado_idx" ON "Notificacao"("estado");
+
+-- CreateIndex
+CREATE INDEX "Notificacao_urgencia_idx" ON "Notificacao"("urgencia");
+
+-- CreateIndex
+CREATE INDEX "Notificacao_entidade_idx" ON "Notificacao"("entidade");
+
+-- CreateIndex
+CREATE INDEX "Notificacao_dataEmissao_idx" ON "Notificacao"("dataEmissao");
+
 -- AddForeignKey
 ALTER TABLE "Projetos" ADD CONSTRAINT "Projetos_financiamento_id_fkey" FOREIGN KEY ("financiamento_id") REFERENCES "Financiamentos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -287,25 +326,25 @@ ALTER TABLE "Projetos" ADD CONSTRAINT "Projetos_financiamento_id_fkey" FOREIGN K
 ALTER TABLE "Projetos" ADD CONSTRAINT "Projetos_responsavel_id_fkey" FOREIGN KEY ("responsavel_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Workpackages" ADD CONSTRAINT "Workpackages_projeto_id_fkey" FOREIGN KEY ("projeto_id") REFERENCES "Projetos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Workpackages" ADD CONSTRAINT "Workpackages_projeto_id_fkey" FOREIGN KEY ("projeto_id") REFERENCES "Projetos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Tarefas" ADD CONSTRAINT "Tarefas_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Tarefas" ADD CONSTRAINT "Tarefas_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Entregaveis" ADD CONSTRAINT "Entregaveis_tarefa_id_fkey" FOREIGN KEY ("tarefa_id") REFERENCES "Tarefas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Materiais" ADD CONSTRAINT "Materiais_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Materiais" ADD CONSTRAINT "Materiais_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "configuracoes_utilizador_mensais" ADD CONSTRAINT "configuracoes_utilizador_mensais_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "alocacoes_recursos" ADD CONSTRAINT "alocacoes_recursos_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "alocacoes_recursos" ADD CONSTRAINT "alocacoes_recursos_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "alocacoes_recursos" ADD CONSTRAINT "alocacoes_recursos_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "alocacoes_recursos" ADD CONSTRAINT "alocacoes_recursos_workpackage_id_fkey" FOREIGN KEY ("workpackage_id") REFERENCES "Workpackages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -321,3 +360,6 @@ ALTER TABLE "rascunhos" ADD CONSTRAINT "rascunhos_userId_fkey" FOREIGN KEY ("use
 
 -- AddForeignKey
 ALTER TABLE "feedbacks" ADD CONSTRAINT "feedbacks_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Notificacao" ADD CONSTRAINT "Notificacao_destinatarioId_fkey" FOREIGN KEY ("destinatarioId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

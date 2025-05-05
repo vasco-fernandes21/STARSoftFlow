@@ -93,13 +93,10 @@ export function GerirFinanciamentosModal({
 
   const financiamentos = (financiamentosResponse?.items || []) as FinanciamentoAPI[];
 
-  const { mutate: criarFinanciamento } = api.financiamento.create.useMutation({
+  const { mutate: criarFinanciamento, isPending } = api.financiamento.create.useMutation({
     onSuccess: (data) => {
       toast.success("Financiamento criado com sucesso!");
-
-      // Chamar o callback com o financiamento criado, se existir
       if (onFinanciamentoCriado) {
-        // Converter os dados retornados para o formato esperado
         const financiamentoAPI: FinanciamentoAPI = {
           id: data.id,
           nome: data.nome,
@@ -109,13 +106,19 @@ export function GerirFinanciamentosModal({
         };
         onFinanciamentoCriado(financiamentoAPI);
       }
-
       limparForm();
       void utils.financiamento.findAll.invalidate();
     },
     onError: (error) => {
-      toast.error(`Erro ao criar financiamento: ${error.message}`);
-    },
+      console.error("Erro completo:", error);
+      if (error.message.includes("CONFLICT")) {
+        toast.error("Já existe um financiamento com este nome");
+      } else if (error.message.includes("validation")) {
+        toast.error("Por favor, verifique os valores inseridos");
+      } else {
+        toast.error(`Erro ao criar financiamento: ${error.message}`);
+      }
+    }
   });
 
   const { mutate: atualizarFinanciamento } = api.financiamento.update.useMutation({
@@ -159,26 +162,26 @@ export function GerirFinanciamentosModal({
       return;
     }
 
-    // Validar apenas taxa de financiamento e valor ETI como obrigatórios
-    if (novoFinanciamento.taxa_financiamento === null || novoFinanciamento.valor_eti === null) {
-      toast.error("Taxa de financiamento e Valor ETI são obrigatórios");
-      return;
-    }
+    try {
+      // Garantir que todos os valores numéricos são válidos
+      const dadosParaEnviar = {
+        nome: novoFinanciamento.nome.trim(),
+        overhead: Math.max(0, Math.min(100, Number(novoFinanciamento.overhead ?? 0))),
+        taxa_financiamento: Math.max(0, Math.min(100, Number(novoFinanciamento.taxa_financiamento ?? 0))),
+        valor_eti: Math.max(0, Number(novoFinanciamento.valor_eti ?? 0))
+      };
 
-    const dadosParaEnviar = {
-      nome: novoFinanciamento.nome,
-      overhead: Number(novoFinanciamento.overhead ?? 0),
-      taxa_financiamento: Number(novoFinanciamento.taxa_financiamento ?? 0),
-      valor_eti: Number(novoFinanciamento.valor_eti ?? 0),
-    };
-
-    if (modoEdicao) {
-      atualizarFinanciamento({
-        id: modoEdicao,
-        ...dadosParaEnviar,
-      });
-    } else {
-      criarFinanciamento(dadosParaEnviar);
+      if (modoEdicao) {
+        atualizarFinanciamento({
+          id: modoEdicao,
+          ...dadosParaEnviar,
+        });
+      } else {
+        criarFinanciamento(dadosParaEnviar);
+      }
+    } catch (error) {
+      console.error("Erro ao processar dados:", error);
+      toast.error("Erro ao processar os dados do financiamento");
     }
   };
 
@@ -311,8 +314,9 @@ export function GerirFinanciamentosModal({
                 <Button 
                   className="rounded-full bg-azul text-white shadow-sm hover:bg-azul/90 hover:shadow-md transition-all duration-200"
                   onClick={handleSubmit}
+                  disabled={isPending}
                 >
-                  {modoEdicao ? "Atualizar" : "Criar Financiamento"}
+                  {modoEdicao ? "Atualizar" : isPending ? "A criar..." : "Criar Financiamento"}
                 </Button>
               </div>
             </div>

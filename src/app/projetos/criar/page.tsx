@@ -731,10 +731,11 @@ function ProjetoFormContentWrapper() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full border-azul/20 text-azul hover:bg-azul/5">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleSaveDraft}
               disabled={saveDraftMutation.status === "pending" || updateDraftMutation.status === "pending"}
+              className="rounded-full bg-azul text-white shadow-md transition-all duration-300 ease-in-out hover:bg-azul/90 hover:shadow-lg"
             >
               {saveDraftMutation.status === "pending" || updateDraftMutation.status === "pending"
                 ? "A guardar..."
@@ -756,10 +757,10 @@ function ProjetoFormContentWrapper() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full border-azul/20 text-azul hover:bg-azul/5">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteDraft}
-              className="bg-red-600 hover:bg-red-700"
+              className="rounded-full bg-red-600 text-white shadow-md transition-all duration-300 ease-in-out hover:bg-red-700 hover:shadow-lg"
               disabled={deleteDraftMutation.status === "pending"}
             >
               {deleteDraftMutation.status === "pending" ? "A apagar..." : "Apagar"}
@@ -786,7 +787,10 @@ function ProjetoFormContentWrapper() {
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
-          <Button variant="outline" className="gap-2" onClick={() => setShowSaveDialog(true)}>
+          <Button 
+            className="gap-2 rounded-full bg-azul text-white shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-azul/90 hover:shadow-lg"
+            onClick={() => setShowSaveDialog(true)}
+          >
             <Save className="h-4 w-4" />
             {rascunhoId ? "Guardar Alterações" : "Guardar Rascunho"}
           </Button>

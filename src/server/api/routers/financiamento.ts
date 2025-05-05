@@ -3,30 +3,31 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 
-// Schemas
-const financiamentoBaseSchema = z.object({
-  nome: z.string().min(3).max(255),
-  overhead: z.coerce
-    .number()
-    .min(0)
-    .max(100)
-    .transform((val) => new Prisma.Decimal(val)),
-  taxa_financiamento: z.coerce
-    .number()
-    .min(0)
-    .max(100)
-    .transform((val) => new Prisma.Decimal(val)),
-  valor_eti: z.coerce
-    .number()
-    .min(0)
-    .transform((val) => new Prisma.Decimal(val)),
+// Base schema sem transformação
+const baseSchema = z.object({
+  nome: z.string().trim().min(3, "O nome deve ter pelo menos 3 caracteres").max(255),
+  overhead: z.number().min(0).max(100),
+  taxa_financiamento: z.number().min(0).max(100),
+  valor_eti: z.number().min(0),
 });
 
-const createFinanciamentoSchema = financiamentoBaseSchema;
+// Schema para criação
+const createFinanciamentoSchema = baseSchema;
 
-const updateFinanciamentoSchema = financiamentoBaseSchema.partial().extend({
+// Schema para atualização
+const updateFinanciamentoSchema = z.object({
   id: z.number(),
-});
+  nome: z.string().trim().min(3, "O nome deve ter pelo menos 3 caracteres").max(255).optional(),
+  overhead: z.number().min(0).max(100).optional(),
+  taxa_financiamento: z.number().min(0).max(100).optional(),
+  valor_eti: z.number().min(0).optional(),
+}).transform(data => ({
+  id: data.id,
+  ...(data.nome && { nome: data.nome }),
+  ...(data.overhead !== undefined && { overhead: new Prisma.Decimal(data.overhead) }),
+  ...(data.taxa_financiamento !== undefined && { taxa_financiamento: new Prisma.Decimal(data.taxa_financiamento) }),
+  ...(data.valor_eti !== undefined && { valor_eti: new Prisma.Decimal(data.valor_eti) }),
+}));
 
 const paginationSchema = z.object({
   limit: z.number().min(1).max(100).optional().default(10),
@@ -76,15 +77,33 @@ export const financiamentoRouter = createTRPCRouter({
   // Criar um novo tipo de financiamento
   create: protectedProcedure.input(createFinanciamentoSchema).mutation(async ({ ctx, input }) => {
     try {
+      // Verificar se já existe um financiamento com o mesmo nome
+      const existente = await ctx.db.financiamento.findFirst({
+        where: {
+          nome: {
+            equals: input.nome,
+            mode: 'insensitive', // case insensitive
+          },
+        },
+      });
+
+      if (existente) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Já existe um financiamento com este nome",
+        });
+      }
+
       return await ctx.db.financiamento.create({
         data: {
           nome: input.nome,
-          overhead: new Prisma.Decimal(input.overhead),
-          taxa_financiamento: new Prisma.Decimal(input.taxa_financiamento),
-          valor_eti: new Prisma.Decimal(input.valor_eti),
+          overhead: input.overhead,
+          taxa_financiamento: input.taxa_financiamento,
+          valor_eti: input.valor_eti,
         },
       });
     } catch (error) {
+      if (error instanceof TRPCError) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         throw new TRPCError({
           code: "CONFLICT",
