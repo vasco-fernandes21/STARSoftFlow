@@ -4,6 +4,8 @@ import { type Metadata } from "next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { RootLayoutContent } from "@/layouts/root-layout-content";
 import { SessionProvider } from "next-auth/react";
+import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 // Configurar Inter
 const inter = Inter({
@@ -30,6 +32,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <RootLayoutContent>{children}</RootLayoutContent>
           </TRPCReactProvider>
         </SessionProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
