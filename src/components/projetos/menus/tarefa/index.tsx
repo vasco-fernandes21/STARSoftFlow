@@ -10,12 +10,9 @@ import {
   CheckCircle2, 
   XCircle, 
   Clock, 
-  FileText, 
   Calendar, 
   X, 
   ArrowLeft,
-  Package,
-  Info
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TarefaInformacoes } from "./informacoes";

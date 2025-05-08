@@ -6,15 +6,15 @@ export function usePermissions() {
   const userPermission = (session?.user as unknown as PrismaUser)?.permissao || "COMUM";
 
   return {
-    // Simple boolean checks for common permission cases
+    // Checks com boolen para cada permissão
     isAdmin: userPermission === "ADMIN",
     isGestor: userPermission === "GESTOR" || userPermission === "ADMIN",
     isComum: userPermission === "COMUM",
 
-    // Get raw permission value
+    //Aqui obtem o tipo de permissão 
     userPermission,
 
-    // Flexible permission checker with hierarchy logic
+    // Isto é util para verificar se o utilizador tem permissão para fazer algo
     hasPermission: (requiredPermission: Permissao | null) => {
       if (!requiredPermission) return true;
       if (userPermission === "ADMIN") return true;

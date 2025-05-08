@@ -157,7 +157,7 @@ export const fases: Record<
     icon: Euro,
   },
   workpackages: {
-    titulo: "Work Packages",
+    titulo: "Workpackages",
     descricao: "Estrutura do projeto",
     icon: Briefcase,
   },
