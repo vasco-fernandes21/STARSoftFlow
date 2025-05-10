@@ -68,9 +68,23 @@ export function NovoUtilizadorModal() {
       utils.utilizador.findAll.invalidate();
       resetFormAndClose();
     },
-    onError: () => {
+    onError: (error) => {
       setIsSubmitting(false);
-      toast.error("Erro ao criar utilizador");
+      // Se for um erro de conflito (email duplicado), mostra a mensagem específica
+      if (error.data?.code === "CONFLICT") {
+        toast.error(error.message, {
+          description: "Por favor, utilize um email diferente ou contacte o administrador.",
+        });
+        // Marca o campo de email com erro
+        setErrors(prev => ({
+          ...prev,
+          email: error.message
+        }));
+      } else {
+        toast.error("Erro ao criar utilizador", {
+          description: error.message || "Ocorreu um erro inesperado. Tente novamente.",
+        });
+      }
     },
   });
 

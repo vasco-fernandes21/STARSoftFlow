@@ -489,7 +489,7 @@ export const utilizadorRouter = createTRPCRouter({
       if (existingUser) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "Este email já está registado",
+          message: `O email ${processedUserData.email} já está registado no sistema. Por favor, utilize um email diferente ou contacte o administrador se achar que isto é um erro.`,
         });
       }
 

@@ -58,9 +58,6 @@ export function Item({
   // Filtrar apenas o utilizador atual para o Form de edição
   const utilizadoresDisponiveis = utilizadores.filter(u => u.id === user.id);
 
-  // Log para verificar as props recebidas, especialmente 'alocacoes'
-  console.log(`[Item Component] Props recebidas para User: ${user.name} (ID: ${user.id})`, { alocacoes, workpackageId });
-
   const [showForm, setShowForm] = useState(false);
 
   // Ensure valid dates

@@ -840,8 +840,6 @@ export const projetoRouter = createTRPCRouter({
 
         // Extrair o ID do utilizador da sessão
         const userId = ctx.session.user.id;
-
-        // Determinar qual ID de utilizador será usado como responsável
         const targetUserId = input.responsavelId || userId;
 
         // Verificar se o utilizador existe
@@ -849,7 +847,6 @@ export const projetoRouter = createTRPCRouter({
           where: { id: targetUserId },
           select: { id: true },
         });
-
         if (!userExists) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -857,238 +854,151 @@ export const projetoRouter = createTRPCRouter({
           });
         }
 
-        // Usar transação para garantir atomicidade das operações
-        const result = await ctx.db.$transaction(async (tx) => {
-          // Se tiver rascunhoId, verificar se existe e pertence ao utilizador
-          if (input.rascunhoId) {
-            const rascunho = await tx.rascunho.findFirst({
-              where: {
-                id: input.rascunhoId,
-                userId: ctx.session.user.id,
-              },
-            });
+        // 1. Criar projeto e workpackages numa transação
+        const projeto = await ctx.db.projeto.create({
+          data: {
+            nome: input.nome,
+            descricao: input.descricao,
+            inicio: input.inicio,
+            fim: input.fim,
+            estado: input.estado,
+            overhead: input.overhead,
+            taxa_financiamento: input.taxa_financiamento,
+            valor_eti: input.valor_eti,
+            responsavel: { connect: { id: targetUserId } },
+            ...(input.financiamentoId
+              ? { financiamento: { connect: { id: input.financiamentoId } } }
+              : {}),
+            workpackages: {
+              create: input.workpackages.map((wp) => ({
+                nome: wp.nome,
+                descricao: wp.descricao,
+                inicio: wp.inicio,
+                fim: wp.fim,
+                estado: wp.estado,
+                tarefas: {
+                  create: wp.tarefas.map((t) => ({
+                    nome: t.nome,
+                    descricao: t.descricao,
+                    inicio: t.inicio,
+                    fim: t.fim,
+                    estado: t.estado,
+                    entregaveis: {
+                      create: t.entregaveis.map((e) => ({
+                        nome: e.nome,
+                        descricao: e.descricao,
+                        data: e.data,
+                      })),
+                    },
+                  })),
+                },
+                materiais: {
+                  create: wp.materiais.map((m) => ({
+                    nome: m.nome,
+                    preco: m.preco,
+                    quantidade: m.quantidade,
+                    rubrica: m.rubrica,
+                    ano_utilizacao: m.ano_utilizacao,
+                  })),
+                },
+              })),
+            },
+          },
+          include: {
+            workpackages: true,
+            financiamento: true,
+            responsavel: { select: { id: true, name: true, email: true } },
+          },
+        });
 
-            if (!rascunho) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message: "Rascunho não encontrado",
-              });
-            }
-
-            // Apagar o rascunho
-            await tx.rascunho.delete({
-              where: {
-                id: input.rascunhoId,
-              },
+        // 2. Preparar todas as alocações de recursos
+        const alocacoes: Prisma.AlocacaoRecursoCreateManyInput[] = [];
+        for (const wpInput of input.workpackages) {
+          const workpackage = projeto.workpackages.find((w) => w.nome === wpInput.nome);
+          if (!workpackage || !wpInput.recursos) continue;
+          for (const recurso of wpInput.recursos) {
+            alocacoes.push({
+              workpackageId: workpackage.id,
+              userId: recurso.userId,
+              mes: recurso.mes,
+              ano: recurso.ano,
+              ocupacao: new Decimal(recurso.ocupacao),
             });
           }
+        }
 
-          // Criar o projeto
-          const projeto = await tx.projeto.create({
+        // 3. Fazer bulk insert das alocações fora da transação
+        if (alocacoes.length > 0) {
+          await ctx.db.alocacaoRecurso.createMany({
+            data: alocacoes,
+            skipDuplicates: true,
+          });
+        }
+
+        // 4. Criar notificações fora da transação
+        const admins = await ctx.db.user.findMany({
+          where: { permissao: "ADMIN" },
+          select: { id: true },
+        });
+        const notificacoes: Promise<any>[] = [];
+        notificacoes.push(
+          ctx.db.notificacao.create({
             data: {
-              nome: input.nome,
-              descricao: input.descricao,
-              inicio: input.inicio,
-              fim: input.fim,
-              estado: input.estado,
-              overhead: input.overhead,
-              taxa_financiamento: input.taxa_financiamento,
-              valor_eti: input.valor_eti,
-              // Usar a sintaxe de relacionamento do Prisma para o responsável
-              responsavel: {
-                connect: {
-                  id: targetUserId,
-                },
-              },
-              ...(input.financiamentoId
-                ? {
-                    financiamento: {
-                      connect: {
-                        id: input.financiamentoId,
-                      },
-                    },
-                  }
-                : {}),
-              workpackages: {
-                create: input.workpackages.map((wp) => ({
-                  nome: wp.nome,
-                  descricao: wp.descricao,
-                  inicio: wp.inicio,
-                  fim: wp.fim,
-                  estado: wp.estado,
-                  tarefas: {
-                    create: wp.tarefas.map((t) => ({
-                      nome: t.nome,
-                      descricao: t.descricao,
-                      inicio: t.inicio,
-                      fim: t.fim,
-                      estado: t.estado,
-                      entregaveis: {
-                        create: t.entregaveis.map((e) => ({
-                          nome: e.nome,
-                          descricao: e.descricao,
-                          data: e.data,
-                        })),
-                      },
-                    })),
-                  },
-                  materiais: {
-                    create: wp.materiais.map((m) => ({
-                      nome: m.nome,
-                      preco: m.preco,
-                      quantidade: m.quantidade,
-                      rubrica: m.rubrica,
-                      ano_utilizacao: m.ano_utilizacao,
-                    })),
-                  },
-                })),
-              },
+              titulo: `Novo projeto criado: ${input.nome}`,
+              descricao: `O projeto "${input.nome}" foi criado e você é o responsável.`,
+              entidade: "PROJETO",
+              entidadeId: projeto.id,
+              urgencia: "MEDIA",
+              destinatario: { connect: { id: targetUserId } },
+              estado: "NAO_LIDA",
             },
-            include: {
-              financiamento: true,
-              responsavel: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-              workpackages: {
-                include: {
-                  tarefas: {
-                    include: {
-                      entregaveis: true,
-                    },
-                  },
-                  materiais: true,
-                },
-              },
-            },
-          });
-
-          // Criar alocações de recursos
-          for (const wpInput of input.workpackages) {
-            if (!wpInput.recursos || wpInput.recursos.length === 0) continue;
-
-            const workpackage = projeto.workpackages.find((w) => w.nome === wpInput.nome);
-            if (!workpackage) continue;
-
-            for (const recurso of wpInput.recursos) {
-              await tx.alocacaoRecurso.create({
+          })
+        );
+        for (const admin of admins) {
+          if (admin.id !== targetUserId) {
+            notificacoes.push(
+              ctx.db.notificacao.create({
                 data: {
-                  workpackageId: workpackage.id,
-                  userId: recurso.userId,
-                  mes: recurso.mes,
-                  ano: recurso.ano,
-                  ocupacao: new Decimal(recurso.ocupacao),
+                  titulo: `Novo projeto criado por ${ctx.session.user.name}`,
+                  descricao: `Um novo projeto "${input.nome}" foi criado.`,
+                  entidade: "PROJETO",
+                  entidadeId: projeto.id,
+                  urgencia: "MEDIA",
+                  destinatario: { connect: { id: admin.id } },
+                  estado: "NAO_LIDA",
                 },
-              });
-            }
+              })
+            );
           }
-
-          // Buscar todos os admins
-          const admins = await tx.user.findMany({
-            where: {
-              permissao: "ADMIN"
-            },
-            select: {
-              id: true
-            }
-          });
-
-          // Criar notificações
-          const notificacoes = [];
-
-          // Notificação para o responsável
-          notificacoes.push(
-            tx.notificacao.create({
-              data: {
-                titulo: `Novo projeto criado: ${input.nome}`,
-                descricao: `O projeto "${input.nome}" foi criado e você é o responsável.`,
-                entidade: "PROJETO",
-                entidadeId: projeto.id,
-                urgencia: "MEDIA",
-                destinatario: {
-                  connect: { id: targetUserId },
-                },
-                estado: "NAO_LIDA",
-              },
-            })
-          );
-
-          // Notificação para cada admin (exceto se for o próprio criador/responsável)
-          for (const admin of admins) {
-            if (admin.id !== targetUserId) {
+        }
+        // Notificações para recursos alocados
+        const recursosUnicos = new Set<string>();
+        for (const wp of input.workpackages) {
+          for (const recurso of wp.recursos) {
+            if (!recursosUnicos.has(recurso.userId)) {
+              recursosUnicos.add(recurso.userId);
               notificacoes.push(
-                tx.notificacao.create({
+                ctx.db.notificacao.create({
                   data: {
-                    titulo: `Novo projeto criado por ${ctx.session.user.name}`,
-                    descricao: `Um novo projeto "${input.nome}" foi criado.`,
-                    entidade: "PROJETO",
+                    titulo: `Nova alocação no projeto ${input.nome}`,
+                    descricao: `Você foi alocado no projeto "${input.nome}".`,
+                    entidade: "ALOCACAO",
                     entidadeId: projeto.id,
                     urgencia: "MEDIA",
-                    destinatario: {
-                      connect: { id: admin.id },
-                    },
+                    destinatario: { connect: { id: recurso.userId } },
                     estado: "NAO_LIDA",
                   },
                 })
               );
             }
           }
+        }
+        await Promise.all(notificacoes);
 
-          // Notificações para recursos alocados
-          const recursosUnicos = new Set<string>();
-          for (const wp of input.workpackages) {
-            for (const recurso of wp.recursos) {
-              if (!recursosUnicos.has(recurso.userId)) {
-                recursosUnicos.add(recurso.userId);
-                notificacoes.push(
-                  tx.notificacao.create({
-                    data: {
-                      titulo: `Nova alocação no projeto ${input.nome}`,
-                      descricao: `Você foi alocado no projeto "${input.nome}".`,
-                      entidade: "ALOCACAO",
-                      entidadeId: projeto.id,
-                      urgencia: "MEDIA",
-                      destinatario: {
-                        connect: { id: recurso.userId },
-                      },
-                      estado: "NAO_LIDA",
-                    },
-                  })
-                );
-              }
-            }
-          }
-
-          // Executar criação das notificações
-          const notificacoesCriadas = await Promise.all(notificacoes);
-
-          // Emitir eventos para cada notificação criada
-          console.log("[Notificações Projeto] Iniciando emissão de eventos:", {
-            count: notificacoesCriadas.length,
-            projetoId: projeto.id,
-            timestamp: new Date().toISOString(),
-          });
-
-          for (const notificacao of notificacoesCriadas) {
-            console.log("[Notificações Projeto] Emitindo notificação:", {
-              id: notificacao.id,
-              destinatario: notificacao.destinatarioId,
-              tipo: notificacao.entidade,
-              titulo: notificacao.titulo,
-              timestamp: new Date().toISOString(),
-            });
-            ee.emit("notificacao", notificacao);
-          }
-
-          return { projeto };
-        });
-
+        // Comentário de júnior: faço o projeto e workpackages primeiro, depois insiro todas as alocações de uma vez, e só depois faço as notificações
         return {
           success: true,
-          data: result.projeto,
+          data: projeto,
         };
       } catch (error) {
         console.error("Erro ao criar projeto completo:", error);

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { TarefaForm } from "./form";
 import type { Prisma } from "@prisma/client";
+import { api } from "@/trpc/react";
 
 interface TarefaItemProps {
   tarefa: TarefaWithRelations;
@@ -35,7 +36,6 @@ export function TarefaItem({
   workpackageId,
   workpackageInicio,
   workpackageFim,
-  onUpdate,
   onRemove,
   onEdit,
   onAddEntregavel,
@@ -48,6 +48,17 @@ export function TarefaItem({
   const [addingEntregavel, setAddingEntregavel] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
+  // tRPC mutation para atualizar o estado da tarefa
+  const utils = api.useUtils();
+  const updateTarefa = api.tarefa.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate();
+    },
+    onError: () => {
+      toast.error("Erro ao atualizar estado");
+    },
+  });
+
   const handleToggleExpand = () => {
     setIsExpanded(!isExpanded);
     // Resetar estados ao fechar
@@ -58,12 +69,11 @@ export function TarefaItem({
   };
 
   const handleToggleEstado = async () => {
-    try {
-      await onUpdate();
-    } catch (error) {
-      console.error("Erro ao atualizar estado:", error);
-      toast.error("Erro ao atualizar estado");
-    }
+    // Chama a mutation para atualizar o estado
+    updateTarefa.mutate({
+      id: tarefa.id,
+      data: { estado: !tarefa.estado },
+    });
   };
 
   const handleEditSubmit = async (_workpackageId: string, tarefaData: any) => {
