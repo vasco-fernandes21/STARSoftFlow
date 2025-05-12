@@ -22,6 +22,8 @@ import {
   MailOpen,
   X,
   Trash,
+  Info,
+  Star,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
@@ -68,6 +70,9 @@ const TIPO_LABELS: Record<EntidadeNotificacao, string> = {
   ALOCACAO: "Alocação",
   TAREFA: "Tarefa",
   SISTEMA: "Sistema",
+  COMENTARIO: "Comentário",
+  GERAL: "Geral",
+  FEEDBACK: "Feedback",
 };
 
 const URGENCIA_LABELS: Record<UrgenciaNotificacao, string> = {
@@ -97,6 +102,12 @@ function getIconByType(tipo: EntidadeNotificacao) {
       return <CheckCircle2 className="h-5 w-5" />;
     case "SISTEMA":
       return <MessageCircle className="h-5 w-5" />;
+    case "COMENTARIO":
+      return <MessageCircle className="h-5 w-5" />; // Placeholder, consider a more specific icon
+    case "GERAL":
+      return <Info className="h-5 w-5" />; // Placeholder, import Info from lucide-react
+    case "FEEDBACK":
+      return <Star className="h-5 w-5" />; // Placeholder, import Star from lucide-react
   }
 }
 
@@ -242,7 +253,7 @@ export default function Notificacoes() {
       filtered = filtered.filter(
         n => 
           n.titulo.toLowerCase().includes(term) || 
-          n.descricao.toLowerCase().includes(term)
+          (n.descricao || "").toLowerCase().includes(term)
       );
     }
     
@@ -326,7 +337,7 @@ export default function Notificacoes() {
     
     const hoje = new Date();
     const notificacoesHoje = notificacoes.filter(n => {
-      const data = new Date(n.dataEmissao);
+      const data = new Date(n.createdAt);
       return (
         data.getDate() === hoje.getDate() &&
         data.getMonth() === hoje.getMonth() &&
@@ -711,7 +722,7 @@ function NotificacaoItem({
       <div
         className={cn(
           "group flex cursor-pointer gap-3 border-l-4 bg-white p-4 transition-colors hover:bg-slate-50/70",
-          isSelected ? "border-l-azul bg-azul/5" : getCardBorderColor(notificacao.urgencia, isRead),
+          isSelected ? "border-l-azul bg-azul/5" : getCardBorderColor(notificacao.urgencia || 'BAIXA', isRead),
           isRead ? "bg-white" : "bg-slate-50/50"
         )}
         onClick={onNavigate}
@@ -727,7 +738,7 @@ function NotificacaoItem({
         
         <div className={cn(
           "flex h-9 w-9 flex-none items-center justify-center rounded-full",
-          getIconBgColor(notificacao.urgencia, true)
+          getIconBgColor(notificacao.urgencia || 'BAIXA', true)
         )}>
           {getIconByType(notificacao.entidade)}
         </div>
@@ -753,6 +764,9 @@ function NotificacaoItem({
                   notificacao.entidade === "ALOCACAO" && "border-amber-200 bg-amber-50/70 text-amber-600",
                   notificacao.entidade === "TAREFA" && "border-cyan-200 bg-cyan-50/70 text-cyan-600",
                   notificacao.entidade === "SISTEMA" && "border-slate-200 bg-slate-50/70 text-slate-600",
+                  notificacao.entidade === "COMENTARIO" && "border-indigo-200 bg-indigo-50/70 text-indigo-600",
+                  notificacao.entidade === "GERAL" && "border-gray-200 bg-gray-50/70 text-gray-600",
+                  notificacao.entidade === "FEEDBACK" && "border-pink-200 bg-pink-50/70 text-pink-600",
                   "text-xs"
                 )}
               />
@@ -772,7 +786,7 @@ function NotificacaoItem({
           <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {getRelativeTime(notificacao.dataEmissao)}
+              {getRelativeTime(notificacao.createdAt)}
             </span>
             
             <div className="flex gap-2">

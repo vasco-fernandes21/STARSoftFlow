@@ -90,9 +90,21 @@ export function useAlocacoes(username: string, ano?: number) {
   const data = React.useMemo(() => {
     if (!query.data) return undefined;
 
+    // Interface para os dados da API
+    interface AlocacaoAPIItem {
+      ano: number;
+      mes: number;
+      ocupacao: number;
+      workpackageId: string;
+      workpackageNome: string;
+      projetoId: string;
+      projetoNome: string;
+      projetoEstado: ProjetoEstado;
+    }
+
     // Mapear os dados para o formato AlocacoesData
     return {
-      real: query.data.real.map(item => ({
+      real: query.data.real.map((item: AlocacaoAPIItem) => ({
         ano: item.ano,
         mes: item.mes,
         ocupacao: item.ocupacao,
@@ -106,7 +118,7 @@ export function useAlocacoes(username: string, ano?: number) {
           estado: item.projetoEstado
         }
       })),
-      submetido: query.data.submetido.map(item => ({
+      submetido: query.data.pendente?.map((item: AlocacaoAPIItem) => ({
         ano: item.ano,
         mes: item.mes,
         ocupacao: item.ocupacao,
@@ -119,7 +131,7 @@ export function useAlocacoes(username: string, ano?: number) {
           nome: item.projetoNome,
           estado: item.projetoEstado
         }
-      })),
+      })) || [],
       anos: query.data.anos
     };
   }, [query.data]);
@@ -182,7 +194,10 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
   // Memo para obter projetos
   const projetos = useMemo(() => {
     const projetosMap = new Map<string, Projeto>();
-    [...alocacoes.real, ...alocacoes.submetido].forEach(a => {
+    // Ensure we handle the case where submetido might be undefined
+    const allAllocations = [...alocacoes.real, ...(alocacoes.submetido || [])];
+    
+    allAllocations.forEach(a => {
       if (!projetosMap.has(a.projeto.id)) {
         projetosMap.set(a.projeto.id, {
           id: a.projeto.id,
@@ -211,6 +226,8 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
 
   // Função para obter valor submetido de alocação
   const getValorSubmetido = useCallback((wpId: string, mes: number) => {
+    if (!alocacoes.submetido) return 0;
+    
     const alocacao = alocacoes.submetido.find(a => 
       a.workpackage.id === wpId && 
       a.mes === mes && 
@@ -266,6 +283,8 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
   }
 
   const calcularTotal = useCallback((arr: AlocacaoOriginal[], mes: number) => {
+    if (!arr) return 0;
+    
     const valoresFixos = arr
       .filter(a => a.ano === anoSelecionado && a.mes === mes)
       .reduce((s, a) => s + a.ocupacao, 0);
@@ -589,9 +608,9 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                   </TableRow>
 
                   {Array.from(projeto.wps).map((wpId) => {
-                    const wp = (isSubmetido ? alocacoes.submetido : alocacoes.real).find(
-                      (a) => a.workpackage.id === wpId
-                    )?.workpackage;
+                    const wp = isSubmetido && alocacoes.submetido 
+                      ? alocacoes.submetido.find(a => a.workpackage.id === wpId)?.workpackage
+                      : alocacoes.real.find(a => a.workpackage.id === wpId)?.workpackage;
 
                     if (!wp) return null;
 

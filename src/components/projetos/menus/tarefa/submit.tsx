@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { FileText, X, Upload, Calendar, AlertCircle, File, FileArchive, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -159,11 +158,8 @@ export function EntregavelSubmit({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="file-upload" className="text-xs font-medium text-slate-600">
-              Selecionar ou arrastar ficheiro
-            </Label>
-            
-            <div 
+            <label 
+              htmlFor="file-upload"
               className={cn(
                 "relative rounded-md border-2 border-dashed transition-all",
                 "py-6 px-3 flex flex-col items-center justify-center",
@@ -226,7 +222,7 @@ export function EntregavelSubmit({
                 onChange={handleFileChange}
                 disabled={uploading}
               />
-            </div>
+            </label>
             
             {uploading && (
               <div className="space-y-1.5 mt-3">

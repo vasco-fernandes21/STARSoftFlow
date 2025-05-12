@@ -13,6 +13,9 @@ import puppeteer from "puppeteer";
 import { RelatorioTemplate } from "@/app/utilizadores/[username]/relatorio/templates/relatorio-template";
 import http from "http";
 import type net from "net";
+import { listProfilePhotos, deleteFile } from "@/lib/blob";
+import { put } from "@vercel/blob";
+import { BLOB_CONFIG } from "@/lib/config";
 
 // Schemas base
 const emailSchema = z.string({ required_error: "Email é obrigatório" }).email("Email inválido");
@@ -39,7 +42,6 @@ const utilizadorBaseSchema = z
   .object({
     name: z.string().min(1, "Nome é obrigatório").optional(),
     email: emailSchema.optional(),
-    foto: z.string().nullable().optional(),
     atividade: z.string().min(1, "Atividade é obrigatória").optional(),
     contratacao: dateSchema.optional(),
     username: z.string().min(3, "Username deve ter pelo menos 3 caracteres").optional(),
@@ -167,7 +169,6 @@ export const utilizadorRouter = createTRPCRouter({
             id: true,
             name: true,
             email: true,
-            foto: true,
             atividade: true,
             contratacao: true,
             username: true,
@@ -323,7 +324,6 @@ export const utilizadorRouter = createTRPCRouter({
             id: true,
             name: true,
             email: true,
-            foto: true,
             atividade: true,
             regime: true,
             workpackages: {
@@ -366,13 +366,13 @@ export const utilizadorRouter = createTRPCRouter({
           id: true,
           name: true,
           email: true,
-          foto: true,
           atividade: true,
           contratacao: true,
           username: true,
           permissao: true,
           regime: true,
           emailVerified: true,
+          informacoes: true,
         },
       });
 
@@ -383,7 +383,23 @@ export const utilizadorRouter = createTRPCRouter({
         });
       }
 
-      return user;
+      // Buscar a foto de perfil
+      let profilePhotoUrl: string | null = null;
+      try {
+        const photoBlobs = await listProfilePhotos(user.id);
+        // Pegar apenas a primeira foto (deve ser a única)
+        if (photoBlobs.blobs.length > 0) {
+          profilePhotoUrl = photoBlobs.blobs[0]?.url || null;
+        }
+      } catch (photoError) {
+        console.error(`Erro ao buscar foto de perfil para o utilizador ${user.id}:`, photoError);
+        // Não quebrar a query principal por causa da foto
+      }
+
+      return {
+        ...user,
+        profilePhotoUrl,
+      };
     } catch (error) {
       return handlePrismaError(error);
     }
@@ -398,7 +414,6 @@ export const utilizadorRouter = createTRPCRouter({
           id: true,
           name: true,
           email: true,
-          foto: true,
           atividade: true,
           contratacao: true,
           username: true,
@@ -515,7 +530,6 @@ export const utilizadorRouter = createTRPCRouter({
           name: true,
           email: true,
           username: true,
-          foto: true,
           atividade: true,
           contratacao: true,
           permissao: true,
@@ -544,7 +558,6 @@ export const utilizadorRouter = createTRPCRouter({
         name: newUser.name,
         email: newUser.email,
         username: newUser.username,
-        foto: newUser.foto,
         atividade: newUser.atividade,
         contratacao: newUser.contratacao ? newUser.contratacao.toISOString() : null,
         permissao: newUser.permissao,
@@ -597,7 +610,6 @@ export const utilizadorRouter = createTRPCRouter({
             id: true,
             name: true,
             email: true,
-            foto: true,
             atividade: true,
             contratacao: true,
             username: true,
@@ -741,7 +753,10 @@ export const utilizadorRouter = createTRPCRouter({
         // Debug log
         console.log("Getting allocations for user:", input.userId, "year:", input.ano);
 
-        // 1. Get allocations filtering by project state
+        // Set for unique years
+        const anosSet = new Set<number>();
+
+        // 1. Get real allocations (approved, in development, completed)
         const alocacoesReais = await ctx.db.alocacaoRecurso.findMany({
           where: {
             userId: input.userId,
@@ -776,10 +791,44 @@ export const utilizadorRouter = createTRPCRouter({
           },
         });
 
+        // 2. Get pending project allocations
+        const alocacoesPendentes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            userId: input.userId,
+            ...(input.ano ? { ano: input.ano } : {}),
+            workpackage: {
+              projeto: {
+                estado: "PENDENTE"
+              }
+            }
+          },
+          select: {
+            mes: true,
+            ano: true,
+            ocupacao: true,
+            workpackageId: true,
+            workpackage: {
+              select: {
+                id: true,
+                nome: true,
+                projetoId: true,
+                projeto: {
+                  select: {
+                    id: true,
+                    nome: true,
+                    estado: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
         // Debug log
         console.log("Found real allocations:", alocacoesReais.length);
+        console.log("Found pending allocations:", alocacoesPendentes.length);
 
-        // 2. Get all projects with snapshots (filtered by state)
+        // 3. Get all projects with snapshots (filtered by state)
         const projetosComSnapshot = await ctx.db.projeto.findMany({
           where: {
             estado: {
@@ -811,10 +860,7 @@ export const utilizadorRouter = createTRPCRouter({
         // Debug log
         console.log("Found projects with snapshots:", projetosComSnapshot.length);
 
-        // Set for unique years
-        const anosSet = new Set<number>();
-
-        // 3. Process real allocations
+        // 4. Process real allocations
         const realData = alocacoesReais.map(alocacao => {
           // Add year to set
           anosSet.add(alocacao.ano);
@@ -831,7 +877,24 @@ export const utilizadorRouter = createTRPCRouter({
           };
         });
 
-        // 4. Process submitted allocations from snapshots
+        // 5. Process pending allocations
+        const pendenteData = alocacoesPendentes.map(alocacao => {
+          // Add year to set
+          anosSet.add(alocacao.ano);
+          
+          return {
+            workpackageId: alocacao.workpackage.id,
+            workpackageNome: alocacao.workpackage.nome,
+            projetoId: alocacao.workpackage.projeto.id,
+            projetoNome: alocacao.workpackage.projeto.nome,
+            projetoEstado: alocacao.workpackage.projeto.estado as ProjetoEstado,
+            mes: alocacao.mes,
+            ano: alocacao.ano,
+            ocupacao: Number(alocacao.ocupacao.toFixed(3)),
+          };
+        });
+
+        // 6. Process submitted allocations from snapshots
         const submetidoData = projetosComSnapshot.flatMap(projeto => {
           // Garantir que estamos processando apenas projetos nos estados válidos
           if (!projeto.aprovado || !validProjectStates.includes(projeto.estado as typeof validProjectStates[number])) return [];
@@ -891,6 +954,7 @@ export const utilizadorRouter = createTRPCRouter({
         // Debug log final results
         console.log("Final results:", {
           realCount: realData.length,
+          pendenteCount: pendenteData.length,
           submittedCount: submetidoData.length,
           uniqueYears: Array.from(anosSet),
         });
@@ -899,8 +963,8 @@ export const utilizadorRouter = createTRPCRouter({
         const anosAlocados = Array.from(anosSet).sort((a, b) => b - a);
 
         return {
-          real: realData,
-          submetido: submetidoData,
+          real: [...realData, ...submetidoData], // Combine real and snapshot data
+          pendente: pendenteData,
           anos: anosAlocados,
         };
       } catch (error) {
@@ -940,7 +1004,6 @@ export const utilizadorRouter = createTRPCRouter({
           id: true,
           name: true,
           email: true,
-          foto: true,
           atividade: true,
           regime: true,
           workpackages: {
@@ -1587,6 +1650,113 @@ export const utilizadorRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao apagar utilizador",
+          cause: error,
+        });
+      }
+    }),
+
+
+  deleteAllUserPhotos: protectedProcedure
+    .input(z.object({ userId: z.string() })) // Input é o ID do utilizador
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const currentUser = ctx.session.user as UserWithPermissao;
+
+        // Verificar se o utilizador logado é o próprio utilizador ou um admin
+        if (currentUser.id !== input.userId && currentUser.permissao !== Permissao.ADMIN) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Não tem permissão para apagar a foto deste utilizador.",
+          });
+        }
+
+        // Listar todas as fotos existentes na pasta do utilizador
+        const existingPhotos = await listProfilePhotos(input.userId);
+
+        // Apagar cada foto encontrada
+        if (existingPhotos.blobs.length > 0) {
+          const deletePromises = existingPhotos.blobs.map(blob => deleteFile(blob.url));
+          await Promise.all(deletePromises);
+          console.log(`Apagadas ${existingPhotos.blobs.length} fotos para o utilizador ${input.userId}`);
+        }
+
+        return { success: true };
+
+      } catch (error) {
+        console.error(`Erro ao apagar fotos de perfil para ${input.userId}:`, error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao apagar fotos de perfil",
+          cause: error,
+        });
+      }
+    }),
+
+  uploadProfilePhoto: protectedProcedure
+    .input(z.object({
+      userId: z.string(),
+      file: z.object({
+        name: z.string(),
+        type: z.string(),
+        data: z.string(), // base64 encoded file data
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const currentUser = ctx.session.user as UserWithPermissao;
+
+        // Verificar se o utilizador logado é o próprio utilizador ou um admin
+        if (currentUser.id !== input.userId && currentUser.permissao !== Permissao.ADMIN) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Não tem permissão para alterar a foto deste utilizador.",
+          });
+        }
+
+        // Verificar se o tipo de arquivo é permitido
+        if (!input.file.type.match(/^image\/(jpeg|png|gif)$/)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Tipo de ficheiro inválido. Apenas imagens (JPEG, PNG, GIF) são permitidas.",
+          });
+        }
+
+        // Converter base64 para Buffer
+        const base64Data = input.file.data.split(',')[1];
+        if (!base64Data) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Dados da imagem inválidos",
+          });
+        }
+        const fileBuffer = Buffer.from(base64Data, 'base64');
+
+        // Primeiro apagar fotos antigas
+        const existingPhotos = await listProfilePhotos(input.userId);
+        if (existingPhotos.blobs.length > 0) {
+          const deletePromises = existingPhotos.blobs.map(blob => deleteFile(blob.url));
+          await Promise.all(deletePromises);
+        }
+
+        // Fazer upload da nova foto
+        const blob = await put(
+          `${BLOB_CONFIG.PATHS.PROFILE_PHOTOS}/${input.userId}/${input.file.name}`,
+          fileBuffer,
+          {
+            access: 'public',
+            contentType: input.file.type,
+          }
+        );
+
+        return { success: true, url: blob.url };
+
+      } catch (error) {
+        console.error("Erro no upload da foto de perfil:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao fazer upload da foto de perfil",
           cause: error,
         });
       }

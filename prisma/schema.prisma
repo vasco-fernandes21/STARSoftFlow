@@ -48,7 +48,7 @@ model Workpackage {
   fim       DateTime?         @db.Date
   estado    Boolean           @default(false)
   materiais Material[]
-  tarefas   Tarefa[]         @relation("WorkpackageTarefas")
+  tarefas   Tarefa[]          @relation("WorkpackageTarefas")
   projeto   Projeto           @relation("ProjetoWorkpackages", fields: [projetoId], references: [id], onDelete: Cascade)
   recursos  AlocacaoRecurso[] @relation("WorkpackageRecursos")
 
@@ -75,7 +75,6 @@ model Entregavel {
   nome      String    @db.VarChar(255)
   descricao String?
   data      DateTime? @db.Date
-  anexo     String?
   estado    Boolean   @default(false)
   tarefa    Tarefa    @relation("TarefaEntregaveis", fields: [tarefaId], references: [id], onDelete: Cascade)
 
@@ -103,7 +102,6 @@ model User {
   name                 String?                        @db.VarChar(255)
   email                String?                        @unique @db.VarChar(255)
   emailVerified        DateTime?
-  foto                 String?
   atividade            String?                        @db.VarChar(255)
   contratacao          DateTime?                      @db.Date
   username             String?                        @unique @db.VarChar(255)
@@ -239,35 +237,29 @@ model Rascunho {
 }
 
 model Feedback {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id")
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id")
   descricao String
   estado    FeedbackEstado @default(PENDENTE)
-  imagemUrl String?  @map("imagem_url") // Armazena a URL ou caminho da imagem
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("feedbacks")
 }
 
 model Notificacao {
-  id            String             @id @default(uuid())
-  titulo        String
-  descricao     String
-  entidade      EntidadeNotificacao
-  entidadeId    String
-  urgencia      UrgenciaNotificacao
-  estado        EstadoNotificacao  @default(NAO_LIDA)
-  dataEmissao   DateTime           @default(now())
-  destinatario  User               @relation("UserNotificacoes", fields: [destinatarioId], references: [id], onDelete: Cascade)
+  id             String               @id @default(uuid())
+  titulo         String
+  descricao      String?
+  entidade       EntidadeNotificacao // Referência à entidade (ex: PROJETO, TAREFA)
+  entidadeId     String? // ID da entidade relacionada
+  urgencia       UrgenciaNotificacao?
+  estado         EstadoNotificacao    @default(NAO_LIDA)
   destinatarioId String
-
-  @@index([destinatarioId])
-  @@index([estado])
-  @@index([urgencia])
-  @@index([entidade])
-  @@index([dataEmissao])
+  destinatario   User                 @relation("UserNotificacoes", fields: [destinatarioId], references: [id], onDelete: Cascade)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 }
 
 enum ProjetoEstado {
@@ -317,6 +309,9 @@ enum EntidadeNotificacao {
   TAREFA
   ALOCACAO
   SISTEMA
+  COMENTARIO
+  GERAL
+  FEEDBACK
 }
 
 enum UrgenciaNotificacao {

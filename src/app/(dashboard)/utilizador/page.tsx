@@ -548,7 +548,7 @@ export default function UserDashboard() {
                           {notificacoes.slice(0, 6).map((notificacao: any) => {
                             const Icon = getNotificationIcon(notificacao.entidade);
                             const colorClass = NOTIFICATION_COLORS[notificacao.entidade as keyof typeof NOTIFICATION_COLORS] || NOTIFICATION_COLORS.SISTEMA;
-                            const dataFormatada = formatDistanceToNow(new Date(notificacao.dataEmissao), { 
+                            const dataFormatada = formatDistanceToNow(new Date(notificacao.createdAt), { 
                               addSuffix: true, 
                               locale: ptBR 
                             });

@@ -9,16 +9,17 @@ import { api } from "@/trpc/react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
-import type { User as PrismaUser, Workpackage, AlocacaoRecurso } from "@prisma/client";
+import type { User as PrismaUser, Workpackage, AlocacaoRecurso, Rubrica } from "@prisma/client";
 import { ProjetoEstado } from "@prisma/client";
+import type { Decimal } from "decimal.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "@/components/ui/loader";
 
 interface RecursoComUser extends AlocacaoRecurso {
-  user: Pick<PrismaUser, "id" | "name" | "foto"> | null;
+  user: Pick<PrismaUser, 'id' | 'name' | 'salario'>;
 }
 
-interface WPComRecursos extends Workpackage {
+interface WPComRecursos extends Omit<Workpackage, 'recursos'> {
   recursos: RecursoComUser[];
 }
 
@@ -34,7 +35,7 @@ interface ProjetoVisaoGeral {
   overhead: string | null;
   financiamento?: { nome?: string | null } | null;
   workpackages: WPComRecursos[];
-  responsavel?: Pick<PrismaUser, "id" | "name" | "foto"> | null;
+  responsavel?: Pick<PrismaUser, "id" | "name"> | null;
 }
 
 interface VisaoGeralProps {
@@ -116,7 +117,7 @@ function InfoItem({ icon: Icon, label, value, iconClassName }: InfoItemProps) {
   );
 }
 
-interface ResourceUser extends Pick<PrismaUser, "id" | "name" | "foto"> {
+interface ResourceUser extends Pick<PrismaUser, "id" | "name"> {
   name: string;
 }
 
@@ -310,26 +311,24 @@ function CostChart({ projetoId, projeto }: { projetoId: string, projeto: Projeto
 export default function VisaoGeral({ projeto }: VisaoGeralProps) {
   // Calculate involved users only once, memoizing the result based on workpackages
   const involvedUsers = useMemo(() => {
-    // Ensure projeto and workpackages exist before processing
-    if (!projeto || !projeto.workpackages) return []; // Check added here
+    if (!projeto?.workpackages) return [];
 
-    const userMap = new Map<string, ResourceUser>();
+    const usersMap = new Map<string, ResourceUser>();
+
     projeto.workpackages.forEach((wp) => {
-      // Ensure wp.recursos is an array before iterating
-      (wp.recursos ?? []).forEach((r) => {
-        // Check if user exists, has an id, and a name, and is not already in the map
-        if (r.user && r.user.id && r.user.name && !userMap.has(r.user.id)) {
-          userMap.set(r.user.id, {
+      wp.recursos?.forEach((r) => {
+        // Ensure user exists and has a name before adding
+        if (r.user && r.user.id && r.user.name && !usersMap.has(r.user.id)) {
+          usersMap.set(r.user.id, {
             id: r.user.id,
             name: r.user.name, // name is guaranteed by the check above
-            foto: r.user.foto, // foto can be null
           });
         }
       });
     });
-    // Convert the map values (unique users) to an array
-    return Array.from(userMap.values());
-  }, [projeto]); // Dependency array ensures recalculation only if projeto object changes
+
+    return Array.from(usersMap.values());
+  }, [projeto?.workpackages]); // Dependency array ensures recalculation only when workpackages change
 
   // If projeto data is not available, show a message and return early
   if (!projeto) {

@@ -18,7 +18,6 @@ type ResponsavelInfo = {
   id: string;
   name: string | null;
   email: string | null;
-  foto: string | null;
   permissao: User["permissao"];
 };
 
@@ -329,7 +328,6 @@ function convertStateToCreateInput(state: ProjetoState): Prisma.ProjetoCreateInp
                 nome: entregavel.nome,
                 descricao: entregavel.descricao,
                 data: entregavel.data,
-                anexo: entregavel.anexo,
               })),
             },
           })),
@@ -375,7 +373,6 @@ export function ProjetoFormProvider({ children }: { children: ReactNode }) {
           id: user.id,
           name: typeof user.name === "string" ? user.name : null,
           email: typeof user.email === "string" ? user.email : null,
-          foto: typeof user.image === "string" ? user.image : null,
           permissao: "COMUM", // Valor padrão, idealmente viria da sessão
         },
       });
