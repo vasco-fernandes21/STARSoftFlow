@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   User, 
   Mail, 
@@ -14,7 +14,10 @@ import {
   BarChart,
   Camera,
   Upload,
-  Trash2
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+  RotateCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,6 +42,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Cropper from 'react-easy-crop';
+import type { Area, Point } from 'react-easy-crop';
 
 
 // Define a type for user data that includes the optional informacoes field
@@ -57,6 +62,13 @@ interface UserData {
 }
 
 export default function PerfilPage() {
+  // Move all hooks to the top and ensure they're called unconditionally
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const utils = api.useUtils();
+  const userId = session?.user?.id || "";  // Provide default value
+  
+  // State hooks
   const [isEditing, setIsEditing] = useState(false);
   const [bio, setBio] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -66,32 +78,82 @@ export default function PerfilPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const utils = api.useUtils();
-  
-  const userId = session?.user?.id;
-  
-  // Buscar dados do utilizador
+  // Cropper states
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [isCropping, setIsCropping] = useState(false);
+  const [croppedImagePreview, setCroppedImagePreview] = useState<string | null>(null);
+
+  // Query hooks - always call them regardless of userId
   const { data: userData, isLoading, refetch } = api.utilizador.findById.useQuery(
-    userId || "", 
+    userId, 
     { 
-      enabled: !!userId,
+      enabled: Boolean(userId),
       refetchOnWindowFocus: false
     }
   );
   
-  // Buscar alocações do utilizador
   const { data: alocacoesData, isLoading: isLoadingAlocacoes } = api.utilizador.getAlocacoes.useQuery(
     { 
-      userId: userId || "", 
+      userId, 
       ano: selectedYear 
     },
     { 
-      enabled: !!userId,
+      enabled: Boolean(userId),
       refetchOnWindowFocus: false
     }
   );
+
+  // Mutation hooks
+  const updateUserMutation = api.utilizador.updateInformacoes.useMutation({
+    onSuccess: (data) => {
+      toast.success("Perfil atualizado com sucesso");
+      if (data?.informacoes) {
+        setBio(data.informacoes);
+      }
+      setIsEditing(false);
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Erro ao atualizar perfil: ${error.message}`);
+    }
+  });
+  
+  const uploadPhotoMutation = api.utilizador.uploadProfilePhoto.useMutation({
+    onSuccess: (data) => {
+      utils.utilizador.findById.invalidate(userId);
+      toast.success("Foto de perfil atualizada com sucesso");
+      setPhotoPreview(null);
+      setSelectedFile(null);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+    onSettled: () => {
+      setIsUploading(false);
+      setShowPhotoDialog(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  });
+  
+  const deletePhotoMutation = api.utilizador.deleteAllUserPhotos.useMutation({
+    onSuccess: () => {
+      utils.utilizador.findById.invalidate(userId);
+      toast.success("Foto de perfil removida com sucesso");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    }
+  });
+
+  // Effect to set initial bio when userData changes
+  useEffect(() => {
+    if (userData?.informacoes) {
+      setBio(userData.informacoes);
+    }
+  }, [userData?.informacoes]);
   
   // Transformar dados de alocações para o formato esperado pelo componente AlocacoesDetalhadas
   const transformAlocacoes = (alocacoes: any[]) => {
@@ -111,55 +173,18 @@ export default function PerfilPage() {
       }
     }));
   };
-
-  // Mutation para atualizar o utilizador
-  const updateUserMutation = api.utilizador.updateInformacoes.useMutation({
-    onSuccess: (data) => {
-      toast.success("Perfil atualizado com sucesso");
-      // Update bio with the returned data
-      if (data?.informacoes) {
-        setBio(data.informacoes);
-      }
-      setIsEditing(false);
-      refetch();
-    },
-    onError: (error) => {
-      toast.error(`Erro ao atualizar perfil: ${error.message}`);
-    }
-  });
   
-  // Mutation para upload de foto
-  const uploadPhotoMutation = api.utilizador.uploadProfilePhoto.useMutation({
-    onSuccess: (data) => {
-      console.log("Upload successful:", data);
-      // Invalidar a query do utilizador para forçar uma nova busca
-      utils.utilizador.findById.invalidate(userId);
-      toast.success("Foto de perfil atualizada com sucesso");
-      // Limpar estados
-      setPhotoPreview(null);
-      setSelectedFile(null);
-    },
-    onError: (error) => {
-      console.error("Upload mutation error:", error);
-      toast.error(error.message);
-    },
-    onSettled: () => {
-      setIsUploading(false);
-      setShowPhotoDialog(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  });
+  // Processar alocações
+  const alocacoesReais = transformAlocacoes(alocacoesData?.real || []);
+  const alocacoesPendentes = transformAlocacoes(alocacoesData?.pendente || []);
   
-  // Mutation para apagar foto
-  const deletePhotoMutation = api.utilizador.deleteAllUserPhotos.useMutation({
-    onSuccess: () => {
-      utils.utilizador.findById.invalidate(userId);
-      toast.success("Foto de perfil removida com sucesso");
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    }
-  });
+  // Obter anos disponíveis para seleção
+  const anosDisponiveis = alocacoesData?.anos || [new Date().getFullYear()];
+  
+  // Handler para quando o crop é completado
+  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
   
   // Formatar data de contratação
   const formatarDataContratacao = (data: Date | null | undefined) => {
@@ -248,6 +273,11 @@ export default function PerfilPage() {
         setPhotoPreview(e.target.result as string);
         setSelectedFile(file);
         setShowPhotoDialog(true);
+        setIsCropping(true);
+        // Reset crop settings
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+        setRotation(0);
       }
     };
     reader.readAsDataURL(file);
@@ -258,8 +288,12 @@ export default function PerfilPage() {
   
   // Confirmar e processar upload da foto
   const confirmPhotoUpload = async () => {
-    if (!selectedFile || !userId || !photoPreview) {
-      console.log("Missing required data:", { selectedFile: !!selectedFile, userId: !!userId, photoPreview: !!photoPreview });
+    if (!selectedFile || !userId || !croppedImagePreview) {
+      console.log("Missing required data:", { 
+        selectedFile: !!selectedFile, 
+        userId: !!userId, 
+        croppedImagePreview: !!croppedImagePreview
+      });
       setShowPhotoDialog(false);
       return;
     }
@@ -268,17 +302,11 @@ export default function PerfilPage() {
       console.log("Starting upload process...");
       setIsUploading(true);
       
-      // Remover o prefixo "data:image/xxx;base64," do base64
-      const base64Data = photoPreview.split(',')[1];
-      if (!base64Data) {
-        throw new Error("Dados da imagem inválidos");
-      }
-      
       console.log("Calling mutation with:", {
         userId,
         fileName: selectedFile.name,
         fileType: selectedFile.type,
-        dataLength: photoPreview.length
+        dataLength: croppedImagePreview.length
       });
 
       await uploadPhotoMutation.mutateAsync({
@@ -286,7 +314,7 @@ export default function PerfilPage() {
         file: {
           name: selectedFile.name,
           type: selectedFile.type,
-          data: photoPreview,
+          data: croppedImagePreview,
         },
       });
     } catch (error) {
@@ -323,12 +351,64 @@ export default function PerfilPage() {
     );
   }
   
-  // Processar alocações
-  const alocacoesReais = transformAlocacoes(alocacoesData?.real || []);
-  const alocacoesPendentes = transformAlocacoes(alocacoesData?.pendente || []);
-  
-  // Obter anos disponíveis para seleção
-  const anosDisponiveis = alocacoesData?.anos || [new Date().getFullYear()];
+  // Função para criar a imagem cortada
+  const createCroppedImage = async (imageSrc: string, pixelCrop: Area, rotation = 0): Promise<string> => {
+    const image = new Image();
+    image.src = imageSrc;
+    
+    return new Promise((resolve, reject) => {
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('No 2d context'));
+          return;
+        }
+        
+        // Definir as dimensões do canvas para o resultado do crop (quadrado)
+        const size = Math.max(pixelCrop.width, pixelCrop.height);
+        canvas.width = size;
+        canvas.height = size;
+        
+        // Salvar o estado atual do contexto
+        ctx.save();
+        
+        // Limpar o canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Mover a origem para o centro do canvas
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        
+        // Rotacionar o canvas
+        if (rotation !== 0) {
+          ctx.rotate((rotation * Math.PI) / 180);
+        }
+        
+        // Desenhar a imagem com as transformações aplicadas
+        ctx.drawImage(
+          image,
+          pixelCrop.x,
+          pixelCrop.y,
+          pixelCrop.width,
+          pixelCrop.height,
+          -pixelCrop.width / 2,
+          -pixelCrop.height / 2,
+          pixelCrop.width,
+          pixelCrop.height
+        );
+        
+        // Restaurar o estado do contexto
+        ctx.restore();
+        
+        // Converter o canvas para base64
+        const base64Image = canvas.toDataURL('image/jpeg', 0.95);
+        resolve(base64Image);
+      };
+      
+      image.onerror = (error) => reject(new Error('Image failed to load')); // Use a static error message
+    });
+  };
   
   return (
     <div className="min-h-screen bg-[#F7F9FC] py-8 px-6 lg:px-8">
@@ -626,56 +706,147 @@ export default function PerfilPage() {
         if (!open) {
           setPhotoPreview(null);
           setSelectedFile(null);
+          setIsCropping(false);
+          setCroppedImagePreview(null);
+          setCrop({ x: 0, y: 0 });
+          setZoom(1);
+          setRotation(0);
         }
         setShowPhotoDialog(open);
       }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirmar nova foto de perfil</DialogTitle>
+            <DialogTitle>{isCropping ? "Ajustar foto de perfil" : "Confirmar nova foto"}</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja usar esta imagem como a sua nova foto de perfil?
+              {isCropping 
+                ? "Arraste, faça zoom e gire a imagem para ajustar como deseja que ela apareça"
+                : "Tem certeza que deseja usar esta imagem como a sua nova foto de perfil?"}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex justify-center p-4">
-            {photoPreview && (
+          <div className="flex flex-col items-center gap-4">
+            {photoPreview && isCropping && (
+              <>
+                {/* Container do Cropper */}
+                <div className="relative w-full h-[300px] overflow-hidden rounded-lg border">
+                  <Cropper
+                    image={photoPreview}
+                    crop={crop}
+                    zoom={zoom}
+                    rotation={rotation}
+                    aspect={1}
+                    onCropChange={setCrop}
+                    onCropComplete={onCropComplete}
+                    onZoomChange={setZoom}
+                    onRotationChange={setRotation}
+                    cropShape="round"
+                    showGrid={false}
+                  />
+                </div>
+                
+                {/* Controles de Zoom */}
+                <div className="flex w-full items-center gap-2 py-2">
+                  <ZoomOut className="h-4 w-4 text-gray-500" />
+                  <input
+                    type="range"
+                    value={zoom}
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <ZoomIn className="h-4 w-4 text-gray-500" />
+                </div>
+                
+                {/* Controle de Rotação */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRotation((r) => r + 90)}
+                    className="flex items-center gap-1"
+                  >
+                    <RotateCw className="h-4 w-4" />
+                    <span>Rodar</span>
+                  </Button>
+                </div>
+              </>
+            )}
+            
+            {!isCropping && croppedImagePreview && (
               <div className="relative w-40 h-40 overflow-hidden rounded-full border-4 border-white shadow-lg">
                 <img 
-                  src={photoPreview} 
+                  src={croppedImagePreview} 
                   alt="Preview" 
                   className="w-full h-full object-cover"
-                  style={{ objectFit: 'cover' }}
                 />
               </div>
             )}
           </div>
           
           <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowPhotoDialog(false);
-                setPhotoPreview(null);
-                setSelectedFile(null);
-              }}
-              disabled={isUploading}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={confirmPhotoUpload}
-              className="bg-azul hover:bg-azul/90 text-white"
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white mr-2" />
-                  A carregar...
-                </>
-              ) : (
-                "Confirmar"
-              )}
-            </Button>
+            {isCropping ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPhotoDialog(false);
+                    setPhotoPreview(null);
+                    setSelectedFile(null);
+                  }}
+                  disabled={isUploading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (photoPreview && croppedAreaPixels) {
+                      try {
+                        const croppedImage = await createCroppedImage(photoPreview, croppedAreaPixels, rotation);
+                        setCroppedImagePreview(croppedImage);
+                        setIsCropping(false);
+                      } catch (error) {
+                        console.error('Erro ao processar imagem:', error);
+                        toast.error('Erro ao processar imagem. Tente novamente.');
+                      }
+                    }
+                  }}
+                  className="bg-azul hover:bg-azul/90 text-white"
+                  disabled={isUploading || !croppedAreaPixels}
+                >
+                  Confirmar Corte
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsCropping(true);
+                    setCroppedImagePreview(null);
+                  }}
+                  disabled={isUploading}
+                >
+                  Voltar
+                </Button>
+                <Button
+                  onClick={confirmPhotoUpload}
+                  className="bg-azul hover:bg-azul/90 text-white"
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white mr-2" />
+                      A carregar...
+                    </>
+                  ) : (
+                    "Guardar"
+                  )}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

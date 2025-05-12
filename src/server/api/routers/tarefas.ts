@@ -66,7 +66,6 @@ const createEntregavelSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
   descricao: z.string().optional(),
   data: z.date().optional(),
-  anexo: z.string().optional(),
 });
 
 // Schema para atualização de entregável
@@ -75,7 +74,6 @@ const updateEntregavelSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório").optional(),
   descricao: z.string().optional(),
   data: z.date().optional(),
-  anexo: z.string().optional(),
   estado: z.boolean().optional(),
 });
 
@@ -318,7 +316,6 @@ export const tarefaRouter = createTRPCRouter({
             descricao: input.descricao,
             tarefaId: input.tarefaId,
             data: input.data,
-            anexo: input.anexo,
           },
         });
 
@@ -333,7 +330,7 @@ export const tarefaRouter = createTRPCRouter({
     .input(updateEntregavelSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const { nome, descricao, data, anexo } = input;
+        const { nome, descricao, data } = input;
 
         // Verificar se o entregável existe
         const entregavelExistente = await ctx.db.entregavel.findUnique({
@@ -354,7 +351,6 @@ export const tarefaRouter = createTRPCRouter({
             nome: nome,
             descricao: descricao,
             data: data,
-            anexo: anexo,
           },
         });
 

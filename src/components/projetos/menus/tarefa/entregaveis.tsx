@@ -60,6 +60,7 @@ interface TarefaEntregaveisProps {
   onUpdate: (data: any) => Promise<void>;
   onCreateEntregavel: (data: any) => Promise<void>;
   onUpdateEntregavel: (id: string, data: any) => Promise<void>;
+  onDeleteEntregavel: (id: string) => Promise<void>;
 }
 
 export function TarefaEntregaveis({
@@ -70,6 +71,7 @@ export function TarefaEntregaveis({
   onUpdate: _onUpdate,
   onCreateEntregavel,
   onUpdateEntregavel,
+  onDeleteEntregavel,
 }: TarefaEntregaveisProps) {
   const [submittingEntregavel, setSubmittingEntregavel] = useState<string | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendentes" | "concluidos">("todos");
@@ -535,6 +537,28 @@ export function TarefaEntregaveis({
                                         ? "Marcar como pendente"
                                         : "Marcar como concluído"}
                                     </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              
+                              {/* Delete Button */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent card click
+                                        onDeleteEntregavel(entregavel.id); 
+                                      }}
+                                      className="h-7 w-7 rounded-full p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">Apagar Entregável</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
