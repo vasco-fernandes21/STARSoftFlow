@@ -326,7 +326,7 @@ export default function Notificacoes() {
     
     const hoje = new Date();
     const notificacoesHoje = notificacoes.filter(n => {
-      const data = new Date(n.dataEmissao);
+      const data = new Date(n.createdAt);
       return (
         data.getDate() === hoje.getDate() &&
         data.getMonth() === hoje.getMonth() &&
@@ -772,7 +772,7 @@ function NotificacaoItem({
           <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {getRelativeTime(notificacao.dataEmissao)}
+              {getRelativeTime(notificacao.createdAt)}
             </span>
             
             <div className="flex gap-2">

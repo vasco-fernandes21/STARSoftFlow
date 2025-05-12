@@ -249,22 +249,17 @@ model Feedback {
 }
 
 model Notificacao {
-  id            String             @id @default(uuid())
-  titulo        String
-  descricao     String
-  entidade      EntidadeNotificacao
-  entidadeId    String
-  urgencia      UrgenciaNotificacao
-  estado        EstadoNotificacao  @default(NAO_LIDA)
-  dataEmissao   DateTime           @default(now())
-  destinatario  User               @relation("UserNotificacoes", fields: [destinatarioId], references: [id], onDelete: Cascade)
+  id             String                  @id @default(uuid())
+  titulo         String
+  descricao      String?
+  entidade       EntidadeNotificacao     // Referência à entidade (ex: PROJETO, TAREFA)
+  entidadeId     String?                 // ID da entidade relacionada
+  urgencia       UrgenciaNotificacao?
+  estado         EstadoNotificacao       @default(NAO_LIDA)
   destinatarioId String
-
-  @@index([destinatarioId])
-  @@index([estado])
-  @@index([urgencia])
-  @@index([entidade])
-  @@index([dataEmissao])
+  destinatario   User                    @relation("UserNotificacoes", fields: [destinatarioId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
 }
 
 enum ProjetoEstado {
@@ -314,6 +309,9 @@ enum EntidadeNotificacao {
   TAREFA
   ALOCACAO
   SISTEMA
+  COMENTARIO
+  GERAL
+  FEEDBACK
 }
 
 enum UrgenciaNotificacao {

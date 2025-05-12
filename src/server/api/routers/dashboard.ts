@@ -664,7 +664,6 @@ export const dashboardRouter = createTRPCRouter({
             nome: true,
             descricao: true,
             data: true,
-            anexo: true,
             tarefaId: true,
             tarefa: {
               select: {

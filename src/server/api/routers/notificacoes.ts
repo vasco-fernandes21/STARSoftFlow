@@ -187,7 +187,7 @@ export const notificacoesRouter = createTRPCRouter({
           entidade: input?.entidade,
         },
         orderBy: {
-          dataEmissao: "desc",
+          createdAt: "desc",
         },
       });
     }),

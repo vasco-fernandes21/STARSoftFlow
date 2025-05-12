@@ -14,6 +14,8 @@ import { RelatorioTemplate } from "@/app/utilizadores/[username]/relatorio/templ
 import http from "http";
 import type net from "net";
 import { listProfilePhotos, deleteFile } from "@/lib/blob";
+import { put } from "@vercel/blob";
+import { BLOB_CONFIG } from "@/lib/config";
 
 // Schemas base
 const emailSchema = z.string({ required_error: "Email é obrigatório" }).email("Email inválido");
@@ -381,11 +383,13 @@ export const utilizadorRouter = createTRPCRouter({
         });
       }
 
+      // Buscar a foto de perfil
       let profilePhotoUrl: string | null = null;
       try {
         const photoBlobs = await listProfilePhotos(user.id);
-        if (photoBlobs.blobs.length > 0 && photoBlobs.blobs[0]) {
-          profilePhotoUrl = photoBlobs.blobs[0].url;
+        // Pegar apenas a primeira foto (deve ser a única)
+        if (photoBlobs.blobs.length > 0) {
+          profilePhotoUrl = photoBlobs.blobs[0]?.url || null;
         }
       } catch (photoError) {
         console.error(`Erro ao buscar foto de perfil para o utilizador ${user.id}:`, photoError);
@@ -1684,6 +1688,75 @@ export const utilizadorRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao apagar fotos de perfil",
+          cause: error,
+        });
+      }
+    }),
+
+  uploadProfilePhoto: protectedProcedure
+    .input(z.object({
+      userId: z.string(),
+      file: z.object({
+        name: z.string(),
+        type: z.string(),
+        data: z.string(), // base64 encoded file data
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const currentUser = ctx.session.user as UserWithPermissao;
+
+        // Verificar se o utilizador logado é o próprio utilizador ou um admin
+        if (currentUser.id !== input.userId && currentUser.permissao !== Permissao.ADMIN) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Não tem permissão para alterar a foto deste utilizador.",
+          });
+        }
+
+        // Verificar se o tipo de arquivo é permitido
+        if (!input.file.type.match(/^image\/(jpeg|png|gif)$/)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Tipo de ficheiro inválido. Apenas imagens (JPEG, PNG, GIF) são permitidas.",
+          });
+        }
+
+        // Converter base64 para Buffer
+        const base64Data = input.file.data.split(',')[1];
+        if (!base64Data) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Dados da imagem inválidos",
+          });
+        }
+        const fileBuffer = Buffer.from(base64Data, 'base64');
+
+        // Primeiro apagar fotos antigas
+        const existingPhotos = await listProfilePhotos(input.userId);
+        if (existingPhotos.blobs.length > 0) {
+          const deletePromises = existingPhotos.blobs.map(blob => deleteFile(blob.url));
+          await Promise.all(deletePromises);
+        }
+
+        // Fazer upload da nova foto
+        const blob = await put(
+          `${BLOB_CONFIG.PATHS.PROFILE_PHOTOS}/${input.userId}/${input.file.name}`,
+          fileBuffer,
+          {
+            access: 'public',
+            contentType: input.file.type,
+          }
+        );
+
+        return { success: true, url: blob.url };
+
+      } catch (error) {
+        console.error("Erro no upload da foto de perfil:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao fazer upload da foto de perfil",
           cause: error,
         });
       }

@@ -259,7 +259,7 @@ CREATE TABLE "Notificacao" (
     "entidadeId" TEXT NOT NULL,
     "urgencia" "UrgenciaNotificacao" NOT NULL,
     "estado" "EstadoNotificacao" NOT NULL DEFAULT 'NAO_LIDA',
-    "dataEmissao" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "destinatarioId" TEXT NOT NULL,
 
     CONSTRAINT "Notificacao_pkey" PRIMARY KEY ("id")
@@ -317,7 +317,7 @@ CREATE INDEX "Notificacao_urgencia_idx" ON "Notificacao"("urgencia");
 CREATE INDEX "Notificacao_entidade_idx" ON "Notificacao"("entidade");
 
 -- CreateIndex
-CREATE INDEX "Notificacao_dataEmissao_idx" ON "Notificacao"("dataEmissao");
+CREATE INDEX "Notificacao_createdAt_idx" ON "Notificacao"("createdAt");
 
 -- AddForeignKey
 ALTER TABLE "Projetos" ADD CONSTRAINT "Projetos_financiamento_id_fkey" FOREIGN KEY ("financiamento_id") REFERENCES "Financiamentos"("id") ON DELETE SET NULL ON UPDATE CASCADE;

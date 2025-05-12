@@ -13,8 +13,8 @@ import {
   KeyRound,
   BarChart,
   Camera,
-  Trash2,
-  Upload
+  Upload,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,21 +32,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import { AlocacoesDetalhadas } from "@/app/utilizadores/[username]/AlocacoesDetalhadas";
-import { uploadProfilePhoto, listProfilePhotos, deleteFile } from "@/lib/blob";
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 
 // Define a type for user data that includes the optional informacoes field
 interface UserData {
@@ -68,14 +61,14 @@ export default function PerfilPage() {
   const [bio, setBio] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isUploading, setIsUploading] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: session, status } = useSession();
   const router = useRouter();
+  const utils = api.useUtils();
   
   const userId = session?.user?.id;
   
@@ -135,31 +128,38 @@ export default function PerfilPage() {
     }
   });
   
-  // Mutation hook for deleting photos
-  const deletePhotosMutation = api.utilizador.deleteAllUserPhotos.useMutation({
-    onError: (error) => {
-      // Log error but proceed with upload attempt anyway
-      console.error("Erro ao apagar fotos antigas:", error);
-      toast.warning("Não foi possível apagar fotos antigas, tentando fazer upload mesmo assim.");
+  // Mutation para upload de foto
+  const uploadPhotoMutation = api.utilizador.uploadProfilePhoto.useMutation({
+    onSuccess: (data) => {
+      console.log("Upload successful:", data);
+      // Invalidar a query do utilizador para forçar uma nova busca
+      utils.utilizador.findById.invalidate(userId);
+      toast.success("Foto de perfil atualizada com sucesso");
+      // Limpar estados
+      setPhotoPreview(null);
+      setSelectedFile(null);
     },
-    // We don't need onSuccess here, the upload logic follows
+    onError: (error) => {
+      console.error("Upload mutation error:", error);
+      toast.error(error.message);
+    },
+    onSettled: () => {
+      setIsUploading(false);
+      setShowPhotoDialog(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   });
   
-  // Definir biografia quando os dados forem carregados
-  useEffect(() => {
-    if (userData) {
-      // informacoes might not be included in the findById response
-      // but will be populated after a successful update
-      const userDataWithInfo = userData as UserData;
-      setBio(userDataWithInfo.informacoes || "");
+  // Mutation para apagar foto
+  const deletePhotoMutation = api.utilizador.deleteAllUserPhotos.useMutation({
+    onSuccess: () => {
+      utils.utilizador.findById.invalidate(userId);
+      toast.success("Foto de perfil removida com sucesso");
+    },
+    onError: (error) => {
+      toast.error(error.message);
     }
-  }, [userData]);
-  
-  // Se não estiver autenticado, redirecionar para login
-  if (status === "unauthenticated") {
-    router.push("/login");
-    return null;
-  }
+  });
   
   // Formatar data de contratação
   const formatarDataContratacao = (data: Date | null | undefined) => {
@@ -223,7 +223,7 @@ export default function PerfilPage() {
   };
   
   // Handle photo selection
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0] || !userId) return;
     
     const file = e.target.files[0];
@@ -236,12 +236,12 @@ export default function PerfilPage() {
     }
     
     // Verificar tipo de arquivo
-    if (!file.type.match(/image\/(jpeg|png|gif)/)) {
+    if (!file.type.match(/^image\/(jpeg|png|gif)$/)) {
       toast.error("Tipo de ficheiro inválido. Apenas imagens (JPEG, PNG, GIF) são permitidas.");
       return;
     }
     
-    // Create preview
+    // Criar preview
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
@@ -256,77 +256,50 @@ export default function PerfilPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
   
-  // Confirm and process photo upload
+  // Confirmar e processar upload da foto
   const confirmPhotoUpload = async () => {
-    if (!selectedFile || !userId) {
+    if (!selectedFile || !userId || !photoPreview) {
+      console.log("Missing required data:", { selectedFile: !!selectedFile, userId: !!userId, photoPreview: !!photoPreview });
       setShowPhotoDialog(false);
       return;
     }
     
-    setIsUploading(true);
-    setShowPhotoDialog(false);
-    
     try {
-      // Step 1: Call the server to delete existing photos
-      await deletePhotosMutation.mutateAsync({ userId });
+      console.log("Starting upload process...");
+      setIsUploading(true);
       
-      // Step 2: Proceed with client-side upload after server deletion attempt
-      console.log("Tentando fazer upload da nova foto...");
+      // Remover o prefixo "data:image/xxx;base64," do base64
+      const base64Data = photoPreview.split(',')[1];
+      if (!base64Data) {
+        throw new Error("Dados da imagem inválidos");
+      }
       
-      const renamedFile = new File([selectedFile], "foto.jpg", {
-        type: selectedFile.type,
-        lastModified: selectedFile.lastModified,
+      console.log("Calling mutation with:", {
+        userId,
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        dataLength: photoPreview.length
       });
-      
-      // Call the client-side upload function (no overwrite needed)
-      const result = await uploadProfilePhoto(renamedFile, userId);
-      
-      console.log("Upload concluído, resultado:", result);
-      
-      // Step 3: Refetch user data on successful upload
-      refetch(); 
-      toast.success("Foto de perfil atualizada com sucesso");
 
+      await uploadPhotoMutation.mutateAsync({
+        userId,
+        file: {
+          name: selectedFile.name,
+          type: selectedFile.type,
+          data: photoPreview,
+        },
+      });
     } catch (error) {
-      console.error("Erro no processo de upload da foto:", error);
-      // More specific error for upload failure
-      toast.error(error instanceof Error ? `Erro no upload: ${error.message}` : "Erro desconhecido ao fazer upload da foto");
-    } finally {
+      console.error("Error in confirmPhotoUpload:", error);
+      toast.error("Erro ao fazer upload da foto. Por favor, tente novamente.");
       setIsUploading(false);
-      setSelectedFile(null);
-      setPhotoPreview(null);
     }
   };
-
-  // Handle photo deletion (using the server mutation)
+  
+  // Handler para apagar foto
   const handleDeletePhoto = async () => {
-    if (!userId) { // No need to check for profilePhotoUrl here, server handles it
-      setIsDeleteDialogOpen(false);
-      return;
-    }
-
-    setIsUploading(true); // Use isUploading state to show loading indicator
-    setIsDeleteDialogOpen(false);
-    
-    try {
-      // Call the server-side mutation to delete photos
-      await deletePhotosMutation.mutateAsync({ userId });
-      
-      // Refetch user data to update the UI (remove the photo URL)
-      refetch();
-      
-      toast.success("Foto de perfil removida com sucesso");
-    } catch (error) {
-      // Error is already handled within the useMutation hook onError, 
-      // but we catch here to ensure loading state is reset.
-      console.error("Erro capturado no handleDeletePhoto:", error);
-      // Display a generic error if the mutation hook didn't
-      if (!(error instanceof Error && error.message.includes("apagar fotos antigas"))) {
-         toast.error("Erro ao remover a foto de perfil.");
-      }
-    } finally {
-      setIsUploading(false);
-    }
+    if (!userId) return;
+    deletePhotoMutation.mutate({ userId });
   };
   
   if (isLoading) {
@@ -412,6 +385,7 @@ export default function PerfilPage() {
                         id="profile-avatar"
                         src={userData?.profilePhotoUrl || `/images/default-avatar.png`}
                         alt={userData?.name || ""}
+                        className="object-cover"
                         onError={(e) => {
                           e.currentTarget.src = "/images/default-avatar.png";
                         }}
@@ -428,32 +402,37 @@ export default function PerfilPage() {
                       )}
                     </Avatar>
 
-                    {/* Photo Action Button - Dropdown with options */}
+                    {/* Photo Action Button */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
-                          disabled={isUploading}
                           className={cn(
                             "absolute top-[-70px] right-[-60px] rounded-full p-2 shadow-md transition-all duration-200 border z-10",
                             isUploading 
                               ? "bg-gray-100 border-gray-200 cursor-not-allowed" 
                               : "bg-white hover:bg-gray-50 hover:shadow-lg border-gray-100"
                           )}
-                          title="Opções da foto de perfil"
+                          disabled={isUploading}
+                          title="Opções de foto de perfil"
                         >
-                          {/* Always show Camera icon, disable button when uploading */}
                           <Camera size={16} className="text-azul" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
-                          <Upload size={16} className="mr-2 text-azul" />
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => fileInputRef.current?.click()}
+                          className="cursor-pointer"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
                           <span>Carregar nova foto</span>
                         </DropdownMenuItem>
                         {userData?.profilePhotoUrl && (
-                          <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="cursor-pointer text-red-500 focus:text-red-500">
-                            <Trash2 size={16} className="mr-2" />
-                            <span>Remover foto</span>
+                          <DropdownMenuItem
+                            onClick={handleDeletePhoto}
+                            className="cursor-pointer text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Remover foto atual</span>
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -643,7 +622,13 @@ export default function PerfilPage() {
       </div>
       
       {/* Photo Confirmation Dialog */}
-      <Dialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog}>
+      <Dialog open={showPhotoDialog} onOpenChange={(open) => {
+        if (!open) {
+          setPhotoPreview(null);
+          setSelectedFile(null);
+        }
+        setShowPhotoDialog(open);
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Confirmar nova foto de perfil</DialogTitle>
@@ -658,13 +643,14 @@ export default function PerfilPage() {
                 <img 
                   src={photoPreview} 
                   alt="Preview" 
-                  className="object-cover w-full h-full"
+                  className="w-full h-full object-cover"
+                  style={{ objectFit: 'cover' }}
                 />
               </div>
             )}
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -672,41 +658,23 @@ export default function PerfilPage() {
                 setPhotoPreview(null);
                 setSelectedFile(null);
               }}
+              disabled={isUploading}
             >
               Cancelar
             </Button>
             <Button
               onClick={confirmPhotoUpload}
               className="bg-azul hover:bg-azul/90 text-white"
+              disabled={isUploading}
             >
-              Confirmar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Photo Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Remover foto de perfil</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja remover sua foto de perfil? Esta ação não pode ser desfeita.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeletePhoto}
-            >
-              Remover
+              {isUploading ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white mr-2" />
+                  A carregar...
+                </>
+              ) : (
+                "Confirmar"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

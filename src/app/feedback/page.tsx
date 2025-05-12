@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -16,7 +16,10 @@ import {
   Search,
   AlertCircle,
   User,
-  ClipboardCheck
+  ClipboardCheck,
+  Eye,
+  EyeOff,
+  Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/trpc/react";
@@ -31,9 +34,26 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { usePermissions } from "@/hooks/usePermissions";
+import { TRPCClientError } from "@trpc/client";
 
 // Definição de tipos
 type StatusFilter = "todos" | "PENDENTE" | "RESOLVIDO";
+
+// Define Feedback type based on expected data from API (adjust if needed)
+type Feedback = {
+  id: string;
+  descricao: string;
+  imagemUrl?: string | null; // Make imagemUrl optional
+  createdAt: string | Date; // API might return string, Date object used internally
+  estado: "PENDENTE" | "RESOLVIDO";
+  user: {
+    name: string | null;
+    foto?: string | null; // Make foto optional if not always present
+  };
+  resposta?: string | null; // Add resposta field
+};
 
 export default function FeedbackPage() {
   const { data: session } = useSession();
@@ -107,7 +127,7 @@ export default function FeedbackPage() {
             <div className="sticky top-24 space-y-6">
               <FeedbackForm 
                 onSuccess={() => {
-                  api.useContext().feedback.list.invalidate();
+                  console.log("Feedback enviado com sucesso!");
                 }}
               />
             </div>
@@ -184,22 +204,29 @@ function FeedbackForm({ onSuccess }: { onSuccess: () => void }) {
   const [description, setDescription] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Get tRPC context at the top level
+  const utils = api.useContext();
+
+  // Destructure mutateAsync, keep hook result object
   const createFeedback = api.feedback.create.useMutation({
     onSuccess: () => {
       toast.success("Feedback enviado com sucesso!");
-      onSuccess();
-      setDescription("");
-      setImage(null);
-      setPreviewUrl(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Invalidate using the pre-fetched context
+      utils.feedback.list.invalidate(); 
+      // Call the prop onSuccess if it does other things (like clearing form)
+      onSuccess(); // Keep this if it resets state
+      // setDescription(""); // Moved these to onSuccess prop if preferred
+      // setImage(null);
+      // setPreviewUrl(null);
+      // if (fileInputRef.current) fileInputRef.current.value = "";
     },
     onError: (error) => {
       toast.error(`Erro ao enviar feedback: ${error.message}`);
     },
   });
+  const createFeedbackMutate = createFeedback.mutateAsync;
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -226,35 +253,46 @@ function FeedbackForm({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      let imageUrl: string | undefined = undefined;
-      
       if (image) {
-        const formData = new FormData();
-        formData.append("file", image);
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-        if (response.ok) {
-          const data = await response.json();
-          imageUrl = data.url;
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Falha no upload da imagem");
+        const reader = new FileReader();
+        reader.readAsDataURL(image);
+        reader.onloadend = async () => {
+          try {
+            const base64Data = (reader.result as string)?.split(',')[1];
+            if (!base64Data) {
+              throw new Error("Failed to read image data.");
+            }
+            await createFeedbackMutate({
+              descricao: description,
+              image: {
+                name: image.name,
+                type: image.type,
+                data: base64Data,
+              },
+            });
+          } catch (error: any) {
+            console.error("Error during feedback submission (with image):", error);
+            toast.error(`Ocorreu um erro no envio: ${error.message || "Tente novamente"}`);
+          }
+        };
+        reader.onerror = (error) => {
+          console.error("Error reading file:", error);
+          toast.error("Erro ao ler o ficheiro de imagem.");
+        };
+      } else {
+        try {
+          await createFeedbackMutate({
+            descricao: description,
+          });
+        } catch (error: any) {
+          console.error("Error during feedback submission (no image):", error);
+          toast.error(`Ocorreu um erro no envio: ${error.message || "Tente novamente"}`);
         }
       }
-
-      await createFeedback.mutateAsync({
-        descricao: description,
-        imagemUrl: imageUrl
-      });
     } catch (error: any) {
-      console.error("Erro ao enviar feedback:", error);
-      toast.error(`Ocorreu um erro: ${error.message || "Tente novamente"}`);
-    } finally {
-      setIsSubmitting(false);
+      console.error("Unexpected error in handleSubmit:", error);
+      toast.error(`Ocorreu um erro inesperado: ${error.message || "Tente novamente"}`);
     }
   };
 
@@ -305,12 +343,14 @@ function FeedbackForm({ onSuccess }: { onSuccess: () => void }) {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
-                  className="relative rounded-lg overflow-hidden border border-slate-200"
+                  className="relative rounded-lg overflow-hidden border border-slate-200 h-[180px]"
                 >
-                  <img
+                  <Image
                     src={previewUrl}
                     alt="Preview"
-                    className="w-full h-[180px] object-cover"
+                    fill
+                    style={{ objectFit: "cover" }}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 </motion.div>
               ) : (
@@ -350,10 +390,10 @@ function FeedbackForm({ onSuccess }: { onSuccess: () => void }) {
 
           <Button 
             type="submit"
-            disabled={isSubmitting || !description.trim()}
+            disabled={createFeedback.status === 'pending' || !description.trim()}
             className="w-full bg-azul hover:bg-azul/90"
           >
-            {isSubmitting ? (
+            {createFeedback.status === 'pending' ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 A enviar...
@@ -372,7 +412,26 @@ function FeedbackForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 // Componente para a lista de feedbacks
-function FeedbackList({ feedbacks }: { feedbacks: any[] }) {
+function FeedbackList({ feedbacks }: { feedbacks: Feedback[] }) {
+  const [visibleImages, setVisibleImages] = useState<Record<string, boolean>>({});
+  const toggleImageVisibility = (id: string) => {
+    setVisibleImages(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+  
+  const { isGestor } = usePermissions();
+  const utils = api.useContext();
+
+  // Mutation hook for marking as resolved
+  const markAsResolvedMutation = api.feedback.markAsResolved.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Feedback #${data.id.substring(0, 6)} marcado como resolvido.`);
+      utils.feedback.list.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Erro ao marcar como resolvido: ${error.message}`);
+    },
+  });
+
   return (
     <div>
       {feedbacks.map((feedback, index) => (
@@ -392,6 +451,7 @@ function FeedbackList({ feedbacks }: { feedbacks: any[] }) {
               </Avatar>
               
               <div className="flex-1 min-w-0">
+                {/* Header: User Name, Date, Status Badge */}
                 <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
                   <div>
                     <h3 className="font-medium text-slate-900">
@@ -430,27 +490,65 @@ function FeedbackList({ feedbacks }: { feedbacks: any[] }) {
                   </Badge>
                 </div>
                 
+                {/* Image Toggle Button and Image - Moved here, below the header */}
+                {feedback.imagemUrl && (
+                  <div className="my-3 space-y-2"> {/* Adjusted margin and spacing */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 px-2 text-slate-600 hover:bg-slate-50"
+                      onClick={() => toggleImageVisibility(feedback.id)}
+                    >
+                      {visibleImages[feedback.id] ? (
+                        <>
+                          <EyeOff className="mr-1.5 h-3.5 w-3.5" />
+                          Ocultar Imagem
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="mr-1.5 h-3.5 w-3.5" />
+                          Ver Imagem
+                        </>
+                      )}
+                    </Button>
+
+                    <AnimatePresence>
+                      {visibleImages[feedback.id] && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: -10 }} // Changed animation
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: -10 }} // Changed animation
+                          transition={{ duration: 0.2, ease: "easeOut" }} // Adjusted transition
+                          className="overflow-hidden" // Added to help with layout during animation
+                        >
+                          <a
+                            href={feedback.imagemUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block group"
+                          >
+                            <div className="relative overflow-hidden rounded-lg border border-slate-200 w-full max-h-[300px] aspect-video">
+                              <Image
+                                src={feedback.imagemUrl} 
+                                alt="Anexo"
+                                fill
+                                style={{ objectFit: "cover" }}
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                className="transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                          </a>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {/* Description and Response */}
                 <div className="space-y-4">
                   <p className="text-slate-700 whitespace-pre-line">
                     {feedback.descricao}
                   </p>
-                  
-                  {feedback.imagemUrl && (
-                    <a
-                      href={feedback.imagemUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block group"
-                    >
-                      <div className="overflow-hidden rounded-lg border border-slate-200">
-                        <img
-                          src={feedback.imagemUrl}
-                          alt="Anexo"
-                          className="w-full max-h-[300px] object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      </div>
-                    </a>
-                  )}
                   
                   {feedback.resposta && (
                     <div className="mt-4 rounded-lg bg-azul/5 p-4">
@@ -458,7 +556,26 @@ function FeedbackList({ feedbacks }: { feedbacks: any[] }) {
                         <User className="h-4 w-4 text-azul" />
                         <span className="text-sm font-medium text-azul">Resposta da equipa</span>
                       </div>
-                      <p className="text-sm text-slate-700">{feedback.resposta}</p>
+                      <p className="text-sm text-slate-700 whitespace-pre-line">{feedback.resposta}</p> {/* Added whitespace-pre-line for response too */} 
+                    </div>
+                  )}
+
+                  {isGestor && feedback.estado === 'PENDENTE' && (
+                    <div className="mt-2 pt-4 border-t border-slate-100 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300"
+                        onClick={() => markAsResolvedMutation.mutate({ feedbackId: feedback.id })}
+                        disabled={markAsResolvedMutation.status === 'pending'}
+                      >
+                        {markAsResolvedMutation.status === 'pending' ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="mr-1.5 h-4 w-4" />
+                        )}
+                        Marcar como Resolvido
+                      </Button>
                     </div>
                   )}
                 </div>

@@ -63,7 +63,7 @@ async function main() {
       emailVerified: new Date(),
       atividade: "Administrador",
       contratacao: new Date("2020-01-01"),
-      username: "admin",
+      username: "vasco.fernandes",
       permissao: Permissao.ADMIN,
       regime: Regime.INTEGRAL,
       salario: new Decimal(2000.0),

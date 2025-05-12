@@ -10,12 +10,13 @@ import { toast } from "sonner";
 export interface Notificacao {
   id: string;
   titulo: string;
-  descricao: string;
+  descricao: string | null;
   entidade: EntidadeNotificacao;
-  entidadeId: string;
-  urgencia: UrgenciaNotificacao;
+  entidadeId: string | null;
+  urgencia: UrgenciaNotificacao | null;
   estado: EstadoNotificacao;
-  dataEmissao: Date;
+  createdAt: Date;
+  updatedAt: Date;
   destinatarioId: string;
 }
 
@@ -168,22 +169,28 @@ export function NotificacoesProvider({ children }: { children: ReactNode }) {
 
                 switch (entidade) {
                   case "PROJETO":
-                    router.push(`/projetos/${entidadeId}`);
+                    if (entidadeId) router.push(`/projetos/${entidadeId}`);
+                    else router.push("/notificacoes");
                     break;
                   case "WORKPACKAGE":
                   case "ENTREGAVEL":
                   case "TAREFA": {
-                    const projetoId = await buscarIdProjetoRelacionado(entidadeId, entidade, utils);
-                    if (projetoId) {
-                      router.push(`/projetos/${projetoId}`);
+                    if (entidadeId) {
+                      const projetoId = await buscarIdProjetoRelacionado(entidadeId, entidade, utils);
+                      if (projetoId) {
+                        router.push(`/projetos/${projetoId}`);
+                      } else {
+                        toast.warning("Não foi possível encontrar o projeto associado.");
+                        router.push("/notificacoes");
+                      }
                     } else {
-                      toast.warning("Não foi possível encontrar o projeto associado.");
                       router.push("/notificacoes");
                     }
                     break;
                   }
                   case "ALOCACAO":
-                    router.push(`/utilizadores/${entidadeId}`);
+                    if (entidadeId) router.push(`/utilizadores/${entidadeId}`);
+                    else router.push("/notificacoes");
                     break;
                   default:
                     router.push("/notificacoes");

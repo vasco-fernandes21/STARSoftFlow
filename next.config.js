@@ -3,10 +3,33 @@
  * for Docker builds.
  */
 // @ts-nocheck
-import "./src/env.js";
+await import("./src/env.js");
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+/** @type {import("next").NextConfig} */
+const config = {
+    images: {
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: 'lh3.googleusercontent.com',
+                port: '',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'avatars.githubusercontent.com',
+                port: '',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'kd6uxjvo8hyw1ahh.public.blob.vercel-storage.com', 
+                pathname: '/**',
+                port: '',
+            },
+        ],
+    },
+
   // Configuração do webpack para marcar bcrypt como externo
   webpack: (config) => {
     // Adicionar bcrypt e handlebars à lista de módulos externos
@@ -42,4 +65,4 @@ const nextConfig = {
   turbopack: {}
 };
 
-export default nextConfig;
+export default config;
