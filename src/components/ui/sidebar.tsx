@@ -319,7 +319,7 @@ export const AppSidebar = () => {
 
           <div className="p-2">
             <Link
-              href="/profile"
+              href="/perfil"
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300 ease-in-out hover:bg-azul/5"
             >
               <div className="relative flex min-w-[40px] items-center justify-center">

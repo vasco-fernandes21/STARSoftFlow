@@ -1,5 +1,5 @@
-import { put, del } from '@vercel/blob';
-import type { PutBlobResult } from '@vercel/blob';
+import { put, del, list } from '@vercel/blob';
+import type { PutBlobResult, ListBlobResult } from '@vercel/blob';
 
 export const ALLOWED_FILE_TYPES = {
   // Images for user profiles
@@ -28,10 +28,19 @@ export async function uploadProfilePhoto(file: File, userId: string): Promise<Pu
   }
 
   const blob = await put(`${BLOB_PATHS.PROFILE_PHOTOS}/${userId}/${file.name}`, file, {
-    access: 'public'
+    access: 'public',
+    token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN
   });
 
   return blob;
+}
+
+export async function listProfilePhotos(userId: string): Promise<ListBlobResult> {
+  const prefix = `${BLOB_PATHS.PROFILE_PHOTOS}/${userId}/`;
+  return await list({ 
+    prefix,
+    token: process.env.BLOB_READ_WRITE_TOKEN 
+  });
 }
 
 export async function uploadDeliverableFile(
@@ -43,12 +52,13 @@ export async function uploadDeliverableFile(
   }
 
   const blob = await put(`${BLOB_PATHS.DELIVERABLE_FILES}/${deliverableId}/${file.name}`, file, {
-    access: 'public'
+    access: 'public',
+    token: process.env.BLOB_READ_WRITE_TOKEN
   });
 
   return blob;
 }
 
 export async function deleteFile(url: string): Promise<void> {
-  await del(url);
+  await del(url, { token: process.env.BLOB_READ_WRITE_TOKEN });
 }

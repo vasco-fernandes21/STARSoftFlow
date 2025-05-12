@@ -144,7 +144,7 @@ export default function PerfilUtilizador() {
 
     return {
       real: transformarAlocacoes(alocacoes.real),
-      submetido: transformarAlocacoes(alocacoes.submetido),
+      submetido: transformarAlocacoes(alocacoes.pendente || []),
       anos: alocacoes.anos,
     };
   }, [alocacoes, currentYear]);
@@ -154,11 +154,11 @@ export default function PerfilUtilizador() {
 
   // Resetar para modo real quando não houver dados submetidos
   useEffect(() => {
-    if (viewMode === 'submetido' && !alocacoes?.submetido) {
+    if (viewMode === 'submetido' && !alocacoes?.pendente) {
       setViewMode('real');
       toast("Voltando para dados reais pois não existem dados submetidos.");
     }
-  }, [viewMode, alocacoes?.submetido]);
+  }, [viewMode, alocacoes?.pendente]);
 
   // Mutation para convidar utilizador
   const convidarUtilizadorMutation = api.utilizador.convidarUtilizador.useMutation({

@@ -241,7 +241,6 @@ model Feedback {
   userId    String   @map("user_id")
   descricao String
   estado    FeedbackEstado @default(PENDENTE)
-  imagemUrl String?  @map("imagem_url") // Armazena a URL ou caminho da imagem
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

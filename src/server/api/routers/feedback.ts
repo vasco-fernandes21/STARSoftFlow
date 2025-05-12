@@ -35,7 +35,6 @@ export const feedbackRouter = createTRPCRouter({
         user: {
           select: {
             name: true,
-            foto: true,
           },
         },
       },
@@ -61,7 +60,6 @@ export const feedbackRouter = createTRPCRouter({
         user: {
           select: {
             name: true,
-            foto: true,
             email: true,
           },
         },
