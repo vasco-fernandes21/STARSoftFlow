@@ -28,7 +28,6 @@ interface UserWithDetails {
   name: string | null;
   email: string | null;
   emailVerified: Date | null;
-  foto: string | null;
   atividade: string;
   contratacao: Date | null;
   username: string | null;
@@ -79,7 +78,6 @@ const utilizadorSchema = z.object({
   emailVerified: z
     .union([z.string().nullable(), z.date().nullable(), z.null()])
     .transform((val) => (val ? new Date(val) : null)),
-  foto: z.string().nullable(),
   atividade: z.string().nullable().default(""),
   contratacao: z
     .union([z.string(), z.date()])
@@ -247,7 +245,6 @@ export default function PerfilUtilizador() {
       name: validatedUser.name ?? "Nome não disponível",
       email: validatedUser.email ?? "Email não disponível",
       emailVerified: validatedUser.emailVerified,
-      foto: validatedUser.foto,
       atividade: validatedUser.atividade ?? "",
       contratacao: validatedUser.contratacao,
       username: validatedUser.username ?? "Username não disponível",
@@ -280,13 +277,16 @@ export default function PerfilUtilizador() {
             {/* Lado Esquerdo: Avatar e Info */}
             <div className="flex items-center gap-5">
               <Avatar className="h-24 w-24 flex-shrink-0 shadow-lg border-4 border-white">
-                {utilizadorComDetalhes.foto ? (
-                  <AvatarImage src={utilizadorComDetalhes.foto} alt={utilizadorComDetalhes.name || ""} />
-                ) : (
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-4xl font-semibold text-white">
-                    {utilizadorComDetalhes.name?.slice(0, 2).toUpperCase() || "U"}
-                  </AvatarFallback>
-                )}
+                <AvatarImage 
+                  src={`${process.env.NEXT_PUBLIC_BLOB_URL}/fotos-perfil/${utilizadorComDetalhes.id}/foto.jpg`} 
+                  alt={utilizadorComDetalhes.name || ""}
+                  onError={(e) => {
+                    e.currentTarget.src = "/images/default-avatar.png";
+                  }}
+                />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-4xl font-semibold text-white">
+                  {utilizadorComDetalhes.name?.slice(0, 2).toUpperCase() || "U"}
+                </AvatarFallback>
               </Avatar>
               <div className="space-y-1.5">
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900">{utilizadorComDetalhes.name}</h1>

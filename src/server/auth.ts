@@ -95,7 +95,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: user.email,
             name: user.name,
             permissao: user.permissao,
-            foto: user.foto,
             atividade: user.atividade,
             regime: user.regime,
             username: user.username,
@@ -204,7 +203,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               name: user.name,
               // Usar campos adicionais como propriedades personalizadas
               permissao: user.permissao,
-              foto: user.foto,
               atividade: user.atividade,
               regime: user.regime,
               username: user.username,
@@ -271,7 +269,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             name: user.name,
             // Usar campos adicionais como propriedades personalizadas
             permissao: user.permissao,
-            foto: user.foto,
             atividade: user.atividade,
             regime: user.regime,
             username: user.username,

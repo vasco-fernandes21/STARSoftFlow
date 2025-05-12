@@ -403,7 +403,10 @@ export function MenuWorkpackage({
                     />
                   </div>
                   <div className="px-5 py-6">
-                    <ProgressoWorkpackage />
+                    <ProgressoWorkpackage
+                      projetoId={projetoId}
+                      workpackageId={fullWorkpackage.id}
+                    />
                   </div>
                   <div className="px-5 py-6">
                     <WorkpackageTarefas

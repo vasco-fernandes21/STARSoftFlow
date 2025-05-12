@@ -75,7 +75,6 @@ model Entregavel {
   nome      String    @db.VarChar(255)
   descricao String?
   data      DateTime? @db.Date
-  anexo     String?
   estado    Boolean   @default(false)
   tarefa    Tarefa    @relation("TarefaEntregaveis", fields: [tarefaId], references: [id], onDelete: Cascade)
 
@@ -103,7 +102,6 @@ model User {
   name                 String?                        @db.VarChar(255)
   email                String?                        @unique @db.VarChar(255)
   emailVerified        DateTime?
-  foto                 String?
   atividade            String?                        @db.VarChar(255)
   contratacao          DateTime?                      @db.Date
   username             String?                        @unique @db.VarChar(255)
