@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -19,7 +19,9 @@ import {
   ClipboardCheck,
   Eye,
   EyeOff,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/trpc/react";
@@ -55,10 +57,14 @@ type Feedback = {
   resposta?: string | null; // Add resposta field
 };
 
+// Constante para o número de itens por página
+const ITEMS_PER_PAGE = 3;
+
 export default function FeedbackPage() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<StatusFilter>("todos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Consulta de feedbacks com configuração de cache
   const { data: allFeedbacks, isLoading } = api.feedback.list.useQuery(undefined, {
@@ -67,13 +73,31 @@ export default function FeedbackPage() {
   });
 
   // Filtrar feedbacks com base no tab ativo e consulta de pesquisa
-  const filteredFeedbacks = allFeedbacks?.filter(feedback => {
-    const matchesStatus = activeTab === "todos" || feedback.estado === activeTab;
-    const matchesSearch = !searchQuery || 
-      feedback.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (feedback.user.name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const filteredFeedbacks = useMemo(() => {
+    return allFeedbacks?.filter(feedback => {
+      const matchesStatus = activeTab === "todos" || feedback.estado === activeTab;
+      const matchesSearch = !searchQuery || 
+        feedback.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (feedback.user.name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
+      return matchesStatus && matchesSearch;
+    });
+  }, [allFeedbacks, activeTab, searchQuery]);
+
+  // Calcular paginação
+  const totalPages = useMemo(() => {
+    return Math.ceil((filteredFeedbacks?.length || 0) / ITEMS_PER_PAGE);
+  }, [filteredFeedbacks]);
+
+  // Obter feedbacks para a página atual
+  const currentFeedbacks = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredFeedbacks?.slice(startIndex, startIndex + ITEMS_PER_PAGE) || [];
+  }, [filteredFeedbacks, currentPage]);
+
+  // Reset para a primeira página quando mudar os filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery]);
 
   // Contagem de itens por estado
   const pendingCount = allFeedbacks?.filter(f => f.estado === "PENDENTE").length || 0;
@@ -84,6 +108,52 @@ export default function FeedbackPage() {
   if (!session) {
     redirect("/login");
   }
+
+  // Função para navegar para a página desejada
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    // Scroll para o topo da lista
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Gerar os números para paginação baseado no TabelaDados.tsx
+  const paginationNumbers = useMemo(() => {
+    const totalPages = Math.ceil((filteredFeedbacks?.length || 0) / ITEMS_PER_PAGE);
+    const currentPageIndex = currentPage - 1; // Ajustando para índice zero-based
+    const pageNumbers: (number | string)[] = [];
+    const MAX_VISIBLE_PAGES_AROUND_CURRENT = 1;
+    const MAX_TOTAL_VISIBLE_BUTTONS = 5;
+
+    if (totalPages <= MAX_TOTAL_VISIBLE_BUTTONS + 2) {
+      for (let i = 0; i < totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      pageNumbers.push(0); // Sempre mostrar a primeira página
+
+      const startPage = Math.max(1, currentPageIndex - MAX_VISIBLE_PAGES_AROUND_CURRENT);
+      const endPage = Math.min(totalPages - 2, currentPageIndex + MAX_VISIBLE_PAGES_AROUND_CURRENT);
+
+      if (startPage > 1) {
+        pageNumbers.push("...");
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+
+      if (endPage < totalPages - 2) {
+        pageNumbers.push("...");
+      }
+
+      if (totalPages > 1) {
+        pageNumbers.push(totalPages - 1); // Sempre mostrar a última página
+      }
+    }
+
+    return pageNumbers;
+  }, [filteredFeedbacks, currentPage]);
 
   return (
     <PageLayout>
@@ -127,6 +197,7 @@ export default function FeedbackPage() {
             <div className="sticky top-24 space-y-6">
               <FeedbackForm 
                 onSuccess={() => {
+                  setCurrentPage(1);
                   console.log("Feedback enviado com sucesso!");
                 }}
               />
@@ -188,7 +259,83 @@ export default function FeedbackPage() {
                 ) : !filteredFeedbacks?.length ? (
                   <EmptyFeedbackState query={searchQuery} activeTab={activeTab} />
                 ) : (
-                  <FeedbackList feedbacks={filteredFeedbacks} />
+                  <>
+                    <FeedbackList feedbacks={currentFeedbacks} />
+                    
+                    {/* Paginação */}
+                    {totalPages > 1 && (
+                      <div className="flex-none border-t border-slate-100 px-6 py-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-slate-500">
+                            A mostrar{" "}
+                            <span className="font-medium text-slate-700">
+                              {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+                              {Math.min(
+                                currentPage * ITEMS_PER_PAGE,
+                                filteredFeedbacks.length
+                              )}
+                            </span>{" "}
+                            de{" "}
+                            <span className="font-medium text-slate-700">
+                              {filteredFeedbacks.length}
+                            </span>{" "}
+                            itens
+                          </p>
+
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              disabled={currentPage === 1}
+                              onClick={() => goToPage(currentPage - 1)}
+                              aria-label="Página anterior"
+                              className="h-7 w-7 rounded-md border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow-none disabled:opacity-50 disabled:hover:shadow-none"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+
+                            {paginationNumbers.map((page, index) =>
+                              typeof page === "number" ? (
+                                <Button
+                                  key={page}
+                                  onClick={() => {
+                                    goToPage(page + 1);
+                                  }}
+                                  aria-label={`Ir para página ${page + 1}`}
+                                  className={cn(
+                                    "h-7 w-7 rounded-md p-0 text-xs shadow-sm transition-all duration-150 hover:shadow-none",
+                                    currentPage === page + 1
+                                      ? "bg-azul font-medium text-white hover:bg-azul/90"
+                                      : "border border-slate-200 bg-white font-normal text-slate-600 hover:border-azul/30 hover:bg-slate-50 hover:text-azul"
+                                  )}
+                                >
+                                  {page + 1}
+                                </Button>
+                              ) : (
+                                <span
+                                  key={`ellipsis-${index}`}
+                                  className="flex h-7 w-4 items-center justify-center p-0 text-xs text-slate-400"
+                                >
+                                  ...
+                                </span>
+                              )
+                            )}
+
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              disabled={currentPage === totalPages}
+                              onClick={() => goToPage(currentPage + 1)}
+                              aria-label="Próxima página"
+                              className="h-7 w-7 rounded-md border-slate-200 bg-white p-0 text-slate-500 shadow-sm transition-all duration-150 hover:border-azul/30 hover:bg-slate-50 hover:text-azul hover:shadow-none disabled:opacity-50 disabled:hover:shadow-none"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -215,12 +362,13 @@ function FeedbackForm({ onSuccess }: { onSuccess: () => void }) {
       toast.success("Feedback enviado com sucesso!");
       // Invalidate using the pre-fetched context
       utils.feedback.list.invalidate(); 
-      // Call the prop onSuccess if it does other things (like clearing form)
-      onSuccess(); // Keep this if it resets state
-      // setDescription(""); // Moved these to onSuccess prop if preferred
-      // setImage(null);
-      // setPreviewUrl(null);
-      // if (fileInputRef.current) fileInputRef.current.value = "";
+      // Reset the form state
+      setDescription("");
+      setImage(null);
+      setPreviewUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Call the prop onSuccess if it does other things
+      onSuccess();
     },
     onError: (error) => {
       toast.error(`Erro ao enviar feedback: ${error.message}`);
@@ -437,150 +585,156 @@ function FeedbackList({ feedbacks }: { feedbacks: Feedback[] }) {
       {feedbacks.map((feedback, index) => (
         <motion.div
           key={feedback.id}
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05, duration: 0.3 }}
+          transition={{ delay: index * 0.05, duration: 0.2 }}
+          className="mb-4"
         >
-          <div className="border-b border-slate-100 p-6 last:border-0">
-            <div className="flex gap-4">
-              <Avatar className="h-10 w-10 flex-shrink-0 rounded-full border border-slate-200">
-                <AvatarImage src={feedback.user.foto || undefined} alt={feedback.user.name || "Utilizador"} />
-                <AvatarFallback className="bg-azul/10 text-azul">
-                  {feedback.user.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
+          <div className="rounded-xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:shadow-md transition-all duration-200">
+            {/* Header com informações do usuário e data */}
+            <div className="px-5 pt-4 pb-3 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-8 w-8 border border-slate-200">
+                  <AvatarImage src={feedback.user.foto || undefined} alt={feedback.user.name || "Utilizador"} />
+                  <AvatarFallback className="bg-azul/10 text-azul text-xs">
+                    {feedback.user.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div>
+                  <h3 className="font-medium text-slate-900 text-sm leading-tight">
+                    {feedback.user.name || "Utilizador"}
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-tight">
+                    {formatDistanceToNow(new Date(feedback.createdAt), { 
+                      addSuffix: true, 
+                      locale: ptBR 
+                    })}
+                  </p>
+                </div>
+              </div>
               
-              <div className="flex-1 min-w-0">
-                {/* Header: User Name, Date, Status Badge */}
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                  <div>
-                    <h3 className="font-medium text-slate-900">
-                      {feedback.user.name || "Utilizador"}
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      {formatDistanceToNow(new Date(feedback.createdAt), { 
-                        addSuffix: true, 
-                        locale: ptBR 
-                      })}
-                      {" • "}
-                      {format(new Date(feedback.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                  
-                  <Badge
-                    variant={feedback.estado === "RESOLVIDO" ? "default" : "outline"}
-                    className={cn(
-                      "flex items-center gap-1 rounded-full",
-                      feedback.estado === "RESOLVIDO" 
-                        ? "bg-green-100/80 text-green-700 hover:bg-green-100"
-                        : "bg-amber-100/80 text-amber-700 hover:bg-amber-100"
-                    )}
+              <div className="flex flex-col items-end">
+                <p className="text-xs text-slate-400 mb-1">
+                  {format(new Date(feedback.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+                
+                <Badge
+                  variant={feedback.estado === "RESOLVIDO" ? "default" : "outline"}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]",
+                    feedback.estado === "RESOLVIDO" 
+                      ? "bg-green-100/80 text-green-700 hover:bg-green-100"
+                      : "bg-amber-100/80 text-amber-700 hover:bg-amber-100"
+                  )}
+                >
+                  {feedback.estado === "RESOLVIDO" ? (
+                    <>
+                      <CheckCircle className="h-2.5 w-2.5" />
+                      <span>Resolvido</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-2.5 w-2.5" />
+                      <span>Pendente</span>
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </div>
+            
+            {/* Conteúdo do feedback */}
+            <div className="px-5 py-4">
+              {/* Descrição */}
+              <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">
+                {feedback.descricao}
+              </p>
+              
+              {/* Imagem - se existir */}
+              {feedback.imagemUrl && (
+                <div className="mt-3 space-y-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs px-2 py-0 h-6 text-slate-500 hover:text-azul hover:bg-azul/5"
+                    onClick={() => toggleImageVisibility(feedback.id)}
                   >
-                    {feedback.estado === "RESOLVIDO" ? (
+                    {visibleImages[feedback.id] ? (
                       <>
-                        <CheckCircle className="h-3.5 w-3.5" />
-                        <span>Resolvido</span>
+                        <EyeOff className="mr-1.5 h-3 w-3" />
+                        <span>Ocultar imagem</span>
                       </>
                     ) : (
                       <>
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>Pendente</span>
+                        <Eye className="mr-1.5 h-3 w-3" />
+                        <span>Ver imagem anexada</span>
                       </>
                     )}
-                  </Badge>
-                </div>
-                
-                {/* Image Toggle Button and Image - Moved here, below the header */}
-                {feedback.imagemUrl && (
-                  <div className="my-3 space-y-2"> {/* Adjusted margin and spacing */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs h-7 px-2 text-slate-600 hover:bg-slate-50"
-                      onClick={() => toggleImageVisibility(feedback.id)}
-                    >
-                      {visibleImages[feedback.id] ? (
-                        <>
-                          <EyeOff className="mr-1.5 h-3.5 w-3.5" />
-                          Ocultar Imagem
-                        </>
-                      ) : (
-                        <>
-                          <Eye className="mr-1.5 h-3.5 w-3.5" />
-                          Ver Imagem
-                        </>
-                      )}
-                    </Button>
+                  </Button>
 
-                    <AnimatePresence>
-                      {visibleImages[feedback.id] && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: -10 }} // Changed animation
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: -10 }} // Changed animation
-                          transition={{ duration: 0.2, ease: "easeOut" }} // Adjusted transition
-                          className="overflow-hidden" // Added to help with layout during animation
-                        >
-                          <a
-                            href={feedback.imagemUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block group"
-                          >
-                            <div className="relative overflow-hidden rounded-lg border border-slate-200 w-full max-h-[300px] aspect-video">
-                              <Image
-                                src={feedback.imagemUrl} 
-                                alt="Anexo"
-                                fill
-                                style={{ objectFit: "cover" }}
-                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                className="transition-transform duration-300 group-hover:scale-105"
-                              />
-                            </div>
-                          </a>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-
-                {/* Description and Response */}
-                <div className="space-y-4">
-                  <p className="text-slate-700 whitespace-pre-line">
-                    {feedback.descricao}
-                  </p>
-                  
-                  {feedback.resposta && (
-                    <div className="mt-4 rounded-lg bg-azul/5 p-4">
-                      <div className="mb-2 flex items-center gap-2">
-                        <User className="h-4 w-4 text-azul" />
-                        <span className="text-sm font-medium text-azul">Resposta da equipa</span>
-                      </div>
-                      <p className="text-sm text-slate-700 whitespace-pre-line">{feedback.resposta}</p> {/* Added whitespace-pre-line for response too */} 
-                    </div>
-                  )}
-
-                  {isGestor && feedback.estado === 'PENDENTE' && (
-                    <div className="mt-2 pt-4 border-t border-slate-100 flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300"
-                        onClick={() => markAsResolvedMutation.mutate({ feedbackId: feedback.id })}
-                        disabled={markAsResolvedMutation.status === 'pending'}
+                  <AnimatePresence>
+                    {visibleImages[feedback.id] && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden rounded-lg"
                       >
-                        {markAsResolvedMutation.status === 'pending' ? (
-                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="mr-1.5 h-4 w-4" />
-                        )}
-                        Marcar como Resolvido
-                      </Button>
-                    </div>
-                  )}
+                        <a
+                          href={feedback.imagemUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block group"
+                        >
+                          <div className="relative overflow-hidden rounded-md border border-slate-200 aspect-video max-h-[180px] w-full mt-1">
+                            <Image
+                              src={feedback.imagemUrl} 
+                              alt="Anexo"
+                              fill
+                              style={{ objectFit: "cover" }}
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              className="transition-transform duration-300 group-hover:scale-105"
+                            />
+                          </div>
+                        </a>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </div>
+              )}
             </div>
+            
+            {/* Resposta (se existir) ou ações */}
+            {feedback.resposta ? (
+              <div className="bg-azul/5 px-5 py-3 border-t border-azul/10">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <User className="h-3.5 w-3.5 text-azul" />
+                  <span className="text-xs font-medium text-azul">Resposta da equipa</span>
+                </div>
+                <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                  {feedback.resposta}
+                  
+                </p>
+              </div>
+            ) : isGestor && feedback.estado === 'PENDENTE' && (
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 text-xs"
+                  onClick={() => markAsResolvedMutation.mutate({ feedbackId: feedback.id })}
+                  disabled={markAsResolvedMutation.status === 'pending'}
+                >
+                  {markAsResolvedMutation.status === 'pending' ? (
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Check className="mr-1.5 h-3 w-3" />
+                  )}
+                  Marcar como Resolvido
+                </Button>
+              </div>
+            )}
           </div>
         </motion.div>
       ))}

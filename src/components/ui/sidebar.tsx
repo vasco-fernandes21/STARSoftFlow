@@ -28,6 +28,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import type { Permissao } from "@prisma/client";
 import { signOut } from "next-auth/react";
 import { api } from "@/trpc/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -178,6 +179,16 @@ export const AppSidebar = () => {
 
   const { data: session } = useSession();
   const { hasPermission } = usePermissions();
+  
+  // Buscar informações do usuário, incluindo a foto de perfil
+  const { data: userData } = api.utilizador.findById.useQuery(
+    session?.user?.id || "", 
+    { 
+      enabled: !!session?.user?.id,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false
+    }
+  );
 
   const filteredMenuItems = menuItems.filter(
     (item) => !item.requiredPermission || hasPermission(item.requiredPermission as Permissao)
@@ -323,9 +334,22 @@ export const AppSidebar = () => {
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300 ease-in-out hover:bg-azul/5"
             >
               <div className="relative flex min-w-[40px] items-center justify-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-azul/20 bg-gradient-to-br from-azul/5 to-azul/10 shadow-sm transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-md">
-                  <User size={18} className="text-azul transition-all duration-300 ease-in-out" />
-                </div>
+                {userData?.profilePhotoUrl ? (
+                  <Avatar className="h-10 w-10 rounded-xl border border-azul/20 shadow-sm transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-md">
+                    <AvatarImage 
+                      src={userData.profilePhotoUrl}
+                      alt={session?.user?.name || ""}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-azul/5 to-azul/10 text-azul rounded-xl text-sm font-medium">
+                      {session?.user?.name?.slice(0, 2).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-azul/20 bg-gradient-to-br from-azul/5 to-azul/10 shadow-sm transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-md">
+                    <User size={18} className="text-azul transition-all duration-300 ease-in-out" />
+                  </div>
+                )}
                 <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm ring-2 ring-white" />
               </div>
               <div
