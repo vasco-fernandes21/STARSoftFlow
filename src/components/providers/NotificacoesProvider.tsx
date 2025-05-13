@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useCallback, ReactNode, useEffect, useState } from "react";
+import React, { createContext, useContext, useCallback, useEffect, useState } from "react";
+import { type ReactNode } from "react";
 import { type EntidadeNotificacao, type UrgenciaNotificacao, type EstadoNotificacao } from "@prisma/client";
 import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";

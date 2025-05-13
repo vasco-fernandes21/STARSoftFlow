@@ -1,3 +1,5 @@
+'use client';
+
 import React from "react";
 import type { LucideIcon } from "lucide-react";
 import { StatCard } from "./StatCard";
@@ -22,6 +24,7 @@ export type StatItem = {
   secondaryText?: string;
   trend?: number;
   statusCount?: StatusCount;
+  href?: string;
 };
 
 type StatsGridProps = {
@@ -49,6 +52,7 @@ export const StatsGrid = ({ stats, className }: StatsGridProps) => {
           secondaryText={stat.secondaryText}
           trend={stat.trend}
           statusCount={stat.statusCount}
+          onClick={stat.href ? () => stat.href : undefined}
         />
       ))}
     </div>

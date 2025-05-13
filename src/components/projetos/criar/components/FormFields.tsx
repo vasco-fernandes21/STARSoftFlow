@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import React from "react";
 
 // Props base para todos os campos
 interface BaseFieldProps {
@@ -125,13 +126,15 @@ export function TextField({
 
 // DecimalField atualizado
 interface DecimalFieldProps extends BaseFieldProps {
-  value: string | number | null;
+  value: number | null;
   onChange: (value: number | null) => void;
   prefix?: ReactNode;
   suffix?: ReactNode;
   step?: number;
   min?: number;
   max?: number;
+  decimalPlaces?: number;
+  placeholder?: string;
 }
 
 export function DecimalField({
@@ -149,11 +152,67 @@ export function DecimalField({
   className = "",
   id,
   disabled,
+  decimalPlaces = 2,
+  placeholder,
 }: DecimalFieldProps) {
-  // Converter para string mantendo apenas as casas decimais significativas
-  const displayValue = value === null || value === '' ? '' : 
-    typeof value === 'string' ? value :
-    value.toString().replace(/\.?0+$/, ''); // Remove zeros à direita
+  const [inputValue, setInputValue] = React.useState<string>("");
+
+  React.useEffect(() => {
+    const currentNumericValue = parseFloat(inputValue.replace(",", "."));
+    const valuePropMatchesInput = !isNaN(currentNumericValue) && 
+                                  value !== null && 
+                                  Math.abs(currentNumericValue - value) < (step / 2);
+
+    if (value === null) {
+      if (inputValue !== "") {
+        setInputValue("");
+      }
+    } else if (!valuePropMatchesInput || (isNaN(currentNumericValue) && value !== null)) {
+      if (!(inputValue.endsWith('.') || inputValue.endsWith(','))) {
+        setInputValue(value.toFixed(decimalPlaces));
+      }
+    }
+  }, [value, decimalPlaces, step]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let currentVal = e.target.value;
+
+    const validPattern = /^-?\d*([.,])?\d*$/;
+    if (currentVal !== "" && !validPattern.test(currentVal) && currentVal !== "-") {
+        return;
+    }
+
+    setInputValue(currentVal);
+
+    if (currentVal.trim() === "" || currentVal === "-") {
+      onChange(null);
+    } else {
+      const valWithDot = currentVal.replace(',', '.');
+      const numValue = parseFloat(valWithDot);
+      if (!isNaN(numValue)) {
+        onChange(numValue);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    const valWithDot = inputValue.replace(',', '.');
+    let numValue = parseFloat(valWithDot);
+
+    if (isNaN(numValue)) {
+      onChange(null);
+      setInputValue(""); 
+      return;
+    }
+
+    if (min !== undefined) numValue = Math.max(min, numValue);
+    if (max !== undefined) numValue = Math.min(max, numValue);
+    
+    const formattedNum = parseFloat(numValue.toFixed(decimalPlaces));
+    
+    onChange(formattedNum);
+    setInputValue(formattedNum.toFixed(decimalPlaces)); 
+  };
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -168,41 +227,17 @@ export function DecimalField({
         )}
         <Input
           id={id}
-          type="number"
-          value={displayValue}
-          onChange={(e) => {
-            const val = e.target.value;
-            if (val === '') {
-              onChange(null);
-            } else {
-              const numValue = parseFloat(val);
-              if (!isNaN(numValue)) {
-                // Permitir digitar o valor antes de validar os limites
-                if (val.endsWith('.')) {
-                  // Se estiver digitando um decimal, não valida ainda
-                  onChange(numValue);
-                } else {
-                  // Validar limites apenas quando terminar de digitar
-                  const finalValue = min !== undefined ? Math.max(min, numValue) : numValue;
-                  const boundedValue = max !== undefined ? Math.min(max, finalValue) : finalValue;
-                  
-                  // Limitar casas decimais se necessário
-                  const parts = val.split('.');
-                  if (parts[1] && parts[1].length > 3) {
-                    onChange(parseFloat(boundedValue.toFixed(3)));
-                  } else {
-                    onChange(boundedValue);
-                  }
-                }
-              }
-            }
-          }}
+          type="text" 
+          inputMode="decimal" 
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleBlur} 
+          placeholder={placeholder} 
           className={cn(
             "rounded-lg border-azul/20 bg-white/90 shadow-sm transition-all duration-200 hover:border-azul/30 focus:border-azul focus:ring-1 focus:ring-azul/30",
             prefix && "pl-8",
             suffix && "pr-8"
           )}
-          step={step}
           required={required}
           disabled={disabled}
         />
@@ -218,8 +253,16 @@ export function DecimalField({
 }
 
 // MoneyField atualizado
-export function MoneyField(props: Omit<DecimalFieldProps, "prefix" | "step" | "min" | "max">) {
-  return <DecimalField {...props} prefix="€" step={0.01} min={0} max={1000000} />;
+export function MoneyField(props: Omit<DecimalFieldProps, "prefix" | "min" | "decimalPlaces" | "suffix">) {
+  return (
+    <DecimalField
+      {...props}
+      prefix="€"
+      min={0}
+      decimalPlaces={3}
+      placeholder={props.placeholder || "0,000"}
+    />
+  );
 }
 
 // PercentageField atualizado para manter apenas as casas decimais digitadas
@@ -655,6 +698,82 @@ export function DropdownField({
       </DropdownMenu>
 
       {helpText && <p className="mt-1 text-xs text-slate-500">{helpText}</p>}
+    </div>
+  );
+}
+
+// IntegerField para números inteiros positivos
+interface IntegerFieldProps extends BaseFieldProps {
+  value: number | null;
+  onChange: (value: number | null) => void;
+  prefix?: ReactNode;
+  suffix?: ReactNode;
+  step?: number;
+  placeholder?: string;
+}
+
+export function IntegerField({
+  label,
+  value,
+  onChange,
+  prefix,
+  suffix,
+  step = 1,
+  required = false,
+  tooltip,
+  helpText,
+  className = "",
+  id,
+  disabled,
+  placeholder,
+}: IntegerFieldProps) {
+  const displayValue = value === null ? '' : value.toString();
+
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
+        {label}
+      </FormLabel>
+      <div className="relative">
+        {prefix && (
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            {typeof prefix === "string" ? <span className="text-azul/50">{prefix}</span> : prefix}
+          </div>
+        )}
+        <Input
+          id={id}
+          type="number"
+          value={displayValue}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === '') {
+              onChange(null);
+            } else {
+              const numValue = parseInt(val, 10);
+              if (!isNaN(numValue)) {
+                const finalValue = Math.max(0, numValue);
+                onChange(finalValue);
+              }
+            }
+          }}
+          className={cn(
+            "rounded-lg border-azul/20 bg-white/90 shadow-sm transition-all duration-200 hover:border-azul/30 focus:border-azul focus:ring-1 focus:ring-azul/30",
+            prefix && "pl-8",
+            suffix && "pr-8"
+          )}
+          min={0}
+          step={step}
+          placeholder={placeholder}
+          required={required}
+          disabled={disabled}
+        />
+        {suffix && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+            {typeof suffix === "string" ? <span className="text-azul/50">{suffix}</span> : suffix}
+          </div>
+        )}
+      </div>
+      {helpText && <p className="mt-1 text-xs text-azul/60">{helpText}</p>}
     </div>
   );
 }

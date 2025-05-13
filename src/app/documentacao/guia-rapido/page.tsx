@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
+import { StatsGrid, type StatItem } from "@/components/common/StatsGrid";
 
 // Define interfaces for type safety
 interface SectionItem {
@@ -181,6 +182,43 @@ export default function GuiaRapidoDocumentacao() {
     }
   ];
 
+  // Define os dados estatísticos para o StatsGrid
+  const statsItems: StatItem[] = [
+    {
+      icon: BarChart3,
+      label: "Plataforma de Gestão",
+      value: 1,
+      iconClassName: "text-azul",
+      iconContainerClassName: "bg-azul/10",
+      secondaryText: "O STAR SoftFlow é uma plataforma completa para gestão de projetos, equipas e recursos no contexto de inovação e investigação",
+      badgeText: "Como navegar",
+      badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
+      href: "#navegacao"
+    },
+    {
+      icon: Users,
+      label: "Perfis de Acesso",
+      value: 4,
+      iconClassName: "text-azul",
+      iconContainerClassName: "bg-azul/10",
+      secondaryText: "A plataforma oferece diferentes níveis de acesso para garantir o fluxo adequado de informações e controlo de operações",
+      badgeText: "Compreender as permissões",
+      badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
+      href: "#niveis-acesso"
+    },
+    {
+      icon: Settings,
+      label: "Começar a Utilizar",
+      value: 5,
+      iconClassName: "text-azul",
+      iconContainerClassName: "bg-azul/10",
+      secondaryText: "Descubra como começar a utilizar a plataforma, aceder às suas funcionalidades e familiarizar-se com o fluxo de trabalho",
+      badgeText: "Primeiros passos",
+      badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
+      href: "#login"
+    }
+  ];
+
   const filteredTopics = searchQuery.trim()
     ? guiaTopics.filter(topic => 
         topic.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -278,73 +316,7 @@ export default function GuiaRapidoDocumentacao() {
         <div className="container mx-auto px-4 md:px-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-8">O que é o STAR SoftFlow?</h2>
           
-          <div className="grid md:grid-cols-3 gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Card className="h-full hover:shadow-md transition-all duration-200 bg-white border-azul/10 rounded-xl group hover:translate-y-[-5px]">
-                <CardContent className="p-6">
-                  <div className="rounded-full bg-azul/10 p-3 w-fit mb-4 group-hover:bg-azul/20 transition-all duration-300">
-                    <BarChart3 className="h-8 w-8 text-azul" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Plataforma de Gestão</h3>
-                  <p className="text-gray-600 mb-4">
-                    O STAR SoftFlow é uma plataforma completa para gestão de projetos, equipas e recursos no contexto de inovação e investigação
-                  </p>
-                  <Link href="#navegacao" className="flex items-center text-azul font-medium">
-                    <span>Como navegar</span>
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Link>
-                </CardContent>
-              </Card>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.5 }}
-            >
-              <Card className="h-full hover:shadow-md transition-all duration-200 bg-white border-azul/10 rounded-xl group hover:translate-y-[-5px]">
-                <CardContent className="p-6">
-                  <div className="rounded-full bg-azul/10 p-3 w-fit mb-4 group-hover:bg-azul/20 transition-all duration-300">
-                    <Users className="h-8 w-8 text-azul" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Perfis de Acesso</h3>
-                  <p className="text-gray-600 mb-4">
-                    A plataforma oferece diferentes níveis de acesso para garantir o fluxo adequado de informações e controlo de operações
-                  </p>
-                  <Link href="#niveis-acesso" className="flex items-center text-azul font-medium">
-                    <span>Compreender as permissões</span>
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Link>
-                </CardContent>
-              </Card>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              <Card className="h-full hover:shadow-md transition-all duration-200 bg-white border-azul/10 rounded-xl group hover:translate-y-[-5px]">
-                <CardContent className="p-6">
-                  <div className="rounded-full bg-azul/10 p-3 w-fit mb-4 group-hover:bg-azul/20 transition-all duration-300">
-                    <Settings className="h-8 w-8 text-azul" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Começar a Utilizar</h3>
-                  <p className="text-gray-600 mb-4">
-                    Descubra como começar a utilizar a plataforma, aceder às suas funcionalidades e familiarizar-se com o fluxo de trabalho
-                  </p>
-                  <Link href="#login" className="flex items-center text-azul font-medium">
-                    <span>Primeiros passos</span>
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Link>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
+          <StatsGrid stats={statsItems} className="gap-6" />
         </div>
       </section>
       
