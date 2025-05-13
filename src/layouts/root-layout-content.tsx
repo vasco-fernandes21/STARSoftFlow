@@ -11,14 +11,23 @@ import { Toaster } from "@/components/ui/sonner";
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-  const pagesWithoutSidebar = ["/login", "/primeiro-login", "/recuperar-password"];
 
-  // Garantir que só renderizamos quando estamos no cliente
+  const pagesWithoutSidebar = [
+    "/login",
+    "/primeiro-login",
+    "/recuperar-password",
+    "/tutoriais",
+    "/inicio"
+  ];
+
+  const hideSidebar =
+    pathname &&
+    (pagesWithoutSidebar.includes(pathname) || pathname.startsWith("/documentacao"));
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Renderizar um fallback simples até termos acesso ao DOM no cliente
   if (!mounted) {
     return (
       <div className="flex h-screen w-full overflow-hidden bg-bgApp text-foreground">
@@ -30,10 +39,7 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Add null check for pathname
-  const shouldHideSidebar = pathname ? pagesWithoutSidebar.includes(pathname) : false;
-
-  if (shouldHideSidebar) {
+  if (hideSidebar) {
     return (
       <>
         {children}

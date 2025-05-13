@@ -121,7 +121,7 @@ function ProjetoFormContent() {
         }
 
         toast.success("Projeto criado com sucesso!");
-        router.push(`/projetos/${data.data.id}`);
+        router.push(`/projetos/${data.data?.id}`);
       } else {
         toast.error("Erro ao criar projeto");
       }
@@ -788,7 +788,7 @@ function ProjetoFormContentWrapper() {
             </Button>
           )}
           <Button 
-            className="gap-2 rounded-full bg-azul text-white shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-azul/90 hover:shadow-lg"
+            className="gap-2 rounded-full bg-white text-azul shadow-md transition-all duration-300 ease-in-out hover:scale-105 hover:bg-white/90 hover:shadow-lg"
             onClick={() => setShowSaveDialog(true)}
           >
             <Save className="h-4 w-4" />

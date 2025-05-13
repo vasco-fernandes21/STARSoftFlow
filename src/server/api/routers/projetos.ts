@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { ProjetoEstado, Rubrica } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
+import { Prisma, ProjetoEstado, Rubrica } from "@prisma/client";
 import { handlePrismaError } from "../utils";
 import { paginationSchema } from "../schemas/common";
 import { Decimal } from "decimal.js";
@@ -686,204 +685,56 @@ export const projetoRouter = createTRPCRouter({
 
   // Criar projeto completo com workpackages, tarefas, entregáveis, materiais e alocações
   createCompleto: protectedProcedure
-    .input(
-      z.object({
-        nome: z
-          .string()
-          .min(3, "Nome deve ter pelo menos 3 caracteres")
-          .max(255, "Nome deve ter no máximo 255 caracteres"),
-        descricao: z.string().optional(),
-        inicio: z.date().optional(),
-        fim: z.date().optional(),
-        estado: z.nativeEnum(ProjetoEstado).optional().default(ProjetoEstado.RASCUNHO),
-        financiamentoId: z.number().optional(),
-        responsavelId: z.string().optional(),
-        overhead: z.number().min(0).max(100).default(0),
-        taxa_financiamento: z.number().min(0).max(100).default(0),
-        valor_eti: z.number().min(0).default(0),
-        rascunhoId: z.string().optional(), 
-        workpackages: z
-          .array(
-            z.object({
-              id: z.string().optional(),
-              nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-              descricao: z.string().optional(),
-              inicio: z.date().optional(),
-              fim: z.date().optional(),
-              estado: z.boolean().optional().default(false),
-              tarefas: z
-                .array(
-                  z.object({
-                    nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-                    descricao: z.string().optional(),
-                    inicio: z.date().optional(),
-                    fim: z.date().optional(),
-                    estado: z.boolean().optional().default(false),
-                    entregaveis: z
-                      .array(
-                        z.object({
-                          nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-                          descricao: z.string().optional(),
-                          data: z.date().optional(),
-                        })
-                      )
-                      .optional()
-                      .default([]),
-                  })
-                )
-                .optional()
-                .default([]),
-              materiais: z
-                .array(
-                  z.object({
-                    id: z.number().optional(),
-                    nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-                    preco: z
-                      .union([z.number(), z.string()])
-                      .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-                    quantidade: z.number().min(1, "Quantidade deve ser pelo menos 1"),
-                    rubrica: z.nativeEnum(Rubrica).default(Rubrica.MATERIAIS),
-                    ano_utilizacao: z
-                      .number()
-                      .int()
-                      .min(2000, "Ano deve ser válido")
-                      .max(2100, "Ano deve ser válido"),
-                  })
-                )
-                .optional()
-                .default([]),
-              recursos: z
-                .array(
-                  z.object({
-                    userId: z.string(),
-                    mes: z.number().min(1).max(12),
-                    ano: z.number().int().min(2000).max(2100),
-                    ocupacao: z
-                      .union([z.string(), z.number()])
-                      .transform((val) => (typeof val === "string" ? parseFloat(val) : val)),
-                    workpackageId: z.string().optional(),
-                  })
-                )
-                .optional()
-                .default([]),
-            })
-          )
-          .optional()
-          .default([]),
-      })
-    )
+    .input(createProjetoCompletoSchema)
     .mutation(async ({ ctx, input }) => {
       try {
+        // --- Pre-Transaction Validations ---
         if (input.inicio && input.fim) {
-          const { success } = projetoDateValidationSchema.safeParse({
-            inicio: input.inicio,
-            fim: input.fim,
-          });
-
-          if (!success) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "A data de fim deve ser posterior à data de início",
-            });
+          const parsedDates = projetoDateValidationSchema.safeParse({ inicio: input.inicio, fim: input.fim });
+          if (!parsedDates.success) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: parsedDates.error.errors.map(e => e.message).join(", ") });
           }
         }
-
         for (const wp of input.workpackages) {
           if (wp.inicio && wp.fim) {
-            if (wp.inicio > wp.fim) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: `Workpackage "${wp.nome}": A data de fim deve ser posterior à data de início`,
-              });
-            }
-
-            if (input.inicio && wp.inicio < input.inicio) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: `Workpackage "${wp.nome}": A data de início não pode ser anterior à data de início do projeto`,
-              });
-            }
-
-            if (input.fim && wp.fim > input.fim) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: `Workpackage "${wp.nome}": A data de fim não pode ser posterior à data de fim do projeto`,
-              });
-            }
+            if (wp.inicio > wp.fim) throw new TRPCError({ code: "BAD_REQUEST", message: `Workpackage "${wp.nome}": A data de fim deve ser posterior à data de início` });
+            if (input.inicio && wp.inicio < input.inicio) throw new TRPCError({ code: "BAD_REQUEST", message: `Workpackage "${wp.nome}": A data de início não pode ser anterior à data de início do projeto` });
+            if (input.fim && wp.fim > input.fim) throw new TRPCError({ code: "BAD_REQUEST", message: `Workpackage "${wp.nome}": A data de fim não pode ser posterior à data de fim do projeto` });
           }
-
           for (const tarefa of wp.tarefas) {
             if (tarefa.inicio && tarefa.fim) {
-              if (tarefa.inicio > tarefa.fim) {
-                throw new TRPCError({
-                  code: "BAD_REQUEST",
-                  message: `Tarefa "${tarefa.nome}": A data de fim deve ser posterior à data de início`,
-                });
-              }
-
-              if (wp.inicio && tarefa.inicio < wp.inicio) {
-                throw new TRPCError({
-                  code: "BAD_REQUEST",
-                  message: `Tarefa "${tarefa.nome}": A data de início não pode ser anterior à data de início do workpackage`,
-                });
-              }
-
-              if (wp.fim && tarefa.fim > wp.fim) {
-                throw new TRPCError({
-                  code: "BAD_REQUEST",
-                  message: `Tarefa "${tarefa.nome}": A data de fim não pode ser posterior à data de fim do workpackage`,
-                });
-              }
+              if (tarefa.inicio > tarefa.fim) throw new TRPCError({ code: "BAD_REQUEST", message: `Tarefa "${tarefa.nome}": A data de fim deve ser posterior à data de início` });
+              if (wp.inicio && tarefa.inicio < wp.inicio) throw new TRPCError({ code: "BAD_REQUEST", message: `Tarefa "${tarefa.nome}": A data de início não pode ser anterior à data de início do workpackage` });
+              if (wp.fim && tarefa.fim > wp.fim) throw new TRPCError({ code: "BAD_REQUEST", message: `Tarefa "${tarefa.nome}": A data de fim não pode ser posterior à data de fim do workpackage` });
             }
           }
         }
 
-        // Extrair o ID do utilizador da sessão
+        // --- Pre-Transaction Data Fetching ---
         const userId = ctx.session.user.id;
-
-        // Determinar qual ID de utilizador será usado como responsável
+        const userName = ctx.session.user.name || "Utilizador";
         const targetUserId = input.responsavelId || userId;
 
-        // Verificar se o utilizador existe
-        const userExists = await ctx.db.user.findUnique({
-          where: { id: targetUserId },
-          select: { id: true },
-        });
-
+        const userExists = await ctx.db.user.findUnique({ where: { id: targetUserId }, select: { id: true } });
         if (!userExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "O utilizador responsável especificado não existe",
-          });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "O utilizador responsável especificado não existe" });
         }
 
-        // Usar transação para garantir atomicidade das operações
-        const result = await ctx.db.$transaction(async (tx) => {
-          // Se tiver rascunhoId, verificar se existe e pertence ao utilizador
+        const admins = await ctx.db.user.findMany({ where: { permissao: "ADMIN" }, select: { id: true } });
+        const adminIds = admins.map(a => a.id);
+
+        // --- Database Transaction ---
+        // Revert to creating everything nested, except allocations which need WP IDs
+        const createdProjeto = await ctx.db.$transaction(async (tx) => {
+          // 1. Handle Rascunho
           if (input.rascunhoId) {
-            const rascunho = await tx.rascunho.findFirst({
-              where: {
-                id: input.rascunhoId,
-                userId: ctx.session.user.id,
-              },
-            });
-
-            if (!rascunho) {
-              throw new TRPCError({
-                code: "NOT_FOUND",
-                message: "Rascunho não encontrado",
-              });
+            const rascunho = await tx.rascunho.findFirst({ where: { id: input.rascunhoId, userId: ctx.session.user.id } });
+            if (rascunho) {
+              await tx.rascunho.delete({ where: { id: input.rascunhoId } });
             }
-
-            // Apagar o rascunho
-            await tx.rascunho.delete({
-              where: {
-                id: input.rascunhoId,
-              },
-            });
           }
 
-          // Criar o projeto
+          // 2. Create Projeto with nested WPs, Tarefas, Entregaveis, Materiais
           const projeto = await tx.projeto.create({
             data: {
               nome: input.nome,
@@ -894,23 +745,11 @@ export const projetoRouter = createTRPCRouter({
               overhead: input.overhead,
               taxa_financiamento: input.taxa_financiamento,
               valor_eti: input.valor_eti,
-              // Usar a sintaxe de relacionamento do Prisma para o responsável
-              responsavel: {
-                connect: {
-                  id: targetUserId,
-                },
-              },
-              ...(input.financiamentoId
-                ? {
-                    financiamento: {
-                      connect: {
-                        id: input.financiamentoId,
-                      },
-                    },
-                  }
-                : {}),
+              responsavel: { connect: { id: targetUserId } },
+              ...(input.financiamentoId ? { financiamento: { connect: { id: input.financiamentoId } } } : {}),
               workpackages: {
                 create: input.workpackages.map((wp) => ({
+                  // No frontendId needed now
                   nome: wp.nome,
                   descricao: wp.descricao,
                   inicio: wp.inicio,
@@ -932,168 +771,156 @@ export const projetoRouter = createTRPCRouter({
                       },
                     })),
                   },
+                  // Create materiais nested again
                   materiais: {
-                    create: wp.materiais.map((m) => ({
-                      nome: m.nome,
-                      preco: m.preco,
-                      quantidade: m.quantidade,
-                      rubrica: m.rubrica,
-                      ano_utilizacao: m.ano_utilizacao,
-                    })),
+                     create: wp.materiais.map((m) => {
+                       const priceAsNumber = typeof m.preco === 'string' ? parseFloat(m.preco) : m.preco;
+                       if (isNaN(priceAsNumber)) {
+                          throw new TRPCError({ code: 'BAD_REQUEST', message: `Preço inválido para material "${m.nome}" no workpackage "${wp.nome}"` });
+                       }
+                       return {
+                         nome: m.nome,
+                         preco: new Decimal(priceAsNumber),
+                         quantidade: m.quantidade,
+                         rubrica: m.rubrica,
+                         ano_utilizacao: m.ano_utilizacao,
+                       };
+                     }),
                   },
                 })),
               },
             },
+            // Include workpackages to get their IDs for resource allocation
             include: {
-              financiamento: true,
-              responsavel: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              },
-              workpackages: {
-                include: {
-                  tarefas: {
-                    include: {
-                      entregaveis: true,
-                    },
-                  },
-                  materiais: true,
-                },
-              },
+              workpackages: { select: { id: true, nome: true } }, // Include nome for mapping
             },
           });
 
-          // Criar alocações de recursos
+          // 3. Create AlocacaoRecursos (still needs separate loop after WPs are created)
+          const allocationPromises: Promise<any>[] = [];
           for (const wpInput of input.workpackages) {
-            if (!wpInput.recursos || wpInput.recursos.length === 0) continue;
-
-            const workpackage = projeto.workpackages.find((w) => w.nome === wpInput.nome);
-            if (!workpackage) continue;
+            // Find the corresponding created workpackage using nome (assuming nome is unique within this input context)
+            const createdWp = projeto.workpackages.find(pwp => pwp.nome === wpInput.nome);
+            if (!createdWp || !wpInput.recursos || wpInput.recursos.length === 0) continue;
 
             for (const recurso of wpInput.recursos) {
-              await tx.alocacaoRecurso.create({
+              const ocupacaoAsNumber = typeof recurso.ocupacao === 'string' ? parseFloat(recurso.ocupacao) : recurso.ocupacao;
+              if (isNaN(ocupacaoAsNumber)) {
+                throw new TRPCError({ code: 'BAD_REQUEST', message: `Ocupação inválida para recurso ${recurso.userId} no workpackage "${wpInput.nome}"` });
+              }
+              // Add creation to promises array to run concurrently within transaction
+              allocationPromises.push(tx.alocacaoRecurso.create({
                 data: {
-                  workpackageId: workpackage.id,
+                  workpackageId: createdWp.id,
                   userId: recurso.userId,
                   mes: recurso.mes,
                   ano: recurso.ano,
-                  ocupacao: new Decimal(recurso.ocupacao),
+                  ocupacao: new Decimal(ocupacaoAsNumber),
                 },
-              });
+              }));
             }
           }
+          // Execute all allocation creations
+          await Promise.all(allocationPromises);
 
-          // Buscar todos os admins
-          const admins = await tx.user.findMany({
-            where: {
-              permissao: "ADMIN"
-            },
-            select: {
-              id: true
-            }
-          });
+          // Return the created project (only ID needed for post-transaction)
+          return { id: projeto.id }; // Return just the ID
 
-          // Criar notificações
-          const notificacoes = [];
+        }, { timeout: 10000 }); // Timeout can likely be reduced now
 
-          // Notificação para o responsável
-          notificacoes.push(
-            tx.notificacao.create({
+        // --- Post-Transaction Notifications ---
+        const notificationPromises: Promise<any>[] = [];
+        const recursosAlocadosUnicos = new Set<string>();
+
+        // Use createdProjeto.id which contains the ID returned from transaction
+        const projectId = createdProjeto.id;
+
+        notificationPromises.push(ctx.db.notificacao.create({
+          data: {
+            titulo: `Novo projeto criado: ${input.nome}`,
+            descricao: `O projeto "${input.nome}" foi criado e você é o responsável.`,
+            entidade: "PROJETO", entidadeId: projectId, urgencia: "MEDIA",
+            destinatario: { connect: { id: targetUserId } }, estado: "NAO_LIDA",
+          },
+        }));
+
+        adminIds.forEach(adminId => {
+          if (adminId !== targetUserId) {
+            notificationPromises.push(ctx.db.notificacao.create({
               data: {
-                titulo: `Novo projeto criado: ${input.nome}`,
-                descricao: `O projeto "${input.nome}" foi criado e você é o responsável.`,
-                entidade: "PROJETO",
-                entidadeId: projeto.id,
-                urgencia: "MEDIA",
-                destinatario: {
-                  connect: { id: targetUserId },
-                },
-                estado: "NAO_LIDA",
+                titulo: `Novo projeto criado por ${userName}`,
+                descricao: `Um novo projeto "${input.nome}" foi criado.`,
+                entidade: "PROJETO", entidadeId: projectId, urgencia: "MEDIA",
+                destinatario: { connect: { id: adminId } }, estado: "NAO_LIDA",
               },
-            })
-          );
-
-          // Notificação para cada admin (exceto se for o próprio criador/responsável)
-          for (const admin of admins) {
-            if (admin.id !== targetUserId) {
-              notificacoes.push(
-                tx.notificacao.create({
-                  data: {
-                    titulo: `Novo projeto criado por ${ctx.session.user.name}`,
-                    descricao: `Um novo projeto "${input.nome}" foi criado.`,
-                    entidade: "PROJETO",
-                    entidadeId: projeto.id,
-                    urgencia: "MEDIA",
-                    destinatario: {
-                      connect: { id: admin.id },
-                    },
-                    estado: "NAO_LIDA",
-                  },
-                })
-              );
-            }
+            }));
           }
+        });
 
-          // Notificações para recursos alocados
-          const recursosUnicos = new Set<string>();
-          for (const wp of input.workpackages) {
-            for (const recurso of wp.recursos) {
-              if (!recursosUnicos.has(recurso.userId)) {
-                recursosUnicos.add(recurso.userId);
-                notificacoes.push(
-                  tx.notificacao.create({
-                    data: {
-                      titulo: `Nova alocação no projeto ${input.nome}`,
-                      descricao: `Você foi alocado no projeto "${input.nome}".`,
-                      entidade: "ALOCACAO",
-                      entidadeId: projeto.id,
-                      urgencia: "MEDIA",
-                      destinatario: {
-                        connect: { id: recurso.userId },
-                      },
-                      estado: "NAO_LIDA",
-                    },
-                  })
-                );
+        for (const wpInput of input.workpackages) {
+          for (const recurso of wpInput.recursos) {
+            if (!recursosAlocadosUnicos.has(recurso.userId)) {
+              recursosAlocadosUnicos.add(recurso.userId);
+              if (recurso.userId !== targetUserId) {
+                notificationPromises.push(ctx.db.notificacao.create({
+                  data: {
+                    titulo: `Nova alocação no projeto ${input.nome}`,
+                    descricao: `Você foi alocado no projeto "${input.nome}".`,
+                    entidade: "ALOCACAO", entidadeId: projectId,
+                    urgencia: "MEDIA",
+                    destinatario: { connect: { id: recurso.userId } }, estado: "NAO_LIDA",
+                  },
+                }));
               }
             }
           }
+        }
 
-          // Executar criação das notificações
-          const notificacoesCriadas = await Promise.all(notificacoes);
-
-          // Emitir eventos para cada notificação criada
-          console.log("[Notificações Projeto] Iniciando emissão de eventos:", {
-            count: notificacoesCriadas.length,
-            projetoId: projeto.id,
-            timestamp: new Date().toISOString(),
+        try {
+          const notificacoesCriadas = await Promise.all(notificationPromises);
+          console.log("[Notificações Projeto] Emitting events:", { count: notificacoesCriadas.length, projetoId: projectId });
+          notificacoesCriadas.forEach(notificacao => {
+            try { ee.emit("notificacao", notificacao); }
+            catch (emitError) { console.error(`[Notificações Projeto] Failed to emit event for notification ${notificacao?.id}:`, emitError); }
           });
+        } catch (notificationError) {
+          console.error("[Notificações Projeto] Failed to create notifications after transaction:", notificationError);
+        }
 
-          for (const notificacao of notificacoesCriadas) {
-            console.log("[Notificações Projeto] Emitindo notificação:", {
-              id: notificacao.id,
-              destinatario: notificacao.destinatarioId,
-              tipo: notificacao.entidade,
-              titulo: notificacao.titulo,
-              timestamp: new Date().toISOString(),
-            });
-            ee.emit("notificacao", notificacao);
-          }
-
-          return { projeto };
+        // --- Return Final Data ---
+        const finalProjectData = await ctx.db.projeto.findUnique({
+          where: { id: projectId },
+          include: {
+            financiamento: true,
+            responsavel: { select: { id: true, name: true, email: true } },
+            workpackages: {
+              include: {
+                tarefas: { include: { entregaveis: true } },
+                materiais: true,
+                recursos: { include: { user: { select: { id: true, name: true } } } }
+              }
+            }
+          },
         });
+
+        if (!finalProjectData) {
+          console.error(`Failed to fetch created project data post-transaction: ${projectId}`);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Projeto criado, mas ocorreu um erro ao buscar os dados finais." });
+        }
 
         return {
           success: true,
-          data: result.projeto,
+          data: finalProjectData,
         };
       } catch (error) {
-        console.error("Erro ao criar projeto completo:", error);
-        if (error instanceof TRPCError) {
-          throw error;
+        console.error("Erro detalhado ao criar projeto completo:", error);
+        if (error instanceof TRPCError) throw error;
+        if (error instanceof z.ZodError) {
+          const validationErrors = error.errors.map(e => `${e.path.join('.') || 'input'}: ${e.message}`).join('; ');
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Erro de validação: ${validationErrors}`, cause: error });
+        }
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+             console.error("Prisma Error Code:", error.code);
         }
         return handlePrismaError(error);
       }

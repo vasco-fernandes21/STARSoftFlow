@@ -1,14 +1,12 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/prisma/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare, hash } from "bcryptjs";
 import { ZodError } from "zod";
 import { loginSchema } from "./api/schemas/auth";
 import { z } from "zod";
 import { cookies } from "next/headers";
-
-const prisma = new PrismaClient();
 
 // Schema para validação do token e senha
 const tokenValidationSchema = z.object({
@@ -74,6 +72,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const user = await prisma.user.findUnique({
             where: { email },
             include: { password: true },
+            cacheStrategy: { ttl: 60 } as never,
           });
 
           if (!user || !user.password) {

@@ -234,7 +234,7 @@ export default function Notificacoes() {
     handleOpenDeleteDialog();
   }, [selectedIds, handleOpenDeleteDialog]);
 
-  // Filtrar notificações baseado na aba e termo de pesquisa
+  // Filtrar notificações baseado no separador e termo de pesquisa
   const filteredNotificacoes = useMemo(() => {
     let filtered = notificacoes;
     

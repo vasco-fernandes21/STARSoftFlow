@@ -603,7 +603,7 @@ export default function DetalheProjeto() {
     error,
   } = api.projeto.findById.useQuery(id, {
     enabled: !!id,
-    staleTime: 30 * 1000, // 30 segundos
+    staleTime: 30 * 1000, 
   });
 
   // Query para obter os financiamentos
