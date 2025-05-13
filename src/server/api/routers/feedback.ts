@@ -65,7 +65,6 @@ export const feedbackRouter = createTRPCRouter({
             imageBuffer,
             input.image.type,
             feedback.id,
-            input.image.name
           );
 
           imageUrl = blob.url;

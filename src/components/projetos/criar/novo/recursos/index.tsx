@@ -297,11 +297,6 @@ export function RecursosTab({ onNavigateBack, onNavigateForward }: RecursosTabPr
                 </Button>
               }
               onSuccess={() => {
-                // Atualizar lista de membros ao criar contratado
-                if (typeof window !== "undefined") {
-                  // Forçar refetch se necessário
-                  window.location.reload();
-                }
               }}
             />
           </div>

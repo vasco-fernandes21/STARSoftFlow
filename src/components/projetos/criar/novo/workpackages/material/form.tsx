@@ -9,6 +9,8 @@ import {
   MoneyField,
   SelectField,
   NumberField,
+  DecimalField,
+  IntegerField,
 } from "@/components/projetos/criar/components/FormFields";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -112,8 +114,8 @@ export function Form({
   // Estado do formulário
   const [nome, setNome] = useState(initialValues?.nome || "");
   const [descricao, setDescricao] = useState<string | null>(initialValues?.descricao || null);
-  const [precoStr, setPrecoStr] = useState(initialValues?.preco ? String(initialValues.preco) : '');
-  const [quantidadeStr, setQuantidadeStr] = useState(initialValues?.quantidade ? String(initialValues.quantidade) : '');
+  const [preco, setPreco] = useState<number | null>(initialValues?.preco || null);
+  const [quantidade, setQuantidade] = useState<number | null>(initialValues?.quantidade || null);
   const [anoUtilizacao, setAnoUtilizacao] = useState(
     initialValues?.ano_utilizacao || new Date().getFullYear()
   );
@@ -150,8 +152,8 @@ export function Form({
     if (initialValues) {
       setNome(initialValues.nome);
       setDescricao(initialValues.descricao);
-      setPrecoStr(initialValues.preco ? String(initialValues.preco) : '');
-      setQuantidadeStr(initialValues.quantidade ? String(initialValues.quantidade) : '');
+      setPreco(initialValues.preco);
+      setQuantidade(initialValues.quantidade);
       setAnoUtilizacao(initialValues.ano_utilizacao);
       setAnoUtilizacaoStr(String(initialValues.ano_utilizacao));
       setMes(initialValues.mes || new Date().getMonth() + 1);
@@ -181,11 +183,11 @@ export function Form({
       novosErros.nome = "Nome deve ter pelo menos 3 caracteres";
     }
 
-    if (precoStr === '') {
+    if (!preco || preco <= 0) {
       novosErros.preco = "O preço deve ser maior que zero";
     }
 
-    if (quantidadeStr === '') {
+    if (!quantidade || quantidade <= 0) {
       novosErros.quantidade = "A quantidade deve ser maior que zero";
     }
 
@@ -202,21 +204,19 @@ export function Form({
     e.preventDefault();
 
     if (validarFormulario()) {
-      const precoNum = parseFloat(precoStr) || 0;
-      const quantidadeNum = parseInt(quantidadeStr, 10) || 0;
-      if (precoNum <= 0) {
+      if (!preco || preco <= 0) {
         setErros((prev) => ({ ...prev, preco: 'O preço deve ser maior que zero' }));
         return;
       }
-      if (quantidadeNum <= 0) {
+      if (!quantidade || quantidade <= 0) {
         setErros((prev) => ({ ...prev, quantidade: 'A quantidade deve ser maior que zero' }));
         return;
       }
       const materialData = {
         nome,
         descricao: descricao === '' ? null : descricao,
-        preco: precoNum,
-        quantidade: quantidadeNum,
+        preco,
+        quantidade,
         ano_utilizacao: anoUtilizacao,
         mes,
         rubrica,
@@ -322,19 +322,21 @@ export function Form({
             <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
               <MoneyField
                 label="Preço Unitário"
-                value={precoStr || ''}
-                onChange={(value) => typeof value === 'string' ? setPrecoStr(value) : setPrecoStr('')}
+                value={preco}
+                onChange={setPreco}
+                tooltip="Preço unitário do material em euros (€), com até 3 casas decimais"
                 required
                 helpText={erros.preco}
               />
 
-              <NumberField
+              <IntegerField
                 label="Quantidade"
-                value={quantidadeStr || ''}
-                onChange={(value) => typeof value === 'string' ? setQuantidadeStr(value) : setQuantidadeStr('')}
-                min={undefined}
+                value={quantidade}
+                onChange={setQuantidade}
+                step={1}
                 required
                 helpText={erros.quantidade}
+                tooltip="Quantidade inteira, maior ou igual a zero"
               />
             </div>
           </div>

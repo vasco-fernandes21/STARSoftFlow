@@ -50,7 +50,6 @@ export async function uploadFeedbackAttachment(
   fileBuffer: Buffer,
   contentType: string,
   feedbackId: string,
-  fileName: string
 ): Promise<PutBlobResult> {
   if (!isFeedbackMimeType(contentType)) {
     throw new Error('Tipo de ficheiro inválido para o anexo do feedback');

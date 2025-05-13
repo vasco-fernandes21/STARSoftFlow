@@ -15,7 +15,7 @@ import {
 import { UserPlus } from "lucide-react";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { TextField, TextareaField, DecimalField } from "@/components/projetos/criar/components/FormFields";
+import { TextField, TextareaField, MoneyField } from "@/components/projetos/criar/components/FormFields";
 
 interface FormContratadoProps {
   onSuccess?: (userId: string) => void;
@@ -36,50 +36,55 @@ export function FormContratado({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange 
 }: FormContratadoProps) {
-  console.log("[FormContratado] Inicializado com props:", {
-    hasOnSuccess: !!onSuccess,
-    hasTrigger: !!trigger,
-    defaultValues,
-    controlledOpen,
-    hasOnOpenChange: !!controlledOnOpenChange
-  });
+  // console.log("[FormContratado] Inicializado com props:", {
+  //   hasOnSuccess: !!onSuccess,
+  //   hasTrigger: !!trigger,
+  //   defaultValues,
+  //   controlledOpen,
+  //   hasOnOpenChange: !!controlledOnOpenChange
+  // });
 
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const parseSalario = (salarioStr: string | undefined): number | null => {
+    if (salarioStr === undefined || salarioStr.trim() === "") return null;
+    const num = parseFloat(salarioStr.replace(",", "."));
+    return isNaN(num) ? null : num;
+  };
+
   const [formValues, setFormValues] = useState({
     identificacao: defaultValues?.identificacao || "",
     descricao: defaultValues?.descricao || "",
-    salario: defaultValues?.salario || "",
+    salario: parseSalario(defaultValues?.salario),
     contratado: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const utils = api.useUtils();
 
-  // Usar estado controlado se fornecido, caso contrário usar estado interno
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
-  console.log("[FormContratado] Estado atual:", {
-    open,
-    isControlled: controlledOpen !== undefined,
-    formValues
-  });
+  // console.log("[FormContratado] Estado atual:", {
+  //   open,
+  //   isControlled: controlledOpen !== undefined,
+  //   formValues
+  // });
 
-  // Atualizar valores do formulário quando defaultValues mudar
   useEffect(() => {
-    console.log("[FormContratado] defaultValues mudou:", defaultValues);
+    // console.log("[FormContratado] defaultValues mudou:", defaultValues);
     if (defaultValues) {
       setFormValues(prev => ({
         ...prev,
         identificacao: defaultValues.identificacao || prev.identificacao,
         descricao: defaultValues.descricao || prev.descricao,
-        salario: defaultValues.salario || prev.salario,
+        salario: parseSalario(defaultValues.salario) ?? prev.salario,
       }));
     }
   }, [defaultValues]);
 
   const resetFormAndClose = () => {
-    setFormValues({ identificacao: "", descricao: "", salario: "", contratado: true });
+    setFormValues({ identificacao: "", descricao: "", salario: null, contratado: true });
     setErrors({});
     setIsSubmitting(false);
     setOpen(false);
@@ -90,12 +95,7 @@ export function FormContratado({
     if (!formValues.identificacao?.trim()) {
       newErrors.identificacao = "Identificação é obrigatória";
     }
-    if (formValues.salario && isNaN(Number(formValues.salario))) {
-      newErrors.salario = "Valor inválido";
-    }
-    // Garantir no máximo 2 casas decimais
-    if (formValues.salario && !/^\d+(\.\d{1,2})?$/.test(formValues.salario)) {
-      newErrors.salario = "Máximo 2 casas decimais";
+    if (formValues.salario === null && defaultValues?.salario?.trim() !== "" && defaultValues?.salario !== undefined) {
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -103,12 +103,12 @@ export function FormContratado({
 
   const createUserMutation = api.utilizador.create.useMutation({
     onSuccess: (data) => {
-      console.log(`[Contratado] Criado com sucesso: ${data.name} (ID: ${data.id})`);
+      // console.log(`[Contratado] Criado com sucesso: ${data.name} (ID: ${data.id})`);
       toast.success(`Contratado ${data.name} criado com sucesso!`);
       utils.utilizador.findAll.invalidate();
       resetFormAndClose();
       if (onSuccess && data.id) {
-        console.log(`[Contratado] Chamando onSuccess com ID: ${data.id}`);
+        // console.log(`[Contratado] Chamando onSuccess com ID: ${data.id}`);
         onSuccess(data.id);
       }
     },
@@ -126,7 +126,7 @@ export function FormContratado({
       const userData = {
         name: formValues.identificacao.trim(),
         informacoes: formValues.descricao.trim() || undefined,
-        salario: formValues.salario ? Number(formValues.salario) : undefined,
+        salario: formValues.salario !== null ? formValues.salario : undefined,
         contratado: true,
       };
       createUserMutation.mutate(userData);
@@ -137,17 +137,12 @@ export function FormContratado({
   };
 
   const handleChange = (field: string, value: string | number | null) => {
-    if (field === "salario" && value !== null && value !== "") {
-      // Limitar a 2 casas decimais e garantir formato correto
-      let numericValue = typeof value === "string" ? value.replace(",", ".") : value;
-      // Permitir digitação parcial mas formatar apenas se válido
-      if (/^\d*(\.?\d{0,2})?$/.test(numericValue.toString())) {
-        setFormValues((prev) => ({ ...prev, [field]: numericValue.toString() }));
-      }
+    if (field === "salario") {
+      setFormValues((prev) => ({ ...prev, salario: value as number | null }));
     } else {
       setFormValues((prev) => ({ 
         ...prev, 
-        [field]: value !== null ? value.toString() : "" 
+        [field]: value !== null ? String(value) : ""
       }));
     }
     if (errors[field]) {
@@ -197,13 +192,11 @@ export function FormContratado({
             />
 
             {/* Salário */}
-            <DecimalField
+            <MoneyField
               label="€/Mês"
               value={formValues.salario}
               onChange={(value) => handleChange("salario", value)}
-              step={1}
-              min={0}
-              max={100000}
+              placeholder="0,000"
               helpText={errors.salario}
             />
           </div>

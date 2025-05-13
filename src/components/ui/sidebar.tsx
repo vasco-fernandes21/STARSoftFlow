@@ -18,6 +18,7 @@ import {
   Euro,
   MessageSquare,
   Bell,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const menuItems: MenuItem[] = [
   { icon: Euro, label: "Atividade Económica", href: "/atividade-economica", requiredPermission: "ADMIN" },
   { icon: Bell, label: "Notificações", href: "/notificacoes", requiredPermission: null },
   { icon: MessageSquare, label: "Erros & Feedback", href: "/feedback", requiredPermission: null },
+  { icon: FileText, label: "Documentação", href: "/documentacao", requiredPermission: null },
 ];
 
 // Novo componente NotificationBadge

@@ -5,14 +5,10 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { 
   Calendar, 
-  Clock, 
-  AlertTriangle, 
   Briefcase, 
-  TrendingUp, 
   Package, 
   Bell,
   FileEdit,
-  XCircle,
   CheckCircle2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -21,7 +17,7 @@ import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { api } from "@/trpc/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   ResponsiveContainer,

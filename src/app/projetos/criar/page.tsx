@@ -121,7 +121,7 @@ function ProjetoFormContent() {
         }
 
         toast.success("Projeto criado com sucesso!");
-        router.push(`/projetos/${data.data.id}`);
+        router.push(`/projetos/${data.data?.id}`);
       } else {
         toast.error("Erro ao criar projeto");
       }

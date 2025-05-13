@@ -1,25 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProjetoForm } from "../../ProjetoFormContext";
 import { TabTitle } from "../../components/TabTitle";
 import { TabNavigation } from "../../components/TabNavigation";
 import {
-  FileText,
-  Calendar,
-  Euro,
-  Users,
   AlertCircle,
-  ClipboardCheck,
-  Code,
-  Copy,
-  Check,
+  Calendar,
   ChevronDown,
   ChevronUp,
+  Circle,
+  Clock,
+  Code,
+  Copy,
+  Euro,
+  FileText,
+  Info,
+  Package,
+  Percent,
+  Check,
+  Users,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ProjetoCronograma } from "../../ProjetoCronograma";
 
 interface ResumoTabProps {
   onNavigateBack: () => void;
@@ -31,6 +36,7 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
   const { state } = useProjetoForm();
   const [showDevTools, setShowDevTools] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showCronograma, setShowCronograma] = useState(false);
 
   // Verificar se o projeto está completo
   const isProjetoValido = Boolean(
@@ -44,18 +50,39 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
   );
 
   // Formatar data
-  const formatarData = (data: Date | string | null | undefined) => {
-    if (!data) return "Não definida";
-    return data instanceof Date
-      ? data.toLocaleDateString("pt-PT")
-      : new Date(data).toLocaleDateString("pt-PT");
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return "Não definida";
+    return date instanceof Date
+      ? date.toLocaleDateString("pt-PT")
+      : new Date(date).toLocaleDateString("pt-PT");
   };
 
-  // Formatar valor numérico
-  const formatarNumero = (valor: any, sufixo = "") => {
-    if (valor === undefined || valor === null) return "Não definido";
-    return `${Number(valor)}${sufixo}`;
+  // Formatar valor para percentagem
+  const formatPercent = (value: any) => {
+    if (value === undefined || value === null) return "Não definido";
+    return `${Number(value * 100).toFixed(1)}%`;
   };
+
+  // Formatar valor para moeda
+  const formatCurrency = (value: any) => {
+    if (value === undefined || value === null) return "Não definido";
+    return Number(value).toLocaleString("pt-PT", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 2,
+    });
+  };
+
+  // Calcular dados do projeto
+  const totalTarefas = state.workpackages?.reduce(
+    (total, wp) => total + (wp.tarefas?.length || 0),
+    0
+  ) || 0;
+
+  const totalRecursos = state.workpackages?.reduce((total, wp) => {
+    const usuarios = new Set((wp.recursos || []).map((r) => r.userId));
+    return total + usuarios.size;
+  }, 0) || 0;
 
   // Copiar JSON para o clipboard
   const copyToClipboard = () => {
@@ -73,227 +100,260 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
       <TabTitle
         title="Resumo do Projeto"
         subtitle="Revise as informações antes de finalizar"
-        icon={<ClipboardCheck className="h-5 w-5" />}
+        icon={<FileText className="h-5 w-5" />}
       />
 
       <div className="flex-1 p-6">
         {!isProjetoValido && (
-          <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-4 text-red-800">
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-5 w-5" />
               <h4 className="font-medium">Informações Incompletas</h4>
             </div>
-            <p className="ml-6 mt-1 text-sm">
-              Algumas informações obrigatórias estão em falta. Por favor, revise as secções
+            <p className="ml-6 mt-1 text-sm text-red-700">
+              Algumas informações obrigatórias estão em falta. Por favor, preencha as secções
               anteriores.
             </p>
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* Secção de Ferramentas de Developer */}
-          <Card className="border-2 border-blue-300 bg-blue-50/30">
-            <CardHeader className="pb-2">
-              <div
-                className="flex cursor-pointer items-center justify-between"
-                onClick={() => setShowDevTools(!showDevTools)}
-              >
-                <div className="flex items-center">
-                  <Code className="mr-2 h-4 w-4 text-blue-600" />
-                  <CardTitle className="text-base text-blue-700">
-                    Ferramentas de Desenvolvimento
-                  </CardTitle>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Coluna 1: Informações Principais */}
+          <div className="flex flex-col gap-6">
+            {/* Informações Básicas */}
+            <div className="overflow-hidden rounded-xl border border-azul/10 bg-white shadow-sm">
+              <div className="border-b border-azul/10 bg-white px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-azul/60" />
+                  <h3 className="font-medium text-azul/90">Informações Básicas</h3>
                 </div>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  {showDevTools ? (
-                    <ChevronUp className="h-4 w-4 text-blue-600" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-blue-600" />
-                  )}
-                </Button>
               </div>
-              <CardDescription className="text-blue-600/80">
-                Visualização do estado completo do projeto em formato JSON para fins de
-                desenvolvimento
-              </CardDescription>
-            </CardHeader>
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="mb-1 text-sm font-medium text-azul/60">Nome do Projeto</h4>
+                    <p className="text-base text-azul/90">{state.nome || "Não definido"}</p>
+                  </div>
+                  
+                  {state.descricao && (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-azul/60">Descrição</h4>
+                      <p className="rounded-lg bg-azul/5 p-3 text-sm leading-relaxed text-azul/80">
+                        {state.descricao}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
-            {showDevTools && (
-              <CardContent>
-                <div className="mb-2 flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={copyToClipboard}
-                    className="h-8 rounded-lg border-blue-200 bg-blue-50 text-xs text-blue-700 hover:bg-blue-100"
+            {/* Datas do Projeto */}
+            <div className="overflow-hidden rounded-xl border border-azul/10 bg-white shadow-sm">
+              <div className="border-b border-azul/10 bg-white px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-azul/60" />
+                  <h3 className="font-medium text-azul/90">Cronograma</h3>
+                </div>
+              </div>
+              <div className="divide-y divide-azul/5 rounded-b-xl">
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-azul/5">
+                      <Calendar className="h-4 w-4 text-azul/60" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-azul/60">Data de Início</p>
+                      <p className="font-medium text-azul/90">{formatDate(state.inicio)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-azul/5">
+                      <Calendar className="h-4 w-4 text-azul/60" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-azul/60">Data de Conclusão</p>
+                      <p className="font-medium text-azul/90">{formatDate(state.fim)}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3">
+                  <Button 
+                    onClick={() => setShowCronograma(true)}
+                    variant="outline" 
+                    className="w-full gap-2 rounded-lg border-azul/20 text-azul/80 hover:bg-azul/5"
                   >
-                    {copied ? (
-                      <>
-                        <Check className="mr-1.5 h-3.5 w-3.5" /> Copiado
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar JSON
-                      </>
-                    )}
+                    <Clock className="h-4 w-4" />
+                    Ver Cronograma
                   </Button>
                 </div>
-
-                <ScrollArea className="h-[400px] rounded-md border border-blue-200 bg-blue-50/50">
-                  <pre className="p-4 font-mono text-xs text-blue-900">
-                    {JSON.stringify(state, null, 2)}
-                  </pre>
-                </ScrollArea>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Informações Básicas */}
-          <Card className="border-azul/10">
-            <CardHeader className="pb-2">
-              <div className="flex items-center">
-                <FileText className="mr-2 h-4 w-4 text-azul/60" />
-                <CardTitle className="text-base">Informações Básicas</CardTitle>
               </div>
-            </CardHeader>
-            <CardContent>
-              <dl className="space-y-2">
-                <div className="flex justify-between">
-                  <dt className="text-sm text-azul/60">Nome</dt>
-                  <dd className="text-sm font-medium">{state.nome || "Não definido"}</dd>
-                </div>
-                {state.descricao && (
-                  <div>
-                    <dt className="mb-1 text-sm text-azul/60">Descrição</dt>
-                    <dd className="rounded-md bg-azul/5 p-3 text-sm">{state.descricao}</dd>
-                  </div>
-                )}
-              </dl>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Datas */}
-          <Card className="border-azul/10">
-            <CardHeader className="pb-2">
-              <div className="flex items-center">
-                <Calendar className="mr-2 h-4 w-4 text-azul/60" />
-                <CardTitle className="text-base">Datas do Projeto</CardTitle>
+          {/* Coluna 2: Workpackages e Recursos */}
+          <div className="flex flex-col gap-6">
+            {/* Finances */}
+            <div className="overflow-hidden rounded-xl border border-azul/10 bg-white shadow-sm">
+              <div className="border-b border-azul/10 bg-white px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Euro className="h-4 w-4 text-azul/60" />
+                  <h3 className="font-medium text-azul/90">Informações Financeiras</h3>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-4">
-                <div>
-                  <dt className="text-sm text-azul/60">Data de Início</dt>
-                  <dd className="text-sm font-medium">{formatarData(state.inicio)}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-azul/60">Data de Conclusão</dt>
-                  <dd className="text-sm font-medium">{formatarData(state.fim)}</dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
-
-          {/* Finanças */}
-          <Card className="border-azul/10">
-            <CardHeader className="pb-2">
-              <div className="flex items-center">
-                <Euro className="mr-2 h-4 w-4 text-azul/60" />
-                <CardTitle className="text-base">Informações Financeiras</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-3 gap-4">
-                <div>
-                  <dt className="text-sm text-azul/60">Overhead</dt>
-                  <dd className="text-sm font-medium">{formatarNumero(state.overhead, "%")}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-azul/60">Taxa de Financiamento</dt>
-                  <dd className="text-sm font-medium">
-                    {formatarNumero(state.taxa_financiamento, "%")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-azul/60">Valor ETI</dt>
-                  <dd className="text-sm font-medium">{formatarNumero(state.valor_eti, "€")}</dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
-
-          {/* Workpackages */}
-          <Card className="border-azul/10">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <FileText className="mr-2 h-4 w-4 text-azul/60" />
-                  <CardTitle className="text-base">Workpackages</CardTitle>
-                </div>
-                <Badge variant="outline" className="bg-azul/5">
-                  {state.workpackages?.length || 0} workpackage(s)
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {state.workpackages && state.workpackages.length > 0 ? (
-                <ScrollArea className="h-[200px]">
-                  <div className="space-y-3">
-                    {state.workpackages.map((wp, _index) => (
-                      <div key={wp.id} className="rounded-md border border-azul/10 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                          <h4 className="text-sm font-medium">{wp.nome}</h4>
-                          <Badge variant="outline" className="text-xs">
-                            {formatarData(wp.inicio)} - {formatarData(wp.fim)}
-                          </Badge>
-                        </div>
-
-                        {wp.descricao && (
-                          <p className="mb-2 text-xs text-azul/70">{wp.descricao.toString()}</p>
-                        )}
-
-                        <div className="flex gap-2 text-xs">
-                          {wp.tarefas?.length ? (
-                            <Badge variant="secondary" className="bg-azul/5 text-xs">
-                              {wp.tarefas.length} tarefa(s)
-                            </Badge>
-                          ) : null}
-
-                          {wp.recursos?.length ? (
-                            <Badge variant="secondary" className="bg-azul/5 text-xs">
-                              {wp.recursos.length} alocação(ões)
-                            </Badge>
-                          ) : null}
-                        </div>
+              <div className="divide-y divide-azul/5 rounded-b-xl">
+                <div className="grid grid-cols-2 divide-x divide-azul/5">
+                  <div className="p-4">
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-azul/5">
+                        <Percent className="h-5 w-5 text-azul/60" />
                       </div>
-                    ))}
+                      <p className="text-xs text-azul/60">Overhead</p>
+                      <p className="text-base font-medium text-azul/90">
+                        {formatPercent(state.overhead)}
+                      </p>
+                    </div>
                   </div>
-                </ScrollArea>
-              ) : (
-                <p className="py-4 text-center text-sm text-azul/60">Nenhum workpackage definido</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recursos */}
-          <Card className="border-azul/10">
-            <CardHeader className="pb-2">
-              <div className="flex items-center">
-                <Users className="mr-2 h-4 w-4 text-azul/60" />
-                <CardTitle className="text-base">Recursos</CardTitle>
+                  <div className="p-4">
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-azul/5">
+                        <Percent className="h-5 w-5 text-azul/60" />
+                      </div>
+                      <p className="text-xs text-azul/60">Taxa de Financiamento</p>
+                      <p className="text-base font-medium text-azul/90">
+                        {formatPercent(state.taxa_financiamento)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-azul/5">
+                      <Euro className="h-5 w-5 text-azul/60" />
+                    </div>
+                    <p className="text-xs text-azul/60">Valor ETI</p>
+                    <p className="text-base font-medium text-azul/90">
+                      {formatCurrency(state.valor_eti)}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {state.workpackages?.some((wp) => wp.recursos?.length) ? (
-                <p className="text-sm">
-                  O projeto tem recursos alocados em{" "}
-                  {state.workpackages.filter((wp) => wp.recursos?.length).length} workpackage(s).
-                </p>
-              ) : (
-                <p className="py-2 text-center text-sm text-azul/60">Nenhum recurso alocado</p>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+            
+            {/* Estatísticas */}
+            <div className="overflow-hidden rounded-xl border border-azul/10 bg-white shadow-sm">
+              <div className="border-b border-azul/10 bg-white px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-azul/60" />
+                  <h3 className="font-medium text-azul/90">Estatísticas do Projeto</h3>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-azul/5 rounded-b-xl">
+                <div className="p-4">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-azul/5">
+                      <FileText className="h-5 w-5 text-azul/60" />
+                    </div>
+                    <p className="text-xs text-azul/60">Workpackages</p>
+                    <p className="text-xl font-medium text-azul/90">
+                      {state.workpackages?.length || 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-azul/5">
+                      <Check className="h-5 w-5 text-azul/60" />
+                    </div>
+                    <p className="text-xs text-azul/60">Tarefas</p>
+                    <p className="text-xl font-medium text-azul/90">{totalTarefas}</p>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-azul/5">
+                      <Users className="h-5 w-5 text-azul/60" />
+                    </div>
+                    <p className="text-xs text-azul/60">Recursos</p>
+                    <p className="text-xl font-medium text-azul/90">{totalRecursos}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Coluna 3: Lista de Workpackages */}
+          <div className="flex flex-col gap-6">
+            {/* Workpackages List */}
+            <div className="overflow-hidden rounded-xl border border-azul/10 bg-white shadow-sm">
+              <div className="border-b border-azul/10 bg-white px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-azul/60" />
+                    <h3 className="font-medium text-azul/90">Workpackages</h3>
+                  </div>
+                  <Badge variant="outline" className="bg-azul/5 text-azul/80">
+                    {state.workpackages?.length || 0} workpackage(s)
+                  </Badge>
+                </div>
+              </div>
+              <ScrollArea className="h-[450px]">
+                <div className="p-4">
+                  <div className="space-y-3">
+                    {state.workpackages && state.workpackages.length > 0 ? (
+                      state.workpackages.map((wp) => (
+                        <div
+                          key={wp.id}
+                          className="overflow-hidden rounded-lg border border-azul/10 transition-all hover:border-azul/20 hover:shadow-sm"
+                        >
+                          <div className="border-b border-azul/5 bg-white p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-azul/5">
+                                  <Package className="h-3.5 w-3.5 text-azul/70" />
+                                </div>
+                                <h4 className="font-medium text-azul/90">{wp.nome}</h4>
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {formatDate(wp.inicio)} - {formatDate(wp.fim)}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="divide-y divide-azul/5 bg-white/50">
+                            {wp.descricao && (
+                              <div className="p-3">
+                                <p className="text-xs text-azul/70">{wp.descricao.toString()}</p>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-2 p-3">
+                              {wp.tarefas?.length ? (
+                                <Badge variant="outline" className="bg-azul/5 text-xs text-azul/70">
+                                  <Check className="mr-1 h-3 w-3" />
+                                  {wp.tarefas.length} {wp.tarefas.length === 1 ? "tarefa" : "tarefas"}
+                                </Badge>
+                              ) : null}
+
+                              {wp.recursos?.length ? (
+                                <Badge variant="outline" className="bg-azul/5 text-xs text-azul/70">
+                                  <Users className="mr-1 h-3 w-3" />
+                                  {new Set(wp.recursos.map(r => r.userId)).size} {new Set(wp.recursos.map(r => r.userId)).size === 1 ? "recurso" : "recursos"} 
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-azul/20 p-6 text-center">
+                        <p className="text-sm text-azul/60">Nenhum workpackage definido</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -307,6 +367,20 @@ export function ResumoTab({ onNavigateBack, onSubmit, isSubmitting }: ResumoTabP
         isSubmitDisabled={!isProjetoValido}
         className="border-t border-azul/10 pt-4"
       />
+
+      {/* Cronograma Dialog */}
+      <Dialog open={showCronograma} onOpenChange={setShowCronograma}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-medium text-azul/90">
+              Cronograma do Projeto
+            </DialogTitle>
+          </DialogHeader>
+          <div className="h-[500px] w-full">
+            <ProjetoCronograma state={state} height="100%" />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
