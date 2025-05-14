@@ -1040,114 +1040,257 @@ export const financasRouter = createTRPCRouter({
     .input(
       z.object({
         projetoId: z.string().uuid("ID do projeto inválido"),
-        ano: z.number().int().min(1900).optional(),
-        workpackageId: z.string().uuid("ID do workpackage inválido").optional(),
+        tipoVisualizacao: z.enum(["year", "workpackage"]),
       })
     )
     .query(async ({ ctx, input }) => {
-      const { projetoId, ano, workpackageId } = input;
+      const { projetoId, tipoVisualizacao } = input;
 
       const projeto = await ctx.db.projeto.findUnique({
         where: { id: projetoId },
-        select: { estado: true, valor_eti: true, aprovado: true },
+        select: { 
+          estado: true, 
+          valor_eti: true, 
+          aprovado: true,
+          inicio: true,
+          fim: true,
+          workpackages: {
+            select: {
+              id: true,
+              nome: true,
+            }
+          }
+        },
       });
 
       if (!projeto) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Projeto não encontrado" });
       }
 
-      type ResultadoOrcamento = {
-        valorTotal: Decimal;
-        tipoCalculo: string; // 'ETI_DB', 'REAL_DB', 'ETI_SNAPSHOT', 'REAL_SNAPSHOT', 'INVALIDO'
-        componentesReais?: { recursos: Decimal; materiais: Decimal };
-        valorETIUsado?: Decimal;
-        totalAlocacaoUsado?: Decimal;
-      };
+      // Determinar anos do projeto
+      const anoInicio = projeto.inicio ? new Date(projeto.inicio).getFullYear() : new Date().getFullYear();
+      const anoFim = projeto.fim ? new Date(projeto.fim).getFullYear() : new Date().getFullYear();
+      const anos = Array.from(
+        { length: anoFim - anoInicio + 1 }, 
+        (_, i) => anoInicio + i
+      );
+
+      // Função auxiliar para calcular custos reais
+      async function calcularCustosReais(filtros?: { ano?: number; workpackageId?: string }) {
+        const orcamentoRealInfo = await getOrcamentoReal(ctx.db, projetoId, filtros);
+        return {
+          custoRecursos: orcamentoRealInfo.custoRecursos,
+          custoMateriais: orcamentoRealInfo.custoMateriais,
+          total: orcamentoRealInfo.total
+        };
+      }
+
+      // Função auxiliar para calcular custos baseados em ETI
+      async function calcularCustosETI(valorETI: Decimal, filtros?: { ano?: number; workpackageId?: string }) {
+        const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            workpackage: {
+              projetoId,
+              ...(filtros?.workpackageId && { id: filtros.workpackageId }),
+            },
+            ...(filtros?.ano && { ano: filtros.ano }),
+          },
+          select: { ocupacao: true },
+        });
+        const totalAlocacao = alocacoes.reduce((sum, item) => sum.plus(item.ocupacao), new Decimal(0));
+        const valorTotal = totalAlocacao.times(valorETI);
+        return {
+          custoRecursos: valorTotal,
+          custoMateriais: new Decimal(0),
+          total: valorTotal
+        };
+      }
+
+      let custoRecursosTotal = new Decimal(0);
+      let custoMateriaisTotal = new Decimal(0);
+      let detalhes: Array<any> = [];
+
+      const valorETIDB = projeto.valor_eti ?? new Decimal(0);
+      const usarETI = valorETIDB.greaterThan(0);
 
       if (projeto.estado === "PENDENTE") {
-        const valorETIDB = projeto.valor_eti ?? new Decimal(0);
+        if (tipoVisualizacao === "year") {
+          // Calcular detalhes por ano
+          detalhes = await Promise.all(anos.map(async (ano) => {
+            const custos = usarETI 
+              ? await calcularCustosETI(valorETIDB, { ano })
+              : await calcularCustosReais({ ano });
 
-        if (valorETIDB.greaterThan(0)) {
-          const alocacoes = await ctx.db.alocacaoRecurso.findMany({
-            where: {
-              workpackage: {
-                projetoId: projetoId,
-                ...(workpackageId && { id: workpackageId }),
-              },
-              ...(ano && { ano: ano }),
-            },
-            select: { ocupacao: true },
-          });
-          const totalAlocacao = alocacoes.reduce((sum, item) => sum.plus(item.ocupacao), new Decimal(0));
-          return {
-            valorTotal: totalAlocacao.times(valorETIDB),
-            tipoCalculo: "ETI_DB",
-            valorETIUsado: valorETIDB,
-            totalAlocacaoUsado: totalAlocacao,
-          } satisfies ResultadoOrcamento;
+            custoRecursosTotal = custoRecursosTotal.plus(custos.custoRecursos);
+            custoMateriaisTotal = custoMateriaisTotal.plus(custos.custoMateriais);
+
+            return {
+              ano,
+              custosRecursos: custos.custoRecursos.toNumber(),
+              custosMateriais: custos.custoMateriais.toNumber(),
+              custoTotal: custos.total.toNumber()
+            };
+          }));
         } else {
-          const orcamentoRealInfo = await getOrcamentoReal(ctx.db, projetoId, { ano, workpackageId });
-          return {
-            valorTotal: orcamentoRealInfo.total,
-            tipoCalculo: "REAL_DB",
-            componentesReais: {
-              recursos: orcamentoRealInfo.custoRecursos,
-              materiais: orcamentoRealInfo.custoMateriais,
-            },
-          } satisfies ResultadoOrcamento;
+          // Calcular detalhes por workpackage
+          detalhes = await Promise.all(projeto.workpackages.map(async (wp) => {
+            const custos = usarETI
+              ? await calcularCustosETI(valorETIDB, { workpackageId: wp.id })
+              : await calcularCustosReais({ workpackageId: wp.id });
+
+            custoRecursosTotal = custoRecursosTotal.plus(custos.custoRecursos);
+            custoMateriaisTotal = custoMateriaisTotal.plus(custos.custoMateriais);
+
+            return {
+              workpackageId: wp.id,
+              workpackageNome: wp.nome,
+              custosRecursos: custos.custoRecursos.toNumber(),
+              custosMateriais: custos.custoMateriais.toNumber(),
+              custoTotal: custos.total.toNumber()
+            };
+          }));
         }
       } else {
-        // Estados: APROVADO, EM_DESENVOLVIMENTO, CONCLUIDO
+        // Para projetos aprovados, usar dados do snapshot
         if (!projeto.aprovado || typeof projeto.aprovado !== 'object') {
-          // Tentar parse se for string, senão inválido
           let snapshotDataParsed: any = null;
           if (typeof projeto.aprovado === 'string') {
             try {
               snapshotDataParsed = JSON.parse(projeto.aprovado);
             } catch (e) {
-              console.error("Falha ao parsear snapshot (string):", e);
-              // Considerar REAL_DB como fallback se snapshot falhar e ETI do DB for 0?
-              // Por ora, mais seguro retornar inválido se o snapshot é esperado mas falha.
-              throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Snapshot do projeto inválido ou corrompido" });
+              throw new TRPCError({ 
+                code: "INTERNAL_SERVER_ERROR", 
+                message: "Snapshot do projeto inválido ou corrompido" 
+              });
             }
           } else {
-             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Snapshot do projeto ausente ou inválido" });
+            throw new TRPCError({ 
+              code: "INTERNAL_SERVER_ERROR", 
+              message: "Snapshot do projeto ausente ou inválido" 
+            });
           }
-          projeto.aprovado = snapshotDataParsed; // Substitui pelo objeto parseado
+          projeto.aprovado = snapshotDataParsed;
         }
-        
-        const snapshotData: any = projeto.aprovado;
-        const valorETISnapshot = snapshotData.valor_eti ? new Decimal(snapshotData.valor_eti) : new Decimal(0);
 
-        if (valorETISnapshot.greaterThan(0)) {
-          let totalAlocacaoSnapshot = new Decimal(0);
-          const wpsSnapshot = snapshotData.workpackages ?? [];
-          for (const wpS of wpsSnapshot) {
-            if (workpackageId && wpS.id !== workpackageId) continue;
+        const snapshotData: any = projeto.aprovado;
+        const valorETISnapshot = snapshotData.valor_eti 
+          ? new Decimal(snapshotData.valor_eti) 
+          : new Decimal(0);
+        const usarETISnapshot = valorETISnapshot.greaterThan(0);
+        const wpsSnapshot = snapshotData.workpackages ?? [];
+
+        if (tipoVisualizacao === "year") {
+          // Agregar dados do snapshot por ano
+          const dadosPorAno = new Map<number, { recursos: Decimal; materiais: Decimal }>();
+
+          wpsSnapshot.forEach((wpS: any) => {
             const recursosS = wpS.recursos ?? [];
-            for (const recS of recursosS) {
-              if (ano && recS.ano !== ano) continue;
-              totalAlocacaoSnapshot = totalAlocacaoSnapshot.plus(new Decimal(recS.ocupacao || 0));
+            const materiaisS = wpS.materiais ?? [];
+
+            recursosS.forEach((recS: any) => {
+              const ano = recS.ano;
+              if (!dadosPorAno.has(ano)) {
+                dadosPorAno.set(ano, { recursos: new Decimal(0), materiais: new Decimal(0) });
+              }
+              const dados = dadosPorAno.get(ano)!;
+              
+              if (usarETISnapshot) {
+                dados.recursos = dados.recursos.plus(
+                  new Decimal(recS.ocupacao || 0).times(valorETISnapshot)
+                );
+              } else {
+                const salarioSnap = recS.user?.salario ? new Decimal(recS.user.salario) : null;
+                dados.recursos = dados.recursos.plus(
+                  new Decimal(recS.ocupacao || 0).times(calcularSalarioAjustado(salarioSnap))
+                );
+              }
+            });
+
+            if (!usarETISnapshot) {
+              materiaisS.forEach((matS: any) => {
+                const ano = matS.ano_utilizacao;
+                if (!dadosPorAno.has(ano)) {
+                  dadosPorAno.set(ano, { recursos: new Decimal(0), materiais: new Decimal(0) });
+                }
+                const dados = dadosPorAno.get(ano)!;
+                dados.materiais = dados.materiais.plus(
+                  new Decimal(matS.preco || 0).times(new Decimal(matS.quantidade || 0))
+                );
+              });
             }
-          }
-          return {
-            valorTotal: totalAlocacaoSnapshot.times(valorETISnapshot),
-            tipoCalculo: "ETI_SNAPSHOT",
-            valorETIUsado: valorETISnapshot,
-            totalAlocacaoUsado: totalAlocacaoSnapshot,
-          } satisfies ResultadoOrcamento;
+          });
+
+          detalhes = Array.from(dadosPorAno.entries()).map(([ano, dados]) => {
+            custoRecursosTotal = custoRecursosTotal.plus(dados.recursos);
+            custoMateriaisTotal = custoMateriaisTotal.plus(dados.materiais);
+            const custoTotal = dados.recursos.plus(dados.materiais);
+
+            return {
+              ano,
+              custosRecursos: dados.recursos.toNumber(),
+              custosMateriais: dados.materiais.toNumber(),
+              custoTotal: custoTotal.toNumber()
+            };
+          });
         } else {
-          const custosSnapshot = await calcularCustosDetalhadosSnapshotFiltrado(snapshotData, { workpackageId, ano });
-          return {
-            valorTotal: custosSnapshot.custoRecursosTotal.plus(custosSnapshot.custoMateriaisTotal),
-            tipoCalculo: "REAL_SNAPSHOT",
-            componentesReais: {
-              recursos: custosSnapshot.custoRecursosTotal,
-              materiais: custosSnapshot.custoMateriaisTotal,
-            },
-          } satisfies ResultadoOrcamento;
+          // Agregar dados do snapshot por workpackage
+          detalhes = wpsSnapshot.map((wpS: any) => {
+            const recursosS = wpS.recursos ?? [];
+            const materiaisS = wpS.materiais ?? [];
+            let custosRecursos = new Decimal(0);
+            let custosMateriais = new Decimal(0);
+
+            if (usarETISnapshot) {
+              custosRecursos = recursosS.reduce(
+                (sum: Decimal, recS: any) => sum.plus(
+                  new Decimal(recS.ocupacao || 0).times(valorETISnapshot)
+                ),
+                new Decimal(0)
+              );
+            } else {
+              custosRecursos = recursosS.reduce(
+                (sum: Decimal, recS: any) => {
+                  const salarioSnap = recS.user?.salario ? new Decimal(recS.user.salario) : null;
+                  return sum.plus(
+                    new Decimal(recS.ocupacao || 0).times(calcularSalarioAjustado(salarioSnap))
+                  );
+                },
+                new Decimal(0)
+              );
+
+              custosMateriais = materiaisS.reduce(
+                (sum: Decimal, matS: any) => sum.plus(
+                  new Decimal(matS.preco || 0).times(new Decimal(matS.quantidade || 0))
+                ),
+                new Decimal(0)
+              );
+            }
+
+            custoRecursosTotal = custoRecursosTotal.plus(custosRecursos);
+            custoMateriaisTotal = custoMateriaisTotal.plus(custosMateriais);
+            const custoTotal = custosRecursos.plus(custosMateriais);
+
+            return {
+              workpackageId: wpS.id,
+              workpackageNome: wpS.nome,
+              custosRecursos: custosRecursos.toNumber(),
+              custosMateriais: custosMateriais.toNumber(),
+              custoTotal: custoTotal.toNumber()
+            };
+          });
         }
       }
+
+      const custoTotal = custoRecursosTotal.plus(custoMateriaisTotal);
+
+      return {
+        custoRecursosTotal: custoRecursosTotal.toNumber(),
+        custoMateriaisTotal: custoMateriaisTotal.toNumber(),
+        custoTotal: custoTotal.toNumber(),
+        detalhes: detalhes.sort((a, b) => 
+          'ano' in a ? a.ano - b.ano : a.workpackageNome.localeCompare(b.workpackageNome)
+        )
+      };
     }),
 
   getOrcamentoRealDetalhado: protectedProcedure
@@ -1320,6 +1463,9 @@ export const financasRouter = createTRPCRouter({
             nome: true,
             estado: true,
             taxa_financiamento: true,
+            valor_eti: true,
+            inicio: true,
+            fim: true,
           }
         });
 
@@ -1327,19 +1473,105 @@ export const financasRouter = createTRPCRouter({
           throw new TRPCError({ code: "NOT_FOUND", message: "Projeto não encontrado" });
         }
 
-        const totais = await getTotais(ctx.db, projetoId, { ano });
-        
+        // Determinar anos do projeto
+        const anoInicio = projetoDB.inicio ? new Date(projetoDB.inicio).getFullYear() : new Date().getFullYear();
+        const anoFim = projetoDB.fim ? new Date(projetoDB.fim).getFullYear() : new Date().getFullYear();
+        const anos = Array.from(
+          { length: anoFim - anoInicio + 1 }, 
+          (_, i) => anoInicio + i
+        );
+
+        // Calcular dados por ano
+        const detalhesAnos = await Promise.all(anos.map(async (ano) => {
+          const orcamentoSubmetidoAno = await getOrcamentoSubmetido(ctx.db, projetoId, { ano });
+          const orcamentoRealAno = await getOrcamentoReal(ctx.db, projetoId, { ano });
+
+          let folga: Decimal;
+          if (projetoDB.valor_eti && new Decimal(projetoDB.valor_eti).greaterThan(0)) {
+            // Com ETI: folga = max(0, submetido - real)
+            folga = Decimal.max(
+              0,
+              orcamentoSubmetidoAno.orcamentoTotal.minus(orcamentoRealAno.total)
+            );
+          } else {
+            // Sem ETI: calcular folga separada para recursos e materiais
+            const folgaRecursos = Decimal.max(
+              0,
+              orcamentoSubmetidoAno.detalhes?.recursos ?? new Decimal(0)
+                .minus(orcamentoRealAno.custoRecursos)
+            );
+            const folgaMateriais = Decimal.max(
+              0,
+              orcamentoSubmetidoAno.detalhes?.materiais ?? new Decimal(0)
+                .minus(orcamentoRealAno.custoMateriais)
+            );
+            // Folga total é a soma das folgas individuais
+            folga = folgaRecursos.plus(folgaMateriais);
+          }
+
+          return {
+            ano,
+            submetido: orcamentoSubmetidoAno.orcamentoTotal.toNumber(),
+            real: orcamentoRealAno.total.toNumber(),
+            folga: folga.toNumber()
+          };
+        }));
+
+        // Calcular totais
+        const orcamentoSubmetidoTotal = await getOrcamentoSubmetido(ctx.db, projetoId);
+        const orcamentoRealTotal = await getOrcamentoReal(ctx.db, projetoId);
+
+        // Calcular folga total
+        let folgaTotal: Decimal;
+        if (projetoDB.valor_eti && new Decimal(projetoDB.valor_eti).greaterThan(0)) {
+          folgaTotal = Decimal.max(
+            0,
+            orcamentoSubmetidoTotal.orcamentoTotal.minus(orcamentoRealTotal.total)
+          );
+        } else {
+          const folgaRecursos = Decimal.max(
+            0,
+            orcamentoSubmetidoTotal.detalhes?.recursos.minus(orcamentoRealTotal.custoRecursos) || new Decimal(0)
+          );
+          const folgaMateriais = Decimal.max(
+            0,
+            orcamentoSubmetidoTotal.detalhes?.materiais.minus(orcamentoRealTotal.custoMateriais) || new Decimal(0)
+          );
+          folgaTotal = folgaRecursos.plus(folgaMateriais);
+        }
+
+        // Calcular outros indicadores financeiros
+        const taxaFinanciamento = projetoDB.taxa_financiamento
+          ? new Decimal(projetoDB.taxa_financiamento)
+          : new Decimal(0);
+
+        const valorFinanciado = orcamentoSubmetidoTotal.orcamentoTotal.times(taxaFinanciamento);
+        const overheadCalculadoReal = orcamentoRealTotal.custoRecursos.times(new Decimal(-0.15));
+        const resultado = valorFinanciado
+          .minus(orcamentoRealTotal.total)
+          .plus(overheadCalculadoReal);
+
+        const vab = valorFinanciado.minus(orcamentoRealTotal.custoMateriais);
+        const margem = orcamentoSubmetidoTotal.orcamentoTotal.isZero()
+          ? new Decimal(0)
+          : resultado.dividedBy(orcamentoSubmetidoTotal.orcamentoTotal).times(new Decimal(100));
+
+        const vabCustosPessoal = orcamentoRealTotal.custoRecursos.isZero()
+          ? new Decimal(0)
+          : vab.dividedBy(orcamentoRealTotal.custoRecursos);
+
         return {
           id: projetoDB.id,
           nome: projetoDB.nome,
           estado: projetoDB.estado,
           taxa_financiamento: projetoDB.taxa_financiamento?.toNumber() ?? 0,
-          orcamentoSubmetido: totais.orcamentoSubmetido.toNumber(),
-          orcamentoReal: totais.orcamentoReal.toNumber(),
-          resultadoFinanceiro: totais.resultadoFinanceiro.toNumber(),
-          margem: totais.margem.toNumber(),
-          vabCustosPessoal: totais.vabCustosPessoal.toNumber(),
-          folga: totais.folga.toNumber(),
+          orcamentoSubmetido: orcamentoSubmetidoTotal.orcamentoTotal.toNumber(),
+          orcamentoReal: orcamentoRealTotal.total.toNumber(),
+          resultadoFinanceiro: resultado.toNumber(),
+          margem: margem.toNumber(),
+          vabCustosPessoal: vabCustosPessoal.toNumber(),
+          folga: folgaTotal.toNumber(),
+          detalhesAnos
         };
 
       } catch (error) {

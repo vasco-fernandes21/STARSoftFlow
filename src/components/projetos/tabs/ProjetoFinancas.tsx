@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Folder, BarChart, LineChart, TrendingUp, AlertCircle } from "lucide-react";
 import OverviewTab from "./projeto-financas/OverviewTab";
 import OrcamentoRealTab from "./projeto-financas/OrcamentoRealTab";
+import OrcamentoSubmetidoTab from "./projeto-financas/OrcamentoSubmetidoTab";
 import FolgaTab from "./projeto-financas/FolgaTab";
 
 interface ProjetoFinancasProps {
@@ -78,12 +79,11 @@ export function ProjetoFinancas({ projetoId }: ProjetoFinancasProps) {
           </TabsContent>
 
           <TabsContent value="orcamento-submetido" className="mt-0">
-            <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-transparent">
-              <div className="text-center">
-                <p className="text-sm text-gray-500">Conteúdo da Aba Orçamento Submetido</p>
-                <p className="mt-1 text-xs text-gray-400">(a ser implementado)</p>
-              </div>
-            </div>
+            <OrcamentoSubmetidoTab
+              projetoId={projetoId}
+              selectedYear={selectedYear}
+              setSelectedYear={setSelectedYear}
+            />
           </TabsContent>
 
           <TabsContent value="orcamento-real" className="mt-0">

@@ -1,22 +1,11 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
-import {
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  BarChart,
-  Bar,
-  Legend,
-} from "recharts";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Filter, DollarSign, Users, Package, LineChart } from "lucide-react";
 import { api } from "@/trpc/react";
-import { formatNumber, formatCurrency, formatPercentage } from "./utils";
-import { SelectField } from "@/components/projetos/criar/components/FormFields";
+import { formatCurrency } from "./utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -26,89 +15,40 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-// import type { Decimal } from 'decimal.js'; // Removed as client receives numbers
 
-// Type for individual workpackage item from getByProjeto
-interface WorkpackageSelectItem {
-  id: string;
-  nome: string;
-}
-
-// Inferred type for orcamentoDetalhadoData (based on backend `getOrcamentoRealDetalhado`)
-// This helps with type safety if tRPC inference is not perfectly picked up by the editor
-interface OrcamentoDetalhado {
-  custoRecursos: number; // Expecting number on client
-  custoMateriais: number; // Expecting number on client
-  total: number; // Expecting number on client
-  detalhesRecursos: Array<any>; // Define more specifically if needed
-  detalhesMateriais: Array<any>; // Define more specifically if needed
-}
-
-interface OrcamentoRealTabProps {
+interface OrcamentoSubmetidoTabProps {
   projetoId: string;
   selectedYear: string;
   setSelectedYear: (year: string) => void;
 }
 
-export function OrcamentoRealTab({
+export function OrcamentoSubmetidoTab({
   projetoId,
   selectedYear,
   setSelectedYear,
-}: OrcamentoRealTabProps) {
-  const [selectedWorkpackage, setSelectedWorkpackage] = useState<string>("todos");
+}: OrcamentoSubmetidoTabProps) {
   const [filterType, setFilterType] = useState<"year" | "workpackage">("year");
-  
   const utils = api.useUtils();
-  
-  const { data: projetoDetails } = api.projeto.findById.useQuery(
-    projetoId,
-    { enabled: !!projetoId }
-  );
 
-  const { data: workpackages = [] } = api.workpackage.getByProjeto.useQuery(
-    projetoId,
-    { enabled: !!projetoId }
-  );
-
-  const { data: orcamentoData, isLoading } = api.financas.getOrcamentoRealDetalhado.useQuery(
+  const { data: orcamentoData, isLoading } = api.financas.getOrcamentoSubmetidoDetalhado.useQuery(
     {
       projetoId,
       tipoVisualizacao: filterType,
     },
     {
       enabled: !!projetoId,
-      staleTime: 1 * 60 * 1000, 
+      staleTime: 1 * 60 * 1000,
     }
   );
 
   useEffect(() => {
     if (projetoId) {
-      void utils.financas.getOrcamentoRealDetalhado.prefetch({
+      void utils.financas.getOrcamentoSubmetidoDetalhado.prefetch({
         projetoId,
         tipoVisualizacao: filterType,
       });
     }
-  }, [projetoId, filterType, utils.financas.getOrcamentoRealDetalhado]);
-
-  const anosDisponiveis = useMemo(() => {
-    const anos = new Set<number>();
-    const currentYear = new Date().getFullYear();
-    anos.add(currentYear);
-    anos.add(currentYear - 1);
-    if (projetoDetails?.inicio || projetoDetails?.fim) {
-      const startYear = projetoDetails.inicio 
-        ? new Date(projetoDetails.inicio).getFullYear() 
-        : currentYear - 1;
-      const endYear = projetoDetails.fim 
-        ? new Date(projetoDetails.fim).getFullYear() 
-        : currentYear + 1;
-      for (let year = startYear; year <= endYear; year++) {
-        anos.add(year);
-      }
-    }
-    return Array.from(anos).sort((a, b) => b - a);
-  }, [projetoDetails]);
+  }, [projetoId, filterType, utils.financas.getOrcamentoSubmetidoDetalhado]);
 
   // Prepare table data based on filter type
   const tableData = useMemo(() => {
@@ -156,7 +96,7 @@ export function OrcamentoRealTab({
   if (!orcamentoData) {
     return (
       <div className="flex h-96 items-center justify-center text-gray-500">
-        Não foram encontrados dados de orçamento real para este projeto.
+        Não foram encontrados dados de orçamento submetido para este projeto.
       </div>
     );
   }
@@ -169,7 +109,7 @@ export function OrcamentoRealTab({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Orçamento Real Total</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Orçamento Submetido Total</CardTitle>
             <DollarSign className="h-5 w-5 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -177,7 +117,7 @@ export function OrcamentoRealTab({
               {formatCurrency(custoTotal)}
             </div>
             <p className="mt-1.5 text-xs font-medium text-slate-500">
-              Total de custos reais incorridos
+              Total de custos submetidos
             </p>
           </CardContent>
         </Card>
@@ -293,4 +233,4 @@ export function OrcamentoRealTab({
   );
 }
 
-export default OrcamentoRealTab; 
+export default OrcamentoSubmetidoTab; 
