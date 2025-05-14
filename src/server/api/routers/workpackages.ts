@@ -536,4 +536,20 @@ export const workpackageRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Obter workpackages por ID do projeto (apenas id e nome)
+  getByProjeto: protectedProcedure
+    .input(z.string().uuid("ID de projeto inválido"))
+    .query(async ({ ctx, input: projetoId }) => {
+      return ctx.db.workpackage.findMany({
+        where: { projetoId },
+        select: {
+          id: true,
+          nome: true,
+        },
+        orderBy: {
+          nome: "asc",
+        },
+      });
+    }),
 });

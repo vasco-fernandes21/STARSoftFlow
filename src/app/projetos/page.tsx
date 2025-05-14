@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar, Trash2, Plus } from "lucide-react";
+import { Briefcase, Clock, CheckCircle2, AlertCircle, TrendingUp, Calendar, Trash2} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -15,10 +15,8 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
 import { type ProjetoEstado } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
-// import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getQueryKey } from "@trpc/react-query";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -58,18 +56,13 @@ type PrazoFilter = "todos" | "este_mes" | "proximo_mes" | "este_ano" | "atrasado
 export default function Projetos() {
   const router = useRouter();
   const utils = api.useUtils();
-  // a  session for future authorization checks
   const {
     /* data: session */
   } = useSession();
-  // These variables are kept for future enhancements
-  // const { isComum } = usePermissions();
-  // const userId = (session?.user as any)?.id;
   const [estadoFilter, setEstadoFilter] = useState<"todos" | (typeof uniqueEstados)[number]>(
     "todos"
   );
   const [prazoFilter, setPrazoFilter] = useState<PrazoFilter>("todos");
-  const queryClient = useQueryClient();
 
   // Parâmetros para consulta de projetos
   const queryParams = useMemo(
@@ -87,27 +80,20 @@ export default function Projetos() {
 
   // Consulta projetos (que já incluem os rascunhos na resposta)
   const { data: projetosData, isLoading } = api.projeto.findAll.useQuery(queryParams, {
-    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
+    staleTime: 60 * 1000, // 60 segundos
   });
-
-  // Função para invalidar as queries
-  const invalidateQueries = useCallback(() => {
-    queryClient.invalidateQueries({
-      queryKey: getQueryKey(api.projeto.findAll, queryParams, "query"),
-    });
-  }, [queryClient, queryParams]);
 
   // Efeito para invalidar as queries quando a página monta
   useEffect(() => {
-    invalidateQueries();
-  }, [invalidateQueries]);
+    void utils.projeto.findAll.invalidate();
+  }, [utils]);
 
   // Mutation para apagar projeto
   const deleteProjetoMutation = api.projeto.delete.useMutation({
     onSuccess: () => {
       toast.success("Projeto apagado com sucesso");
-      invalidateQueries();
+      void utils.projeto.findAll.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao apagar projeto: ${error.message}`);

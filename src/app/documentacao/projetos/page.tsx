@@ -225,7 +225,7 @@ export default function ProjetosDocumentacao() {
               transition={{ delay: 0.1, duration: 0.5 }}
               className="text-lg text-gray-600 mb-8"
             >
-              Guia completo do sistema de gestão de projetos no ecossistema de inovação STARSoftFlow
+              Guia completo do sistema de gestão de projetos no ecossistema de inovação StarSoftFlow
             </motion.p>
             
             <motion.div 

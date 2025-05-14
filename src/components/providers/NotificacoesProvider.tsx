@@ -6,6 +6,7 @@ import { type EntidadeNotificacao, type UrgenciaNotificacao, type EstadoNotifica
 import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 // Interface para o objeto de notificação
 export interface Notificacao {
@@ -88,18 +89,21 @@ async function buscarIdProjetoRelacionado(
 export function NotificacoesProvider({ children }: { children: ReactNode }) {
   const utils = api.useUtils();
   const router = useRouter();
+  const { data: session } = useSession();
   const [localNaoLidas, setLocalNaoLidas] = useState(0);
 
   // Buscar notificações
   const { data: notificacoes = [], isLoading } = api.notificacao.listar.useQuery(undefined, {
     staleTime: 1 * 60 * 1000, // 1 minuto
     refetchOnWindowFocus: true,
+    enabled: !!session?.user,
   });
 
   // Contar não lidas
   const { data: naoLidas = 0 } = api.notificacao.contarNaoLidas.useQuery(undefined, {
     staleTime: 1 * 60 * 1000,
     refetchOnWindowFocus: true,
+    enabled: !!session?.user,
   });
 
   // Atualizar contador local quando naoLidas mudar
@@ -125,6 +129,7 @@ export function NotificacoesProvider({ children }: { children: ReactNode }) {
 
   // Subscrição para notificações em tempo real
   api.notificacao.onNotificacao.useSubscription(undefined, {
+    enabled: !!session?.user,
     onStarted: () => {
       console.log("[SSE] Conexão iniciada", {
         timestamp: new Date().toISOString()

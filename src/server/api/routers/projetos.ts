@@ -1072,23 +1072,24 @@ export const projetoRouter = createTRPCRouter({
             },
           });
 
-          // Criar notificação para o responsável sobre a aprovação
-          const notificacaoAprovacao = await ctx.db.notificacao.create({
-            data: {
-              titulo: `Projeto "${projeto.nome}" foi aprovado`,
-              descricao: `O seu projeto "${projeto.nome}" foi aprovado por ${user.name}.`,
-              entidade: "PROJETO",
-              entidadeId: projeto.id,
-              urgencia: "ALTA",
-              destinatario: {
-                connect: { id: projeto.responsavelId! },
+          // Criar notificação para o responsável sobre a aprovação se existir responsável
+          if (projeto.responsavelId) {
+            const notificacaoAprovacao = await ctx.db.notificacao.create({
+              data: {
+                titulo: `Projeto "${projeto.nome}" foi aprovado`,
+                descricao: `O seu projeto "${projeto.nome}" foi aprovado por ${user.name}.`,
+                entidade: "PROJETO", 
+                entidadeId: projeto.id,
+                urgencia: "ALTA",
+                destinatario: {
+                  connect: { id: projeto.responsavelId },
+                },
+                estado: "NAO_LIDA",
               },
-              estado: "NAO_LIDA",
-            },
-          });
+            });
+            ee.emit("notificacao", notificacaoAprovacao);
+          }
 
-          // Emitir evento de notificação
-          ee.emit("notificacao", notificacaoAprovacao);
 
           return {
             success: true,

@@ -34,7 +34,7 @@ export default function TutoriaisPage() {
       icon: <BookOpen className="h-6 w-6 text-azul" />,
       tutorials: [
         {
-          title: "Introdução ao STARSoftFlow",
+          title: "Introdução ao StarSoftFlow",
           duration: "5 min",
           description: "Conheça as funcionalidades básicas da plataforma",
           image: "/tutorials/intro.jpg",
@@ -223,7 +223,7 @@ export default function TutoriaisPage() {
               transition={{ duration: 0.5 }}
               className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
             >
-              Tutoriais do STARSoftFlow
+              Tutoriais do StarSoftFlow
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: -20 }}
@@ -375,7 +375,7 @@ export default function TutoriaisPage() {
               Pronto para começar?
             </h2>
             <p className="text-white/90 text-lg mb-8">
-              Aplique o que aprendeu e comece a aproveitar todo o potencial do STARSoftFlow.
+              Aplique o que aprendeu e comece a aproveitar todo o potencial do StarSoftFlow.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-5">
               <Button

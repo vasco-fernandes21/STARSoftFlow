@@ -192,6 +192,26 @@ export const notificacoesRouter = createTRPCRouter({
       });
     }),
 
+
+  // Apagar múltiplas notificações
+  apagarMuitas: protectedProcedure
+  .input(z.object({ ids: z.array(z.string().uuid()) }))
+  .mutation(async ({ ctx, input }) => {
+    const { count } = await ctx.db.notificacao.deleteMany({
+      where: {
+        id: {
+          in: input.ids,
+        },
+        destinatarioId: ctx.session.user.id,
+      },
+    });
+    // Optionally, you could emit an event or handle success/failure logging here
+    // For now, just return the count of deleted items.
+    return { count };
+  }),
+
+
+
   // Contar notificações não lidas
   contarNaoLidas: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.notificacao.count({

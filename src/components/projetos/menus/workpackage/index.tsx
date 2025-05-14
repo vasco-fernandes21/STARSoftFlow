@@ -360,8 +360,9 @@ export function MenuWorkpackage({
                                 await deleteWorkpackage.mutateAsync(fullWorkpackage.id);
                                 toast.success('Workpackage apagado com sucesso!');
                                 utils.projeto.findById.invalidate();
-                                utils.financas.getTotaisFinanceiros.invalidate();
+                                utils.financas.getVisaoProjeto.invalidate();
                                 utils.financas.getComparacaoGastos.invalidate();
+                                utils.financas.getPainelFinanceiroProjeto.invalidate();
                                 onClose();
                               } catch (error: any) {
                                 toast.error(error?.message || 'Erro ao apagar workpackage');

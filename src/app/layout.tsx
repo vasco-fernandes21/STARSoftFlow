@@ -18,7 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "STARSoftFlow",
+  title: "StarSoftFlow",
   description: "Gestão simplificada de projetos de software",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };

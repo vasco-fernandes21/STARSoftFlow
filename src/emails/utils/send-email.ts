@@ -7,7 +7,7 @@ import { env } from "@/env";
 // Mapa de templates disponíveis
 const EMAIL_TEMPLATES = {
   welcome: {
-    subject: "Bem-vindo ao STARSoftFlow",
+    subject: "Bem-vindo ao StarSoftFlow",
     template: "welcome.html",
   },
   resetPassword: {
@@ -15,11 +15,11 @@ const EMAIL_TEMPLATES = {
     template: "reset-password.html",
   },
   inviteUser: {
-    subject: "Convite para o STARSoftFlow",
+    subject: "Convite para o StarSoftFlow",
     template: "invite-user.html",
   },
   notification: {
-    subject: "Notificação do STARSoftFlow",
+    subject: "Notificação do StarSoftFlow",
     template: "notification.html",
   },
 } as const;

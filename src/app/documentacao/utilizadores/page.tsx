@@ -176,7 +176,7 @@ export default function UtilizadoresDocumentacao() {
               transition={{ delay: 0.1, duration: 0.5 }}
               className="text-lg text-gray-600 mb-8"
             >
-              Guia completo sobre gestão de utilizadores e permissões na plataforma STARSoftFlow
+              Guia completo sobre gestão de utilizadores e permissões na plataforma StarSoftFlow
             </motion.p>
             
             <motion.div 

@@ -72,7 +72,7 @@ export default function DocumentacaoPage() {
   const featuredDocs = [
     {
       title: "Guia de Início Rápido",
-      description: "Aprenda como começar a usar o STARSoftFlow em poucos minutos.",
+      description: "Aprenda como começar a usar o StarSoftFlow em poucos minutos.",
       icon: <BookMarked className="h-8 w-8 text-azul" />,
       href: "/documentacao/guia-rapido"
     },
@@ -161,7 +161,7 @@ export default function DocumentacaoPage() {
               transition={{ duration: 0.5 }}
               className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
             >
-              Documentação do STARSoftFlow
+              Documentação do StarSoftFlow
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: -20 }}
@@ -280,7 +280,7 @@ export default function DocumentacaoPage() {
                       Documentação da API
                     </h2>
                     <p className="text-gray-300 mb-6">
-                      Explore a API do STARSoftFlow para integrar as funcionalidades da plataforma aos seus sistemas existentes.
+                      Explore a API do StarSoftFlow para integrar as funcionalidades da plataforma aos seus sistemas existentes.
                     </p>
                     <Button 
                       disabled

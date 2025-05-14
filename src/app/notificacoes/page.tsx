@@ -12,11 +12,7 @@ import {
   ExternalLink,
   Briefcase,
   ListChecks,
-  Trash2,
-  Check,
   MessageCircle,
-  CircleAlert,
-  Filter,
   Search,
   Archive,
   MailOpen,
@@ -26,7 +22,7 @@ import {
   Star,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
@@ -35,13 +31,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
+
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -54,9 +46,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useNotificacoes } from "@/components/providers/NotificacoesProvider";
-import type { EntidadeNotificacao, UrgenciaNotificacao, EstadoNotificacao } from "@prisma/client";
+import type { EntidadeNotificacao, UrgenciaNotificacao } from "@prisma/client";
 import type { Notificacao } from "@/components/providers/NotificacoesProvider";
-import { StatCard } from "@/components/common/StatCard";
+
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
 import { api } from "@/trpc/react";
@@ -75,11 +67,6 @@ const TIPO_LABELS: Record<EntidadeNotificacao, string> = {
   FEEDBACK: "Feedback",
 };
 
-const URGENCIA_LABELS: Record<UrgenciaNotificacao, string> = {
-  ALTA: "Alta",
-  MEDIA: "Média",
-  BAIXA: "Baixa",
-};
 
 function getRelativeTime(date: Date): string {
   return formatDistanceToNow(new Date(date), { 
@@ -170,7 +157,6 @@ export default function Notificacoes() {
     notificacoes, 
     marcarComoLida, 
     arquivar, 
-    naoLidas, 
     filtrarPorEstado, 
     isLoading 
   } = useNotificacoes();
@@ -193,6 +179,15 @@ export default function Notificacoes() {
     },
   });
   
+  // Mutation para apagar múltiplas notificações
+  const apagarMuitasNotificacoesMutation = api.notificacao.apagarMuitas.useMutation({
+    onSuccess: () => {
+      utils.notificacao.listar.invalidate();
+      utils.notificacao.contarNaoLidas.invalidate();
+      setSelectedIds(new Set()); // Limpar seleção após apagar em massa
+    },
+  });
+  
   // Função para confirmar exclusão
   const handleOpenDeleteDialog = useCallback((id?: string) => {
     if (id) {
@@ -212,10 +207,10 @@ export default function Notificacoes() {
       if (deleteMultiple) {
         // Apagar múltiplas notificações
         const idsToDelete = Array.from(selectedIds);
-        for (const id of idsToDelete) {
-          await apagarNotificacaoMutation.mutateAsync(id);
+        if (idsToDelete.length > 0) {
+          await apagarMuitasNotificacoesMutation.mutateAsync({ ids: idsToDelete });
         }
-        setSelectedIds(new Set());
+        //setSelectedIds(new Set()); // Movido para onSuccess da mutation apagarMuitas
       } else if (notificacaoToDelete) {
         // Apagar uma única notificação
         await apagarNotificacaoMutation.mutateAsync(notificacaoToDelete);
@@ -225,8 +220,11 @@ export default function Notificacoes() {
     } finally {
       setIsDeleteDialogOpen(false);
       setNotificacaoToDelete(null);
+      // Se não for deleteMultiple, selectedIds não precisa ser limpo aqui,
+      // pois a notificação individual não depende de selectedIds.
+      // Se for deleteMultiple, já é tratado no onSuccess da apagarMuitasNotificacoesMutation
     }
-  }, [deleteMultiple, selectedIds, notificacaoToDelete, apagarNotificacaoMutation]);
+  }, [deleteMultiple, selectedIds, notificacaoToDelete, apagarNotificacaoMutation, apagarMuitasNotificacoesMutation, utils]); // Adicionado apagarMuitasNotificacoesMutation e utils às dependências
   
   // Função para apagar notificações selecionadas
   const handleApagarSelecionadas = useCallback(() => {
@@ -569,7 +567,7 @@ export default function Notificacoes() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteMultiple 
-                ? `Tem a certeza que deseja apagar ${selectedIds.size} notificação${selectedIds.size > 1 ? 'ções' : ''}?`
+                ? `Tem a certeza que deseja apagar ${selectedIds.size} ${selectedIds.size > 1 ? 'notificações' : 'notificação'}?`
                 : "Tem a certeza que deseja apagar esta notificação?"}
               <span className="mt-2 block font-medium text-red-600">Esta ação não pode ser revertida.</span>
             </AlertDialogDescription>
