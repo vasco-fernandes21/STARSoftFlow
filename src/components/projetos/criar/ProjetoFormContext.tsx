@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useReducer, type ReactNode, useEffect } from "react";
 import {
   type Prisma,
