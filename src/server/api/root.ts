@@ -13,9 +13,9 @@ import { rascunhoRouter } from "./routers/rascunhos";
 import { configuracaoRouter } from "./routers/configuracoes";
 import { feedbackRouter } from "./routers/feedback";
 import { notificacoesRouter } from "./routers/notificacoes";
-
+import { adminRouter } from "./routers/admin";
 /**
- * This is the primary router for your server.
+ * This is the primary router for your server.  
  *
  * All routers added in /api/routers should be manually added here.
  */
@@ -33,6 +33,7 @@ export const appRouter = createTRPCRouter({
   rascunho: rascunhoRouter,
   configuracao: configuracaoRouter,
   notificacao: notificacoesRouter,
+  admin: adminRouter,
 });
 
 // export type definition of API
