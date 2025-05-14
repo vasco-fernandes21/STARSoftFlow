@@ -2,10 +2,7 @@
 
 import { AppSidebar } from "@/components/ui/sidebar";
 import { usePathname } from "next/navigation";
-import { ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 import { useEffect, useState } from "react";
-import { AlertDialogProvider } from "@/components/ui/alert-dialog/alert-dialog-provider";
-import { NotificacoesProvider } from "@/components/providers/NotificacoesProvider";
 import { Toaster } from "@/components/ui/sonner";
 
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
@@ -54,11 +51,7 @@ export function RootLayoutContent({ children }: { children: React.ReactNode }) {
       <main className="flex flex-1 flex-col overflow-hidden p-3.5 pl-1">
         <div className="h-full w-full flex-1 overflow-clip rounded-xl bg-bgApp shadow-sm">
           <div className="h-full max-h-full w-full overflow-y-auto">
-            <AlertDialogProvider>
-              <NotificacoesProvider>
-                <ProjetoFormProvider>{children}</ProjetoFormProvider>
-              </NotificacoesProvider>
-            </AlertDialogProvider>
+            {children}
           </div>
         </div>
       </main>
