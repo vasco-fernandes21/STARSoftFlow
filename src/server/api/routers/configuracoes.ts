@@ -5,6 +5,7 @@ import { Permissao } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { createPaginatedResponse, handlePrismaError } from "../utils";
 import { paginationSchema, getPaginationParams } from "../schemas/common";
+import { Decimal } from "decimal.js";
 
 // Tipo para verificar permissões de utilizador
 type UserWithPermissao = {
@@ -29,6 +30,11 @@ const configuracaoMensalSchema = z.object({
   horasPotenciais: z.number()
     .min(0, "As horas potenciais não podem ser negativas")
     .max(1000, "As horas potenciais não podem ser maiores que 1000"),
+  jornadaDiaria: z.number()
+    .int("A jornada diária deve ser um número inteiro")
+    .min(0, "A jornada diária não pode ser negativa")
+    .max(24, "A jornada diária não pode ser maior que 24 horas")
+    .optional(),
 });
 
 // Schema para filtros de pesquisa
@@ -37,6 +43,21 @@ const configuracaoFilterSchema = z.object({
   mes: z.number().int().min(1).max(12).optional(),
   search: z.string().optional(),
 }).merge(paginationSchema);
+
+// Schema para adição de configuração mensal do utilizador
+const addConfigMensalUtilizadorSchema = z.object({
+  userId: z.string(),
+  mes: z.number().int().min(1).max(12),
+  ano: z.number().int().min(2000).max(2100),
+  diasUteis: z.number().int().min(1).max(31),
+  horasPotenciais: z.number().min(0),
+  jornadaDiaria: z.number().int().min(0).max(24).optional(),
+});
+
+// Schema para remoção de configuração mensal do utilizador
+const removeConfigMensalUtilizadorSchema = z.object({
+  configId: z.string(),
+});
 
 // Tipos inferidos dos schemas
 export type ConfiguracaoMensalInput = z.infer<typeof configuracaoMensalSchema>;
@@ -78,7 +99,8 @@ export const configuracaoRouter = createTRPCRouter({
             mes: input.mes,
             ano: input.ano,
             diasUteis: input.diasUteis,
-            horasPotenciais: input.horasPotenciais,
+            horasPotenciais: new Decimal(input.horasPotenciais),
+            ...(input.jornadaDiaria !== undefined ? { jornadaDiaria: input.jornadaDiaria } : {})
           }
         });
 
@@ -334,5 +356,110 @@ export const configuracaoRouter = createTRPCRouter({
       } catch (error) {
         return handlePrismaError(error);
       }
-    })
+    }),
+
+  // Obter configurações mensais do utilizador
+  getConfigMensalUtilizador: protectedProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const configs = await ctx.db.configuracaoUtilizadorMensal.findMany({
+          where: { userId: input.userId },
+          orderBy: [
+            { ano: "desc" },
+            { mes: "desc" },
+          ],
+        });
+        
+        return configs;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+    
+  // Adicionar configuração mensal do utilizador
+  addConfigMensalUtilizador: protectedProcedure
+    .input(addConfigMensalUtilizadorSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { userId, mes, ano, diasUteis, horasPotenciais, jornadaDiaria } = input;
+        
+        // Verificar se já existe uma configuração para este mês/ano
+        const existingConfig = await ctx.db.configuracaoUtilizadorMensal.findFirst({
+          where: {
+            userId,
+            mes,
+            ano,
+          },
+        });
+        
+        if (existingConfig) {
+          // Atualizar configuração existente
+          const updatedConfig = await ctx.db.configuracaoUtilizadorMensal.update({
+            where: { id: existingConfig.id },
+            data: {
+              diasUteis,
+              horasPotenciais: new Decimal(horasPotenciais),
+              jornadaDiaria,
+            },
+          });
+          
+          return updatedConfig;
+        } else {
+          // Criar nova configuração
+          const newConfig = await ctx.db.configuracaoUtilizadorMensal.create({
+            data: {
+              userId,
+              mes,
+              ano,
+              diasUteis,
+              horasPotenciais: new Decimal(horasPotenciais),
+              jornadaDiaria,
+            },
+          });
+          
+          return newConfig;
+        }
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+    
+  // Remover configuração mensal do utilizador
+  removeConfigMensalUtilizador: protectedProcedure
+    .input(removeConfigMensalUtilizadorSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Verificar se a configuração existe
+        const config = await ctx.db.configuracaoUtilizadorMensal.findUnique({
+          where: { id: input.configId },
+          include: { user: true },
+        });
+        
+        if (!config) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Configuração não encontrada",
+          });
+        }
+        
+        // Verificar permissões
+        const sessionUser = ctx.session.user as UserWithPermissao;
+        if (sessionUser.id !== config.userId && sessionUser.permissao !== "ADMIN") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Você não tem permissão para remover esta configuração",
+          });
+        }
+        
+        // Remover a configuração
+        await ctx.db.configuracaoUtilizadorMensal.delete({
+          where: { id: input.configId },
+        });
+        
+        return { success: true };
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
 });

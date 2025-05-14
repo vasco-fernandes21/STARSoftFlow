@@ -98,12 +98,15 @@ const alocacaoValidationSchema = z.object({
   ignorarAlocacaoAtual: z.boolean().optional().default(false),
 });
 
-// Schema para validação da configuração mensal
-const configuracaoMensalSchema = z.object({
-  mes: z.number().int().min(1).max(12),
-  ano: z.number().int().min(2000),
-  diasUteis: z.number().int().min(0).max(31),
-  horasPotenciais: z.number().min(0).max(1000),
+// Schema para atualização de utilizador pela página de perfil
+const updateUserSchema = z.object({
+  id: z.string(),
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  email: z.string().email("Email inválido"),
+  atividade: z.string().optional(),
+  regime: z.nativeEnum(Regime),
+  permissao: z.nativeEnum(Permissao),
+  informacoes: z.string().optional().nullable(),
 });
 
 // Schema para convite de utilizador existente
@@ -124,7 +127,6 @@ const findAllUtilizadoresInputSchema = z.object({
 export type CreateUtilizadorInput = z.infer<typeof createUtilizadorSchema>;
 export type UpdateUtilizadorInput = z.infer<typeof updateUtilizadorSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-export type ConfiguracaoMensalInput = z.infer<typeof configuracaoMensalSchema>;
 
 // Exportar os schemas para uso em validações
 export {
@@ -199,6 +201,46 @@ export const utilizadorRouter = createTRPCRouter({
       }
     }),
 
+  // Atualizar informações do utilizador (para perfil)
+  updateUser: protectedProcedure
+    .input(updateUserSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { id, ...userData } = input;
+        
+        // Verificar se o utilizador existe
+        const existingUser = await ctx.db.user.findUnique({
+          where: { id },
+        });
+        
+        if (!existingUser) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+        
+        // Verificar permissões do usuário atual
+        const sessionUser = ctx.session.user as UserWithPermissao;
+        if (sessionUser.id !== id && sessionUser.permissao !== "ADMIN") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Você não tem permissão para editar este utilizador",
+          });
+        }
+        
+        // Atualizar o utilizador
+        const updatedUser = await ctx.db.user.update({
+          where: { id },
+          data: userData,
+        });
+        
+        return updatedUser;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
+    
   // Validar alocação em tempo real
   validateAlocacao: protectedProcedure
     .input(alocacaoValidationSchema)
@@ -420,6 +462,7 @@ export const utilizadorRouter = createTRPCRouter({
           permissao: true,
           regime: true,
           emailVerified: true,
+          informacoes: true,
         },
       });
 
@@ -843,11 +886,6 @@ export const utilizadorRouter = createTRPCRouter({
                 },
               },
             },
-            aprovado: {
-              not: {
-                equals: null
-              },
-            },
           },
           select: {
             id: true,
@@ -1114,70 +1152,6 @@ export const utilizadorRouter = createTRPCRouter({
       }
     }),
 
-  // Criar ou atualizar configuração mensal
-  upsertConfiguracaoMensal: protectedProcedure
-    .input(configuracaoMensalSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        // Verificar permissão (apenas admin ou gestor podem criar/atualizar)
-        const user = ctx.session?.user as UserWithPermissao | undefined;
-        if (!user || (user.permissao !== Permissao.ADMIN && user.permissao !== Permissao.GESTOR)) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Não tem permissões para criar ou atualizar configurações mensais",
-          });
-        }
-
-        const { mes, ano, diasUteis, horasPotenciais } = input;
-
-        // Converter o valor numérico para Decimal
-        const horasPotenciaisDecimal = new Decimal(horasPotenciais);
-
-        // Verificar se já existe uma configuração para este mês/ano
-        const existente = await ctx.db.configuracaoMensal.findFirst({
-          where: {
-            mes,
-            ano,
-          },
-        });
-
-        let configuracao;
-
-        if (existente) {
-          // Atualizar
-          configuracao = await ctx.db.configuracaoMensal.update({
-            where: {
-              id: existente.id,
-            },
-            data: {
-              diasUteis,
-              horasPotenciais: horasPotenciaisDecimal,
-            },
-          });
-        } else {
-          // Criar
-          configuracao = await ctx.db.configuracaoMensal.create({
-            data: {
-              mes,
-              ano,
-              diasUteis,
-              horasPotenciais: horasPotenciaisDecimal,
-            },
-          });
-        }
-
-        return configuracao;
-      } catch (error) {
-        console.error("Erro ao criar/atualizar configuração mensal:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao criar/atualizar configuração mensal",
-          cause: error,
-        });
-      }
-    }),
-
-  // Modificar o método getRelatorioMensal para criar uma configuração padrão se não existir
   getRelatorioMensal: protectedProcedure
     .input(
       z.object({
@@ -1195,6 +1169,7 @@ export const utilizadorRouter = createTRPCRouter({
           name: true,
           email: true,
           atividade: true,
+          regime: true,
         },
       });
 
@@ -1209,17 +1184,40 @@ export const utilizadorRouter = createTRPCRouter({
       const dataInicio = new Date(input.ano, input.mes - 1, 1);
       const dataFim = new Date(input.ano, input.mes, 0);
 
-      // Buscar configuração mensal
-      let configuracaoMensal = await ctx.db.configuracaoMensal.findFirst({
-        where: {
-          mes: input.mes,
-          ano: input.ano,
-        },
-        select: {
-          diasUteis: true,
-          horasPotenciais: true,
-        },
-      });
+      // Buscar configuração baseada no regime do utilizador
+      let configuracaoMensal;
+      
+      if (utilizador.regime === "PARCIAL") {
+        // Para regime PARCIAL, buscar na configuração específica do utilizador
+        configuracaoMensal = await ctx.db.configuracaoUtilizadorMensal.findFirst({
+          where: {
+            userId: utilizador.id,
+            mes: input.mes,
+            ano: input.ano,
+          },
+          select: {
+            diasUteis: true,
+            horasPotenciais: true,
+            jornadaDiaria: true,
+          },
+        });
+      }
+      
+      // Se não encontrou configuração específica ou o regime não é PARCIAL,
+      // buscar na configuração global
+      if (!configuracaoMensal) {
+        configuracaoMensal = await ctx.db.configuracaoMensal.findFirst({
+          where: {
+            mes: input.mes,
+            ano: input.ano,
+          },
+          select: {
+            diasUteis: true,
+            horasPotenciais: true,
+            jornadaDiaria: true,
+          },
+        });
+      }
 
       // Se não existir configuração, criar uma padrão
       if (!configuracaoMensal) {
@@ -1228,23 +1226,43 @@ export const utilizadorRouter = createTRPCRouter({
         
         // Calcular horas potenciais (8 horas por dia útil)
         const horasPotenciais = new Decimal(diasUteis * 8);
+        
+        // Jornada diária padrão
+        const jornadaDiaria = 8;
 
         configuracaoMensal = {
           diasUteis,
           horasPotenciais,
+          jornadaDiaria,
         };
 
         // Criar configuração na base de dados se o utilizador for admin ou gestor
         const user = ctx.session?.user as UserWithPermissao | undefined;
         if (user && (user.permissao === Permissao.ADMIN || user.permissao === Permissao.GESTOR)) {
-          await ctx.db.configuracaoMensal.create({
-            data: {
-              mes: input.mes,
-              ano: input.ano,
-              diasUteis,
-              horasPotenciais,
-            },
-          });
+          if (utilizador.regime === "PARCIAL") {
+            // Criar configuração específica para o utilizador
+            await ctx.db.configuracaoUtilizadorMensal.create({
+              data: {
+                userId: utilizador.id,
+                mes: input.mes,
+                ano: input.ano,
+                diasUteis,
+                horasPotenciais,
+                jornadaDiaria,
+              },
+            });
+          } else {
+            // Criar configuração global
+            await ctx.db.configuracaoMensal.create({
+              data: {
+                mes: input.mes,
+                ano: input.ano,
+                diasUteis,
+                horasPotenciais,
+                jornadaDiaria,
+              },
+            });
+          }
         }
       }
 
@@ -1343,6 +1361,7 @@ export const utilizadorRouter = createTRPCRouter({
         configuracaoMensal: {
           diasUteis: configuracaoMensal.diasUteis,
           horasPotenciais: Number(configuracaoMensal.horasPotenciais),
+          jornadaDiaria: configuracaoMensal.jornadaDiaria || 8, // Default to 8 if not set
         },
         alocacoes: alocacoesFormatadas,
         estatisticas: {

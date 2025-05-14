@@ -13,6 +13,9 @@ import {
   FileText,
   UserCog,
   Send,
+  Edit,
+
+  Clock,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -21,6 +24,23 @@ import type { Permissao, Regime, ProjetoEstado } from "@prisma/client";
 import { TabelaAlocacoes } from "./components/TabelaAlocacoes";
 import { z } from "zod";
 import { toast } from "sonner";
+import {
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription,
+
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EditarUtilizadorForm } from "./components/EditarUtilizadorForm";
+import { ConfiguracaoMensalUtilizador } from "./components/ConfiguracaoMensalUtilizador";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Interfaces e mapeamentos
 interface UserWithDetails {
@@ -48,6 +68,20 @@ interface AlocacaoAPI {
   mes: number;
   ano: number;
   ocupacao: number;
+}
+
+interface AlocacaoOriginal {
+  ano: number;
+  mes: number;
+  ocupacao: number;
+  workpackage: { id: string; nome: string };
+  projeto: { id: string; nome: string; estado?: ProjetoEstado };
+}
+
+interface AlocacoesData {
+  real: AlocacaoOriginal[];
+  submetido: AlocacaoOriginal[];
+  anos: number[];
 }
 
 const PERMISSAO_LABELS: Record<string, string> = {
@@ -97,7 +131,8 @@ export default function PerfilUtilizador() {
   // Estados
   const [viewMode, setViewMode] = useState<ViewMode>('real');
   const currentYear = new Date().getFullYear();
-
+  const [showUserEdit, setShowUserEdit] = useState(false);
+  const [showMonthlyConfig, setShowMonthlyConfig] = useState(false);
   // Todas as queries - devem ser declaradas juntas e incondicionalmente
   const { 
     data: utilizador,
@@ -130,7 +165,7 @@ export default function PerfilUtilizador() {
   // Mutation para convidar utilizador - deve estar aqui, antes de qualquer retorno condicional
   const convidarUtilizadorMutation = api.utilizador.convidarUtilizador.useMutation({
     onSuccess: () => {
-      toast("O utilizador receberá um email para definir a sua password.");
+      toast.success("O utilizador receberá um email para definir a sua password.");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -139,33 +174,51 @@ export default function PerfilUtilizador() {
 
   // Transformar dados para o formato da tabela
   const alocacoesTabela = useMemo(() => {
-    if (!alocacoes) return {
+    if (!alocacoes?.real || !alocacoes?.pendente) return {
       real: [],
       submetido: [],
-      anos: [currentYear]
+      total: 0,
+      anos: []
     };
-    
-    const transformarAlocacoes = (dados: AlocacaoAPI[]) => dados.map((alocacao) => ({
+
+    // Converter para o formato AlocacaoOriginal
+    const real = alocacoes.real.map((item): AlocacaoOriginal => ({
+      ano: item.ano,
+      mes: item.mes,
+      ocupacao: item.ocupacao,
       workpackage: {
-        id: alocacao.workpackageId,
-        nome: alocacao.workpackageNome,
+        id: item.workpackageId,
+        nome: item.workpackageNome
       },
       projeto: {
-        id: alocacao.projetoId,
-        nome: alocacao.projetoNome,
-        estado: alocacao.projetoEstado,
+        id: item.projetoId,
+        nome: item.projetoNome,
+        estado: item.projetoEstado
+      }
+    }));
+
+    const submetido = alocacoes.pendente.map((item): AlocacaoOriginal => ({
+      ano: item.ano,
+      mes: item.mes,
+      ocupacao: item.ocupacao,
+      workpackage: {
+        id: item.workpackageId,
+        nome: item.workpackageNome
       },
-      mes: alocacao.mes,
-      ano: alocacao.ano,
-      ocupacao: alocacao.ocupacao,
+      projeto: {
+        id: item.projetoId,
+        nome: item.projetoNome,
+        estado: item.projetoEstado
+      }
     }));
 
     return {
-      real: transformarAlocacoes(alocacoes.real),
-      submetido: transformarAlocacoes(alocacoes.pendente || []),
-      anos: alocacoes.anos,
+      real,
+      submetido,
+      total: real.length + submetido.length,
+      anos: alocacoes.anos
     };
-  }, [alocacoes, currentYear]);
+  }, [alocacoes]);
 
   // Estado de carregamento geral
   const isLoading = isLoadingUtilizador || isLoadingAlocacoes || isLoadingDetails;
@@ -187,6 +240,19 @@ export default function PerfilUtilizador() {
     } catch (error) {
       console.error("Erro ao enviar convite:", error);
     }
+  };
+
+  // Handler para atualização do utilizador
+  const handleUserUpdate = () => {
+    toast.success("Informações do utilizador atualizadas com sucesso.");
+    setShowUserEdit(false);
+    // Aqui adicionaríamos lógica para atualizar o cache ou refetch
+  };
+
+  // Handler para atualização da configuração mensal
+  const handleMonthlyConfigUpdate = () => {
+    setShowMonthlyConfig(false);
+    // Aqui adicionaríamos lógica para atualizar o cache ou refetch
   };
   
   // Renderização do componente
@@ -262,12 +328,74 @@ export default function PerfilUtilizador() {
         regime: validatedUser.regime,
         informacoes: validatedUser.informacoes ?? null,
       };
+      // Monthly configuration modal/sheet
+      const monthlyConfigSheet = (
+        <ConfiguracaoMensalUtilizador
+          open={showMonthlyConfig}
+          onOpenChange={setShowMonthlyConfig}
+          onSave={handleMonthlyConfigUpdate}
+          userId={utilizadorComDetalhes.regime === "PARCIAL" ? utilizadorComDetalhes.id : undefined}
+        />
+      );
+
+      // Botões de ação do perfil
+      const actionButtons = (
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2 lg:mt-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
+            onClick={() => setShowUserEdit(true)}
+          >
+            <Edit className="h-4 w-4" />
+            <span>Editar Informações</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
+            onClick={() => setShowMonthlyConfig(true)}
+          >
+            <Clock className="h-4 w-4" />
+            <span>Configuração Mensal</span>
+          </Button>
+          <Button
+            size="sm"
+            className="flex items-center gap-2 bg-azul hover:bg-azul/90 whitespace-nowrap"
+            onClick={handleEnviarConvite}
+          >
+            <Send className="h-4 w-4" />
+            <span>Enviar Convite</span>
+          </Button>
+        </div>
+      );
 
       content = (
-        <div className="h-auto bg-[#F7F9FC] p-8">
-          <div className="max-w-8xl mx-auto space-y-8">
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+          {monthlyConfigSheet}
+          <Dialog open={showUserEdit} onOpenChange={setShowUserEdit}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Editar Informações do Utilizador</DialogTitle>
+              </DialogHeader>
+              <EditarUtilizadorForm
+                user={{
+                  id: utilizadorComDetalhes.id,
+                  name: utilizadorComDetalhes.name,
+                  email: utilizadorComDetalhes.email,
+                  atividade: utilizadorComDetalhes.atividade,
+                  permissao: utilizadorComDetalhes.permissao,
+                  regime: utilizadorComDetalhes.regime,
+                  informacoes: utilizadorComDetalhes.informacoes,
+                }}
+                onSave={handleUserUpdate}
+                onCancel={() => setShowUserEdit(false)}
+              />
+            </DialogContent>
+          </Dialog>
+          <div className="max-w-8xl mx-auto p-6 lg:p-8">
             {/* Breadcrumb/Navegação */}
-            <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+            <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
               <Button
                 variant="ghost"
                 size="icon"
@@ -282,80 +410,135 @@ export default function PerfilUtilizador() {
               <span className="text-slate-700 font-semibold">{utilizadorComDetalhes.name}</span>
             </div>
 
-            {/* Header com informações essenciais - Estilo Framer-like */}
-            <div className="flex flex-col sm:flex-row items-start justify-between gap-6 pt-4 pb-8 border-b border-slate-200/80">
-              {/* Lado Esquerdo: Avatar e Info */}
-              <div className="flex items-center gap-5">
-                <Avatar className="h-24 w-24 flex-shrink-0 shadow-lg border-4 border-white">
-                  <AvatarImage 
-                    src={userDetails?.profilePhotoUrl || "/images/default-avatar.png"} 
-                    alt={utilizadorComDetalhes.name || ""}
-                  />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-4xl font-semibold text-white">
-                    {utilizadorComDetalhes.name?.slice(0, 2).toUpperCase() || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-1.5">
-                  <h1 className="text-3xl font-bold tracking-tight text-slate-900">{utilizadorComDetalhes.name}</h1>
-                  <p className="text-base text-slate-600">{utilizadorComDetalhes.atividade}</p>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-sm text-slate-500">
-                    <span className="flex items-center gap-1.5"><Mail className="h-4 w-4 text-slate-400" />{utilizadorComDetalhes.email}</span>
-                    <span className="flex items-center gap-1.5"><Shield className="h-4 w-4 text-slate-400" />{getPermissaoText(utilizadorComDetalhes.permissao)}</span>
-                    <span className="flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-slate-400" />{getRegimeText(utilizadorComDetalhes.regime)}</span>
-                    {utilizadorComDetalhes.contratacao && (
-                      <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4 text-slate-400" />Membro desde {format(new Date(utilizadorComDetalhes.contratacao), "MMM yyyy", { locale: pt })}</span>
-                    )}
-                  </div>
+            {/* Header com informações essenciais - Cartão com design moderno */}
+            <Card className="mb-8 overflow-hidden border-0 bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="relative h-32 bg-gradient-to-r from-azul to-blue-500">
+                <div className="absolute -bottom-16 left-8">
+                  <Avatar className="h-32 w-32 flex-shrink-0 shadow-lg border-4 border-white bg-white">
+                    <AvatarImage 
+                      src={userDetails?.profilePhotoUrl || "/images/default-avatar.png"} 
+                      alt={utilizadorComDetalhes.name || ""}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-4xl font-semibold text-white">
+                      {utilizadorComDetalhes.name?.slice(0, 2).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </div>
               
-              {/* Adicionar botão de Novo Convite */}
-              <div className="flex-shrink-0">
-                <Button
-                  onClick={handleEnviarConvite}
-                  disabled={convidarUtilizadorMutation.status === "pending"}
-                  className="bg-azul text-white hover:bg-azul/90 transition-colors"
-                >
-                  {convidarUtilizadorMutation.status === "pending" ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white mr-2" />
-                      A enviar...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Novo Convite
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* Conteúdo Principal - CV e Tabela */}
-            <div className="space-y-8">
-              {/* Card Short CV */}
-              <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <UserCog className="h-5 w-5 text-slate-500" />
-                    <h3 className="text-base font-medium text-slate-700">Short CV</h3>
+              <CardContent className="pt-20 px-8 pb-8">
+                <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
+                  <div className="space-y-2">
+                    <div className="flex flex-col gap-1">
+                      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{utilizadorComDetalhes.name}</h1>
+                      <p className="text-lg text-slate-600">{utilizadorComDetalhes.atividade}</p>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mt-3 text-sm text-slate-500">
+                      <span className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full">
+                        <Mail className="h-4 w-4 text-blue-500" />
+                        {utilizadorComDetalhes.email}
+                      </span>
+                      <span className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full">
+                        <Shield className="h-4 w-4 text-indigo-500" />
+                        {getPermissaoText(utilizadorComDetalhes.permissao)}
+                      </span>
+                      <span className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full">
+                        <Briefcase className="h-4 w-4 text-purple-500" />
+                        {getRegimeText(utilizadorComDetalhes.regime)}
+                      </span>
+                      {utilizadorComDetalhes.contratacao && (
+                        <span className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full">
+                          <Calendar className="h-4 w-4 text-green-500" />
+                          Membro desde {format(new Date(utilizadorComDetalhes.contratacao), "MMM yyyy", { locale: pt })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-3 mt-4 lg:mt-0">
+                    {actionButtons}
                   </div>
                 </div>
-                <div className="text-slate-700 text-sm whitespace-pre-line">
-                  {userDetails?.informacoes || utilizadorComDetalhes.informacoes || <span className="italic text-slate-400">Sem informações de CV disponíveis.</span>}
-                </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              {/* Tabela de Alocações - Full Width */}
-              <TabelaAlocacoes 
-                alocacoes={alocacoesTabela}
-                viewMode={viewMode}
-                ano={currentYear}
-                onSave={() => {
-                  console.log("Save triggered");
-                }}
-              />
-            </div>
+            {/* Tabs de Conteúdo */}
+            <Tabs defaultValue="allocations" className="mb-8">
+              <TabsList className="bg-slate-100 p-1 rounded-full mb-6">
+                <TabsTrigger 
+                  value="allocations" 
+                  className="rounded-full data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-azul"
+                >
+                  Alocações
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="cv" 
+                  className="rounded-full data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-azul"
+                >
+                  Currículo
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="allocations" className="mt-0">
+                {/* Tabela de Alocações - Full Width */}
+                <TabelaAlocacoes 
+                  alocacoes={alocacoesTabela}
+                  viewMode={viewMode}
+                  ano={currentYear}
+                  onSave={() => {
+                    console.log("Save triggered");
+                  }}
+                />
+              </TabsContent>
+              
+              <TabsContent value="cv" className="mt-0">
+                <Card className="rounded-xl border border-gray-100 bg-white shadow-md overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 px-6 py-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserCog className="h-5 w-5 text-azul" />
+                        <CardTitle className="text-lg font-semibold text-slate-800">Informações Curriculares</CardTitle>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full h-8 px-3 text-xs border-slate-200 hover:border-blue-200 hover:bg-blue-50"
+                        onClick={() => setShowUserEdit(true)}
+                      >
+                        <Edit className="h-3.5 w-3.5 text-blue-500 mr-1.5" />
+                        Editar
+                      </Button>
+                    </div>
+                    <CardDescription className="text-sm text-slate-500 mt-1">
+                      Resumo das informações profissionais e experiência do utilizador
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-6 py-5">
+                    <div className="text-slate-700 whitespace-pre-line min-h-[150px]">
+                      {userDetails?.informacoes || utilizadorComDetalhes.informacoes || (
+                        <div className="flex flex-col items-center justify-center h-[150px] gap-3 text-center">
+                          <div className="bg-slate-100 p-4 rounded-full">
+                            <FileText className="h-8 w-8 text-slate-400" />
+                          </div>
+                          <span className="text-slate-400">Sem informações de CV disponíveis.</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 rounded-full text-xs"
+                            onClick={() => setShowUserEdit(true)}
+                          >
+                            <Edit className="h-3 w-3 mr-1.5" />
+                            Adicionar Informações
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       );

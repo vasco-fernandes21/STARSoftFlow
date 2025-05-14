@@ -12,15 +12,12 @@ import {
   Loader2, 
   Calendar, 
   FileText, 
-  AlertCircle, 
-  Eye, 
-  EyeOff, 
-  CheckCircle2, 
-  Clock, 
-  RefreshCw, 
   ChevronDown,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  ArrowLeftRight,
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -34,11 +31,6 @@ import {
 import { api } from "@/trpc/react";
 import type { ProjetoEstado } from "@prisma/client";
 import { useParams } from 'next/navigation';
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -149,7 +141,6 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
   const [editValues, setEditValues] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [modoComparacao, setModoComparacao] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Constantes
@@ -316,15 +307,10 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
     return total;
   }, [anoSelecionado, editValues, alocacoes.submetido]);
 
-  // Validação — só pode salvar se todos os meses baterem
-  const podeSalvar = useMemo(() => {
-    return getMeses().every(mes => 
-      Math.abs(calcularTotal(alocacoes.real, mes) - calcularTotal(alocacoes.submetido, mes)) < 0.001
-    );
-  }, [alocacoes, getMeses, calcularTotal]);
+  // Simplificado - assumimos que podemos guardar sempre
+  const podeguardar = true;
 
   async function handleSave(){
-    if(!podeSalvar) return;
     setLoading(true);
     try{
       await onSave(alocacoes.real);
@@ -332,13 +318,6 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
       setLoading(false);
     }
   }
-
-  // Função para obter a diferença entre real e submetido
-  const getDiferenca = useCallback((wpId: string, mes: number) => {
-    const real = getValorReal(wpId, mes);
-    const submetido = getValorSubmetido(wpId, mes);
-    return real - submetido;
-  }, [getValorReal, getValorSubmetido]);
 
   return (
     <Card className="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md transition-all hover:shadow-lg">
@@ -349,34 +328,36 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
             <p className="text-sm text-slate-500">Gestão de alocações por projeto e workpackage</p>
           </div>
           
-          <Tabs 
-            defaultValue={viewMode} 
-            className="w-full sm:w-auto" 
-            onValueChange={(v) => setViewMode(v as "real" | "submetido")}
-          >
-            <TabsList className="grid w-full grid-cols-2 bg-slate-100 rounded-full p-1 h-9">
-              <TabsTrigger 
-                value="real" 
+          <div className="flex items-center">
+            <div className="bg-slate-100 p-0.5 rounded-full flex shadow-sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode("real")}
                 className={cn(
-                  "rounded-full text-xs font-medium transition-all duration-200 px-4",
-                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white shadow-sm"
+                  "h-8 rounded-full px-4 text-xs font-medium transition-all duration-200",
+                  !isSubmetido 
+                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm" 
+                    : "text-slate-600 hover:bg-slate-200/70"
                 )}
               >
-                <Clock className="h-3.5 w-3.5 mr-1.5" />
                 Horas Reais
-              </TabsTrigger>
-              <TabsTrigger 
-                value="submetido" 
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode("submetido")}
                 className={cn(
-                  "rounded-full text-xs font-medium transition-all duration-200 px-4",
-                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white shadow-sm"
+                  "h-8 rounded-full px-4 text-xs font-medium transition-all duration-200",
+                  isSubmetido 
+                    ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-sm" 
+                    : "text-slate-600 hover:bg-slate-200/70"
                 )}
               >
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
                 Horas Submetidas
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+              </Button>
+            </div>
+          </div>
         </div>
       </CardHeader>
       
@@ -393,13 +374,6 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                 {mesesFull[mesSelecionado - 1]}
               </Badge>
             )}
-            
-            {!isSubmetido && !podeSalvar && (
-              <Badge variant="destructive" className="h-7 rounded-full px-3 text-sm animate-pulse shadow-sm">
-                <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
-                <span>Totais Divergentes</span>
-              </Badge>
-            )}
           </div>
           
           <div className="flex flex-wrap items-center gap-2">
@@ -407,7 +381,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 gap-1 text-sm rounded-full shadow-sm transition-all hover:bg-slate-100">
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  <Calendar className="h-3.5 w-3.5" />
                   <span>Filtros</span>
                   <ChevronDown className="h-3.5 w-3.5 ml-1" />
                 </Button>
@@ -443,65 +417,26 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                       className="w-full text-sm"
                     />
                   </div>
-                  
-                  <div className="pt-2 flex items-center">
-                    <Button 
-                      variant={modoComparacao ? "secondary" : "outline"}
-                      size="sm" 
-                      className={cn(
-                        "w-full text-sm h-9 rounded-full transition-all shadow-sm",
-                        modoComparacao ? "bg-blue-100 text-blue-700 hover:bg-blue-200" : ""
-                      )}
-                      onClick={() => setModoComparacao(!modoComparacao)}
-                    >
-                      {modoComparacao ? (
-                        <>
-                          <EyeOff className="h-3.5 w-3.5 mr-1.5" />
-                          <span>Ocultar Comparação</span>
-                        </>
-                      ) : (
-                        <>
-                          <Eye className="h-3.5 w-3.5 mr-1.5" />
-                          <span>Ver Comparação</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
             
             {!isSubmetido && (
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Button 
-                        onClick={handleSave} 
-                        disabled={!podeSalvar || loading}
-                        className={cn(
-                          "h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300 shadow-sm",
-                          podeSalvar 
-                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-md hover:from-blue-600 hover:to-blue-700" 
-                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                        )}
-                      >
-                        {loading ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Save className="h-3.5 w-3.5" />
-                        )}
-                        <span>Guardar</span>
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-slate-800 text-white p-2 rounded-md text-xs shadow-lg">
-                    {podeSalvar 
-                      ? "Guardar alterações nas alocações"
-                      : "Os totais reais devem coincidir com os submetidos para guardar"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Button 
+                onClick={handleSave} 
+                disabled={loading}
+                className={cn(
+                  "h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300 shadow-sm",
+                  "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-md hover:from-blue-600 hover:to-blue-700"
+                )}
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                <span>Guardar</span>
+              </Button>
             )}
             
             {mesSelecionado && (
@@ -525,28 +460,32 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
 
         <div className="overflow-auto p-0 m-0">
           <Table className={cn(
-            "w-full min-w-[800px]",
+            "w-full",
+            mesSelecionado ? "min-w-[600px]" : "min-w-[800px]",
             "border-separate border-spacing-0",
-            mesSelecionado && "table-fixed",
             "animate-in fade-in duration-300"
           )}>
             <TableHeader className="sticky top-0 z-30 bg-white shadow-sm">
               <TableRow className="border-b-0">
                 <TableHead className={cn(
-                  "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 sticky left-0 z-40 bg-white flex items-center justify-between",
-                  mesSelecionado ? "w-[60%]" : (isSidebarCollapsed ? "w-[60px] min-w-[60px]" : "w-[220px] min-w-[220px]"),
+                  "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 sticky left-0 z-40 bg-white",
+                  mesSelecionado 
+                    ? "w-[60%]" 
+                    : (isSidebarCollapsed ? "w-[60px] min-w-[60px]" : "w-[280px] min-w-[280px]"),
                   "transition-all duration-300 ease-in-out"
                 )}>
-                  <span className={cn(isSidebarCollapsed && "hidden")}>Projeto / Workpackage</span>
-                  <Button 
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 p-0 text-slate-500 hover:bg-slate-200/50 rounded-full"
-                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                    aria-label={isSidebarCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
-                  >
-                    {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                  </Button>
+                  <div className="flex items-center justify-between">
+                    <span className={cn(isSidebarCollapsed && "hidden")}>Projeto / Workpackage</span>
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 p-0 text-slate-500 hover:bg-slate-200/50 rounded-full"
+                      onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                      aria-label={isSidebarCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
+                    >
+                      {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </TableHead>
                 {getMeses().map((mes) => (
                   <TableHead
@@ -558,7 +497,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                     )}
                   >
                     {mesSelecionado ? (
-                      <span className="font-medium">Alocação</span>
+                      <span className="font-medium">Alocação de Horas</span>
                     ) : (
                       <span className="font-medium">{mesesFull[mes-1]?.slice(0,3) ?? ''}</span>
                     )}
@@ -568,134 +507,133 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
             </TableHeader>
             
             <TableBody>
-              {projetos.map((projeto, projIndex) => (
-                <React.Fragment key={projeto.id}>
-                  <TableRow className={cn(
-                    "group",
-                    projIndex > 0 ? "border-t border-slate-200" : ""
-                  )}>
-                    <TableCell
-                      className={cn(
-                        "sticky left-0 z-20 px-4 py-2 flex items-center justify-between",
-                        isSubmetido 
-                          ? "bg-indigo-50 text-indigo-900" 
-                          : "bg-blue-50 text-blue-900",
-                        "transition-colors duration-200"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold shadow-sm flex-shrink-0",
-                          isSubmetido 
-                            ? "bg-indigo-100 text-indigo-700" 
-                            : "bg-blue-100 text-blue-700"
-                        )}>
-                          {projeto.nome.substring(0, 2).toUpperCase()}
-                        </div>
-                        <span className={cn("font-medium text-sm truncate", isSidebarCollapsed && "hidden")}>{projeto.nome}</span>
-                      </div>
-                    </TableCell>
-                    {getMeses().map((mes) => (
+              {projetos.map((projeto, projIndex) => {
+                // Get all workpackages for this project
+                const projectWps = Array.from(projeto.wps).map(wpId => {
+                  const wp = isSubmetido && alocacoes.submetido 
+                    ? alocacoes.submetido.find(a => a.workpackage.id === wpId)?.workpackage
+                    : alocacoes.real.find(a => a.workpackage.id === wpId)?.workpackage;
+                  return wp;
+                }).filter(Boolean);
+                
+                return (
+                  <React.Fragment key={projeto.id}>
+                    {/* Project header row */}
+                    <TableRow className={cn(
+                      "group",
+                      projIndex > 0 ? "border-t border-slate-200" : ""
+                    )}>
                       <TableCell
-                        key={`${projeto.id}-mes-${mes}`}
+                        colSpan={mesSelecionado ? 2 : 13}
                         className={cn(
-                          "py-2",
-                          isSubmetido ? "bg-indigo-50" : "bg-blue-50",
-                          mes % 2 !== 0 ? "bg-opacity-60" : "bg-opacity-100",
+                          "sticky left-0 z-20 px-4 py-2",
+                          isSubmetido 
+                            ? "bg-indigo-50/80 text-indigo-900" 
+                            : "bg-blue-50/80 text-blue-900",
+                          "transition-colors duration-200"
                         )}
-                      />
-                    ))}
-                  </TableRow>
-
-                  {Array.from(projeto.wps).map((wpId) => {
-                    const wp = isSubmetido && alocacoes.submetido 
-                      ? alocacoes.submetido.find(a => a.workpackage.id === wpId)?.workpackage
-                      : alocacoes.real.find(a => a.workpackage.id === wpId)?.workpackage;
-
-                    if (!wp) return null;
-
-                    return (
-                      <TableRow
-                        key={`${projeto.id}-${wpId}`}
-                        className="group transition-all duration-150 ease-in-out hover:bg-slate-50/70"
                       >
-                        <TableCell className={cn(
-                          "px-4 py-3 align-middle text-sm sticky left-0 bg-white z-10 group-hover:bg-slate-50/70 transition-all duration-300 ease-in-out",
-                          mesSelecionado && "max-w-0",
-                          isSidebarCollapsed ? "w-0 p-0 opacity-0 pointer-events-none" : ""
-                        )}>
-                          <div className={cn("flex items-center gap-1.5 pl-4", isSidebarCollapsed && "hidden")}>
-                            <div className={cn(
-                              "h-1.5 w-1.5 rounded-full transition-colors duration-200 flex-shrink-0",
-                              isSubmetido ? "bg-indigo-400 group-hover:bg-indigo-500" : "bg-blue-400 group-hover:bg-blue-500"
-                            )} />
-                            <span className={cn(
-                              "text-sm transition-colors duration-200 group-hover:text-slate-800 truncate",
-                              mesSelecionado && "line-clamp-1"
-                            )}>{wp.nome}</span>
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold shadow-sm flex-shrink-0",
+                            isSubmetido 
+                              ? "bg-indigo-100 text-indigo-700" 
+                              : "bg-blue-100 text-blue-700"
+                          )}>
+                            {projeto.nome.substring(0, 2).toUpperCase()}
                           </div>
-                        </TableCell>
-                        
-                        {getMeses().map((mes) => {
-                          const valor = getValor(wpId, mes);
-                          const valorNum = typeof valor === 'number' ? valor : 0;
-                          const isEditing = editValues.has(`${wpId}-${mes}-${anoSelecionado}`);
-                          const diferenca = getDiferenca(wpId, mes);
-                          const temDiferenca = Math.abs(diferenca) >= 0.01;
+                          <span className={cn(
+                            "font-medium text-sm truncate", 
+                            isSidebarCollapsed && "hidden",
+                            mesSelecionado && "text-base"
+                          )}>
+                            {projeto.nome}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Workpackage rows */}
+                    {projectWps.map((wp) => {
+                      if (!wp) return null;
+                      const wpId = wp.id;
+
+                      return (
+                        <TableRow
+                          key={`${projeto.id}-${wpId}`}
+                          className="group transition-all duration-150 ease-in-out hover:bg-slate-50/70"
+                        >
+                          <TableCell className={cn(
+                            "px-4 py-3 align-middle text-sm sticky left-0 bg-white z-10 group-hover:bg-slate-50/70 transition-all duration-300 ease-in-out",
+                            mesSelecionado && "max-w-0",
+                            isSidebarCollapsed ? "w-0 p-0 opacity-0 pointer-events-none" : ""
+                          )}>
+                            <div className={cn("flex items-center gap-1.5 pl-4", isSidebarCollapsed && "hidden")}>
+                              <div className={cn(
+                                "h-2 w-2 rounded-full transition-colors duration-200 flex-shrink-0",
+                                isSubmetido ? "bg-indigo-400 group-hover:bg-indigo-500" : "bg-blue-400 group-hover:bg-blue-500"
+                              )} />
+                              <span className={cn(
+                                "text-sm transition-colors duration-200 group-hover:text-slate-800 truncate",
+                                mesSelecionado && "line-clamp-1 font-medium"
+                              )}>{wp.nome}</span>
+                            </div>
+                          </TableCell>
                           
-                          return (
-                            <TableCell 
-                              key={mes} 
-                              className={cn(
-                                "px-3 py-2 text-center align-middle transition-all duration-200",
-                                mes % 2 !== 0 ? "bg-slate-50/30" : "bg-white",
-                                mesSelecionado && "w-[40%]",
-                                !isSubmetido && temDiferenca && modoComparacao && "bg-yellow-50/50"
-                              )}
-                            >
-                              <div className="flex flex-col items-center">
-                                {isSubmetido ? (
-                                  <span className={cn(
-                                    "flex items-center justify-center h-8 w-[70px] text-sm rounded-md",
-                                    valorNum > 0 ? "font-medium text-indigo-700 bg-indigo-50/60" : "text-slate-400"
-                                  )}>
-                                    {valorNum.toFixed(2)}
-                                  </span>
-                                ) : (
-                                  <Input
-                                    type="text"
-                                    value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) : valorNum.toFixed(2).replace(".", ",")}
-                                    onChange={(e) => handleInputChange(wpId, mes, e)}
-                                    placeholder="0,00"
-                                    className={cn(
-                                      "h-8 w-[70px] text-center text-sm border border-transparent rounded-md",
-                                      "bg-transparent focus:bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none",
-                                      "transition-all duration-200",
-                                      isEditing && "bg-blue-50/60 border-blue-300 shadow-sm",
-                                      valorNum > 0 && "text-blue-700 font-medium",
-                                      mesSelecionado && "text-base w-[80px]",
-                                      temDiferenca && modoComparacao && "border-yellow-400 bg-yellow-50/50"
-                                    )}
-                                  />
+                          {getMeses().map((mes) => {
+                            const valor = getValor(wpId, mes);
+                            const valorNum = typeof valor === 'number' ? valor : 0;
+                            const isEditing = editValues.has(`${wpId}-${mes}-${anoSelecionado}`);
+                            
+                            return (
+                              <TableCell 
+                                key={mes} 
+                                className={cn(
+                                  "px-3 py-2 text-center align-middle transition-all duration-200",
+                                  mes % 2 !== 0 ? "bg-slate-50/30" : "bg-white",
+                                  mesSelecionado && "w-[40%]"
                                 )}
-                                
-                                {modoComparacao && temDiferenca && (
-                                  <div className={cn(
-                                    "text-[11px] mt-1 font-medium",
-                                    diferenca > 0 ? "text-emerald-600" : "text-red-600"
-                                  )}>
-                                    {diferenca > 0 ? "+" : ""}{diferenca.toFixed(2)}
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
+                              >
+                                <div className="flex flex-col items-center">
+                                  {isSubmetido ? (
+                                    <div className={cn(
+                                      "flex items-center justify-center h-9 min-w-[80px] px-3 text-sm rounded-md",
+                                      valorNum > 0 
+                                        ? "font-medium text-indigo-700 bg-indigo-50/60 border border-indigo-100" 
+                                        : "text-slate-400 bg-slate-50/50 border border-slate-100",
+                                      mesSelecionado && "text-base h-10 min-w-[100px]"
+                                    )}>
+                                      {valorNum.toFixed(2)}
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type="text"
+                                      value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) || "" : valorNum.toFixed(2).replace(".", ",")}
+                                      onChange={(e) => handleInputChange(wpId, mes, e)}
+                                      placeholder="0,00"
+                                      className={cn(
+                                        "h-9 min-w-[80px] text-center text-sm border rounded-md",
+                                        "focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none",
+                                        "transition-all duration-200",
+                                        isEditing 
+                                          ? "bg-blue-50/60 border-blue-300 shadow-sm" 
+                                          : valorNum > 0 
+                                            ? "bg-blue-50/30 border-blue-100 text-blue-700 font-medium" 
+                                            : "bg-slate-50/50 border-slate-100 text-slate-500",
+                                        mesSelecionado && "text-base h-10 min-w-[100px]"
+                                      )}
+                                    />
+                                  )}
+                                </div>
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
             
             <TableFooter className="sticky bottom-0 z-20 bg-slate-100/95 backdrop-blur-sm">
@@ -710,65 +648,29 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
                 {getMeses().map((mes) => {
                   const totalReal = calcularTotal(alocacoes.real, mes);
                   const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
-                  const isDifferent = Math.abs(totalReal - totalSubmetido) >= 0.001;
                   const totalAtual = isSubmetido ? totalSubmetido : totalReal;
 
                   return (
                     <TableCell
                       key={mes}
                       className={cn(
-                        "px-3 py-3 text-center text-sm font-semibold",
-                        isDifferent && !isSubmetido ? "bg-yellow-100/70 text-yellow-800" : "text-slate-700",
-                        !isDifferent && !isSubmetido ? "bg-emerald-100/60 text-emerald-800" : "",
+                        "px-3 py-3 text-center font-semibold",
+                        isSubmetido 
+                          ? "bg-indigo-100/40 text-indigo-800 text-sm" 
+                          : "bg-blue-100/40 text-blue-800 text-sm",
                         mesSelecionado && "text-base"
                       )}
                     >
-                      <div className="flex flex-col items-center">
-                        <span>{totalAtual.toFixed(2)}</span>
-                        {!isSubmetido && (
-                          <div className={cn(
-                              "flex items-center mt-1 text-xs font-medium",
-                              isDifferent ? "text-yellow-700" : "text-emerald-700"
-                          )}>
-                            {isDifferent ? (
-                              <AlertCircle className="h-3 w-3 mr-1 flex-shrink-0" />
-                            ) : (
-                              <CheckCircle2 className="h-3 w-3 mr-1 flex-shrink-0" />
-                            )}
-                            {isDifferent ? "Divergente" : "Correto"}
-                          </div>
-                        )}
+                      <div className={cn(
+                        "flex items-center justify-center",
+                        mesSelecionado && "text-lg"
+                      )}>
+                        {totalAtual.toFixed(2)}
                       </div>
                     </TableCell>
                   );
                 })}
               </TableRow>
-              
-              {!isSubmetido && (
-                <TableRow className="border-t border-slate-200/50">
-                  <TableCell className={cn(
-                    "px-4 py-3 text-sm font-medium text-slate-500 sticky left-0 z-10 bg-slate-100/95 transition-all duration-300 ease-in-out",
-                    isSidebarCollapsed ? "w-[60px] min-w-[60px] text-center" : ""
-                  )}>
-                    <span className={cn(isSidebarCollapsed && "hidden")}>Meta (Submetido)</span>
-                    {isSidebarCollapsed && <span title="Meta (Submetido)">🎯</span>}
-                  </TableCell>
-                  {getMeses().map((mes) => {
-                    const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
-                    return (
-                      <TableCell
-                        key={mes}
-                        className={cn(
-                          "px-3 py-3 text-center text-sm font-medium text-slate-500",
-                          mesSelecionado && "text-base"
-                        )}
-                      >
-                        {totalSubmetido.toFixed(2)}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              )}
             </TableFooter>
           </Table>
         </div>
@@ -783,24 +685,6 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
               <div className="h-2 w-2 rounded-full bg-indigo-400 mr-1.5"></div>
               <span>Alocações Submetidas (Meta)</span>
             </div>
-            {modoComparacao && (
-              <>
-                <div className="flex items-center">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-100 text-yellow-700 mr-1.5">
-                    <AlertCircle className="h-3 w-3" />
-                  </div>
-                  <span>Diferença Real vs. Submetido</span>
-                </div>
-                <div className="flex items-center text-emerald-600">
-                  <span className="font-mono mr-1">+0.10</span>
-                  <span>Real Maior</span>
-                </div>
-                <div className="flex items-center text-red-600">
-                  <span className="font-mono mr-1">-0.10</span>
-                  <span>Real Menor</span>
-                </div>
-              </>
-            )}
           </div>
         </div>
       </CardContent>

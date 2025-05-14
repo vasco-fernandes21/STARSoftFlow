@@ -15,6 +15,7 @@ interface RelatorioMensalOutput {
     configuracaoMensal: {
       diasUteis: number;
       horasPotenciais: number;
+      jornadaDiaria?: number;
     };
     alocacoes: Array<{
       workpackageId: string;
@@ -519,7 +520,7 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                 <div class="info-grid">
                     <div class="info-card">
                         <div class="info-label">Jornada diária</div>
-                        <div class="info-value">8,00</div>
+                        <div class="info-value">${formatNumber(data.configuracaoMensal.jornadaDiaria || 8)}</div>
                     </div>
                     <div class="info-card">
                         <div class="info-label">Dias úteis trabalháveis</div>

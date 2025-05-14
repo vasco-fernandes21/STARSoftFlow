@@ -129,6 +129,7 @@ model ConfiguracaoMensal {
   ano             Int
   diasUteis       Int
   horasPotenciais Decimal  @db.Decimal(10, 2)
+  jornadaDiaria   Int?     
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -143,6 +144,7 @@ model ConfiguracaoUtilizadorMensal {
   ano             Int
   diasUteis       Int
   horasPotenciais Decimal  @db.Decimal(10, 2)
+  jornadaDiaria   Int?     
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)

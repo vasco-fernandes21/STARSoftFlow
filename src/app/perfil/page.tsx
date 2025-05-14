@@ -232,7 +232,7 @@ export default function PerfilPage() {
     return regimes[regime] || regime;
   };
   
-  // Handler para salvar perfil
+  // Handler para guardar perfil
   const handleSaveProfile = () => {
     if (!userData || !userId) return;
     
@@ -371,7 +371,7 @@ export default function PerfilPage() {
         canvas.width = size;
         canvas.height = size;
         
-        // Salvar o estado atual do contexto
+        // guardar o estado atual do contexto
         ctx.save();
         
         // Limpar o canvas
