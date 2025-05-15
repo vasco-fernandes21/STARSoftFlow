@@ -1,22 +1,11 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
-import {
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  BarChart,
-  Bar,
-  Legend,
-} from "recharts";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Filter, DollarSign, Users, Package, LineChart } from "lucide-react";
 import { api } from "@/trpc/react";
-import { formatNumber, formatCurrency, formatPercentage } from "./utils";
-import { SelectField } from "@/components/projetos/criar/components/FormFields";
+import { formatCurrency } from "./utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -26,24 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-// import type { Decimal } from 'decimal.js'; // Removed as client receives numbers
 
-// Type for individual workpackage item from getByProjeto
-interface WorkpackageSelectItem {
-  id: string;
-  nome: string;
-}
 
-// Inferred type for orcamentoDetalhadoData (based on backend `getOrcamentoRealDetalhado`)
-// This helps with type safety if tRPC inference is not perfectly picked up by the editor
-interface OrcamentoDetalhado {
-  custoRecursos: number; // Expecting number on client
-  custoMateriais: number; // Expecting number on client
-  total: number; // Expecting number on client
-  detalhesRecursos: Array<any>; // Define more specifically if needed
-  detalhesMateriais: Array<any>; // Define more specifically if needed
-}
 
 interface OrcamentoRealTabProps {
   projetoId: string;

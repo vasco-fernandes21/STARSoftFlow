@@ -5,7 +5,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Check, 
-  X, 
   TrendingUp, 
   Package, 
   Users, 
@@ -16,7 +15,6 @@ import {
   ChevronRight 
 } from "lucide-react";
 import { api } from "@/trpc/react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 

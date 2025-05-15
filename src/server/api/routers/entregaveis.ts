@@ -4,6 +4,7 @@ import { ProjetoEstado } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { put, list, del } from '@vercel/blob';
 import { BLOB_PATHS } from "@/lib/blob";
+import { TRPCError } from "@trpc/server";
 
 // Schemas
 export const entregavelBaseSchema = z.object({
@@ -338,6 +339,34 @@ export const entregavelRouter = createTRPCRouter({
           },
         };
       });
+    }),
+
+  // Toggle estado do entregável
+  toggleEstado: protectedProcedure
+    .input(z.string().uuid("ID do entregável inválido"))
+    .mutation(async ({ ctx, input: id }) => {
+      try {
+        // Buscar o entregável atual
+        const entregavel = await ctx.db.entregavel.findUnique({
+          where: { id },
+          select: { estado: true }
+        });
+
+        if (!entregavel) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Entregável não encontrado",
+          });
+        }
+
+        // Inverter o estado
+        return ctx.db.entregavel.update({
+          where: { id },
+          data: { estado: !entregavel.estado },
+        });
+      } catch (error) {
+        throw new Error(`Erro ao atualizar entregável: ${error}`);
+      }
     }),
 });
 

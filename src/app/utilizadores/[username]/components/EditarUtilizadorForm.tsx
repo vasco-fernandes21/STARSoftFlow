@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Permissao, Regime } from "@prisma/client";
+import type { Permissao, Regime } from "@prisma/client";
 import { api } from "@/trpc/react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";

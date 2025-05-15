@@ -9,7 +9,7 @@ import type { WorkpackageWithRelations } from "@/components/projetos/types";
 import { TarefaForm } from "../tarefas/form";
 import { Form as MaterialForm } from "../material/form";
 import { TarefaItem } from "../tarefas/item";
-import { Item as MaterialItem } from "../material/item";
+import { MaterialItem } from "../material/item";
 import type { Prisma } from "@prisma/client";
 
 type TarefaCreateInput = Prisma.TarefaCreateInput;
@@ -41,6 +41,7 @@ interface WorkpackageItemProps {
       data: Partial<MaterialCreateInput>
     ) => Promise<void>;
     removeMaterial: (workpackageId: string, materialId: number) => Promise<void>;
+    toggleMaterialEstado: (workpackageId: string, materialId: number) => Promise<void>;
     addEntregavel: (
       tarefaId: string,
       entregavel: Omit<EntregavelCreateInput, "tarefa">
@@ -214,6 +215,12 @@ export function WorkpackageItem({
                 }}
                 onRemove={async () => {
                   await handlers.removeMaterial(workpackage.id, material.id);
+                }}
+                onCreate={async (workpackageId, data) => {
+                  await handlers.addMaterial(workpackageId, data);
+                }}
+                onToggleEstado={async () => {
+                  await handlers.toggleMaterialEstado(workpackage.id, material.id);
                 }}
               />
             ))}

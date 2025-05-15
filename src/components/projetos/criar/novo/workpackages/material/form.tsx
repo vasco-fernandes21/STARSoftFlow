@@ -9,7 +9,6 @@ import {
   MoneyField,
   SelectField,
   NumberField,
-  DecimalField,
   IntegerField,
 } from "@/components/projetos/criar/components/FormFields";
 import { Badge } from "@/components/ui/badge";

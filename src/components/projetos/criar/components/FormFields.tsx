@@ -186,7 +186,7 @@ export function DecimalField({
   }, [value, decimalPlaces, step, inputValue]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let currentVal = e.target.value;
+    const currentVal = e.target.value;
 
     const validPattern = /^-?\d*([.,])?\d*$/;
     if (currentVal !== "" && !validPattern.test(currentVal) && currentVal !== "-") {

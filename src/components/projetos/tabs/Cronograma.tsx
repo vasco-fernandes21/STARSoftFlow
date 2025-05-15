@@ -7,7 +7,7 @@ import { format, getDaysInMonth, differenceInDays, isWithinInterval, isSameMonth
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { MenuWorkpackage } from "@/components/projetos/menus/workpackage";
-import { useMutations } from "@/hooks/useMutations";
+import { api } from "@/trpc/react";
 import type { ProjetoCompleto } from "../types";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -85,7 +85,15 @@ export function Cronograma({
   const [sortType, setSortType] = useState<SortType>("data");
   const leftColumnRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
-  const mutations = useMutations(projetoId);
+  const utils = api.useUtils();
+  
+  // Adicionar o hook useMutation para toggleEstado
+  const toggleEstadoMutation = api.entregavel.toggleEstado.useMutation({
+    onSuccess: () => {
+      // Invalidar o cache do projeto para atualizar a UI
+      utils.projeto.findById.invalidate(projetoId);
+    },
+  });
 
   useEffect(() => {
     const leftColumn = leftColumnRef.current;
@@ -273,6 +281,18 @@ export function Cronograma({
     if (totalDaysInTarefa <= 1) return 50; // Centralizar se a tarefa durar apenas um dia
 
     return (daysSinceStart / totalDaysInTarefa) * 100;
+  };
+
+  // Permitir clicar no entregável para alternar seu estado (se interações estiverem habilitadas)
+  const handleEntregavelClick = async (e: React.MouseEvent, entregavelId: string, currentState: boolean) => {
+    if (disableInteractions) return;
+    e.stopPropagation(); // Evitar propagar o clique para a tarefa pai
+
+    try {
+      await toggleEstadoMutation.mutateAsync(entregavelId);
+    } catch (error) {
+      console.error("Erro ao atualizar estado do entregável:", error);
+    }
   };
 
   return (
@@ -495,7 +515,6 @@ export function Cronograma({
                             {tarefa.entregaveis?.map((entregavel: EntregavelType) => {
                               if (!tarefa.inicio || !tarefa.fim || !entregavel.data) return null;
 
-                              // Calcular posição exata do entregável dentro da barra da tarefa
                               const entregavelPosition = getEntregavelExactPosition(
                                 entregavel,
                                 new Date(tarefa.inicio),
@@ -506,27 +525,12 @@ export function Cronograma({
 
                               const entregavelDate = new Date(entregavel.data);
                               const isPastDue = entregavelDate < new Date();
-
-                              // Usar o estado do próprio entregável
                               const isCompleted = entregavel.estado;
 
-                              // Permitir clicar no entregável para alternar seu estado (se interações estiverem habilitadas)
-                              const handleEntregavelClick = (e: React.MouseEvent) => {
-                                if (disableInteractions) return;
-                                e.stopPropagation(); // Evitar propagar o clique para a tarefa pai
-
-                                // Usar o update para alterar o estado
-                                mutations.entregavel.update.mutate({
-                                  id: entregavel.id,
-                                  data: { estado: !entregavel.estado },
-                                });
-                              };
-
-                              // Estilo visual que corresponde ao componente EntregavelItem
                               return (
                                 <div
                                   key={entregavel.id}
-                                  onClick={handleEntregavelClick}
+                                  onClick={(e) => handleEntregavelClick(e, entregavel.id, !!entregavel.estado)}
                                   className={cn(
                                     "absolute z-20 cursor-pointer",
                                     "h-3 w-3 rounded-full",
@@ -580,7 +584,7 @@ export function Cronograma({
               onUpdate={async (_data, _workpackageId) => {
                 if (onUpdateTarefa) await onUpdateTarefa();
               }}
-              projetoId={projetoId}
+              _projetoId={projetoId}
             />
           )}
 

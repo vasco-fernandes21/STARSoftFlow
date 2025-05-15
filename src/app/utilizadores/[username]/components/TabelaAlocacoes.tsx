@@ -15,19 +15,10 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  ArrowLeftRight,
-  AlertCircle,
-  CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SelectField } from "@/components/projetos/criar/components/FormFields";
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
-} from "@/components/ui/tooltip";
 import { api } from "@/trpc/react";
 import type { ProjetoEstado } from "@prisma/client";
 import { useParams } from 'next/navigation';
@@ -306,9 +297,6 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
     
     return total;
   }, [anoSelecionado, editValues, alocacoes.submetido]);
-
-  // Simplificado - assumimos que podemos guardar sempre
-  const podeguardar = true;
 
   async function handleSave(){
     setLoading(true);

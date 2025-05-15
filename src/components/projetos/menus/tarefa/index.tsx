@@ -18,8 +18,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TarefaInformacoes } from "./informacoes";
 import { TarefaEntregaveis } from "./entregaveis";
 import { toast } from "sonner";
-import { useMutations } from "@/hooks/useMutations";
 import type { Prisma } from "@prisma/client";
+import type { EntregavelUpdate } from "@/server/api/routers/entregaveis";
 
 // Interface para props do componente
 interface MenuTarefaProps {
@@ -27,25 +27,62 @@ interface MenuTarefaProps {
   open: boolean;
   onClose: () => void;
   onUpdate: (data: any, workpackageId?: string) => Promise<void>;
-  projetoId: string;
+  _projetoId: string; // Prefixo _ para indicar que é intencionalmente não usado
 }
 
-export function MenuTarefa({ tarefaId, open, onClose, onUpdate, projetoId }: MenuTarefaProps) {
+export function MenuTarefa({ tarefaId, open, onClose, onUpdate, _projetoId }: MenuTarefaProps) {
   // Estados
   const [addingEntregavel, setAddingEntregavel] = useState(false);
+  const utils = api.useUtils();
 
   // Buscar a tarefa
   const {
     data: tarefa,
     isLoading,
-    refetch,
   } = api.tarefa.findById.useQuery(tarefaId, {
     enabled: open,
     staleTime: 1000 * 30, // 30 segundos
   });
 
-  // Obter o projetoId da tarefa (necessário para useMutations)
-  const mutations = useMutations(projetoId);
+  // Mutations
+  const updateTarefa = api.tarefa.update.useMutation({
+    onSuccess: async (_, variables) => {
+      await utils.tarefa.findById.invalidate(variables.id);
+      await utils.tarefa.findAll.invalidate();
+      await utils.workpackage.findById.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Erro ao atualizar tarefa: ${error.message}`);
+    },
+  });
+
+  const createEntregavel = api.entregavel.create.useMutation({
+    onSuccess: async () => {
+      await utils.tarefa.findById.invalidate(tarefaId);
+    },
+    onError: (error) => {
+      toast.error(`Erro ao criar entregável: ${error.message}`);
+    },
+  });
+
+  const updateEntregavel = api.entregavel.update.useMutation({
+    onSuccess: async (_, variables) => {
+      await utils.tarefa.findById.invalidate(tarefaId);
+      await utils.entregavel.findById.invalidate(variables.id);
+    },
+    onError: (error) => {
+      toast.error(`Erro ao atualizar entregável: ${error.message}`);
+    },
+  });
+
+  const deleteEntregavel = api.entregavel.delete.useMutation({
+    onSuccess: async () => {
+      await utils.tarefa.findById.invalidate(tarefaId);
+    },
+    onError: (error) => {
+      toast.error(`Erro ao apagar entregável: ${error.message}`);
+    },
+  });
 
   // Resetar estado ao fechar
   useEffect(() => {
@@ -112,61 +149,46 @@ export function MenuTarefa({ tarefaId, open, onClose, onUpdate, projetoId }: Men
 
   const handleToggleEstado = async () => {
     try {
-      await mutations.tarefa.update.mutateAsync({
+      await updateTarefa.mutateAsync({
         id: tarefaId,
         data: { estado: !tarefa.estado },
       });
-      // O onSuccess/onSettled do useMutations já deve invalidar e refetch
-      // Mas chamamos onUpdate para atualizar a lista principal se necessário
       await onUpdate({ estado: !tarefa.estado }, tarefa.workpackageId);
-      await refetch(); // Refetch dos dados desta tarefa específica
     } catch (error) {
       console.error("Erro ao atualizar estado da tarefa:", error);
-      // O onError do useMutations já deve mostrar o toast
     }
   };
 
-  // --- Handlers para Entregáveis usando useMutations ---
-
-  // Usar Omit com Prisma.EntregavelCreateInput para garantir que `tarefa` não seja passado
+  // --- Handlers para Entregáveis ---
   const handleCreateEntregavel = async (
     data: Omit<Prisma.EntregavelCreateInput, "tarefa" | "id">
   ) => {
-    if (!mutations) return;
     try {
-      // A mutation espera o input no formato { nome, tarefaId, ...outros }
-      // O tipo Prisma.EntregavelCreateInput já tem essa estrutura, exceto pela relação `tarefa`
-      await mutations.entregavel.create.mutateAsync({
-        ...(data as Prisma.EntregavelCreateInput), // Cast para garantir compatibilidade
-        tarefaId: tarefa.id, // Adicionar tarefaId explicitamente
+      await createEntregavel.mutateAsync({
+        ...data,
+        tarefaId: tarefa.id,
+        data: data.data ? format(new Date(data.data), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") : null,
       });
     } catch (error) {
-      console.error("Falha silenciosa ao criar entregável:", error);
+      console.error("Erro ao criar entregável:", error);
     }
   };
 
-  // Usar Prisma.EntregavelUpdateInput['data'] para o tipo dos dados
-  const handleUpdateEntregavel = async (id: string, data: Prisma.EntregavelUpdateInput) => {
-    if (!mutations) return;
+  const handleUpdateEntregavel = async (id: string, data: EntregavelUpdate['data']) => {
     try {
-      // A mutation espera { id, data: { ... } }
-      await mutations.entregavel.update.mutateAsync({ id, data });
+      await updateEntregavel.mutateAsync({ id, data });
     } catch (error) {
-      console.error("Falha silenciosa ao atualizar entregável:", error);
+      console.error("Erro ao atualizar entregável:", error);
     }
   };
 
   const handleDeleteEntregavel = async (id: string) => {
-    if (!mutations) return;
     try {
-      // Adicionar confirmação antes de apagar
       if (confirm("Tem a certeza que deseja apagar este entregável?")) {
-        await mutations.entregavel.delete.mutateAsync(id);
-        // Toast e refetch tratados pelo useMutations
+        await deleteEntregavel.mutateAsync(id);
       }
     } catch (error) {
-      // Erro já tratado no onError do useMutations
-      console.error("Falha silenciosa ao apagar entregável:", error);
+      console.error("Erro ao apagar entregável:", error);
     }
   };
 

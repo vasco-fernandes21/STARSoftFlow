@@ -17,17 +17,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Euro } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, TrendingUp} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/trpc/react';
 
-type ReceitaDespesa = {
-  mes: number;
-  receitaTotal: number;
-  despesaEstimada: number;
-  despesaRealizada: number;
-};
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',

@@ -659,20 +659,34 @@ export function WorkpackagesTab({
                                       ...material,
                                       preco: Number(material.preco),
                                       workpackageId: selectedWorkpackage.id,
-                                      mes: material.mes || 1, 
+                                      mes: material.mes || 1,
+                                      descricao: material.descricao || null,
                                     }}
-                                    onEdit={(workpackageId, materialData) => {
-                                      handleUpdateMaterialLocal(
+                                    onCreate={async (workpackageId, materialData) => {
+                                      await handleAddMaterialLocal(workpackageId, {
+                                        ...materialData,
+                                        descricao: materialData.descricao || null,
+                                      });
+                                    }}
+                                    onEdit={async (workpackageId, materialData) => {
+                                      await handleUpdateMaterialLocal(
                                         selectedWorkpackage.id,
                                         material.id,
-                                        materialData
+                                        {
+                                          ...materialData,
+                                          descricao: materialData.descricao || null,
+                                        }
                                       );
                                     }}
-                                    onRemove={() =>
-                                      handleRemoveMaterialLocal(selectedWorkpackage.id, material.id)
-                                    }
-                                    onUpdate={() => {
-                                      // Optional callback after successful updates
+                                    onRemove={async (materialId) => {
+                                      await handleRemoveMaterialLocal(selectedWorkpackage.id, materialId);
+                                    }}
+                                    onToggleEstado={(materialId) => {
+                                      handleUpdateMaterialLocal(
+                                        selectedWorkpackage.id,
+                                        materialId,
+                                        { estado: !material.estado }
+                                      );
                                     }}
                                   />
                                 ))}

@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import type { Rubrica } from "@prisma/client";
-import { useMutations } from "@/hooks/useMutations";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 
@@ -80,8 +79,33 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
   const [estadoFilter, setEstadoFilter] = useState<string>("todos");
   const [anoFilter, setAnoFilter] = useState<string>("todos");
 
-  // Obter mutations do hook
-  const { material: materialMutations } = useMutations(projetoId);
+  // Utils para invalidação de queries
+  const utils = api.useUtils();
+
+  const updateMaterial = api.material.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Material atualizado com sucesso");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar material", {
+        description: error.message
+      });
+    }
+  });
+
+  const toggleEstadoMutation = api.material.atualizarEstado.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      utils.financas.invalidate();
+      toast.success("Estado do material atualizado com sucesso");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar estado do material", {
+        description: error.message
+      });
+    }
+  });
 
   // Query principal para buscar o projeto
   const {
@@ -93,28 +117,31 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
   });
 
   // Função para alternar o estado de um material
-  const toggleEstadoMaterial = (materialId: number, estadoAtual: boolean) => {
-    // Obter o workpackageId do material correspondente
-    const material = materiaisFiltrados.find((m) => m.id === materialId);
-    if (!material) {
-      toast.error("Material não encontrado");
-      return;
+  const toggleEstadoMaterial = async (materialId: number) => {
+    try {
+      await toggleEstadoMutation.mutateAsync(materialId);
+    } catch (error) {
+      console.error("Erro ao alternar estado do material:", error);
     }
-    materialMutations.handleToggleEstado(
-      materialId,
-      !estadoAtual,
-      material.workpackageId,
-      materialMutations
-    );
   };
 
   // Dados processados
   const materiaisFiltrados = useMemo(() => {
     if (!projeto?.workpackages) return [];
 
+    // Primeiro ordenar os workpackages por nome
+    const workpackagesOrdenados = [...projeto.workpackages].sort((a, b) => 
+      a.nome.localeCompare(b.nome)
+    );
+
     // Coletar todos os materiais de todos os workpackages
-    let materiais = projeto.workpackages.flatMap((wp) => {
-      return wp.materiais.map((material) => ({
+    let materiais = workpackagesOrdenados.flatMap((wp) => {
+      // Ordenar materiais por nome dentro de cada workpackage
+      const materiaisOrdenados = [...wp.materiais].sort((a, b) => 
+        a.nome.localeCompare(b.nome)
+      );
+      
+      return materiaisOrdenados.map((material) => ({
         ...material,
         workpackageName: wp.nome,
         workpackageId: wp.id,
@@ -488,7 +515,7 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                         "group relative border-b border-slate-100/80 transition-colors duration-150 ease-in-out",
                         isEvenRow ? "bg-white/60" : "bg-slate-50/50", // Zebra striping
                         "hover:bg-emerald-50/50", // Hover effect
-                        material.estado && "opacity-70 hover:opacity-100" // Slightly dim completed items
+                        material.estado && "bg-emerald-50/30" // Slightly lighter green background for completed items
                       )}
                     >
                       <TableCell className="w-10 px-3 py-2">
@@ -498,11 +525,11 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                           className={cn(
                             "relative flex h-7 w-7 items-center justify-center rounded-full border shadow-sm transition-all duration-300 ease-in-out",
                             material.estado
-                              ? "border-emerald-200 bg-emerald-100/70 text-emerald-600 hover:bg-emerald-200/70"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                               : "border-slate-200 bg-white text-slate-400 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-500"
                           )}
-                          onClick={() => toggleEstadoMaterial(material.id, material.estado)}
-                          disabled={materialMutations.update.isPending}
+                          onClick={() => toggleEstadoMaterial(material.id)}
+                          disabled={updateMaterial.isPending}
                           aria-label={
                             material.estado ? "Marcar como pendente" : "Marcar como concluído"
                           }
@@ -569,7 +596,7 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
                             className="rounded-xl border border-slate-100/80 bg-white/95 text-sm shadow-lg backdrop-blur-sm"
                           >
                             <DropdownMenuItem
-                              onClick={() => toggleEstadoMaterial(material.id, material.estado)}
+                              onClick={() => toggleEstadoMaterial(material.id)}
                               className="cursor-pointer transition-colors duration-150 hover:text-emerald-500"
                             >
                               {material.estado ? "Marcar como pendente" : "Marcar como concluído"}

@@ -12,9 +12,42 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
 import { AdminReceitasDespesasGraph } from "./components/AdminReceitasDespesasGraph";
 import { AdminDespesas } from "./components/AdminDespesas";
+import { NovoProjeto } from "@/components/projetos/NovoProjeto";
+import { useEffect } from "react";
 
 export default function AdminDashboard() {
   const { data: session } = useSession();
+  const utils = api.useUtils();
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+
+  // Prefetch all required data
+  useEffect(() => {
+    // Prefetch admin stats
+    void utils.admin.getAdminStats.prefetch();
+
+    // Prefetch despesas for current month and next month
+    void utils.admin.getDespesas.prefetch({
+      ano: currentYear,
+      mes: currentMonth
+    });
+    if (currentMonth === 12) {
+      void utils.admin.getDespesas.prefetch({
+        ano: currentYear + 1,
+        mes: 1
+      });
+    } else {
+      void utils.admin.getDespesas.prefetch({
+        ano: currentYear,
+        mes: currentMonth + 1
+      });
+    }
+
+    // Prefetch receitas for current year and next year
+    void utils.admin.getReceitas.prefetch({ ano: currentYear });
+    void utils.admin.getReceitas.prefetch({ ano: currentYear + 1 });
+  }, [utils, currentYear, currentMonth]);
+
   // Fetch admin stats
   const { data: adminStats, isLoading } = api.admin.getAdminStats.useQuery(undefined, {
     refetchOnWindowFocus: false
@@ -89,6 +122,9 @@ export default function AdminDashboard() {
             <p className="text-sm text-slate-500">
               Olá {session?.user?.name?.split(' ')[0]}, aqui está o resumo da sua plataforma.
             </p>
+          </div>
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <NovoProjeto />
           </div>
         </div>
 

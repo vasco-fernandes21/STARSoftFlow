@@ -16,7 +16,6 @@ import type { StatItem } from "@/components/common/StatsGrid";
 import { type ProjetoEstado } from "@prisma/client";
 import { type ColumnDef } from "@tanstack/react-table";
 import { useSession } from "next-auth/react";
-import { useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";

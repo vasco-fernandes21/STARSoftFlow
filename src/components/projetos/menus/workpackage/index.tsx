@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { WorkpackageCompleto, ProjetoCompleto } from "@/components/projetos/types";
 import { Decimal } from "decimal.js";
-import { useMutations } from "@/hooks/useMutations";
 import { toast } from "sonner";
 import type { Prisma } from "@prisma/client";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -127,155 +126,191 @@ export function MenuWorkpackage({
   const [addingTarefa, setAddingTarefa] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   
-  // Usar hook de permissões
   const { isAdmin, isGestor } = usePermissions();
   const { data: session } = useSession();
-  
-  // Usar mutations com o projetoId
-  const mutations = useMutations(projetoId);
+  const utils = api.useUtils();
+
+  // API mutations
+  const createTarefa = api.tarefa.create.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      setAddingTarefa(false);
+      toast.success("Tarefa criada com sucesso");
+    },
+  });
+
+  const updateTarefa = api.tarefa.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Tarefa atualizada com sucesso");
+    },
+  });
+
+  const deleteTarefa = api.tarefa.delete.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Tarefa removida com sucesso");
+    },
+  });
+
+  const createEntregavel = api.entregavel.create.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Entregável adicionado com sucesso");
+    },
+  });
+
+  const updateEntregavel = api.entregavel.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Entregável atualizado com sucesso");
+    },
+  });
+
+  const deleteEntregavel = api.entregavel.delete.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Entregável removido com sucesso");
+    },
+  });
+
+  const deleteWorkpackage = api.workpackage.delete.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      utils.financas.getVisaoProjeto.invalidate();
+      utils.financas.getComparacaoGastos.invalidate();
+      utils.financas.getPainelFinanceiroProjeto.invalidate();
+      toast.success('Workpackage apagado com sucesso!');
+      onClose();
+    },
+  });
 
   // Se não temos o workpackage externamente, buscar da API
   const { data: apiWorkpackage, isLoading } = api.workpackage.findById.useQuery(
     { id: workpackageId },
     {
-      staleTime: 1000 * 30, // 30 segundos
+      staleTime: 1000 * 30,
       enabled: !!workpackageId && open && !externalWorkpackage,
     }
   );
 
-  // Usar o workpackage fornecido ou o que veio da API
   const workpackage = externalWorkpackage || apiWorkpackage;
-
-  // Converter para o formato correto com valores não-nulos
-  const fullWorkpackage = workpackage
-    ? convertToWorkpackageCompleto(workpackage, projeto)
-    : undefined;
+  const fullWorkpackage = workpackage ? convertToWorkpackageCompleto(workpackage, projeto) : undefined;
 
   useEffect(() => {
     if (!open) setAddingTarefa(false);
   }, [open]);
 
-  // Verificar se o usuário atual é responsável pelo projeto
   const isResponsavel = projeto?.responsavelId === session?.user?.id;
-  
-  // Verificar se o usuário tem permissão para editar
   const canEdit = isAdmin || isGestor || isResponsavel;
 
-  // --- Handlers para tarefas ---
-
-  // Criar nova tarefa
+  // Handlers
   const handleSubmitTarefa = (
     workpackageId: string,
     tarefa: Omit<Prisma.TarefaCreateInput, "workpackage">
   ) => {
-    mutations.tarefa.create.mutate({
+    createTarefa.mutate({
       nome: tarefa.nome,
       workpackageId: workpackageId,
-      descricao: tarefa.descricao,
-      inicio: tarefa.inicio,
-      fim: tarefa.fim,
+      descricao: typeof tarefa.descricao === 'string' ? tarefa.descricao : undefined,
+      inicio: tarefa.inicio instanceof Date ? tarefa.inicio : undefined,
+      fim: tarefa.fim instanceof Date ? tarefa.fim : undefined,
       estado: false,
     });
-
-    setAddingTarefa(false);
-    toast.success("Tarefa criada com sucesso");
   };
 
-  // Atualizar tarefa
   const handleEditTarefa = async (tarefaId: string, tarefaData: Prisma.TarefaUpdateInput) => {
     try {
-      await mutations.tarefa.update.mutateAsync({
+      const data = {
+        nome: typeof tarefaData.nome === 'string' ? tarefaData.nome : undefined,
+        descricao: typeof tarefaData.descricao === 'string' ? tarefaData.descricao : undefined,
+        inicio: tarefaData.inicio instanceof Date ? tarefaData.inicio : undefined,
+        fim: tarefaData.fim instanceof Date ? tarefaData.fim : undefined,
+        estado: typeof tarefaData.estado === 'boolean' ? tarefaData.estado : undefined,
+      };
+
+      await updateTarefa.mutateAsync({
         id: tarefaId,
-        data: tarefaData,
+        data,
       });
-      toast.success("Tarefa atualizada com sucesso");
     } catch (error) {
       console.error("Erro ao atualizar tarefa:", error);
       toast.error("Erro ao atualizar tarefa");
     }
   };
 
-  // Alteração de estado da tarefa
   const handleToggleEstadoTarefa = async (tarefaId: string) => {
     try {
       const tarefa = fullWorkpackage?.tarefas?.find((t) => t.id === tarefaId);
       if (!tarefa) return;
 
-      await mutations.tarefa.update.mutateAsync({
+      await updateTarefa.mutateAsync({
         id: tarefaId,
         data: {
           estado: !tarefa.estado,
         },
       });
-
-      utils.projeto.findById.invalidate();
     } catch (error) {
       console.error("Erro ao atualizar estado:", error);
       toast.error("Erro ao atualizar estado da tarefa");
     }
   };
 
-  // Deletar tarefa
   const handleDeleteTarefa = (tarefaId: string) => {
     try {
-      mutations.tarefa.delete.mutate(tarefaId);
-      toast.success("Tarefa removida com sucesso");
-      utils.projeto.findById.invalidate();
+      deleteTarefa.mutate(tarefaId);
     } catch (error) {
       console.error("Erro ao remover tarefa:", error);
       toast.error("Erro ao remover tarefa");
     }
   };
 
-  // --- Handlers para entregáveis ---
-
-  // Adicionar entregável
   const handleAddEntregavel = async (
     tarefaId: string,
     entregavel: Omit<Prisma.EntregavelCreateInput, "tarefa">
   ) => {
     try {
-      await mutations.entregavel.create.mutateAsync({
+      await createEntregavel.mutateAsync({
         tarefaId,
         nome: entregavel.nome,
         descricao: entregavel.descricao || undefined,
         data: entregavel.data instanceof Date ? entregavel.data.toISOString() : entregavel.data,
       });
-
-      toast.success("Entregável adicionado com sucesso");
     } catch (error) {
       console.error("Erro ao adicionar entregável:", error);
       toast.error("Erro ao adicionar entregável");
     }
   };
 
-  // Atualizar entregável
-  const handleEditEntregavel = async (entregavelId: string, data: Prisma.EntregavelUpdateInput) => {
+  const handleEditEntregavel = async (entregavelId: string, entregavelData: Prisma.EntregavelUpdateInput) => {
     try {
-      await mutations.entregavel.update.mutateAsync({
+      const data = {
+        nome: typeof entregavelData.nome === 'string' ? entregavelData.nome : undefined,
+        descricao: typeof entregavelData.descricao === 'string' ? entregavelData.descricao : undefined,
+        estado: typeof entregavelData.estado === 'boolean' ? entregavelData.estado : undefined,
+        data: entregavelData.data instanceof Date ? entregavelData.data.toISOString() : undefined,
+      };
+
+      await updateEntregavel.mutateAsync({
         id: entregavelId,
         data,
       });
-
-      toast.success("Entregável atualizado com sucesso");
     } catch (error) {
       console.error("Erro ao atualizar entregável:", error);
       toast.error("Erro ao atualizar entregável");
     }
   };
 
-  // Deletar entregável
   const handleDeleteEntregavel = (entregavelId: string) => {
     try {
-      mutations.entregavel.delete.mutate(entregavelId);
-      toast.success("Entregável removido com sucesso");
+      deleteEntregavel.mutate(entregavelId);
     } catch (error) {
       console.error("Erro ao remover entregável:", error);
       toast.error("Erro ao remover entregável");
     }
   };
 
-  // Loading state enquanto buscamos dados da API (só se necessário)
+  // Loading state
   if (!externalWorkpackage && isLoading) {
     return (
       <Sheet open={open} onOpenChange={onClose} modal={false}>
@@ -311,9 +346,6 @@ export function MenuWorkpackage({
       </Sheet>
     );
   }
-
-  const utils = api.useUtils();
-  const deleteWorkpackage = api.workpackage.delete.useMutation();
 
   return (
     <Sheet open={open} onOpenChange={onClose} modal={false}>
@@ -358,12 +390,6 @@ export function MenuWorkpackage({
                             onClick={async () => {
                               try {
                                 await deleteWorkpackage.mutateAsync(fullWorkpackage.id);
-                                toast.success('Workpackage apagado com sucesso!');
-                                utils.projeto.findById.invalidate();
-                                utils.financas.getVisaoProjeto.invalidate();
-                                utils.financas.getComparacaoGastos.invalidate();
-                                utils.financas.getPainelFinanceiroProjeto.invalidate();
-                                onClose();
                               } catch (error: any) {
                                 toast.error(error?.message || 'Erro ao apagar workpackage');
                               } finally {

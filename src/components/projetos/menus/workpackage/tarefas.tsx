@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusIcon, ClipboardList, XIcon, AlertTriangle } from "lucide-react";
+import { PlusIcon, ClipboardList, AlertTriangle } from "lucide-react";
 import type { WorkpackageCompleto } from "@/components/projetos/types";
 import { TarefaForm } from "@/components/projetos/criar/novo/workpackages/tarefas/form";
 import { TarefaItem } from "@/components/projetos/criar/novo/workpackages/tarefas/item";
@@ -159,22 +159,11 @@ export function WorkpackageTarefas({
       {/* Formulário para adicionar nova tarefa */}
       {addingTarefa && canEdit && (
         <motion.div
-          className="mb-6 rounded-xl border border-gray-100 bg-white p-6 shadow-sm"
+          className="mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-medium text-azul">Nova Tarefa</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setAddingTarefa(false)}
-              className="h-8 w-8 rounded-lg hover:bg-gray-100"
-            >
-              <XIcon className="h-4 w-4 text-gray-500" />
-            </Button>
-          </div>
           <TarefaForm
             workpackageId={workpackage.id}
             workpackageInicio={workpackage.inicio || new Date()}

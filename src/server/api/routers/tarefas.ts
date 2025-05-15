@@ -472,6 +472,39 @@ export const tarefaRouter = createTRPCRouter({
         return handlePrismaError(error);
       }
     }),
+
+  // Toggle estado da tarefa
+  toggleEstado: protectedProcedure
+    .input(z.string().uuid("ID da tarefa inválido"))
+    .mutation(async ({ ctx, input: id }) => {
+      try {
+        // Buscar a tarefa atual
+        const tarefa = await ctx.db.tarefa.findUnique({
+          where: { id },
+          select: { estado: true, workpackageId: true }
+        });
+
+        if (!tarefa) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Tarefa não encontrada",
+          });
+        }
+
+        // Inverter o estado
+        const tarefaAtualizada = await ctx.db.tarefa.update({
+          where: { id },
+          data: { estado: !tarefa.estado },
+        });
+
+        // Atualizar estado do workpackage
+        await atualizarEstadoWorkpackage(ctx, tarefa.workpackageId);
+
+        return tarefaAtualizada;
+      } catch (error) {
+        return handlePrismaError(error);
+      }
+    }),
 });
 
 // Função auxiliar para atualizar o estado do workpackage com base no estado das tarefas

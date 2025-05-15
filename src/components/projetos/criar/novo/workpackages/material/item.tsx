@@ -16,9 +16,7 @@ import { Card } from "@/components/ui/card";
 import type { Rubrica } from "@prisma/client";
 import { formatCurrency } from "@/lib/utils";
 import { Form } from "./form";
-import { api } from "@/trpc/react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 interface Material {
   id: number;
@@ -88,51 +86,6 @@ export function MaterialItem({ material, onCreate, onEdit, onRemove, onToggleEst
   const [isExpanded, setIsExpanded] = useState(false);
   const valorTotal = material.preco * material.quantidade;
   
-  const utils = api.useUtils();
-  
-  // Create mutations
-  const updateMaterial = api.material.update.useMutation({
-    onSuccess: () => {
-      utils.projeto.findById.invalidate();
-      toast.success("Material atualizado", {
-        description: "O material foi atualizado com sucesso."
-      });
-    },
-    onError: () => {
-      toast.error("Erro ao atualizar", {
-        description: "Não foi possível atualizar o material. Tente novamente."
-      });
-    },
-  });
-
-  const toggleEstado = api.material.atualizarEstado.useMutation({
-    onSuccess: () => {
-      utils.projeto.findById.invalidate();
-      toast.success("Estado atualizado", {
-        description: `Material marcado como ${material.estado ? "não concluído" : "concluído"}.`
-      });
-    },
-    onError: () => {
-      toast.error("Erro ao atualizar estado", {
-        description: "Não foi possível atualizar o estado do material. Tente novamente."
-      });
-    },
-  });
-
-  const deleteMaterial = api.material.delete.useMutation({
-    onSuccess: () => {
-      utils.projeto.findById.invalidate();
-      toast.success("Material removido", {
-        description: "O material foi removido com sucesso."
-      });
-    },
-    onError: () => {
-      toast.error("Erro ao remover", {
-        description: "Não foi possível remover o material. Tente novamente."
-      });
-    },
-  });
-
   // Handler para quando o formulário é submetido
   const handleSubmit = async (workpackageId: string, updatedMaterial: any) => {
     try {

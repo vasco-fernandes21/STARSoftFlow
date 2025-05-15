@@ -17,7 +17,6 @@ import {
 import { Form, FormField } from "@/components/ui/form";
 import { Pencil, Save, X } from "lucide-react";
 import { toast } from "sonner";
-import { useMutations } from "@/hooks/useMutations";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   TextField,
@@ -28,6 +27,7 @@ import {
   MoneyField,
 } from "./criar/components/FormFields";
 import { useSession } from "next-auth/react";
+import { api } from "@/trpc/react";
 
 // Schema for the form
 const formSchema = z.object({
@@ -66,9 +66,22 @@ interface EditarProjetoProps {
 
 export function EditarProjeto({ projeto, financiamentos, renderTrigger }: EditarProjetoProps) {
   const [open, setOpen] = useState(false);
-  const { projeto: projetoMutations } = useMutations(projeto.id);
   const { isAdmin, isGestor } = usePermissions();
   const { data: session } = useSession();
+  const utils = api.useUtils();
+
+  // Mutation para atualizar projeto
+  const updateProjeto = api.projeto.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projeto.id);
+      toast.success("Projeto atualizado com sucesso!");
+      setOpen(false);
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar projeto:", error);
+      toast.error("Ocorreu um erro ao atualizar o projeto.");
+    },
+  });
 
   // Garantir valores seguros para o formulário
   const formDefaultValues = useMemo(
@@ -99,8 +112,6 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
   // If user can't edit, don't render anything
   if (!canEdit) return null;
 
-  const { isPending } = projetoMutations.update;
-
   function onSubmit(data: FormValues) {
     // Prepare data for mutation
     const submitData = {
@@ -115,16 +126,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
       financiamentoId: data.financiamentoId,
     };
 
-    projetoMutations.update.mutate(submitData, {
-      onSuccess: () => {
-        toast("Projeto atualizado com sucesso!");
-        setOpen(false);
-      },
-      onError: (error) => {
-        console.error("Erro ao atualizar projeto:", error);
-        toast.error("Ocorreu um erro ao atualizar o projeto.");
-      },
-    });
+    updateProjeto.mutate(submitData);
   }
 
   const financiamentoOptions = [
@@ -301,7 +303,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
                 type="button"
                 variant="outline"
                 onClick={() => setOpen(false)}
-                disabled={isPending}
+                disabled={updateProjeto.isPending}
                 className="flex items-center gap-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50/80"
               >
                 <X className="h-4 w-4" />
@@ -309,11 +311,11 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
               </Button>
               <Button 
                 type="submit" 
-                disabled={isPending} 
+                disabled={updateProjeto.isPending} 
                 className="flex items-center gap-2 bg-azul text-white transition-colors hover:bg-azul/90"
               >
                 <Save className="h-4 w-4" />
-                {isPending ? "A guardar..." : "Guardar alterações"}
+                {updateProjeto.isPending ? "A guardar..." : "Guardar alterações"}
               </Button>
             </DialogFooter>
           </form>
