@@ -38,7 +38,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { usePermissions } from "@/hooks/usePermissions";
-import { TRPCClientError } from "@trpc/client";
 
 // Definição de tipos
 type StatusFilter = "todos" | "PENDENTE" | "RESOLVIDO";
@@ -52,7 +51,7 @@ type Feedback = {
   estado: "PENDENTE" | "RESOLVIDO";
   user: {
     name: string | null;
-    foto?: string | null; // Make foto optional if not always present
+    profilePhotoUrl?: string | null; 
   };
   resposta?: string | null; // Add resposta field
 };
@@ -595,7 +594,7 @@ function FeedbackList({ feedbacks }: { feedbacks: Feedback[] }) {
             <div className="px-5 pt-4 pb-3 flex items-center justify-between bg-slate-50/80">
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8 border border-slate-200">
-                  <AvatarImage src={feedback.user.foto || undefined} alt={feedback.user.name || "Utilizador"} />
+                  <AvatarImage src={feedback.user.profilePhotoUrl || undefined} alt={feedback.user.name || "Utilizador"} />
                   <AvatarFallback className="bg-azul/10 text-azul text-xs">
                     {feedback.user.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "U"}
                   </AvatarFallback>

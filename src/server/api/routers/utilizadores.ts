@@ -10,7 +10,7 @@ import { handlePrismaError } from "../utils";
 import { format } from "date-fns";
 import { Decimal } from "decimal.js";
 import puppeteer from "puppeteer";
-import { RelatorioTemplate } from "@/app/utilizadores/[username]/relatorio/templates/relatorio-template";
+import { RelatorioTemplate } from "@/app/utilizadores/[param]/relatorio/templates/relatorio-template";
 import http from "http";
 import type net from "net";
 import { listProfilePhotos, deleteFile } from "@/lib/blob";
@@ -194,9 +194,29 @@ export const utilizadorRouter = createTRPCRouter({
           where: whereClause,
         });
 
+
+        const usersWithPhotos = await Promise.all(
+          users.map(async (user) => {
+            let profilePhotoUrl: string | null = null;
+            try {
+              const photoBlobs = await listProfilePhotos(user.id);
+              if (photoBlobs.blobs.length > 0) {
+                profilePhotoUrl = photoBlobs.blobs[0]?.url || null;
+              }
+            } catch (photoError) {
+              console.error(`Erro ao buscar foto de perfil para o utilizador ${user.id}:`, photoError);
+              // Não quebrar a query principal por causa da foto
+            }
+            return {
+              ...user,
+              profilePhotoUrl,
+            };
+          })
+        );
+
         // Retornar um objeto com os items e a contagem total
         return {
-          items: users,
+          items: usersWithPhotos,
           totalCount,
         };
 
@@ -434,7 +454,6 @@ export const utilizadorRouter = createTRPCRouter({
       let profilePhotoUrl: string | null = null;
       try {
         const photoBlobs = await listProfilePhotos(user.id);
-        // Pegar apenas a primeira foto (deve ser a única)
         if (photoBlobs.blobs.length > 0) {
           profilePhotoUrl = photoBlobs.blobs[0]?.url || null;
         }
@@ -489,7 +508,7 @@ export const utilizadorRouter = createTRPCRouter({
   create: protectedProcedure.input(createUtilizadorSchema).mutation(async ({ ctx, input }) => {
     try {
       const user = ctx.session?.user as UserWithPermissao | undefined;
-      if (!user || user.permissao !== Permissao.ADMIN) {
+      if (!user || user.permissao !== Permissao.ADMIN && user.permissao !== Permissao.GESTOR) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Não tem permissões para criar utilizadores",
@@ -634,9 +653,10 @@ export const utilizadorRouter = createTRPCRouter({
         // Verificar permissões (admin ou próprio utilizador)
         const user = ctx.session.user as UserWithPermissao;
         const isAdmin = user.permissao === Permissao.ADMIN;
+        const isGestor = user.permissao === Permissao.GESTOR;
         const isSelf = user.id === id;
 
-        if (!isAdmin && !isSelf) {
+        if (!isAdmin && !isGestor && !isSelf) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Não tem permissões para atualizar este utilizador",
@@ -644,7 +664,7 @@ export const utilizadorRouter = createTRPCRouter({
         }
 
         // Se não for admin, não pode alterar permissões
-        if (!isAdmin && data.permissao) {
+        if (!isAdmin && !isGestor && data.permissao) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Não tem permissões para alterar permissões",
@@ -688,9 +708,10 @@ export const utilizadorRouter = createTRPCRouter({
         // Verificar permissões (admin ou próprio utilizador)
         const user = ctx.session.user as UserWithPermissao;
         const isAdmin = user.permissao === Permissao.ADMIN;
+        const isGestor = user.permissao === Permissao.GESTOR;
         const isSelf = user.id === userId;
 
-        if (!isAdmin && !isSelf) {
+        if (!isAdmin && !isGestor && !isSelf) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Não tem permissões para atualizar este utilizador",
@@ -1486,9 +1507,9 @@ export const utilizadorRouter = createTRPCRouter({
     .input(convidarUtilizadorSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        // Verificar permissão (apenas admin pode convidar utilizadores)
+        // Verificar permissão (apenas admin ou gestor pode convidar utilizadores)
         const user = ctx.session?.user as UserWithPermissao | undefined;
-        if (!user || user.permissao !== Permissao.ADMIN) {
+        if (!user || user.permissao !== Permissao.ADMIN && user.permissao !== Permissao.GESTOR) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Não tem permissões para convidar utilizadores",
@@ -1625,11 +1646,11 @@ export const utilizadorRouter = createTRPCRouter({
       try {
         const user = ctx.session?.user as UserWithPermissao | undefined;
         
-        // Verificar se o utilizador tem permissão de ADMIN
-        if (!user || user.permissao !== Permissao.ADMIN) {
+        // Verificar se o utilizador tem permissão de ADMIN ou GESTOR
+        if (!user || user.permissao !== Permissao.ADMIN && user.permissao !== Permissao.GESTOR) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Apenas administradores podem apagar utilizadores",
+            message: "Apenas administradores ou gestores podem apagar utilizadores",
           });
         }
 
@@ -1646,11 +1667,11 @@ export const utilizadorRouter = createTRPCRouter({
           });
         }
 
-        // Não permitir apagar administradores
-        if (targetUser.permissao === Permissao.ADMIN) {
+        // Não permitir apagar administradores ou gestores
+        if (targetUser.permissao === Permissao.ADMIN || targetUser.permissao === Permissao.GESTOR) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Não é possível apagar administradores",
+            message: "Não é possível apagar administradores ou gestores",
           });
         }
 
@@ -1687,8 +1708,8 @@ export const utilizadorRouter = createTRPCRouter({
       try {
         const currentUser = ctx.session.user as UserWithPermissao;
 
-        // Verificar se o utilizador logado é o próprio utilizador ou um admin
-        if (currentUser.id !== input.userId && currentUser.permissao !== Permissao.ADMIN) {
+        // Verificar se o utilizador logado é o próprio utilizador ou um admin ou gestor
+        if (currentUser.id !== input.userId && currentUser.permissao !== Permissao.ADMIN && currentUser.permissao !== Permissao.GESTOR) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Não tem permissão para apagar a foto deste utilizador.",
@@ -1731,8 +1752,8 @@ export const utilizadorRouter = createTRPCRouter({
       try {
         const currentUser = ctx.session.user as UserWithPermissao;
 
-        // Verificar se o utilizador logado é o próprio utilizador ou um admin
-        if (currentUser.id !== input.userId && currentUser.permissao !== Permissao.ADMIN) {
+        // Verificar se o utilizador logado é o próprio utilizador ou um admin ou gestor  
+        if (currentUser.id !== input.userId && currentUser.permissao !== Permissao.ADMIN && currentUser.permissao !== Permissao.GESTOR) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Não tem permissão para alterar a foto deste utilizador.",

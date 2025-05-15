@@ -142,7 +142,8 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
 
   // Parâmetros da URL
   const params = useParams();
-  const username = params?.username as string;
+  const username = typeof params?.param === 'string' ? params.param : 
+                  typeof params?.username === 'string' ? params.username : undefined;
 
   // API para gerar PDF
   const { mutate: gerarPDF } = usePDFExport();
@@ -151,7 +152,7 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
   const handleExportPDF = () => {
     if (mesSelecionado) {
       setIsGeneratingPDF(true);
-      if (!username || username === 'unknown') {
+      if (!username) {
         alert('Erro: Username não encontrado na URL. Certifique-se de estar na página correta do utilizador.');
         setIsGeneratingPDF(false);
         return;

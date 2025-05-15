@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 
 export default function MediasAlocacoes() {
@@ -233,9 +233,13 @@ export default function MediasAlocacoes() {
                       <TableCell className="px-4 py-3 text-sm font-normal text-slate-700">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8 border border-slate-200">
+                            {item.profilePhotoUrl ? (
+                              <AvatarImage src={item.profilePhotoUrl} alt={item.nome || "Avatar"} />
+                            ) : (
                             <AvatarFallback className="bg-slate-50 text-sm font-medium text-slate-600">
                               {getInitials(item.nome)}
                             </AvatarFallback>
+                            )}
                           </Avatar>
                           <div className="flex flex-col">
                             <span className="font-medium">{item.nome || "Sem nome"}</span>

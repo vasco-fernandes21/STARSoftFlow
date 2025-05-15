@@ -76,7 +76,7 @@ async function main() {
       name: "Helga Carvalho",
       email: "gestor@starinstitute.pt",
       emailVerified: new Date(),
-      atividade: "Administração",
+      atividade: "Project Management Office e Contratação Pública",
       contratacao: new Date("2020-03-15"),
       username: "helga.carvalho",
       permissao: Permissao.GESTOR,

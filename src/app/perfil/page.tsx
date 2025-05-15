@@ -34,7 +34,7 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Permissao, Regime, ProjetoEstado } from "@prisma/client";
-import { AlocacoesDetalhadas } from "@/app/utilizadores/[username]/AlocacoesDetalhadas";
+import { AlocacoesDetalhadas } from "@/app/utilizadores/[param]/AlocacoesDetalhadas";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   DropdownMenu,

@@ -2,6 +2,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { Permissao, ProjetoEstado } from "@prisma/client";
 import { Decimal } from "decimal.js";
+import { listProfilePhotos } from "@/lib/blob";
 
 // Tipo para verificar permissões de utilizador
 type UserWithPermissao = {
@@ -65,16 +66,40 @@ export const gestorRouter = createTRPCRouter({
         // Mapear utilizadores para facilitar o acesso
         const usersMap = new Map(users.map(u => [u.id, u]));
 
+        // Buscar fotos de perfil para todos os utilizadores
+        const usersWithPhotos = await Promise.all(
+          users.map(async (user) => {
+            let profilePhotoUrl: string | null = null;
+            try {
+              const photoBlobs = await listProfilePhotos(user.id);
+              if (photoBlobs.blobs.length > 0) {
+                profilePhotoUrl = photoBlobs.blobs[0]?.url || null;
+              }
+            } catch (photoError) {
+              console.error(`Erro ao buscar foto de perfil para o utilizador ${user.id}:`, photoError);
+              // Não quebrar a query principal por causa da foto
+            }
+            return {
+              ...user,
+              profilePhotoUrl,
+            };
+          })
+        );
+
+        // Atualizar o mapa de utilizadores com as fotos
+        const usersWithPhotosMap = new Map(usersWithPhotos.map(u => [u.id, u]));
+
         // Formatar resposta apenas para utilizadores com alocação > 0
         const mediasAlocacoes = alocacoes
           .map(alocacao => {
-            const user = usersMap.get(alocacao.userId);
+            const user = usersWithPhotosMap.get(alocacao.userId);
             if (!user) return null;
 
             return {
               userId: user.id,
               nome: user.name,
               email: user.email,
+              profilePhotoUrl: user.profilePhotoUrl,
               ocupacaoMedia: new Decimal(alocacao._sum.ocupacao || 0).toNumber()
             };
           })

@@ -91,7 +91,7 @@ const extrairUtilizadores = (apiResponse: any) => {
 const SimpleAvatar = ({ utilizador }: { utilizador: any }) => {
   return (
     <Avatar className="h-10 w-10 shadow-md ring-2 ring-white/30">
-      <AvatarImage src={utilizador?.foto || undefined} />
+      <AvatarImage src={utilizador?.profilePhotoUrl || undefined} />
       <AvatarFallback className="bg-blue-100 font-medium text-azul">
         {utilizador?.name
           ?.split(" ")
@@ -207,7 +207,9 @@ const Users = () => {
   }, [utilizadores, estadoFilter, regimeFilter]);
 
   const handleRowClick = (utilizador: any) => {
-    router.push(`/utilizadores/${utilizador.username}`);
+    // Usar o username se disponível, senão usar o ID
+    const param = utilizador.username || utilizador.id;
+    router.push(`/utilizadores/${param}`);
   };
 
   // Configuração dos filtros

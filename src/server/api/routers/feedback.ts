@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { uploadFeedbackAttachment } from "@/lib/blob";
+import { uploadFeedbackAttachment, listProfilePhotos } from "@/lib/blob";
 import { TRPCError } from "@trpc/server";
 import { ee } from "./notificacoes"; 
 import type { Feedback, Prisma } from "@prisma/client";
@@ -12,6 +12,7 @@ type FeedbackWithImage = Omit<Feedback, "userId"> & {
   user: {
     name: string | null;
     email?: string | null;
+    profilePhotoUrl?: string | null;
   };
 };
 
@@ -124,20 +125,39 @@ export const feedbackRouter = createTRPCRouter({
         user: {
           select: {
             name: true,
+            id: true,
           },
         },
       },
     });
 
-    // Return feedbacks with computed imagemUrl
-    return feedbacks.map(feedback => {
-      // Check if the image exists by trying to fetch it
+    // Return feedbacks with computed imagemUrl and user profile photo
+    const processedFeedbacks = await Promise.all(feedbacks.map(async feedback => {
+      // Get feedback image URL
       const imageUrl = BLOB_CONFIG.getUrl(`${BLOB_CONFIG.PATHS.FEEDBACK_IMAGES}/${feedback.id}`);
+      
+      // Get user profile photo URL
+      let profilePhotoUrl: string | null = null;
+      try {
+        const photoBlobs = await listProfilePhotos(feedback.user.id);
+        if (photoBlobs.blobs.length > 0) {
+          profilePhotoUrl = photoBlobs.blobs[0]?.url || null;
+        }
+      } catch (photoError) {
+        console.error(`Error fetching profile photo for user ${feedback.user.id}:`, photoError);
+      }
+
       return {
         ...feedback,
         imagemUrl: imageUrl,
+        user: {
+          ...feedback.user,
+          profilePhotoUrl,
+        },
       };
-    }) satisfies FeedbackWithImage[];
+    }));
+
+    return processedFeedbacks as FeedbackWithImage[];
   }),
 
   listAll: protectedProcedure.query(async ({ ctx }) => {
@@ -159,19 +179,39 @@ export const feedbackRouter = createTRPCRouter({
           select: {
             name: true,
             email: true,
+            id: true,
           },
         },
       },
     });
 
-    // Return feedbacks with computed imagemUrl
-    return feedbacks.map(feedback => {
+    // Return feedbacks with computed imagemUrl and user profile photo
+    const processedFeedbacks = await Promise.all(feedbacks.map(async feedback => {
+      // Get feedback image URL
       const imageUrl = BLOB_CONFIG.getUrl(`${BLOB_CONFIG.PATHS.FEEDBACK_IMAGES}/${feedback.id}`);
+      
+      // Get user profile photo URL
+      let profilePhotoUrl: string | null = null;
+      try {
+        const photoBlobs = await listProfilePhotos(feedback.user.id);
+        if (photoBlobs.blobs.length > 0) {
+          profilePhotoUrl = photoBlobs.blobs[0]?.url || null;
+        }
+      } catch (photoError) {
+        console.error(`Error fetching profile photo for user ${feedback.user.id}:`, photoError);
+      }
+
       return {
         ...feedback,
         imagemUrl: imageUrl,
+        user: {
+          ...feedback.user,
+          profilePhotoUrl,
+        },
       };
-    }) satisfies FeedbackWithImage[];
+    }));
+
+    return processedFeedbacks as FeedbackWithImage[];
   }),
 
   markAsResolved: protectedProcedure

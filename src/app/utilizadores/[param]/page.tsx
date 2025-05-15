@@ -14,7 +14,6 @@ import {
   UserCog,
   Send,
   Edit,
-
   Clock,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -30,7 +29,6 @@ import {
   CardHeader, 
   CardTitle, 
   CardDescription,
-
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditarUtilizadorForm } from "./components/EditarUtilizadorForm";
@@ -129,23 +127,33 @@ const utilizadorSchema = z.object({
 
 export default function PerfilUtilizador() {
   const router = useRouter();
-  const params = useParams<{ username: string }>();
-  const username = params?.username || "";
+  const params = useParams<{ param: string }>();
+  const paramValue = params?.param;
 
   // Estados
   const [viewMode, setViewMode] = useState<ViewMode>('real');
   const currentYear = new Date().getFullYear();
   const [showUserEdit, setShowUserEdit] = useState(false);
   const [showMonthlyConfig, setShowMonthlyConfig] = useState(false);
-  // Todas as queries - devem ser declaradas juntas e incondicionalmente
+
+  // Verificar se o parâmetro é um UUID (ID)
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paramValue || "") || 
+                 /^c[a-z0-9]{20,}$/i.test(paramValue || ""); // Formato Cuid
+
+  // Usar a query apropriada baseado no tipo do parâmetro
   const { 
     data: utilizador,
     isLoading: isLoadingUtilizador,
     error: utilizadorError,
-  } = api.utilizador.getByUsername.useQuery(username, {
-    enabled: !!username,
-    refetchOnWindowFocus: false,
-  });
+  } = isUUID 
+    ? api.utilizador.findById.useQuery(paramValue || "", {
+        enabled: !!paramValue,
+        refetchOnWindowFocus: false,
+      })
+    : api.utilizador.getByUsername.useQuery(paramValue || "", {
+        enabled: !!paramValue,
+        refetchOnWindowFocus: false,
+      });
   
   const { 
     data: userDetails,
@@ -166,7 +174,7 @@ export default function PerfilUtilizador() {
     refetchOnWindowFocus: false,
   });
 
-  // Mutation para convidar utilizador - deve estar aqui, antes de qualquer retorno condicional
+  // Mutation para convidar utilizador
   const convidarUtilizadorMutation = api.utilizador.convidarUtilizador.useMutation({
     onSuccess: () => {
       toast.success("O utilizador receberá um email para definir a sua password.");
@@ -262,8 +270,8 @@ export default function PerfilUtilizador() {
   // Renderização do componente
   let content;
 
-  // Early return if no username is found
-  if (!params?.username) {
+  // Early return if no param is found
+  if (!paramValue) {
     content = (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -581,4 +589,4 @@ export default function PerfilUtilizador() {
 
   // Retorno final
   return content;
-}
+} 
