@@ -43,6 +43,7 @@ interface MaterialUpdate {
     ano_utilizacao?: number;
     rubrica?: Rubrica;
     estado?: boolean;
+    mes?: number;
   };
 }
 
@@ -53,6 +54,7 @@ interface MaterialFormData {
   preco: number;
   quantidade: number;
   ano_utilizacao: number;
+  mes?: number;
   rubrica: Rubrica;
   workpackageId?: string;
 }
@@ -526,33 +528,39 @@ export function useMutations(projetoId: string) {
     }),
 
     update: api.material.update.useMutation({
-      onMutate: async (variables: MaterialUpdate) => {
+      onMutate: async (variables) => {
+        const typedVariables = variables as MaterialUpdate;
         // if only id is provided, we toggle the state
         const isValidVariables =
-          typeof variables === "object" && variables !== null && "id" in variables;
+          typeof typedVariables === "object" && typedVariables !== null && "id" in typedVariables;
         const updateData =
-          isValidVariables && "data" in variables && variables.data
-            ? variables.data
+          isValidVariables && "data" in typedVariables && typedVariables.data
+            ? { ...typedVariables.data }
             : { estado: undefined };
 
-        if (isValidVariables && !("data" in variables) && variables.id) {
-          const currentData = queryClient?.getQueryData(["material.findById", variables.id]) as any;
+        if (isValidVariables && !("data" in typedVariables) && typedVariables.id) {
+          const currentData = queryClient?.getQueryData(["material.findById", typedVariables.id]) as any;
           if (currentData) {
             updateData.estado = !currentData.estado;
           }
         }
 
+        // Ensure price is always a number
+        if (updateData.preco !== undefined) {
+          updateData.preco = Number(updateData.preco);
+        }
+
         // Cancel pending queries
-        if (isValidVariables && "id" in variables && variables.id) {
+        if (isValidVariables && "id" in typedVariables && typedVariables.id) {
           await queryClient?.cancelQueries({
-            queryKey: ["material.findById", variables.id],
+            queryKey: ["material.findById", typedVariables.id],
           });
         }
 
         // Store current state
         const previousMaterialData =
-          isValidVariables && "id" in variables && variables.id
-            ? queryClient?.getQueryData(["material.findById", variables.id])
+          isValidVariables && "id" in typedVariables && typedVariables.id
+            ? queryClient?.getQueryData(["material.findById", typedVariables.id])
             : null;
         let previousProjetoData;
 
@@ -561,15 +569,15 @@ export function useMutations(projetoId: string) {
         }
 
         // Update material cache optimistically
-        if (isValidVariables && "id" in variables && variables.id) {
-          queryClient?.setQueryData(["material.findById", variables.id], (old: any) => {
+        if (isValidVariables && "id" in typedVariables && typedVariables.id) {
+          queryClient?.setQueryData(["material.findById", typedVariables.id], (old: any) => {
             if (!old) return old;
             return { ...old, ...updateData };
           });
         }
 
         // Update project cache optimistically
-        if (projetoId && isValidVariables && "id" in variables && variables.id) {
+        if (projetoId && isValidVariables && "id" in typedVariables && typedVariables.id) {
           queryClient?.setQueryData(["projeto.findById", projetoId], (old: any) => {
             if (!old?.workpackages) return old;
 
@@ -578,7 +586,7 @@ export function useMutations(projetoId: string) {
               workpackages: old.workpackages.map((wp: any) => ({
                 ...wp,
                 materiais: wp.materiais?.map((m: any) =>
-                  m.id === variables.id ? { ...m, ...updateData } : m
+                  m.id === typedVariables.id ? { ...m, ...updateData } : m
                 ),
               })),
             };
@@ -590,18 +598,19 @@ export function useMutations(projetoId: string) {
       onSuccess: async (_data, variables) => {
         await invalidateProjetoRelatedQueries(projetoId);
 
-        const isValidVariables = typeof variables === "object" && variables !== null;
+        const typedVariables = variables as MaterialUpdate;
+        const isValidVariables = typeof typedVariables === "object" && typedVariables !== null;
         const hasDataWithEstado =
           isValidVariables &&
-          "data" in variables &&
-          variables.data &&
-          "estado" in variables.data &&
-          variables.data.estado !== undefined;
+          "data" in typedVariables &&
+          typedVariables.data &&
+          "estado" in typedVariables.data &&
+          typedVariables.data.estado !== undefined;
 
         if (hasDataWithEstado) {
           const estado =
-            isValidVariables && "data" in variables && variables.data && "estado" in variables.data
-              ? variables.data.estado
+            isValidVariables && "data" in typedVariables && typedVariables.data && "estado" in typedVariables.data
+              ? typedVariables.data.estado
               : false;
           toast.success(
             estado ? "Material marcado como concluído" : "Material marcado como pendente"
@@ -615,12 +624,13 @@ export function useMutations(projetoId: string) {
       },
       onError: (error, variables, context: any) => {
         // Revert optimistic updates on error
+        const typedVariables = variables as MaterialUpdate;
         const isValidVariables =
-          typeof variables === "object" && variables !== null && "id" in variables && variables.id;
+          typeof typedVariables === "object" && typedVariables !== null && "id" in typedVariables && typedVariables.id;
 
         if (context?.previousMaterialData && isValidVariables) {
           queryClient?.setQueryData(
-            ["material.findById", variables.id],
+            ["material.findById", typedVariables.id],
             context.previousMaterialData
           );
         }
@@ -664,6 +674,7 @@ export function useMutations(projetoId: string) {
             preco: material.preco,
             quantidade: material.quantidade,
             ano_utilizacao: material.ano_utilizacao,
+            mes: material.mes,
             rubrica: material.rubrica,
           },
         });
@@ -675,6 +686,7 @@ export function useMutations(projetoId: string) {
           preco: material.preco,
           quantidade: material.quantidade,
           ano_utilizacao: material.ano_utilizacao,
+          mes: material.mes,
           rubrica: material.rubrica,
         });
       }

@@ -161,18 +161,29 @@ export function DecimalField({
     const currentNumericValue = parseFloat(inputValue.replace(",", "."));
     const valuePropMatchesInput = !isNaN(currentNumericValue) && 
                                   value !== null && 
+                                  value !== undefined &&
                                   Math.abs(currentNumericValue - value) < (step / 2);
 
-    if (value === null) {
+    if (value === null || value === undefined) {
       if (inputValue !== "") {
         setInputValue("");
       }
     } else if (!valuePropMatchesInput || (isNaN(currentNumericValue) && value !== null)) {
       if (!(inputValue.endsWith('.') || inputValue.endsWith(','))) {
-        setInputValue(value.toFixed(decimalPlaces));
+        try {
+          const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+          if (!isNaN(numValue)) {
+            setInputValue(numValue.toFixed(decimalPlaces));
+          } else {
+            setInputValue("");
+          }
+        } catch (error) {
+          console.error("Error formatting value:", error);
+          setInputValue("");
+        }
       }
     }
-  }, [value, decimalPlaces, step]);
+  }, [value, decimalPlaces, step, inputValue]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let currentVal = e.target.value;

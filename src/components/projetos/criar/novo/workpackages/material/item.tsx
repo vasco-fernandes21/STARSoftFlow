@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Package,
   Edit,
   Trash2,
   Coins,
@@ -17,8 +16,9 @@ import { Card } from "@/components/ui/card";
 import type { Rubrica } from "@prisma/client";
 import { formatCurrency } from "@/lib/utils";
 import { Form } from "./form";
-import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/trpc/react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Material {
   id: number;
@@ -35,22 +35,10 @@ interface Material {
 
 interface MaterialItemProps {
   material: Material;
-  onEdit: (
-    workpackageId: string,
-    material: {
-      id: number;
-      nome: string;
-      descricao?: string;
-      preco: number;
-      quantidade: number;
-      ano_utilizacao: number;
-      mes: number;
-      rubrica: Rubrica;
-    }
-  ) => void;
-  onRemove: () => void;
-  onUpdate?: () => void;
-  onToggleEstado?: (id: number, estado: boolean) => Promise<void>;
+  onCreate: (workpackageId: string, material: Omit<Material, "id" | "estado">) => Promise<void>;
+  onEdit: (workpackageId: string, material: Material) => Promise<void>;
+  onRemove: (materialId: number) => Promise<void>;
+  onToggleEstado: (materialId: number) => void;
   readOnly?: boolean;
 }
 
@@ -95,59 +83,71 @@ function obterNomeMes(mes: number): string {
   return meses[mes - 1] || String(mes);
 }
 
-export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, readOnly = false }: MaterialItemProps) {
+export function MaterialItem({ material, onCreate, onEdit, onRemove, onToggleEstado, readOnly = false }: MaterialItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [localMaterial, setLocalMaterial] = useState(material);
-  const valorTotal = localMaterial.preco * localMaterial.quantidade;
-  const queryClient = useQueryClient();
+  const valorTotal = material.preco * material.quantidade;
+  
+  const utils = api.useUtils();
+  
+  // Create mutations
+  const updateMaterial = api.material.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate();
+      toast.success("Material atualizado", {
+        description: "O material foi atualizado com sucesso."
+      });
+    },
+    onError: () => {
+      toast.error("Erro ao atualizar", {
+        description: "Não foi possível atualizar o material. Tente novamente."
+      });
+    },
+  });
+
+  const toggleEstado = api.material.atualizarEstado.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate();
+      toast.success("Estado atualizado", {
+        description: `Material marcado como ${material.estado ? "não concluído" : "concluído"}.`
+      });
+    },
+    onError: () => {
+      toast.error("Erro ao atualizar estado", {
+        description: "Não foi possível atualizar o estado do material. Tente novamente."
+      });
+    },
+  });
+
+  const deleteMaterial = api.material.delete.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate();
+      toast.success("Material removido", {
+        description: "O material foi removido com sucesso."
+      });
+    },
+    onError: () => {
+      toast.error("Erro ao remover", {
+        description: "Não foi possível remover o material. Tente novamente."
+      });
+    },
+  });
 
   // Handler para quando o formulário é submetido
-  const handleSubmit = (workpackageId: string, updatedMaterial: any) => {
-    // Atualizar o estado local imediatamente para feedback instantâneo na UI
-    setLocalMaterial({
-      ...localMaterial,
-      ...updatedMaterial,
-      id: material.id,
-    });
-
-    // Atualizar os dados na cache para outros componentes refletirem esta mudança
-    if (workpackageId) {
-      // Atualizar o material na lista de materiais do workpackage
-      queryClient.setQueryData(["workpackage.findById", { id: workpackageId }], (oldData: any) => {
-        if (!oldData) return oldData;
-
-        // Criar uma cópia profunda para evitar mutações
-        const newData = JSON.parse(JSON.stringify(oldData));
-
-        // Atualizar o material na lista
-        if (newData.materiais) {
-          const materialIndex = newData.materiais.findIndex((m: any) => m.id === material.id);
-
-          if (materialIndex !== -1) {
-            newData.materiais[materialIndex] = {
-              ...newData.materiais[materialIndex],
-              ...updatedMaterial,
-              id: material.id,
-            };
-          }
-        }
-
-        return newData;
-      });
-    }
-
-    // Chamar a função de edição original (que faz a mutation para o servidor)
-    onEdit(workpackageId, {
-      ...updatedMaterial,
-      id: material.id,
-    });
-
-    setIsEditing(false);
-
-    // Chamar onUpdate se existir
-    if (onUpdate) {
-      onUpdate();
+  const handleSubmit = async (workpackageId: string, updatedMaterial: any) => {
+    try {
+      if (updatedMaterial.id) {
+        await onEdit(workpackageId, {
+          ...updatedMaterial,
+          id: material.id,
+          estado: material.estado,
+        });
+      } else {
+        await onCreate(workpackageId, updatedMaterial);
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Erro ao atualizar material:", error);
     }
   };
 
@@ -161,55 +161,20 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
     setIsExpanded(!isExpanded);
   };
 
-  // Handler para remoção com atualização
-  const handleRemove = () => {
-    onRemove();
-
-    // Chamar onUpdate se existir
-    if (onUpdate) {
-      onUpdate();
+  // Handler para remoção
+  const handleRemove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await onRemove(material.id);
+    } catch (error) {
+      console.error("Erro ao remover material:", error);
     }
   };
 
   // Handler para alternar estado do material
   const handleToggleEstado = async (e: React.MouseEvent) => {
     e.stopPropagation();
-
-    if (!onToggleEstado) return;
-
-    // Valor atual do estado
-    const currentEstado = localMaterial.estado ?? false;
-    // Novo estado (inverso do atual)
-    const novoEstado = !currentEstado;
-
-    try {
-      console.log("Alterando estado no item:", {
-        id: localMaterial.id,
-        estadoAtual: currentEstado,
-        novoEstado: novoEstado,
-      });
-
-      // Atualizar o estado local imediatamente para feedback instantâneo
-      setLocalMaterial((prev) => ({
-        ...prev,
-        estado: novoEstado,
-      }));
-
-      // Chamar a função que faz a mutation para o servidor
-      await onToggleEstado(localMaterial.id, novoEstado);
-
-      // Chamar onUpdate se existir
-      if (onUpdate) {
-        onUpdate();
-      }
-    } catch (error) {
-      console.error("Erro ao alternar estado:", error);
-      // Reverter a mudança local em caso de erro
-      setLocalMaterial((prev) => ({
-        ...prev,
-        estado: currentEstado,
-      }));
-    }
+    onToggleEstado(material.id);
   };
 
   // Se estiver em modo de edição, mostrar o formulário
@@ -218,19 +183,19 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
       <Card className="border-azul/10 p-4">
         <h5 className="mb-3 text-sm font-medium text-azul">Editar Material</h5>
         <Form
-          workpackageId={localMaterial.workpackageId || ""}
+          workpackageId={material.workpackageId || ""}
           initialValues={{
-            nome: localMaterial.nome,
-            descricao: localMaterial.descricao || "",
-            preco: localMaterial.preco,
-            quantidade: localMaterial.quantidade,
-            ano_utilizacao: localMaterial.ano_utilizacao,
-            mes: localMaterial.mes || 1,
-            rubrica: localMaterial.rubrica,
+            nome: material.nome,
+            descricao: material.descricao || "",
+            preco: material.preco,
+            quantidade: material.quantidade,
+            ano_utilizacao: material.ano_utilizacao,
+            mes: material.mes || 1,
+            rubrica: material.rubrica,
+            id: material.id,
           }}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
-          onUpdate={onUpdate}
         />
       </Card>
     );
@@ -242,51 +207,45 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
       <div className="cursor-pointer p-3 hover:bg-gray-50" onClick={toggleExpand}>
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
-            {onToggleEstado ? (
-              <button
-                onClick={handleToggleEstado}
-                className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-lg border transition-colors",
-                  localMaterial.estado
-                    ? "border-emerald-500/10 bg-emerald-500 text-white"
-                    : "border-zinc-300 bg-white hover:bg-zinc-100"
-                )}
-              >
-                {localMaterial.estado && <Check className="h-3.5 w-3.5" />}
-              </button>
-            ) : (
-              <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-azul/10">
-                <Package className="h-3.5 w-3.5 text-azul" />
-              </div>
-            )}
+            <button
+              onClick={handleToggleEstado}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-lg border transition-colors",
+                material.estado
+                  ? "border-emerald-500/10 bg-emerald-500 text-white"
+                  : "border-zinc-300 bg-white hover:bg-zinc-100"
+              )}
+            >
+              {material.estado && <Check className="h-3.5 w-3.5" />}
+            </button>
             <div>
-              <h5 className="text-sm font-medium text-azul">{localMaterial.nome}</h5>
+              <h5 className="text-sm font-medium text-azul">{material.nome}</h5>
 
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <Badge
-                  variant={rubricaParaVariante[localMaterial.rubrica]}
+                  variant={rubricaParaVariante[material.rubrica]}
                   className="px-1.5 py-0.5 text-[10px]"
                 >
-                  {obterNomeRubrica(localMaterial.rubrica)}
+                  {obterNomeRubrica(material.rubrica)}
                 </Badge>
 
-                {localMaterial.estado !== undefined && (
+                {material.estado !== undefined && (
                   <Badge
-                    variant={localMaterial.estado ? "default" : "outline"}
+                    variant={material.estado ? "default" : "outline"}
                     className={cn(
                       "h-4 px-1 py-0 text-[10px]",
-                      localMaterial.estado
+                      material.estado
                         ? "border-emerald-200 bg-emerald-50 text-emerald-600"
                         : "border-blue-200 bg-blue-50 text-azul"
                     )}
                   >
-                    {localMaterial.estado ? "Concluído" : "Em Progresso"}
+                    {material.estado ? "Concluído" : "Em Progresso"}
                   </Badge>
                 )}
 
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Calendar className="h-3 w-3" />
-                  <span>{obterNomeMes(localMaterial.mes || 1)} {localMaterial.ano_utilizacao}</span>
+                  <span>{obterNomeMes(material.mes || 1)} {material.ano_utilizacao}</span>
                 </div>
 
                 <div className="flex items-center gap-1 text-xs font-medium text-green-600">
@@ -315,10 +274,7 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRemove();
-                  }}
+                  onClick={handleRemove}
                   className="h-7 w-7 rounded-lg p-0 text-red-500 hover:bg-red-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -348,11 +304,11 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
       {isExpanded && (
         <div className="border-t border-azul/10 bg-azul/5 p-3">
           <div className="space-y-3">
-            {localMaterial.descricao && (
+            {material.descricao && (
               <div className="space-y-1">
                 <h6 className="text-xs font-medium text-azul/80">Descrição</h6>
                 <p className="rounded-md border border-azul/10 bg-white/80 p-2 text-sm text-gray-600">
-                  {localMaterial.descricao || "Sem descrição"}
+                  {material.descricao || "Sem descrição"}
                 </p>
               </div>
             )}
@@ -362,7 +318,7 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
                 <h6 className="mb-1 text-xs font-medium text-azul/80">Quantidade</h6>
                 <div className="flex items-center gap-1">
                   <Hash className="h-3.5 w-3.5 text-azul" />
-                  <span className="text-sm font-medium">{localMaterial.quantidade} unidades</span>
+                  <span className="text-sm font-medium">{material.quantidade} unidades</span>
                 </div>
               </div>
 
@@ -370,7 +326,7 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
                 <h6 className="mb-1 text-xs font-medium text-azul/80">Preço unitário</h6>
                 <div className="flex items-center gap-1">
                   <Coins className="h-3.5 w-3.5 text-azul" />
-                  <span className="text-sm font-medium">{formatCurrency(localMaterial.preco)}</span>
+                  <span className="text-sm font-medium">{formatCurrency(material.preco)}</span>
                 </div>
               </div>
 
@@ -391,14 +347,14 @@ export function Item({ material, onEdit, onRemove, onUpdate, onToggleEstado, rea
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5 text-azul" />
                   <span className="text-sm">
-                    Data: {obterNomeMes(localMaterial.mes || 1)} / {localMaterial.ano_utilizacao}
+                    Data: {obterNomeMes(material.mes || 1)} / {material.ano_utilizacao}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1">
                   <Info className="h-3.5 w-3.5 text-azul" />
                   <span className="text-sm">
-                    Rubrica: {obterNomeRubrica(localMaterial.rubrica)}
+                    Rubrica: {obterNomeRubrica(material.rubrica)}
                   </span>
                 </div>
               </div>

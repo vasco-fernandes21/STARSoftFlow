@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -119,6 +119,18 @@ export function AdminReceitasDespesasGraph() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
+  const utils = api.useUtils();
+
+  // Prefetch data for current and next year
+  useEffect(() => {
+    void utils.admin.getReceitas.prefetch({ ano: currentYear });
+    void utils.admin.getReceitas.prefetch({ ano: currentYear + 1 });
+  }, [utils, currentYear]);
+
+  // Prefetch data when year changes
+  useEffect(() => {
+    void utils.admin.getReceitas.prefetch({ ano: selectedYear });
+  }, [utils, selectedYear]);
 
   // Fetch data from the API
   const { data, isLoading } = api.admin.getReceitas.useQuery(

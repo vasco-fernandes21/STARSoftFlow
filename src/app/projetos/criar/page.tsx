@@ -220,7 +220,7 @@ function ProjetoFormContent() {
 
       dispatch({
         type: "ADD_WORKPACKAGE",
-        workpackage: newWorkpackage, // Dispatching correctly typed data
+        workpackage: newWorkpackage, 
       });
       toast.success("Workpackage adicionado com sucesso!");
     },

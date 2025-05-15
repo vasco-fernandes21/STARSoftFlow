@@ -42,7 +42,7 @@ import { TabNavigation } from "../../components/TabNavigation";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { TarefaItem } from "./tarefas/item";
-import { Item as MaterialItem } from "./material/item";
+import { MaterialItem } from "./material/item";
 import { pt } from 'date-fns/locale';
 
 // Importar tipo WorkpackageHandlers de onde for necessário (now uses 'any')

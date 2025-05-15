@@ -24,6 +24,7 @@ interface MaterialData {
   ano_utilizacao: number;
   mes: number;
   rubrica: Rubrica;
+  id?: number;
 }
 
 interface MaterialFormProps {
@@ -32,7 +33,7 @@ interface MaterialFormProps {
     inicio?: Date | string | null;
     fim?: Date | string | null;
   };
-  initialValues?: MaterialData & { id?: number };
+  initialValues?: MaterialData;
   onSubmit: (workpackageId: string, material: MaterialData) => void;
   onCancel: () => void;
   onUpdate?: () => void;
@@ -220,6 +221,7 @@ export function Form({
         ano_utilizacao: anoUtilizacao,
         mes,
         rubrica,
+        id: initialValues?.id,
       };
       onSubmit(workpackageId, materialData);
       if (onUpdate) { onUpdate(); }
@@ -405,7 +407,7 @@ export function Form({
             Cancelar
           </Button>
           <Button type="submit" className="h-9 rounded-lg bg-azul px-6 hover:bg-azul/90">
-            {_isEditMode ? (
+            {initialValues?.id ? (
               <>
                 <Save className="mr-2 h-4 w-4" />
                 Guardar Alterações

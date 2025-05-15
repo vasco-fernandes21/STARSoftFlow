@@ -11,6 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
 import { AdminReceitasDespesasGraph } from "./components/AdminReceitasDespesasGraph";
+import { AdminDespesas } from "./components/AdminDespesas";
 
 export default function AdminDashboard() {
   const { data: session } = useSession();
@@ -97,6 +98,11 @@ export default function AdminDashboard() {
         {/* Gráfico de Receitas e Despesas */}
         <div className="mt-6">
           <AdminReceitasDespesasGraph />
+        </div>
+
+        {/* Componente de Despesas */}
+        <div className="mt-6">
+          <AdminDespesas />
         </div>
       </div>
     </div>

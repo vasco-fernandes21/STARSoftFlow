@@ -23,7 +23,16 @@ const materialBaseSchema = z.object({
 const createMaterialSchema = materialBaseSchema;
 
 // Schema para atualização de material
-const updateMaterialSchema = materialBaseSchema.partial();
+const updateMaterialSchema = materialBaseSchema.extend({
+  preco: z.union([
+    z.number().min(0, "Preço deve ser positivo"),
+    z.string().transform((val) => {
+      const num = parseFloat(val);
+      if (isNaN(num)) throw new Error("Preço inválido");
+      return num;
+    })
+  ]),
+}).partial();
 
 export const materialRouter = createTRPCRouter({
   // Criar material
@@ -100,7 +109,16 @@ export const materialRouter = createTRPCRouter({
         // Adicionar campos do objeto data se fornecido
         if (inputData.nome !== undefined) data.nome = inputData.nome;
         if (inputData.descricao !== undefined) data.descricao = inputData.descricao;
-        if (inputData.preco !== undefined) data.preco = new Prisma.Decimal(inputData.preco);
+        if (inputData.preco !== undefined) {
+          const precoNumerico = typeof inputData.preco === 'string' ? parseFloat(inputData.preco) : inputData.preco;
+          if (isNaN(precoNumerico)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Preço inválido",
+            });
+          }
+          data.preco = new Prisma.Decimal(precoNumerico);
+        }
         if (inputData.quantidade !== undefined) data.quantidade = inputData.quantidade;
         if (inputData.ano_utilizacao !== undefined) data.ano_utilizacao = inputData.ano_utilizacao;
         if (inputData.mes !== undefined) data.mes = inputData.mes;
@@ -207,17 +225,12 @@ export const materialRouter = createTRPCRouter({
 
   // Atualizar o estado de um material (concluído ou não)
   atualizarEstado: protectedProcedure
-    .input(
-      z.object({
-        materialId: z.number(),
-        estado: z.boolean(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
+    .input(z.number()) // Recebe apenas o ID do material
+    .mutation(async ({ ctx, input: materialId }) => {
       // Verificar se o material existe
       const material = await ctx.db.material.findUnique({
         where: {
-          id: input.materialId,
+          id: materialId,
         },
         include: {
           workpackage: true,
@@ -228,13 +241,13 @@ export const materialRouter = createTRPCRouter({
         throw new Error("Material não encontrado");
       }
 
-      // Atualizar o estado do material
+      // Atualizar o estado do material para o oposto do estado atual
       const materialAtualizado = await ctx.db.material.update({
         where: {
-          id: input.materialId,
+          id: materialId,
         },
         data: {
-          estado: input.estado,
+          estado: !material.estado, 
         },
       });
 

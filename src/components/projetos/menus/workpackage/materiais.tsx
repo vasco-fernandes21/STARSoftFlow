@@ -2,16 +2,17 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Package, ChevronDown, ChevronRight } from "lucide-react";
 import type { WorkpackageCompleto } from "@/components/projetos/types";
-import { useMutations } from "@/hooks/useMutations";
-import { Form as MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Rubrica } from "@prisma/client";
 import { motion } from "framer-motion";
-import { Item as MaterialItem } from "@/components/projetos/criar/novo/workpackages/material/item";
+import { MaterialItem } from "@/components/projetos/criar/novo/workpackages/material/item";
 import { formatCurrency } from "@/lib/utils";
 import type Decimal from "decimal.js";
 import { cn } from "@/lib/utils";
+import { api } from "@/trpc/react";
+import { toast } from "sonner";
+import { Form as MaterialForm } from "@/components/projetos/criar/novo/workpackages/material/form";
 
 interface WorkpackageMateriaisProps {
   workpackage: WorkpackageCompleto;
@@ -20,19 +21,18 @@ interface WorkpackageMateriaisProps {
   canEdit?: boolean;
 }
 
-// Interface base para material
-interface MaterialBase {
+// Interface que corresponde ao schema do tRPC e ao componente MaterialItem
+interface MaterialData {
   id?: number;
   nome: string;
   preco: number;
   quantidade: number;
   ano_utilizacao: number;
   rubrica: Rubrica;
-}
-
-// Interface para o formulário (usando null para campos opcionais)
-interface MaterialFormValues extends MaterialBase {
-  descricao: string | null;
+  mes?: number;
+  descricao?: string | null | undefined;
+  estado?: boolean;
+  workpackageId?: string;
 }
 
 // Mapeamento de rubricas para variantes de badge
@@ -56,7 +56,96 @@ export function WorkpackageMateriais({
   const [showForm, setShowForm] = useState(false);
   const [expandedRubricas, setExpandedRubricas] = useState<Record<string, boolean>>({});
 
-  const { material: materialMutations } = useMutations(projetoId);
+  const utils = api.useUtils();
+
+  // tRPC mutations
+  const createMaterial = api.material.create.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Material criado", {
+        description: "O material foi criado com sucesso."
+      });
+      setShowForm(false);
+    },
+    onError: () => {
+      toast.error("Erro ao criar", {
+        description: "Não foi possível criar o material. Tente novamente."
+      });
+    },
+  });
+
+  const updateMaterial = api.material.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Material atualizado", {
+        description: "O material foi atualizado com sucesso."
+      });
+    },
+    onError: () => {
+      toast.error("Erro ao atualizar", {
+        description: "Não foi possível atualizar o material. Tente novamente."
+      });
+    },
+  });
+
+  const deleteMaterial = api.material.delete.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+      toast.success("Material removido", {
+        description: "O material foi removido com sucesso."
+      });
+    },
+    onError: () => {
+      toast.error("Erro ao remover", {
+        description: "Não foi possível remover o material. Tente novamente."
+      });
+    },
+  });
+
+  const toggleEstadoMaterial = api.material.atualizarEstado.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+    },
+    onError: () => {
+      toast.error("Erro ao atualizar estado", {
+        description: "Não foi possível atualizar o estado do material. Tente novamente."
+      });
+    },
+  });
+
+  // Handlers for MaterialItem callbacks
+  const handleCreate = async (workpackageId: string, material: Omit<MaterialData, "id" | "estado">) => {
+    await createMaterial.mutateAsync({
+      ...material,
+      workpackageId,
+      descricao: material.descricao || undefined
+    });
+  };
+
+  const handleEdit = async (workpackageId: string, material: MaterialData) => {
+    if (!material.id) return;
+    
+    await updateMaterial.mutateAsync({
+      id: material.id,
+      data: {
+        nome: material.nome,
+        descricao: material.descricao || undefined,
+        preco: material.preco,
+        quantidade: material.quantidade,
+        ano_utilizacao: material.ano_utilizacao,
+        mes: material.mes || 1,
+        rubrica: material.rubrica,
+      }
+    });
+  };
+
+  const handleRemove = async (materialId: number) => {
+    await deleteMaterial.mutateAsync(materialId);
+  };
+
+  const handleToggleEstado = async (materialId: number) => {
+    await toggleEstadoMaterial.mutateAsync(materialId);
+  };
 
   // Calcular o valor total (preço x quantidade) com segurança
   const calcularTotal = (preco: Decimal | number, quantidade: number): number => {
@@ -72,7 +161,7 @@ export function WorkpackageMateriais({
     }, 0);
   };
 
-  // Agrupar materiais por rubrica para visualização - usa o workpackage props
+  // Agrupar materiais por rubrica para visualização
   const agruparPorRubrica = () => {
     if (!workpackage.materiais || workpackage.materiais.length === 0) return [];
 
@@ -123,17 +212,6 @@ export function WorkpackageMateriais({
   const materiaisPorRubrica = agruparPorRubrica();
   const totalGeral = calcularTotalGeral();
 
-  // Wrapper para o MaterialForm.onSubmit
-  const handleFormSubmit = (formValues: MaterialFormValues) => {
-    materialMutations.handleSubmit(workpackage.id, formValues, materialMutations);
-    setShowForm(false);
-  };
-
-  // Wrapper para o MaterialItem.onEdit
-  const handleItemEdit = (formValues: MaterialFormValues) => {
-    materialMutations.handleSubmit(workpackage.id, formValues, materialMutations);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -170,10 +248,7 @@ export function WorkpackageMateriais({
                 fim: workpackage.fim,
               }}
               onSubmit={(_, material) =>
-                handleFormSubmit({
-                  ...material,
-                  descricao: material.descricao || null,
-                })
+                handleCreate(workpackage.id, material)
               }
               onCancel={() => setShowForm(false)}
             />
@@ -265,33 +340,10 @@ export function WorkpackageMateriais({
                       <div key={material.id} className="bg-white px-2 py-2">
                         <MaterialItem
                           material={material}
-                          onEdit={(wpId, mat) => {
-                            handleItemEdit({
-                              id: mat.id,
-                              nome: mat.nome,
-                              descricao: mat.descricao || null,
-                              preco: mat.preco,
-                              quantidade: mat.quantidade,
-                              ano_utilizacao: mat.ano_utilizacao,
-                              rubrica: mat.rubrica,
-                            });
-                          }}
-                          onRemove={() => materialMutations.delete.mutate(material.id || 0)}
-                          onToggleEstado={async (id, estado) => {
-                            try {
-                              await materialMutations.update.mutateAsync({
-                                id,
-                                data: {
-                                  estado
-                                }
-                              });
-                            } catch (error) {
-                              console.error("Erro ao alternar estado:", error);
-                            }
-                          }}
-                          onUpdate={() => {
-                            // Refresh data
-                          }}
+                          onCreate={handleCreate}
+                          onEdit={handleEdit}
+                          onRemove={handleRemove}
+                          onToggleEstado={handleToggleEstado}
                           readOnly={!canEdit}
                         />
                       </div>
