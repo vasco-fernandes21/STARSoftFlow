@@ -107,6 +107,10 @@ const updateUserSchema = z.object({
   regime: z.nativeEnum(Regime),
   permissao: z.nativeEnum(Permissao),
   informacoes: z.string().optional().nullable(),
+  salario: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : Number(v)),
+    z.number().min(0, "O salário deve ser positivo").optional()
+  ),
 });
 
 // Schema para convite de utilizador existente
@@ -222,7 +226,7 @@ export const utilizadorRouter = createTRPCRouter({
         
         // Verificar permissões do usuário atual
         const sessionUser = ctx.session.user as UserWithPermissao;
-        if (sessionUser.id !== id && sessionUser.permissao !== "ADMIN") {
+        if (sessionUser.id !== id && sessionUser.permissao !== "ADMIN" && sessionUser.permissao !== "GESTOR") {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Você não tem permissão para editar este utilizador",
@@ -415,6 +419,7 @@ export const utilizadorRouter = createTRPCRouter({
           regime: true,
           emailVerified: true,
           informacoes: true,
+          salario: true,
         },
       });
 
@@ -463,6 +468,7 @@ export const utilizadorRouter = createTRPCRouter({
           regime: true,
           emailVerified: true,
           informacoes: true,
+          salario: true,
         },
       });
 

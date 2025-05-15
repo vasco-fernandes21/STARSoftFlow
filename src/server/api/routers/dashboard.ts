@@ -544,61 +544,58 @@ export const dashboardRouter = createTRPCRouter({
         const { userId, limit } = input;
         const hoje = new Date();
         
-        // 1. Encontrar todos os workpackages em que o utilizador está alocado
-        const workpackagesAlocados = await ctx.db.alocacaoRecurso.findMany({
-          where: {
-            userId,
-            workpackage: {
-              projeto: {
-                estado: {
-                  in: ['APROVADO', 'EM_DESENVOLVIMENTO']
-                }
-              }
-            }
-          },
-          select: {
-            workpackageId: true,
-            workpackage: {
-              select: {
-                id: true,
-                nome: true,
-                projetoId: true,
+        // 1. Fetch user role
+        const dbUser = await ctx.db.user.findUnique({
+          where: { id: userId },
+          select: { permissao: true },
+        });
+        const userRole = dbUser?.permissao;
+
+        // 2. Determine relevant workpackage IDs based on role
+        let relevantWorkpackageIds: string[] | undefined = undefined;
+
+        if (userRole !== "ADMIN" && userRole !== "GESTOR") { // For UTILIZADOR or other non-privileged roles
+          const workpackagesAlocados = await ctx.db.alocacaoRecurso.findMany({
+            where: {
+              userId,
+              workpackage: {
                 projeto: {
-                  select: {
-                    id: true,
-                    nome: true,
-                    estado: true,
+                  estado: {
+                    in: ['APROVADO', 'EM_DESENVOLVIMENTO']
                   }
                 }
               }
-            }
-          },
-          distinct: ['workpackageId'],
-        });
-        
-        const workpackageIds = workpackagesAlocados.map(wa => wa.workpackageId);
-        
-        if (workpackageIds.length === 0) {
-          return {
-            tarefas: [],
-            entregaveis: [],
-            eventos: []
-          };
+            },
+            select: { workpackageId: true },
+            distinct: ['workpackageId'],
+          });
+          relevantWorkpackageIds = workpackagesAlocados.map(wa => wa.workpackageId);
+
+          if (relevantWorkpackageIds.length === 0) {
+            return {
+              tarefas: [],
+              entregaveis: [],
+              eventos: []
+            };
+          }
         }
+        // For ADMIN/GESTOR, relevantWorkpackageIds remains undefined, 
+        // so task query fetches from all workpackages in active projects.
         
-        // 2. Obter tarefas desses workpackages que estão por completar
+        // 3. Obter tarefas:
+        // - For ADMIN/GESTOR: all non-completed tasks from active projects.
+        // - For UTILIZADOR: non-completed tasks from their allocated workpackages in active projects.
         const tarefas = await ctx.db.tarefa.findMany({
           where: {
-            workpackageId: {
-              in: workpackageIds
-            },
             estado: false, // Tarefas não concluídas
             workpackage: {
               projeto: {
                 estado: {
                   in: ['APROVADO', 'EM_DESENVOLVIMENTO']
                 }
-              }
+              },
+              // Apply workpackageId filter only if relevantWorkpackageIds is populated (i.e., for UTILIZADOR)
+              ...(relevantWorkpackageIds ? { id: { in: relevantWorkpackageIds } } : {})
             }
           },
           select: {
@@ -627,10 +624,10 @@ export const dashboardRouter = createTRPCRouter({
           orderBy: {
             fim: 'asc'
           },
-          take: limit,
+          take: limit, 
         });
         
-        // 3. Obter entregáveis dessas tarefas
+        // 4. Obter entregáveis dessas tarefas
         const tarefasIds = tarefas.map(t => t.id);
         
         const entregaveis = await ctx.db.entregavel.findMany({
@@ -638,7 +635,6 @@ export const dashboardRouter = createTRPCRouter({
             tarefaId: {
               in: tarefasIds
             },
-            // Entregáveis com data futura ou sem data definida
             OR: [
               { 
                 data: {
@@ -649,7 +645,7 @@ export const dashboardRouter = createTRPCRouter({
                 data: null
               }
             ],
-            tarefa: {
+            tarefa: { // Ensures entregaveis are from tasks within active projects
               workpackage: {
                 projeto: {
                   estado: {
@@ -693,11 +689,8 @@ export const dashboardRouter = createTRPCRouter({
           take: limit,
         });
         
-        // 4. Calcular dias restantes e formatar respostas
-        const tarefasFormatadas = tarefas
-          .filter(t => ['APROVADO', 'EM_DESENVOLVIMENTO'].includes(t.workpackage.projeto.estado))
-          .map(tarefa => {
-            // Calcular dias restantes para a data limite da tarefa
+        // 5. Calcular dias restantes e formatar respostas
+        const tarefasFormatadas = tarefas.map(tarefa => {
             const diasRestantes = tarefa.fim
               ? Math.ceil((new Date(tarefa.fim).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
               : null;
@@ -708,7 +701,7 @@ export const dashboardRouter = createTRPCRouter({
               nome: tarefa.nome,
               descricao: tarefa.descricao,
               dataLimite: tarefa.fim,
-              dataCriacao: tarefa.inicio,
+              dataCriacao: tarefa.inicio, // Assuming 'inicio' is creation date for tasks
               diasRestantes,
               workpackage: {
                 id: tarefa.workpackage.id,
@@ -721,10 +714,7 @@ export const dashboardRouter = createTRPCRouter({
             };
           });
         
-        const entregaveisFormatados = entregaveis
-          .filter(e => ['APROVADO', 'EM_DESENVOLVIMENTO'].includes(e.tarefa.workpackage.projeto.estado))
-          .map(entregavel => {
-            // Calcular dias restantes para a data de entrega
+        const entregaveisFormatados = entregaveis.map(entregavel => {
             const diasRestantes = entregavel.data
               ? Math.ceil((new Date(entregavel.data).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
               : null;
@@ -749,21 +739,19 @@ export const dashboardRouter = createTRPCRouter({
             };
           });
         
-        // 5. Combinar resultados ordenados por dias restantes (eventos mais próximos primeiro)
+        // 6. Combinar resultados ordenados por dias restantes (eventos mais próximos primeiro)
         const todosEventos = [...tarefasFormatadas, ...entregaveisFormatados].sort((a, b) => {
-          // Se não tiver dataLimite, colocar por último
           if (a.diasRestantes === null && b.diasRestantes === null) return 0;
-          if (a.diasRestantes === null) return 1;
-          if (b.diasRestantes === null) return -1;
+          if (a.diasRestantes === null) return 1; // Items without due date go last
+          if (b.diasRestantes === null) return -1; // Items without due date go last
           
-          // Ordenar por dias restantes (crescente)
-          return a.diasRestantes - b.diasRestantes;
+          return a.diasRestantes - b.diasRestantes; // Sort by remaining days (ascending)
         });
         
         return {
           eventos: todosEventos.slice(0, limit),
-          tarefas: tarefasFormatadas,
-          entregaveis: entregaveisFormatados
+          tarefas: tarefasFormatadas, // Optionally return full lists if needed elsewhere
+          entregaveis: entregaveisFormatados // Optionally return full lists
         };
       } catch (error) {
         console.error("Erro ao obter próximos eventos:", error);

@@ -345,7 +345,7 @@ export function Form({
         toast.warning(
           `Atenção: A ocupação total para ${format(new Date(ano, mes - 1), "MMMM", { locale: pt })} 
           será de ${((ocupacao + ocupacaoExistente) * 100).toFixed(0)}%. 
-          Você está editando a alocação ${tipoAlocacao}.`
+         Está a editar a alocação ${tipoAlocacao}.`
         );
       }
     }

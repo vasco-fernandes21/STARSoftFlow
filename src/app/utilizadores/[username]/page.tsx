@@ -54,6 +54,7 @@ interface UserWithDetails {
   permissao: Permissao;
   regime: Regime;
   informacoes: string | null;
+  salario: number | null;
 }
 
 export type ViewMode = 'real' | 'submetido';
@@ -121,6 +122,9 @@ const utilizadorSchema = z.object({
   permissao: z.enum(["ADMIN", "GESTOR", "COMUM"]),
   regime: z.enum(["PARCIAL", "INTEGRAL"]),
   informacoes: z.string().nullable().optional(),
+  salario: z.union([z.string(), z.number()]).transform((val) => 
+    val === null || val === "" ? null : Number(val)
+  ).nullable(),
 });
 
 export default function PerfilUtilizador() {
@@ -327,6 +331,7 @@ export default function PerfilUtilizador() {
         permissao: validatedUser.permissao,
         regime: validatedUser.regime,
         informacoes: validatedUser.informacoes ?? null,
+        salario: validatedUser.salario,
       };
       // Monthly configuration modal/sheet
       const monthlyConfigSheet = (
@@ -387,6 +392,7 @@ export default function PerfilUtilizador() {
                   permissao: utilizadorComDetalhes.permissao,
                   regime: utilizadorComDetalhes.regime,
                   informacoes: utilizadorComDetalhes.informacoes,
+                  salario: utilizadorComDetalhes.salario,
                 }}
                 onSave={handleUserUpdate}
                 onCancel={() => setShowUserEdit(false)}

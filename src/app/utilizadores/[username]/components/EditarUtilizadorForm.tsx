@@ -36,6 +36,10 @@ const formSchema = z.object({
   regime: z.enum(["INTEGRAL", "PARCIAL"]),
   permissao: z.enum(["ADMIN", "GESTOR", "COMUM"]),
   informacoes: z.string().optional(),
+  salario: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : Number(v)),
+    z.number().min(0, "O salário deve ser positivo").optional()
+  ),
 });
 
 // Props interface
@@ -48,6 +52,7 @@ interface EditarUtilizadorFormProps {
     permissao: Permissao;
     regime: Regime;
     informacoes: string | null;
+    salario: number | null;
   };
   onSave: () => void;
   onCancel: () => void;
@@ -67,6 +72,7 @@ export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizado
       regime: user.regime,
       permissao: user.permissao,
       informacoes: user.informacoes ?? "",
+      salario: user.salario ?? undefined,
     },
   });
 
@@ -200,6 +206,34 @@ export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizado
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="salario"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Salário (€/Mês)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Salário mensal"
+                  {...field}
+                  value={field.value === null ? "" : field.value}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    field.onChange(value === "" ? null : Number(value));
+                  }}
+                />
+              </FormControl>
+              <FormDescription>
+                Salário mensal bruto do colaborador
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}

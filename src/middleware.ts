@@ -5,6 +5,21 @@ import { getToken } from "next-auth/jwt";
 // Rotas que não requerem autenticação
 const rotasPublicas = ["/login", "/primeiro-login", "/recuperar-password"];
 
+// Definição de rotas e roles associadas
+const roleRoutes = {
+  ADMIN: "/admin",
+  GESTOR: "/gestor",
+  UTILIZADOR: "/utilizador",
+};
+
+// Mapeamento de roles para as páginas que podem aceder
+const routePermissions = {
+  "/admin": ["ADMIN"],
+  "/gestor": ["ADMIN", "GESTOR"],
+  "/utilizador": ["ADMIN", "GESTOR", "UTILIZADOR"],
+  "/utilizadores": ["ADMIN", "GESTOR"],
+};
+
 export async function middleware(request: NextRequest) {
   // Verificar token usando o cookie next-auth.session-token
   const token = await getToken({
@@ -14,6 +29,7 @@ export async function middleware(request: NextRequest) {
   });
 
   const isLoggedIn = !!token;
+  const userRole = token?.permissao as string | undefined;
   const path = request.nextUrl.pathname;
 
   // Verifica se a rota atual é pública
@@ -21,20 +37,44 @@ export async function middleware(request: NextRequest) {
     (route) => path === route || path.startsWith(`${route}/`)
   );
 
-  console.log(`Path: ${path}, Logged in: ${isLoggedIn}, Public: ${isPublicRoute}`);
+  console.log(
+    `Path: ${path}, Logged in: ${isLoggedIn}, Role: ${userRole}, Public: ${isPublicRoute}`
+  );
 
   // Se o utilizador não estiver autenticado e a rota não for pública,
   // redireciona para a página de login
   if (!isLoggedIn && !isPublicRoute) {
-    // Guarda a URL original para redirecionar de volta após o login
     const returnUrl = encodeURIComponent(path);
-    return NextResponse.redirect(new URL(`/login?returnUrl=${returnUrl}`, request.url));
+    return NextResponse.redirect(
+      new URL(`/login?returnUrl=${returnUrl}`, request.url)
+    );
   }
 
-  // Se o utilizador estiver autenticado e estiver na página de login,
-  // redireciona para a página inicial
-  if (isLoggedIn && path === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+  // Se o utilizador estiver autenticado
+  if (isLoggedIn) {
+    // Redirecionar da página de login para a dashboard apropriada se já logado
+    if (path === "/login") {
+      const defaultDashboard = userRole ? roleRoutes[userRole as keyof typeof roleRoutes] || "/" : "/";
+      return NextResponse.redirect(new URL(defaultDashboard, request.url));
+    }
+
+    // Proteger rotas baseadas em roles
+    // Verificar se o path atual é uma rota protegida por role
+    const requiredRoles = Object.keys(routePermissions).find(p => path.startsWith(p)) 
+                          ? routePermissions[Object.keys(routePermissions).find(p => path.startsWith(p)) as keyof typeof routePermissions] 
+                          : null;
+
+    if (requiredRoles) {
+      if (!userRole || !requiredRoles.includes(userRole)) {
+        console.log(
+          `Unauthorized access attempt by role ${userRole} to ${path}. Redirecting.`
+        );
+        // Redireciona para a dashboard padrão do utilizador ou para uma página de "não autorizado"
+        // Por simplicidade, redirecionaremos para a página inicial ou a dashboard padrão do role
+        const fallbackUrl = userRole ? roleRoutes[userRole as keyof typeof roleRoutes] || "/" : "/";
+        return NextResponse.redirect(new URL(fallbackUrl, request.url));
+      }
+    }
   }
 
   // Em todos os outros casos, continua normalmente

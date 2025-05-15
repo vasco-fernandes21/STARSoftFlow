@@ -30,34 +30,6 @@ import {
 } from "recharts";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
-import type { EntregavelAlerta } from "@/server/api/routers/dashboard";
-
-// Local type for tarefasProximas if not present in backend
-type TarefaProxima = {
-  id: string;
-  nome: string;
-  data: string | Date | null;
-  estado: boolean;
-  descricao?: string | null;
-};
-
-// Local type for próximos eventos
-type ProximoEvento = {
-  id: string;
-  tipo: "tarefa" | "entregavel";
-  nome: string;
-  descricao?: string | null;
-  dataLimite?: Date | string | null;
-  diasRestantes?: number | null;
-  workpackage: {
-    id: string;
-    nome: string;
-  };
-  projeto: {
-    id: string;
-    nome: string;
-  };
-};
 
 // Função auxiliar para obter o ícone da notificação baseado na entidade
 function getNotificationIcon(entidade: string) {

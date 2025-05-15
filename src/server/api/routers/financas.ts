@@ -1542,19 +1542,47 @@ export const financasRouter = createTRPCRouter({
 
         // Calcular outros indicadores financeiros
         const taxaFinanciamento = projetoDB.taxa_financiamento
-          ? new Decimal(projetoDB.taxa_financiamento)
+          ? new Decimal(projetoDB.taxa_financiamento).dividedBy(100)
           : new Decimal(0);
-
-        const valorFinanciado = orcamentoSubmetidoTotal.orcamentoTotal.times(taxaFinanciamento);
+        const orcamentoSubmetidoValor = orcamentoSubmetidoTotal.orcamentoTotal;
+        const custoRealTotal = orcamentoRealTotal.total;
+        const custoRealRecursos = orcamentoRealTotal.custoRecursos;
+        const custoRealMateriais = orcamentoRealTotal.custoMateriais;
         const overheadCalculadoReal = orcamentoRealTotal.custoRecursos.times(new Decimal(-0.15));
+
+        // Logging dos valores para debug
+        console.log('=== Cálculo do Resultado Financeiro ===');
+        console.log('1. Componentes do Valor Financiado:');
+        console.log('   - Orçamento Submetido:', orcamentoSubmetidoValor.toNumber());
+        console.log('   - Taxa Financiamento (%):', projetoDB.taxa_financiamento);
+        console.log('   - Taxa Financiamento (decimal):', taxaFinanciamento.toNumber());
+        console.log('   = Valor Financiado:', orcamentoSubmetidoValor.times(taxaFinanciamento).toNumber());
+        
+        console.log('\n2. Componentes do Custo Real:');
+        console.log('   - Custo Recursos:', custoRealRecursos.toNumber());
+        console.log('   - Custo Materiais:', custoRealMateriais.toNumber());
+        console.log('   = Custo Real Total:', custoRealTotal.toNumber());
+        
+        console.log('\n3. Overhead:');
+        console.log('   - Base (Custo Recursos):', custoRealRecursos.toNumber());
+        console.log('   - Percentagem:', '15%');
+        console.log('   = Overhead Calculado:', overheadCalculadoReal.toNumber());
+
+        // Novo cálculo do resultado financeiro
+        const valorFinanciado = orcamentoSubmetidoValor.times(taxaFinanciamento);
         const resultado = valorFinanciado
-          .minus(orcamentoRealTotal.total)
+          .minus(custoRealTotal)
           .plus(overheadCalculadoReal);
 
-        const vab = valorFinanciado.minus(orcamentoRealTotal.custoMateriais);
-        const margem = orcamentoSubmetidoTotal.orcamentoTotal.isZero()
+        console.log('\n4. Cálculo Final do Resultado:');
+        console.log('   Resultado = Valor Financiado - Custo Real Total + Overhead');
+        console.log(`   Resultado = ${valorFinanciado.toNumber()} - ${custoRealTotal.toNumber()} + ${overheadCalculadoReal.toNumber()}`);
+        console.log('   = ', resultado.toNumber());
+
+        const vab = orcamentoSubmetidoValor.times(taxaFinanciamento).minus(orcamentoRealTotal.custoMateriais);
+        const margem = custoRealTotal.isZero()
           ? new Decimal(0)
-          : resultado.dividedBy(orcamentoSubmetidoTotal.orcamentoTotal).times(new Decimal(100));
+          : resultado.dividedBy(custoRealTotal).times(new Decimal(100));
 
         const vabCustosPessoal = orcamentoRealTotal.custoRecursos.isZero()
           ? new Decimal(0)
