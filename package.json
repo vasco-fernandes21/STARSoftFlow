@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "NODE_ENV=production prisma migrate deploy && prisma generate  && next build",
+    "build": "NODE_ENV=production prisma migrate deploy && prisma generate --no-engine && next build",
     "check": "next lint && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
