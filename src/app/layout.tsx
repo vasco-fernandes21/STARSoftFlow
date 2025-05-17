@@ -7,7 +7,6 @@ import { SessionProvider } from "next-auth/react";
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AlertDialogProvider } from "@/components/ui/alert-dialog/alert-dialog-provider";
-import { NotificacoesProvider } from "@/components/providers/NotificacoesProvider";
 import { ProjetoFormProvider } from "@/components/projetos/criar/ProjetoFormContext";
 
 // Configurar Inter
@@ -33,11 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <TRPCReactProvider>
             <AlertDialogProvider>
-              <NotificacoesProvider>
-                <ProjetoFormProvider>
-                  <RootLayoutContent>{children}</RootLayoutContent>
-                </ProjetoFormProvider>
-              </NotificacoesProvider>
+              <ProjetoFormProvider>
+                <RootLayoutContent>{children}</RootLayoutContent>
+              </ProjetoFormProvider>
             </AlertDialogProvider>
           </TRPCReactProvider>
         </SessionProvider>

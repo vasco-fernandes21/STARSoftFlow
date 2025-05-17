@@ -23,6 +23,12 @@ export const env = createEnv({
     
     // Node ENV
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+
+    // Pusher Server
+    PUSHER_APP_ID: z.string(),
+    PUSHER_KEY: z.string(),
+    PUSHER_SECRET: z.string(),
+    PUSHER_CLUSTER: z.string(),
   },
 
   /**
@@ -32,6 +38,9 @@ export const env = createEnv({
    */
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
+    // Pusher Client
+    NEXT_PUBLIC_PUSHER_KEY: z.string(),
+    NEXT_PUBLIC_PUSHER_CLUSTER: z.string(),
   },
 
   /**
@@ -47,6 +56,13 @@ export const env = createEnv({
     EMAIL_TEST_MODE: process.env.EMAIL_TEST_MODE,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    // Pusher
+    PUSHER_APP_ID: process.env.PUSHER_APP_ID,
+    PUSHER_KEY: process.env.PUSHER_KEY,
+    PUSHER_SECRET: process.env.PUSHER_SECRET,
+    PUSHER_CLUSTER: process.env.PUSHER_CLUSTER,
+    NEXT_PUBLIC_PUSHER_KEY: process.env.NEXT_PUBLIC_PUSHER_KEY,
+    NEXT_PUBLIC_PUSHER_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
   },
 
   /**

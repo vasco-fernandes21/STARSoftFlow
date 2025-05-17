@@ -45,14 +45,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useNotificacoes } from "@/components/providers/NotificacoesProvider";
-import type { EntidadeNotificacao, UrgenciaNotificacao } from "@prisma/client";
-import type { Notificacao } from "@/components/providers/NotificacoesProvider";
+// import { useNotificacoes } from "@/components/providers/NotificacoesProvider"; // REMOVER
+import type { EntidadeNotificacao, UrgenciaNotificacao, EstadoNotificacao as PrismaEstadoNotificacao, Notificacao as PrismaNotificacao } from "@prisma/client"; // Adicionar PrismaEstadoNotificacao
 
 import { StatsGrid } from "@/components/common/StatsGrid";
 import type { StatItem } from "@/components/common/StatsGrid";
 import { api } from "@/trpc/react";
 
+
+// Definir o tipo Notificacao diretamente aqui ou importar do Prisma
+export type Notificacao = PrismaNotificacao;
+export type EstadoNotificacao = PrismaEstadoNotificacao; // Exportar para uso interno
 
 // Labels e utilidades
 const TIPO_LABELS: Record<EntidadeNotificacao, string> = {
@@ -153,13 +156,6 @@ function getCardBorderColor(urgencia: UrgenciaNotificacao, isRead: boolean): str
 // Componente principal
 export default function Notificacoes() {
   const router = useRouter();
-  const { 
-    notificacoes, 
-    marcarComoLida, 
-    arquivar, 
-    filtrarPorEstado, 
-    isLoading 
-  } = useNotificacoes();
   const utils = api.useUtils();
   
   const [activeTab, setActiveTab] = useState<string>("todas");
@@ -170,8 +166,33 @@ export default function Notificacoes() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [notificacaoToDelete, setNotificacaoToDelete] = useState<string | null>(null);
   const [deleteMultiple, setDeleteMultiple] = useState(false);
+
+  // tRPC Query para listar notificações
+  const { data: notificacoesData, isLoading, refetch: refetchNotificacoes } = api.notificacao.listar.useQuery(
+    undefined, // Sem filtros iniciais, ou podemos adicionar filtros baseados na aba ativa
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      refetchOnWindowFocus: true,
+    }
+  );
+  const notificacoes = useMemo(() => notificacoesData ?? [], [notificacoesData]);
+
+
+  // tRPC Mutations
+  const marcarComoLidaMutation = api.notificacao.marcarComoLida.useMutation({
+    onSuccess: () => {
+      utils.notificacao.listar.invalidate();
+      utils.notificacao.contarNaoLidas.invalidate();
+    },
+  });
+
+  const arquivarNotificacaoMutation = api.notificacao.arquivar.useMutation({
+    onSuccess: () => {
+      utils.notificacao.listar.invalidate();
+      utils.notificacao.contarNaoLidas.invalidate();
+    },
+  });
   
-  // Adicionar mutation para apagar notificações
   const apagarNotificacaoMutation = api.notificacao.apagar.useMutation({
     onSuccess: () => {
       utils.notificacao.listar.invalidate();
@@ -179,14 +200,22 @@ export default function Notificacoes() {
     },
   });
   
-  // Mutation para apagar múltiplas notificações
   const apagarMuitasNotificacoesMutation = api.notificacao.apagarMuitas.useMutation({
     onSuccess: () => {
       utils.notificacao.listar.invalidate();
       utils.notificacao.contarNaoLidas.invalidate();
-      setSelectedIds(new Set()); // Limpar seleção após apagar em massa
+      setSelectedIds(new Set());
     },
   });
+  
+  // Funções de ação adaptadas
+  const marcarComoLida = useCallback(async (id: string) => {
+    await marcarComoLidaMutation.mutateAsync(id);
+  }, [marcarComoLidaMutation]);
+
+  const arquivar = useCallback(async (id: string) => {
+    await arquivarNotificacaoMutation.mutateAsync(id);
+  }, [arquivarNotificacaoMutation]);
   
   // Função para confirmar exclusão
   const handleOpenDeleteDialog = useCallback((id?: string) => {
@@ -238,25 +267,25 @@ export default function Notificacoes() {
     
     // Filtrar por estado/tab
     if (activeTab === "nao_lidas") {
-      filtered = filtrarPorEstado("NAO_LIDA");
+      filtered = filtered.filter((n: Notificacao) => n.estado === "NAO_LIDA");
     } else if (activeTab === "lidas") {
-      filtered = filtrarPorEstado("LIDA");
+      filtered = filtered.filter((n: Notificacao) => n.estado === "LIDA");
     } else if (activeTab === "arquivadas") {
-      filtered = filtrarPorEstado("ARQUIVADA");
+      filtered = filtered.filter((n: Notificacao) => n.estado === "ARQUIVADA");
     }
     
     // Filtrar por termo de pesquisa
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        n => 
+        (n: Notificacao) => 
           n.titulo.toLowerCase().includes(term) || 
           (n.descricao || "").toLowerCase().includes(term)
       );
     }
     
     return filtered;
-  }, [notificacoes, activeTab, searchTerm, filtrarPorEstado]);
+  }, [notificacoes, activeTab, searchTerm]);
 
   // Limpar seleção ao mudar de aba
   const handleTabChange = useCallback((newTab: string) => {
@@ -330,11 +359,11 @@ export default function Notificacoes() {
   // Estatísticas
   const stats = useMemo<StatItem[]>(() => {
     const total = notificacoes.length;
-    const naoLidas = filtrarPorEstado("NAO_LIDA").length;
-    const alta = notificacoes.filter(n => n.urgencia === "ALTA").length;
+    const naoLidas = notificacoes.filter((n: Notificacao) => n.estado === "NAO_LIDA").length;
+    const alta = notificacoes.filter((n: Notificacao) => n.urgencia === "ALTA").length;
     
     const hoje = new Date();
-    const notificacoesHoje = notificacoes.filter(n => {
+    const notificacoesHoje = notificacoes.filter((n: Notificacao) => {
       const data = new Date(n.createdAt);
       return (
         data.getDate() === hoje.getDate() &&
@@ -381,7 +410,7 @@ export default function Notificacoes() {
         badgeClassName: "text-slate-500 bg-slate-50",
       },
     ];
-  }, [notificacoes, filtrarPorEstado]);
+  }, [notificacoes]);
 
   return (
     <div className="min-h-fit flex flex-col overflow-hidden bg-[#F7F9FC] p-4 md:p-6 lg:p-8">
@@ -454,9 +483,9 @@ export default function Notificacoes() {
                   className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 >
                   Não lidas
-                  {filtrarPorEstado("NAO_LIDA").length > 0 && (
+                  {notificacoes.filter((n: Notificacao) => n.estado === "NAO_LIDA").length > 0 && (
                     <Badge className="ml-2 h-5 rounded-full bg-azul px-2 text-xs text-white hover:bg-azul/80">
-                      {filtrarPorEstado("NAO_LIDA").length}
+                      {notificacoes.filter((n: Notificacao) => n.estado === "NAO_LIDA").length}
                     </Badge>
                   )}
                 </TabsTrigger>

@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { EventEmitter } from "events";
+// import { EventEmitter } from "events"; // Remover EventEmitter
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { EntidadeNotificacao, UrgenciaNotificacao, EstadoNotificacao, type Notificacao } from "@prisma/client";
-import { observable } from "@trpc/server/observable";
-
-// Event emitter para notificações em tempo real
-export const ee = new EventEmitter();
+import { EntidadeNotificacao, UrgenciaNotificacao, EstadoNotificacao} from "@prisma/client";
+// import { observable } from "@trpc/server/observable"; // Remover observable
+import { pusherServer, triggerPusherEvent } from "../../lib/pusher";
+import { CHANNELS, EVENTS } from "../../../lib/pusher-config";
+import { TRPCError } from "@trpc/server";
 
 // Schema para validação de notificações
 const notificacaoSchema = z.object({
@@ -22,52 +22,12 @@ const notificacaoComDestinatarioSchema = notificacaoSchema.extend({
 });
 
 export const notificacoesRouter = createTRPCRouter({
-  // Subscription para receber notificações em tempo real
-  onNotificacao: protectedProcedure.subscription(async ({ ctx }) => {
-    // Buscar informações do utilizador para os logs
-    const user = await ctx.db.user.findUnique({
-      where: { id: ctx.session.user.id },
-      select: { username: true }
-    });
-
-    console.log("[Notificações SSE] Nova subscrição iniciada", {
-      userId: ctx.session.user.id,
-      username: user?.username ?? "unknown",
-      timestamp: new Date().toISOString(),
-    });
-
-    return observable<Notificacao>((emit) => {
-      const onNotificacao = (notificacao: Notificacao) => {
-        if (notificacao.destinatarioId === ctx.session.user.id) {
-          console.log("[Notificações SSE] A emitir notificação", {
-            id: notificacao.id,
-            destinatarioId: notificacao.destinatarioId,
-            destinatarioUsername: user?.username ?? "unknown",
-            tipo: notificacao.entidade,
-            timestamp: new Date().toISOString(),
-          });
-          emit.next(notificacao);
-        }
-      };
-
-      console.log("[Notificações SSE] Listener adicionado", {
-        userId: ctx.session.user.id,
-        username: user?.username ?? "unknown",
-        timestamp: new Date().toISOString(),
-      });
-
-      ee.on("notificacao", onNotificacao);
-
-      return () => {
-        console.log("[Notificações SSE] Listener removido", {
-          userId: ctx.session.user.id,
-          username: user?.username ?? "unknown",
-          timestamp: new Date().toISOString(),
-        });
-        ee.off("notificacao", onNotificacao);
-      };
-    });
+  // Subscription para receber notificações em tempo real - REMOVIDA
+  /* 
+onNotificacao: protectedProcedure.subscription(async ({ ctx }) => {
+    // ...código anterior da subscrição...
   }),
+  */
 
   // Criar nova notificação para o próprio utilizador
   criar: protectedProcedure
@@ -89,8 +49,8 @@ export const notificacoesRouter = createTRPCRouter({
         },
       });
 
-      // Emitir evento de nova notificação
-      ee.emit("notificacao", notificacao);
+      const channelName = `${CHANNELS.NOTIFICACOES_GERAIS}-${notificacao.destinatarioId}`;
+      await triggerPusherEvent(channelName, EVENTS.NOVA_NOTIFICACAO, notificacao);
 
       return notificacao;
     }),
@@ -115,8 +75,8 @@ export const notificacoesRouter = createTRPCRouter({
         },
       });
 
-      // Emitir evento de nova notificação
-      ee.emit("notificacao", notificacao);
+      const channelName = `${CHANNELS.NOTIFICACOES_GERAIS}-${notificacao.destinatarioId}`;
+      await triggerPusherEvent(channelName, EVENTS.NOVA_NOTIFICACAO, notificacao);
 
       return notificacao;
     }),
@@ -221,4 +181,55 @@ export const notificacoesRouter = createTRPCRouter({
       },
     });
   }),
+
+  // Procedure para autenticar canais privados do Pusher
+  autenticarPusher: protectedProcedure
+    .input(
+      z.object({
+        socket_id: z.string(),
+        channel_name: z.string(),
+      })
+    )
+    .mutation(({ ctx, input }) => {
+      const { socket_id, channel_name } = input;
+      const session = ctx.session;
+
+      if (!session || !session.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Utilizador não autenticado.",
+        });
+      }
+
+      const expectedChannel = `${CHANNELS.NOTIFICACOES_GERAIS}-${session.user.id}`;
+      if (channel_name !== expectedChannel) {
+        console.warn(
+          `[Pusher Auth tRPC] Tentativa de subscrição não autorizada: Utilizador ${session.user.id} tentou subscrever o canal ${channel_name}. Esperado: ${expectedChannel}`
+        );
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Não autorizado a subscrever este canal.",
+        });
+      }
+
+      try {
+        const authResponse = pusherServer.authorizeChannel(socket_id, channel_name /*, presenceData */);
+        console.log(
+          `[Pusher Auth tRPC] Autorização bem-sucedida para socket ${socket_id} no canal ${channel_name} para o utilizador ${session.user.name}`
+        );
+        return authResponse;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+        console.error(
+          `[Pusher Auth tRPC] Erro ao autorizar canal ${channel_name} para socket ${socket_id}:`,
+          errorMessage,
+          error
+        );
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao autorizar canal Pusher.",
+          cause: error,
+        });
+      }
+    }),
 });

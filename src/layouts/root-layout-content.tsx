@@ -4,10 +4,13 @@ import { AppSidebar } from "@/components/ui/sidebar";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { usePusherNotifications } from "@/hooks/usePusherNotifications";
 
 export function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+
+  usePusherNotifications();
 
   const pagesWithoutSidebar = [
     "/login",

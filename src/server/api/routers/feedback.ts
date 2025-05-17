@@ -2,8 +2,9 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { uploadFeedbackAttachment, listProfilePhotos } from "@/lib/blob";
 import { TRPCError } from "@trpc/server";
-import { ee } from "./notificacoes"; 
-import type { Feedback, Prisma } from "@prisma/client";
+import { triggerPusherEvent } from "../../lib/pusher";
+import { CHANNELS, EVENTS } from "../../../lib/pusher-config";
+import type { Feedback, Prisma, Notificacao } from "@prisma/client";
 import { BLOB_CONFIG } from "@/lib/config";
 
 // Type for feedback with computed imagemUrl
@@ -82,22 +83,23 @@ export const feedbackRouter = createTRPCRouter({
           });
 
           if (targetUser && targetUser.id !== feedbackCreatorId) {
-            const notificacaoData: Prisma.NotificacaoCreateInput = {
-              titulo: `Novo feedback submetido por ${feedbackCreatorName}`,
-              descricao: `Um novo feedback foi submetido: "${input.descricao.substring(0, 50)}..."`,
-              entidade: "FEEDBACK",
-              entidadeId: feedback.id,
-              urgencia: "MEDIA",
-              destinatario: {
-                connect: { id: targetUser.id },
-              },
-              estado: "NAO_LIDA",
-            };
             const notificacaoParaVasco = await ctx.db.notificacao.create({
-              data: notificacaoData,
+              data: {
+                titulo: `Novo feedback submetido por ${feedbackCreatorName}`,
+                descricao: `Um novo feedback foi submetido: "${input.descricao.substring(0, 50)}..."`,
+                entidade: "FEEDBACK",
+                entidadeId: feedback.id,
+                urgencia: "MEDIA",
+                destinatario: {
+                  connect: { id: targetUser.id },
+                },
+                estado: "NAO_LIDA",
+              }
             });
-            ee.emit("notificacao", notificacaoParaVasco);
-            console.log(`[Notificação Novo Feedback] Emitida para vasco.fernandes (ID: ${targetUser.id})`);
+            // Enviar notificação via Pusher
+            const channelName = `${CHANNELS.NOTIFICACOES_GERAIS}-${targetUser.id}`;
+            await triggerPusherEvent(channelName, EVENTS.NOVA_NOTIFICACAO, notificacaoParaVasco as Notificacao);
+            console.log(`[Notificação Novo Feedback via Pusher] Emitida para vasco.fernandes (ID: ${targetUser.id})`);
           }
         } catch (notifError: any) {
           console.error("Erro ao criar/emitir notificação de novo feedback para vasco.fernandes:", notifError);
@@ -219,7 +221,7 @@ export const feedbackRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const resolverUser = await ctx.db.user.findUnique({
         where: { id: ctx.session.user.id },
-        select: { permissao: true, name: true },
+        select: { permissao: true, name: true, id: true },
       });
 
       if (!resolverUser || !["ADMIN", "GESTOR"].includes(resolverUser.permissao)) {
@@ -231,7 +233,7 @@ export const feedbackRouter = createTRPCRouter({
 
       const feedbackToResolve = await ctx.db.feedback.findUnique({
         where: { id: input.feedbackId },
-        select: { userId: true, descricao: true },
+        select: { userId: true, descricao: true, id: true },
       });
 
       if (!feedbackToResolve) {
@@ -248,41 +250,37 @@ export const feedbackRouter = createTRPCRouter({
           user: {
             select: {
               name: true,
+              id: true,
             },
           },
         },
       });
 
-      // --- Send notification --- 
-      const feedbackCreatorId = feedbackToResolve.userId;
-      const resolverId = ctx.session.user.id;
-      const resolverName = resolverUser.name || 'Administrador';
-
-      if (feedbackCreatorId !== resolverId) {
+      // --- Send notification to feedback submitter ---
+      if (feedbackToResolve.userId && feedbackToResolve.userId !== resolverUser.id) {
         try {
-          const notificacao = await ctx.db.notificacao.create({
+          const notificacaoParaSubmitter = await ctx.db.notificacao.create({
             data: {
-              titulo: `Feedback resolvido`,
-              descricao: `O seu feedback sobre "${feedbackToResolve.descricao.substring(0, 30)}..." foi marcado como resolvido por ${resolverName}.`,
+              titulo: "Seu feedback foi resolvido",
+              descricao: `O feedback "${feedbackToResolve.descricao.substring(0,50)}..." foi marcado como resolvido por ${resolverUser.name}.`,
               entidade: "FEEDBACK",
-              entidadeId: updatedFeedback.id,
-              urgencia: "BAIXA",
+              entidadeId: feedbackToResolve.id,
+              urgencia: "MEDIA",
               destinatario: {
-                connect: { id: feedbackCreatorId },
+                connect: { id: feedbackToResolve.userId },
               },
               estado: "NAO_LIDA",
             },
           });
-          ee.emit("notificacao", notificacao);
-          console.log(`[Notificação Feedback Resolvido] Emitida para ${feedbackCreatorId}`);
-        } catch (notifError) {
-          console.error("Erro ao criar/emitir notificação de feedback resolvido:", notifError);
+          const channelNameSubmitter = `${CHANNELS.NOTIFICACOES_GERAIS}-${feedbackToResolve.userId}`;
+          await triggerPusherEvent(channelNameSubmitter, EVENTS.NOVA_NOTIFICACAO, notificacaoParaSubmitter as Notificacao);
+          console.log(`[Notificação Feedback Resolvido via Pusher] Emitida para o submissor (ID: ${feedbackToResolve.userId})`);
+        } catch (notifError: any) {
+          console.error("Erro ao criar/emitir notificação de feedback resolvido para o submissor:", notifError);
         }
       }
+      // --- End Notification ---
 
-      return {
-        ...updatedFeedback,
-        imagemUrl: BLOB_CONFIG.getUrl(`${BLOB_CONFIG.PATHS.FEEDBACK_IMAGES}/${updatedFeedback.id}`),
-      } satisfies FeedbackWithImage;
+      return updatedFeedback;
     }),
 });

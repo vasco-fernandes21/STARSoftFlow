@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma, ProjetoEstado, Rubrica } from "@prisma/client";
+import { Prisma, ProjetoEstado, Rubrica, type Notificacao } from "@prisma/client";
 import { handlePrismaError } from "../utils";
 import { paginationSchema } from "../schemas/common";
 import { Decimal } from "decimal.js";
-import { ee } from "./notificacoes";
+import { triggerPusherEvent, CHANNELS, EVENTS } from "../../lib/pusher";
 
 // Schema base para projeto
 export const projetoBaseSchema = z.object({
@@ -508,7 +508,8 @@ export const projetoRouter = createTRPCRouter({
       
       // Emitir eventos para cada notificação
       for (const notificacao of notificacoesCriadas) {
-        ee.emit("notificacao", notificacao);
+        const channelName = `${CHANNELS.NOTIFICACOES_GERAIS}-${notificacao.destinatarioId}`;
+        await triggerPusherEvent(channelName, EVENTS.NOVA_NOTIFICACAO, notificacao);
       }
 
       return projeto;
@@ -830,22 +831,13 @@ export const projetoRouter = createTRPCRouter({
 
         // --- Post-Transaction Notifications ---
         const notificationPromises: Promise<any>[] = [];
-        const recursosAlocadosUnicos = new Set<string>();
 
         // Use createdProjeto.id which contains the ID returned from transaction
         const projectId = createdProjeto.id;
 
-        notificationPromises.push(ctx.db.notificacao.create({
-          data: {
-            titulo: `Novo projeto criado: ${input.nome}`,
-            descricao: `O projeto "${input.nome}" foi criado e você é o responsável.`,
-            entidade: "PROJETO", entidadeId: projectId, urgencia: "MEDIA",
-            destinatario: { connect: { id: targetUserId } }, estado: "NAO_LIDA",
-          },
-        }));
-
+        // Notificações para os admins
         adminIds.forEach(adminId => {
-          if (adminId !== targetUserId) {
+          if (adminId !== targetUserId) { // Não notificar o admin se ele for o responsável (já notificado acima)
             notificationPromises.push(ctx.db.notificacao.create({
               data: {
                 titulo: `Novo projeto criado por ${userName}`,
@@ -857,34 +849,22 @@ export const projetoRouter = createTRPCRouter({
           }
         });
 
-        for (const wpInput of input.workpackages) {
-          for (const recurso of wpInput.recursos) {
-            if (!recursosAlocadosUnicos.has(recurso.userId)) {
-              recursosAlocadosUnicos.add(recurso.userId);
-              if (recurso.userId !== targetUserId) {
-                notificationPromises.push(ctx.db.notificacao.create({
-                  data: {
-                    titulo: `Nova alocação no projeto ${input.nome}`,
-                    descricao: `Você foi alocado no projeto "${input.nome}".`,
-                    entidade: "ALOCACAO", entidadeId: projectId,
-                    urgencia: "MEDIA",
-                    destinatario: { connect: { id: recurso.userId } }, estado: "NAO_LIDA",
-                  },
-                }));
+        try {
+          const notificacoesCriadas: Notificacao[] = await Promise.all(notificationPromises);
+          console.log("[Notificações Projeto] Emitting events via Pusher:", { count: notificacoesCriadas.length, projetoId: projectId });
+          for (const notificacao of notificacoesCriadas) {
+            if (notificacao && notificacao.destinatarioId) { 
+              try { 
+                const channelName = `${CHANNELS.NOTIFICACOES_GERAIS}-${notificacao.destinatarioId}`;
+                await triggerPusherEvent(channelName, EVENTS.NOVA_NOTIFICACAO, notificacao);
               }
+              catch (emitError) { console.error(`[Notificações Projeto] Failed to emit Pusher event for notification ${notificacao?.id}:`, emitError); }
+            } else {
+              console.warn("[Notificações Projeto] Skipping Pusher event for notification due to missing data:", notificacao);
             }
           }
-        }
-
-        try {
-          const notificacoesCriadas = await Promise.all(notificationPromises);
-          console.log("[Notificações Projeto] Emitting events:", { count: notificacoesCriadas.length, projetoId: projectId });
-          notificacoesCriadas.forEach(notificacao => {
-            try { ee.emit("notificacao", notificacao); }
-            catch (emitError) { console.error(`[Notificações Projeto] Failed to emit event for notification ${notificacao?.id}:`, emitError); }
-          });
         } catch (notificationError) {
-          console.error("[Notificações Projeto] Failed to create notifications after transaction:", notificationError);
+          console.error("[Notificações Projeto] Failed to create/emit notifications after transaction:", notificationError);
         }
 
         // --- Return Final Data ---
@@ -1087,7 +1067,8 @@ export const projetoRouter = createTRPCRouter({
                 estado: "NAO_LIDA",
               },
             });
-            ee.emit("notificacao", notificacaoAprovacao);
+            const channelNameAprovacao = `${CHANNELS.NOTIFICACOES_GERAIS}-${notificacaoAprovacao.destinatarioId}`;
+            await triggerPusherEvent(channelNameAprovacao, EVENTS.NOVA_NOTIFICACAO, notificacaoAprovacao);
           }
 
 
@@ -1100,22 +1081,27 @@ export const projetoRouter = createTRPCRouter({
         // Se não for para aprovar, elimina o projeto
         else {
           // Criar notificação para o responsável sobre a rejeição antes de eliminar
-          const notificacaoRejeicao = await ctx.db.notificacao.create({
-            data: {
-              titulo: `Projeto "${projeto.nome}" foi rejeitado`,
-              descricao: `O seu projeto "${projeto.nome}" foi rejeitado por ${user.name} e foi eliminado.`,
-              entidade: "PROJETO",
-              entidadeId: projeto.id,
-              urgencia: "ALTA",
-              destinatario: {
-                connect: { id: projeto.responsavelId! },
+          if (projeto.responsavelId) { // Verificar se o responsável existe
+            const notificacaoRejeicao = await ctx.db.notificacao.create({
+              data: {
+                titulo: `Projeto "${projeto.nome}" foi rejeitado`,
+                descricao: `O seu projeto "${projeto.nome}" foi rejeitado por ${user.name} e foi eliminado.`,
+                entidade: "PROJETO",
+                entidadeId: projeto.id,
+                urgencia: "ALTA",
+                destinatario: {
+                  connect: { id: projeto.responsavelId }, // Adicionado '!' porque verificamos acima
+                },
+                estado: "NAO_LIDA",
               },
-              estado: "NAO_LIDA",
-            },
-          });
+            });
 
-          // Emitir evento de notificação
-          ee.emit("notificacao", notificacaoRejeicao);
+            // Emitir evento de notificação
+            const channelNameRejeicao = `${CHANNELS.NOTIFICACOES_GERAIS}-${notificacaoRejeicao.destinatarioId}`;
+            await triggerPusherEvent(channelNameRejeicao, EVENTS.NOVA_NOTIFICACAO, notificacaoRejeicao);
+          } else {
+            console.warn(`[Notificações Projeto] Tentativa de notificar rejeição para projeto sem responsável: ${projeto.id}`);
+          }
 
           // Antes de excluir o projeto, precisamos remover os relacionamentos para evitar violações de chave estrangeira
           // 1. Buscar todos os workpackages relacionados ao projeto
