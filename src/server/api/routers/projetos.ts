@@ -232,7 +232,7 @@ export const projetoRouter = createTRPCRouter({
               },
             },
           }),
-          tipo: "STANDARD", // <-- garantir que só devolve STANDARD, assim não mostra a atividade económica
+          tipo: "STANDARD" as const, // <-- garantir que só devolve STANDARD, assim não mostra a atividade económica
         };
 
         const total = await ctx.db.projeto.count({ where });
@@ -1259,4 +1259,112 @@ export const projetoRouter = createTRPCRouter({
       fim,
     };
   }),
+
+  // Obter estatísticas gerais dos projetos
+  getProjetosStats: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const userId = ctx.session?.user?.id;
+
+        if (!userId) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Utilizador não autenticado",
+          });
+        }
+
+        // Buscar permissão do utilizador
+        const user = await ctx.db.user.findUnique({
+          where: { id: userId },
+          select: { permissao: true },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Utilizador não encontrado",
+          });
+        }
+
+        const isComum = user.permissao === "COMUM";
+
+        // Base where clause para projetos standard (não atividade económica)
+        const baseWhere = {
+          tipo: "STANDARD" as const,
+          ...(isComum && {
+            workpackages: {
+              some: {
+                recursos: {
+                  some: {
+                    userId: userId,
+                  },
+                },
+              },
+            },
+          }),
+        };
+
+        // Total de projetos
+        const totalProjetos = await ctx.db.projeto.count({
+          where: baseWhere,
+        });
+
+        // Projetos concluídos
+        const projetosConcluidos = await ctx.db.projeto.count({
+          where: {
+            ...baseWhere,
+            estado: "CONCLUIDO",
+          },
+        });
+
+        // Projetos em desenvolvimento
+        const projetosEmDesenvolvimento = await ctx.db.projeto.count({
+          where: {
+            ...baseWhere,
+            estado: "EM_DESENVOLVIMENTO",
+          },
+        });
+
+        // Projetos com entregáveis em atraso
+        const hoje = new Date();
+        const projetosAtrasados = await ctx.db.projeto.count({
+          where: {
+            ...baseWhere,
+            estado: {
+              in: ["APROVADO", "EM_DESENVOLVIMENTO"],
+            },
+            workpackages: {
+              some: {
+                tarefas: {
+                  some: {
+                    entregaveis: {
+                      some: {
+                        data: {
+                          lt: hoje,
+                        },
+                        estado: false,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return {
+          total: totalProjetos,
+          concluidos: projetosConcluidos,
+          emDesenvolvimento: projetosEmDesenvolvimento,
+          atrasados: projetosAtrasados,
+        };
+      } catch (error) {
+        console.error("Erro ao obter estatísticas dos projetos:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter estatísticas dos projetos",
+          cause: error,
+        });
+      }
+    }),
 });

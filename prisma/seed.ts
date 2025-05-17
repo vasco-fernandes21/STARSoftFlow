@@ -300,6 +300,96 @@ async function main() {
 
   console.log("📊 Estatísticas Finais:");
   console.table(stats);
+
+  // --- Criar Projeto Atividade Económica ---
+  console.log("📋 A criar projeto Atividade Económica...");
+  await prisma.projeto.create({
+    data: {
+      nome: "Atividade Económica",
+      descricao: "Projeto para gestão de atividades económicas",
+      tipo: "ATIVIDADE_ECONOMICA",
+      inicio: new Date("2025-01-01"),
+      fim: new Date("2026-12-31"),
+      estado: "APROVADO",
+      workpackages: {
+        create: [
+          {
+            nome: "Workpackage 1",
+            inicio: new Date("2025-01-01"),
+            fim: new Date("2025-12-31"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "Tarefa 1.1",
+                  descricao: "Gestão de contratos e parcerias",
+                  inicio: new Date("2025-01-01"),
+                  fim: new Date("2025-06-30"),
+                  estado: false,
+                },
+                {
+                  nome: "Tarefa 1.2",
+                  descricao: "Monitorização de indicadores financeiros",
+                  inicio: new Date("2025-07-01"),
+                  fim: new Date("2025-12-31"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "Workpackage 2",
+            inicio: new Date("2025-07-01"),
+            fim: new Date("2026-06-30"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "Tarefa 2.1",
+                  descricao: "Desenvolvimento de propostas comerciais",
+                  inicio: new Date("2025-07-01"),
+                  fim: new Date("2025-12-31"),
+                  estado: false,
+                },
+                {
+                  nome: "Tarefa 2.2",
+                  descricao: "Análise de mercado e oportunidades",
+                  inicio: new Date("2026-01-01"),
+                  fim: new Date("2026-06-30"),
+                  estado: false,
+                }
+              ]
+            }
+          },
+          {
+            nome: "Workpackage 3",
+            inicio: new Date("2026-01-01"),
+            fim: new Date("2026-12-31"),
+            estado: false,
+            tarefas: {
+              create: [
+                {
+                  nome: "Tarefa 3.1",
+                  descricao: "Gestão de propriedade intelectual",
+                  inicio: new Date("2026-01-01"),
+                  fim: new Date("2026-06-30"),
+                  estado: false,
+                },
+                {
+                  nome: "Tarefa 3.2",
+                  descricao: "Desenvolvimento de planos de negócio",
+                  inicio: new Date("2026-07-01"),
+                  fim: new Date("2026-12-31"),
+                  estado: false,
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  });
+  console.log("✅ Projeto Atividade Económica criado com sucesso!");
 }
 
 main()

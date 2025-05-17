@@ -83,9 +83,16 @@ export default function Projetos() {
     staleTime: 60 * 1000, // 60 segundos
   });
 
+  // Buscar estatísticas dos projetos
+  const { data: statsData } = api.projeto.getProjetosStats.useQuery(undefined, {
+    refetchOnWindowFocus: true,
+    staleTime: 60 * 1000, // 60 segundos
+  });
+
   // Efeito para invalidar as queries quando a página monta
   useEffect(() => {
     void utils.projeto.findAll.invalidate();
+    void utils.projeto.getProjetosStats.invalidate();
   }, [utils]);
 
   // Mutation para apagar projeto
@@ -114,56 +121,46 @@ export default function Projetos() {
   }, [projetosData]);
 
   const stats = useMemo<StatItem[]>(() => {
-    const totalProjetos = allItems.length;
-    const projetosAtivos = allItems.filter(
-      (p: Projeto) => p.estado === "EM_DESENVOLVIMENTO"
-    ).length;
-    const projetosConcluidos = allItems.filter((p: Projeto) => p.estado === "CONCLUIDO").length;
-    const projetosAtrasados = allItems.filter((p: Projeto) => {
-      if (!p.fim) return false;
-      return new Date(p.fim) < new Date() && p.estado !== "CONCLUIDO";
-    }).length;
-
     return [
       {
         icon: Briefcase,
         label: "Total de Projetos",
-        value: totalProjetos,
+        value: statsData?.total ?? 0,
         iconClassName: "text-blue-600",
         iconContainerClassName: "bg-blue-50/80",
-        badgeText: "3 novos projetos este mês",
+        badgeText: "Projetos ativos",
         badgeIcon: TrendingUp,
         badgeClassName: "text-blue-600 bg-blue-50/80 hover:bg-blue-100/80 border-blue-100",
       },
       {
         icon: CheckCircle2,
         label: "Concluídos",
-        value: projetosConcluidos,
+        value: statsData?.concluidos ?? 0,
         iconClassName: "text-green-600",
         iconContainerClassName: "bg-green-50/80",
-        badgeText: `${Math.round((projetosConcluidos / Math.max(totalProjetos, 1)) * 100)}% do total`,
+        badgeText: `${Math.round(((statsData?.concluidos ?? 0) / Math.max(statsData?.total ?? 1, 1)) * 100)}% do total`,
         badgeClassName: "text-green-600 bg-green-50/80 hover:bg-green-100/80 border-green-100",
       },
       {
         icon: Clock,
         label: "Em Desenvolvimento",
-        value: projetosAtivos,
+        value: statsData?.emDesenvolvimento ?? 0,
         iconClassName: "text-amber-600",
         iconContainerClassName: "bg-amber-50/80",
-        badgeText: `${Math.round((projetosAtivos / Math.max(totalProjetos, 1)) * 100)}% ativos`,
+        badgeText: `${Math.round(((statsData?.emDesenvolvimento ?? 0) / Math.max(statsData?.total ?? 1, 1)) * 100)}% ativos`,
         badgeClassName: "text-amber-600 bg-amber-50/80 hover:bg-amber-100/80 border-amber-100",
       },
       {
         icon: AlertCircle,
         label: "Atrasados",
-        value: projetosAtrasados,
+        value: statsData?.atrasados ?? 0,
         iconClassName: "text-red-600",
         iconContainerClassName: "bg-red-50/80",
         badgeText: "Requer atenção imediata",
         badgeClassName: "text-red-600 bg-red-50/80 hover:bg-red-100/80 border-red-100",
       },
     ];
-  }, [allItems]);
+  }, [statsData]);
 
   const handleRowClick = useCallback(
     (projeto: Projeto) => {

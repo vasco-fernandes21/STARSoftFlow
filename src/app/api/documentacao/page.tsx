@@ -77,7 +77,7 @@ export default function ApiDocumentacaoPage() {
             <div className="bg-gray-100 p-4 rounded-lg">
               <p className="text-sm text-gray-700 font-medium mb-2">URL Base:</p>
               <code className="bg-gray-900 text-gray-100 px-3 py-2 rounded text-sm block">
-                https://starsoftflow.app/api/trpc
+                https://STARSoftFlow.app/api/trpc
               </code>
             </div>
           </div>

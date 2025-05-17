@@ -5,7 +5,7 @@ import {
   TextareaField,
   DateField,
 } from "@/components/projetos/criar/components/FormFields";
-import { useMutations } from "@/hooks/useMutations";
+import { api } from "@/trpc/react";
 import type { WorkpackageCompleto } from "@/components/projetos/types";
 
 interface WorkpackageInformacoesProps {
@@ -35,7 +35,13 @@ export function WorkpackageInformacoes({
   }>({});
 
   const descricaoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const mutations = useMutations(projetoId);
+  const utils = api.useUtils();
+
+  const updateWorkpackageMutation = api.workpackage.update.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+    },
+  });
 
   useEffect(() => {
     if (workpackage) {
@@ -67,7 +73,7 @@ export function WorkpackageInformacoes({
     const erro = validarNome(nome);
     setErros((prev) => ({ ...prev, nome: erro }));
     if (!erro) {
-      mutations.workpackage.update.mutate({
+      updateWorkpackageMutation.mutate({
         id: workpackageId,
         nome: nome,
       });
@@ -78,7 +84,7 @@ export function WorkpackageInformacoes({
     setDescricao(novaDescricao);
     if (descricaoTimeoutRef.current) clearTimeout(descricaoTimeoutRef.current);
     descricaoTimeoutRef.current = setTimeout(() => {
-      mutations.workpackage.update.mutate({
+      updateWorkpackageMutation.mutate({
         id: workpackageId,
         descricao: novaDescricao,
       });
@@ -87,7 +93,7 @@ export function WorkpackageInformacoes({
 
   const handleStartDateChange = (novaData: Date | null) => {
     setDataInicio(novaData);
-    mutations.workpackage.update.mutate({
+    updateWorkpackageMutation.mutate({
       id: workpackageId,
       inicio: novaData || undefined,
     });
@@ -95,7 +101,7 @@ export function WorkpackageInformacoes({
 
   const handleEndDateChange = (novaData: Date | null) => {
     setDataFim(novaData);
-    mutations.workpackage.update.mutate({
+    updateWorkpackageMutation.mutate({
       id: workpackageId,
       fim: novaData || undefined,
     });
