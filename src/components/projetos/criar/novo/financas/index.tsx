@@ -187,7 +187,7 @@ export function FinancasTab({ onNavigateForward, onNavigateBack }: FinancasTabPr
         {/* Coluna da Direita - Valores */}
         <div className="flex flex-col gap-6">
           <PercentageField
-            label="Overhead"
+            label="Custos Indiretos"
             value={state.overhead ? Number(state.overhead) : null}
             onChange={handleOverheadChange}
             required

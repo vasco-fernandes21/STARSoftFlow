@@ -16,28 +16,30 @@ import { User, Calendar, Percent, Users, Package, Briefcase, DollarSign } from "
 import { Decimal } from "decimal.js";
 import type { Rubrica } from "@prisma/client";
 import { toast } from "sonner";
+import { processReportSheetData } from "../../lib/importar_excel";
 
-// Interfaces baseadas nos tipos do Prisma
-interface Alocacao {
+// Interfaces baseadas nos tipos do Prisma (local types for page state)
+interface PageAlocacao { // Renamed to avoid conflict if importing lib types directly
   mes: number;
   ano: number;
   percentagem: number;
 }
 
-interface Recurso {
+interface PageRecurso { // Renamed and userId added
   nome: string;
-  alocacoes: Alocacao[];
+  userId: string | null; // Added for consistency
+  alocacoes: PageAlocacao[];
   salario?: number;
 }
 
 // Modificar o tipo para usar number em vez de Decimal durante a importação
-type MaterialImportacao = {
+type PageMaterialImportacao = { // Renamed
   id: number;
   nome: string;
   descricao?: string | null;
   estado?: boolean;
   workpackageId: string | null;
-  preco: number;
+  preco: number; 
   quantidade: number;
   rubrica: Rubrica;
   ano_utilizacao: number;
@@ -45,11 +47,11 @@ type MaterialImportacao = {
   mes: number;
 };
 
-interface WorkpackageSimples {
+interface PageWorkpackageSimples { // Renamed
   codigo: string;
   nome: string;
-  recursos: Recurso[];
-  materiais: MaterialImportacao[];
+  recursos: PageRecurso[];
+  materiais: PageMaterialImportacao[];
   dataInicio: Date | null;
   dataFim: Date | null;
   id?: string;
@@ -102,29 +104,26 @@ function ImportarExcelContent() {
   const { state, dispatch } = useProjetoForm();
   const [sheets, setSheets] = useState<{ [key: string]: any[][] }>({});
   const [sheetNames, setSheetNames] = useState<string[]>([]);
-  const [workpackages, setWorkpackages] = useState<WorkpackageSimples[]>([]);
+  const [workpackages, setWorkpackages] = useState<PageWorkpackageSimples[]>([]); // Use PageWorkpackageSimples
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [utilizadoresSistema, setUtilizadoresSistema] = useState<any[]>([]); 
 
   const handleButtonClick = () => {
     fileInputRef.current?.click();
   };
 
-  const extrairMateriais = (data: any[][]): MaterialImportacao[] => {
-    const materiais: MaterialImportacao[] = [];
-
+  const extrairMateriais = (data: any[][]): PageMaterialImportacao[] => {
+    const materiais: PageMaterialImportacao[] = [];
     for (let i = 6; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0 || !row[0]) continue;
-
       const despesa = row[0];
       const atividade = row[1];
       const ano = row[3];
       const rubrica = row[4];
       const custoUnitario = row[5];
       const unidades = row[6];
-
       if (!despesa || !atividade || !custoUnitario || !unidades) continue;
-
       if (typeof custoUnitario === "number" && typeof unidades === "number") {
         materiais.push({
           id: Math.floor(Math.random() * 1000000),
@@ -141,28 +140,16 @@ function ImportarExcelContent() {
         });
       }
     }
-
     return materiais;
   };
 
-  const extrairDadosRH = (data: any[][]): { workpackages: WorkpackageSimples[] } => {
-    const wps: WorkpackageSimples[] = [];
+  const extrairDadosRH = (data: any[][]): { workpackages: PageWorkpackageSimples[] } => {
+    const wps: PageWorkpackageSimples[] = [];
     const salariosPorRecurso = new Map<string, number>();
-
-    // Primeiro vamos extrair os salários e normalizar os nomes
     for (const row of data) {
       if (!row || row.length < 7) continue;
-      
       const nomeRecurso = row[5];
       const valorLido = row[6];
-      
-      // console.log('Debug Salário:', { 
-      //   nomeRecurso, 
-      //   valorLido, 
-      //   tipo: typeof valorLido,
-      //   row: row.slice(0, 10) // Primeiros 10 elementos para debug
-      // });
-
       if (typeof nomeRecurso === 'string' && 
           typeof valorLido === 'number' && 
           !nomeRecurso.toLowerCase().includes('contagem') &&
@@ -170,32 +157,20 @@ function ImportarExcelContent() {
           !nomeRecurso.toLowerCase().includes('subtotal') &&
           !nomeRecurso.toLowerCase().includes('eng.') &&
           valorLido > 0) {
-        // Converter o valor lido para salário base mensal
-        // valor_lido = salario * 1.223 * 14/11
-        // então: salario = valor_lido / (1.223 * 14/11)
         const salarioBase = valorLido / (1.223 * 14/11);
- 
-        // Normalizar o nome do recurso para matching
         const nomeNormalizado = nomeRecurso.trim().toLowerCase();
         salariosPorRecurso.set(nomeNormalizado, salarioBase);
-
-        // Também guardar versões alternativas do nome para matching mais flexível
         if (nomeNormalizado.includes(' - ')) {
           const partes = nomeNormalizado.split(' - ');
-          if (partes[0]) {
-            salariosPorRecurso.set(partes[0].trim(), salarioBase);
-          }
+          if (partes[0]) salariosPorRecurso.set(partes[0].trim(), salarioBase);
         }
         if (nomeNormalizado.includes('-')) {
           const partes = nomeNormalizado.split('-');
-          if (partes[0]) {
-            salariosPorRecurso.set(partes[0].trim(), salarioBase);
-          }
+          if (partes[0]) salariosPorRecurso.set(partes[0].trim(), salarioBase);
         }
       }
     }
 
-    // 2. Encontrar linha dos meses (ExcelDate > 40000), ignorando linhas de anos (ex: 2024,2025,...)
     let mesesRow: any[] | undefined = undefined;
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -209,7 +184,6 @@ function ImportarExcelContent() {
       }
     }
 
-    // 3. Mapear colunas de meses válidas (ExcelDate > 40000)
     const mesesColMap: {col: number, excelDate: number}[] = [];
     if (mesesRow) {
       for (let i = 0; i < mesesRow.length; i++) {
@@ -220,7 +194,6 @@ function ImportarExcelContent() {
       }
     }
 
-    // 4. Detetar dinamicamente colunas de código WP, nome WP e recurso
     function findWPCodeAndName(row: any[]): {idxCodigoWP: number, idxNomeWP: number, idxNomeRecurso: number} {
       let idxCodigoWP = -1, idxNomeWP = -1, idxNomeRecurso = -1;
       for (let i = 0; i < 5; i++) {
@@ -235,7 +208,7 @@ function ImportarExcelContent() {
       return { idxCodigoWP, idxNomeWP, idxNomeRecurso };
     }
 
-    const excelDateToJS = (excelDate: number) => {
+    const excelDateToJSLocal = (excelDate: number) => {
       const date = new Date((excelDate - 25569) * 86400 * 1000);
       return {
         mes: date.getMonth() + 1,
@@ -243,14 +216,12 @@ function ImportarExcelContent() {
       };
     };
 
-    let wpAtual: WorkpackageSimples | null = null;
+    let wpAtual: PageWorkpackageSimples | null = null;
     let currentWPIndices = {idxCodigoWP: -1, idxNomeWP: -1, idxNomeRecurso: -1};
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length < 3) continue;
-
-      // Detetar início de WP
       const wpColInfo = findWPCodeAndName(row);
       if (wpColInfo.idxCodigoWP !== -1) {
         wpAtual = {
@@ -265,137 +236,77 @@ function ImportarExcelContent() {
         currentWPIndices = wpColInfo;
         continue;
       }
-
       if (!wpAtual) continue;
-
       const nomeRecurso = row[currentWPIndices.idxNomeRecurso];
       if (typeof nomeRecurso !== 'string' || nomeRecurso.trim() === '' || 
           nomeRecurso.toLowerCase().includes('total') || nomeRecurso.toLowerCase().includes('subtotal')) {
         continue;
       }
-
-      // Tentar encontrar o salário usando diferentes variações do nome
       const nomeNormalizado = nomeRecurso.trim().toLowerCase();
       let salarioEncontrado = salariosPorRecurso.get(nomeNormalizado);
-      
-      // console.log('Tentativa de matching salário:', {
-      //   nomeRecurso,
-      //   nomeNormalizado,
-      //   salarioEncontrado,
-      //   todosNomes: Array.from(salariosPorRecurso.keys())
-      // });
-      
       if (!salarioEncontrado && nomeNormalizado.includes(' - ')) {
         const partes = nomeNormalizado.split(' - ');
-        if (partes[0]) {
-          salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
-          // console.log('Tentativa alternativa 1:', {
-          //   parte: partes[0].trim(),
-          //   salarioEncontrado
-          // });
-        }
+        if (partes[0]) salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
       }
-      
       if (!salarioEncontrado && nomeNormalizado.includes('-')) {
         const partes = nomeNormalizado.split('-');
-        if (partes[0]) {
-          salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
-          // console.log('Tentativa alternativa 2:', {
-          //   parte: partes[0].trim(),
-          //   salarioEncontrado
-          // });
-        }
+        if (partes[0]) salarioEncontrado = salariosPorRecurso.get(partes[0].trim());
       }
-
-      const recurso: Recurso = {
+      const recurso: PageRecurso = { // Use PageRecurso
         nome: nomeRecurso,
+        userId: null, // extrairDadosRH from page.tsx does not set userId; this is done by lib or later by user
         alocacoes: [],
         salario: salarioEncontrado
       };
-
-      // console.log('Recurso criado:', {
-      //   nome: recurso.nome,
-      //   salario: recurso.salario
-      // });
-
       let dataInicioRecurso: Date | null = null;
       let dataFimRecurso: Date | null = null;
-
       for (const {col, excelDate} of mesesColMap) {
         const valor = row[col];
         if (valor && typeof valor === 'number' && valor > 0 && valor <= 1) {
-          const { mes, ano } = excelDateToJS(excelDate);
+          const { mes, ano } = excelDateToJSLocal(excelDate);
           recurso.alocacoes.push({ mes, ano, percentagem: valor * 100 });
-
           const dataAlocInicio = new Date(ano, mes - 1, 1);
           const dataAlocFim = new Date(ano, mes, 0);
-
-          if (!dataInicioRecurso || dataAlocInicio < dataInicioRecurso) {
-            dataInicioRecurso = dataAlocInicio;
-          }
-          if (!dataFimRecurso || dataAlocFim > dataFimRecurso) {
-            dataFimRecurso = dataAlocFim;
-          }
+          if (!dataInicioRecurso || dataAlocInicio < dataInicioRecurso) dataInicioRecurso = dataAlocInicio;
+          if (!dataFimRecurso || dataAlocFim > dataFimRecurso) dataFimRecurso = dataAlocFim;
         }
       }
-
       if (recurso.alocacoes.length > 0) {
         wpAtual.recursos.push(recurso);
-        
-        if (dataInicioRecurso && (!wpAtual.dataInicio || dataInicioRecurso < wpAtual.dataInicio)) {
-          wpAtual.dataInicio = dataInicioRecurso;
-        }
-        if (dataFimRecurso && (!wpAtual.dataFim || dataFimRecurso > wpAtual.dataFim)) {
-          wpAtual.dataFim = dataFimRecurso;
-        }
+        if (dataInicioRecurso && (!wpAtual.dataInicio || dataInicioRecurso < wpAtual.dataInicio)) wpAtual.dataInicio = dataInicioRecurso;
+        if (dataFimRecurso && (!wpAtual.dataFim || dataFimRecurso > wpAtual.dataFim)) wpAtual.dataFim = dataFimRecurso;
       }
     }
-
     return { workpackages: wps };
   };
 
   const atribuirMateriaisAosWorkpackages = (
-    workpackages: WorkpackageSimples[],
-    materiais: MaterialImportacao[]
-  ): WorkpackageSimples[] => {
-    const wpMap = new Map<string, WorkpackageSimples>();
+    workpackages: PageWorkpackageSimples[],
+    materiais: PageMaterialImportacao[]
+  ): PageWorkpackageSimples[] => {
+    const wpMap = new Map<string, PageWorkpackageSimples>();
     workpackages.forEach((wp) => {
       wpMap.set(wp.nome, wp);
-
       const wpCodigo = wp.nome.split(" - ")[0]?.trim();
-      if (wpCodigo) {
-        wpMap.set(wpCodigo, wp);
-      }
+      if (wpCodigo) wpMap.set(wpCodigo, wp);
     });
-
     materiais.forEach((material) => {
       let wpMatch = wpMap.get(material.workpackageNome);
-
       if (!wpMatch && material.workpackageNome) {
         const codigoMatch = material.workpackageNome.match(/^A\d+/);
-        if (codigoMatch) {
-          wpMatch = workpackages.find((wp) => wp.codigo === codigoMatch[0]) || undefined;
-        }
+        if (codigoMatch) wpMatch = workpackages.find((wp) => wp.codigo === codigoMatch[0]) || undefined;
       }
-
       if (wpMatch) {
-        // Inicializar o array se não existir
         wpMatch.materiais = wpMatch.materiais || [];
         wpMatch.materiais.push(material);
-      } else if (workpackages.length > 0) {
-        // verificar se existe workpackage antes de aceder
-        if (workpackages[0]) {
-          // inicializar array de materiais se não existir
-          workpackages[0].materiais = workpackages[0].materiais || [];
-          workpackages[0].materiais.push(material);
-        }
+      } else if (workpackages.length > 0 && workpackages[0]) {
+        workpackages[0].materiais = workpackages[0].materiais || [];
+        workpackages[0].materiais.push(material);
       }
     });
-
     return workpackages;
   };
 
-  // Nova função para extrair nome do projeto
   const extrairDadosProjeto = (dados: any[][]): { nomeProjeto: string } => {
     let nomeProjeto = "";
     for (const linha of dados) {
@@ -407,7 +318,6 @@ function ImportarExcelContent() {
     return { nomeProjeto };
   };
 
-  // Nova função para extrair financiamento
   const extrairDadosFinanciamento = (
     dadosBudget: any[][]
   ): {
@@ -418,49 +328,42 @@ function ImportarExcelContent() {
     let tipoFinanciamento = "";
     let taxaFinanciamento: number | null = null;
     let overhead: number | null = null;
-
     for (const linha of dadosBudget) {
       if (linha && linha.length >= 8) {
-        if (linha[6] === "Tipo de projeto " && linha[7]) {
-          tipoFinanciamento = linha[7];
-        } else if (linha[6] === "Taxa de financiamento" && typeof linha[7] === "number") {
-          taxaFinanciamento = linha[7] * 100; // Converter para percentagem
-        } else if (linha[6] === "Custos indiretos" && typeof linha[7] === "number") {
-          overhead = linha[7] * 100; // Converter para percentagem
-        }
+        if (linha[6] === "Tipo de projeto " && linha[7]) tipoFinanciamento = linha[7];
+        else if (linha[6] === "Taxa de financiamento" && typeof linha[7] === "number") taxaFinanciamento = linha[7] * 100;
+        else if (linha[6] === "Custos indiretos" && typeof linha[7] === "number") overhead = linha[7] * 100;
       }
     }
-
     return { tipoFinanciamento, taxaFinanciamento, overhead };
   };
 
-  // Nova função para extrair valor ETI
   const extrairValorEti = (dadosRH: any[][]): number | null => {
     for (let i = 0; i < dadosRH.length; i++) {
       const row = dadosRH[i];
       if (row && row.length >= 6) {
-        // Verificar se temos um nome na coluna 5 (índice 4) e um valor na coluna 6 (índice 5)
-        if (row[4] && typeof row[4] === "string" && row[5] && typeof row[5] === "number") {
-          return row[5]; // Valor ETI logo após o nome
-        }
+        if (row[4] && typeof row[4] === "string" && row[5] && typeof row[5] === "number") return row[5];
       }
     }
     return null;
   };
 
-  // Estado para os dados de projeto e financiamento
   const [dadosProjeto, setDadosProjeto] = useState<{
     nomeProjeto: string;
     tipoFinanciamento: string;
     taxaFinanciamento: number | null;
     overhead: number | null;
     valorEti: number | null;
+    dataInicioProjeto: Date | null; 
+    dataFimProjeto: Date | null;    
   }>({
     nomeProjeto: "",
     tipoFinanciamento: "",
     taxaFinanciamento: null,
     overhead: null,
     valorEti: null,
+    dataInicioProjeto: null,
+    dataFimProjeto: null,
   });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -470,112 +373,140 @@ function ImportarExcelContent() {
       console.log("Nenhum ficheiro selecionado");
       return;
     }
-
     console.log("Ficheiro selecionado:", file.name);
     const reader = new FileReader();
-
-    reader.onload = (e) => {
+    reader.onload = (event) => {
       try {
         console.log("Ficheiro carregado, iniciando processamento");
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
-
         console.log("Sheets encontradas:", workbook.SheetNames);
-
         const sheetsData: { [key: string]: any[][] } = {};
         const names = workbook.SheetNames;
-
         names.forEach((name) => {
           console.log(`Processando sheet: ${name}`);
           const sheet = workbook.Sheets[name];
-          if (sheet) {
-            sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          if (sheet) sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        });
+
+        let nomeProjetoFinal = dadosProjeto.nomeProjeto;
+        let tipoFinanciamentoFinal = dadosProjeto.tipoFinanciamento;
+        let taxaFinanciamentoFinal = dadosProjeto.taxaFinanciamento;
+        let overheadFinal = dadosProjeto.overhead;
+        let valorEtiFinal = dadosProjeto.valorEti;
+        let dataInicioProjetoFinal = dadosProjeto.dataInicioProjeto;
+        let dataFimProjetoFinal = dadosProjeto.dataFimProjeto;
+        let wpsFinal: PageWorkpackageSimples[] = [];
+        let materiaisFinal: PageMaterialImportacao[] = [];
+
+        if (sheetsData["REPORT"]) {
+          console.log("Processando sheet REPORT...");
+          const reportResultLib = processReportSheetData(sheetsData["REPORT"], utilizadoresSistema);
+          
+          dataInicioProjetoFinal = reportResultLib.dataInicioProjeto;
+          dataFimProjetoFinal = reportResultLib.dataFimProjeto;
+          
+          wpsFinal = reportResultLib.workpackages.map((libWp): PageWorkpackageSimples => ({
+            codigo: libWp.codigo,
+            nome: libWp.nome,
+            recursos: libWp.recursos.map((libRecurso): PageRecurso => ({
+              nome: libRecurso.nome,
+              userId: libRecurso.userId,
+              alocacoes: libRecurso.alocacoes.map(libAloc => ({ ...libAloc })),
+              salario: libRecurso.salario,
+            })),
+            materiais: [], // REPORT sheet does not populate materials per user request
+            dataInicio: libWp.dataInicio,
+            dataFim: libWp.dataFim,
+            id: undefined, // PageWorkpackageSimples has optional id, lib does not
+          }));
+
+          if (sheetsData["HOME"]) {
+            const homeData = extrairDadosProjeto(sheetsData["HOME"]);
+            nomeProjetoFinal = homeData.nomeProjeto;
+          } 
+          if (sheetsData["BUDGET"]) {
+            const budgetData = extrairDadosFinanciamento(sheetsData["BUDGET"]);
+            tipoFinanciamentoFinal = budgetData.tipoFinanciamento;
+            taxaFinanciamentoFinal = budgetData.taxaFinanciamento;
+            overheadFinal = budgetData.overhead;
           }
-        });
+          if (sheetsData["RH_Budget_SUBM"]) {
+            valorEtiFinal = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
+          }
+           console.log("Dados da sheet REPORT processados.");
 
-        // Extrair dados adicionais
-        let nomeProjeto = "";
-        let tipoFinanciamento = "";
-        let taxaFinanciamento: number | null = null;
-        let overhead: number | null = null;
-        let valorEti: number | null = null;
-
-        if (sheetsData["HOME"]) {
-          const dados = extrairDadosProjeto(sheetsData["HOME"]);
-          nomeProjeto = dados.nomeProjeto;
-          console.log("Nome do projeto:", nomeProjeto);
+        } else {
+          console.log("Sheet REPORT não encontrada, processando outras sheets...");
+          if (sheetsData["HOME"]) {
+            const homeData = extrairDadosProjeto(sheetsData["HOME"]);
+            nomeProjetoFinal = homeData.nomeProjeto;
+          }
+          if (sheetsData["BUDGET"]) {
+            const budgetData = extrairDadosFinanciamento(sheetsData["BUDGET"]);
+            tipoFinanciamentoFinal = budgetData.tipoFinanciamento;
+            taxaFinanciamentoFinal = budgetData.taxaFinanciamento;
+            overheadFinal = budgetData.overhead;
+          }
+          if (sheetsData["RH_Budget_SUBM"]) {
+            valorEtiFinal = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
+            const { workpackages: wpsFromRH } = extrairDadosRH(sheetsData["RH_Budget_SUBM"]);
+            wpsFinal = wpsFromRH;
+          }
+          if (sheetsData["Outros_Budget"]) {
+            materiaisFinal = extrairMateriais(sheetsData["Outros_Budget"]);
+          }
+          if (wpsFinal.length > 0 && materiaisFinal.length > 0) {
+            wpsFinal = atribuirMateriaisAosWorkpackages(wpsFinal, materiaisFinal);
+          }
         }
 
-        if (sheetsData["BUDGET"]) {
-          const dados = extrairDadosFinanciamento(sheetsData["BUDGET"]);
-          tipoFinanciamento = dados.tipoFinanciamento;
-          taxaFinanciamento = dados.taxaFinanciamento;
-          overhead = dados.overhead;
-          console.log("Financiamento:", tipoFinanciamento, taxaFinanciamento, overhead);
-        }
-
-        if (sheetsData["RH_Budget_SUBM"]) {
-          valorEti = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
-          console.log("Valor ETI:", valorEti);
-        }
-
-        // Guardar os dados extraídos
         setDadosProjeto({
-          nomeProjeto,
-          tipoFinanciamento,
-          taxaFinanciamento,
-          overhead,
-          valorEti,
+          nomeProjeto: nomeProjetoFinal,
+          tipoFinanciamento: tipoFinanciamentoFinal,
+          taxaFinanciamento: taxaFinanciamentoFinal,
+          overhead: overheadFinal,
+          valorEti: valorEtiFinal,
+          dataInicioProjeto: dataInicioProjetoFinal,
+          dataFimProjeto: dataFimProjetoFinal,
         });
 
-        // Continuar com o processamento existente
-        let wps: WorkpackageSimples[] = [];
-        let materiais: MaterialImportacao[] = [];
-
-        if (sheetsData["RH_Budget_SUBM"]) {
-          const { workpackages: wpsFromRH } = extrairDadosRH(sheetsData["RH_Budget_SUBM"]);
-          wps = wpsFromRH;
-        }
-
-        if (sheetsData["Outros_Budget"]) {
-          materiais = extrairMateriais(sheetsData["Outros_Budget"]);
-        }
-
-        if (wps.length > 0 && materiais.length > 0) {
-          wps = atribuirMateriaisAosWorkpackages(wps, materiais);
-        }
-
-        console.log("Workpackages extraídos:", wps);
-        setWorkpackages(wps);
+        setWorkpackages(wpsFinal);
         setSheets(sheetsData);
         setSheetNames(names);
 
-        // Atualizar o nome do projeto no estado global
-        if (nomeProjeto) {
+        if (nomeProjetoFinal) {
           dispatch({
             type: "UPDATE_PROJETO",
-            data: { nome: nomeProjeto },
+            data: { nome: nomeProjetoFinal, inicio: dataInicioProjetoFinal, fim: dataFimProjetoFinal }, 
           });
         }
+
       } catch (error) {
         console.error("Erro detalhado ao processar o ficheiro Excel:", error);
-        alert("Ocorreu um erro ao processar o ficheiro Excel. Verifique o formato do ficheiro.");
+        toast.error("Ocorreu um erro ao processar o ficheiro Excel. Verifique o formato do ficheiro.");
       }
     };
-
     reader.onerror = (error) => {
       console.error("Erro ao ler o ficheiro:", error);
     };
-
     reader.readAsArrayBuffer(file);
   };
 
   const handleImportarProjeto = () => {
     dispatch({ type: "RESET" });
+    dispatch({
+      type: "UPDATE_PROJETO",
+      data: {
+        nome: dadosProjeto.nomeProjeto,
+        inicio: dadosProjeto.dataInicioProjeto,
+        fim: dadosProjeto.dataFimProjeto,
+      },
+    });
+
 
     workpackages.forEach((wp) => {
       const wpId = crypto.randomUUID();
-
       dispatch({
         type: "ADD_WORKPACKAGE",
         workpackage: {
@@ -591,17 +522,11 @@ function ImportarExcelContent() {
         },
       });
 
-      // Agrupar alocações por utilizador
       const alocacoesPorUser = wp.recursos.reduce(
-        (acc, recurso) => {
-          // Aqui vais precisar de mapear o nome do recurso para o userId correto
-          const userId = "1"; // Substitui isto pela lógica de mapeamento correta
+        (acc, recurso) => { // recurso here is PageRecurso, which has userId
+          const userId = recurso.userId || `novo_user_${crypto.randomUUID()}`;
 
-          if (!acc[userId]) {
-            acc[userId] = [];
-          }
-
-          // Adicionar todas as alocações deste recurso
+          if (!acc[userId]) acc[userId] = [];
           acc[userId].push(
             ...recurso.alocacoes.map((alocacao) => ({
               userId,
@@ -611,13 +536,11 @@ function ImportarExcelContent() {
               workpackageId: wpId,
             }))
           );
-
           return acc;
         },
         {} as Record<string, any[]>
       );
 
-      // Adicionar todas as alocações para cada utilizador
       Object.values(alocacoesPorUser).forEach((alocacoes) => {
         alocacoes.forEach((alocacao) => {
           dispatch({
@@ -628,54 +551,48 @@ function ImportarExcelContent() {
         });
       });
 
-      wp.materiais.forEach((material) => {
-        dispatch({
-          type: "ADD_MATERIAL",
-          workpackageId: wpId,
-          material: {
-            id: Math.floor(Math.random() * 1000000),
-            nome: material.nome,
-            descricao: null,
-            estado: false,
-            preco: new Decimal(material.preco),
-            quantidade: material.quantidade,
-            ano_utilizacao: material.ano_utilizacao,
-            rubrica: material.rubrica,
-            mes: material.mes || 1,
-          },
+      if (wp.materiais && wp.materiais.length > 0) { 
+        wp.materiais.forEach((material) => {
+          dispatch({
+            type: "ADD_MATERIAL",
+            workpackageId: wpId,
+            material: {
+              id: material.id,
+              nome: material.nome,
+              descricao: material.descricao || null, // Handle potentially undefined
+              estado: material.estado || false,
+              preco: new Decimal(material.preco),
+              quantidade: material.quantidade,
+              ano_utilizacao: material.ano_utilizacao,
+              rubrica: material.rubrica,
+              mes: material.mes || 1,
+            },
+          });
         });
-      });
+      }
     });
-
     toast.success("Dados importados com sucesso para o formulário do projeto");
   };
 
   const alocacoesFormatadas = useMemo(() => {
     return workpackages.map((wp) => {
-      const recursos = wp.recursos.map((recurso) => {
+      const recursos = wp.recursos.map((recurso) => { // recurso here is PageRecurso
         const mesesPorAno: Record<number, Array<{ mes: number; percentagem: number }>> = {};
-
         recurso.alocacoes.forEach(({ mes, ano, percentagem }) => {
-          if (!mesesPorAno[ano]) {
-            mesesPorAno[ano] = [];
-          }
+          if (!mesesPorAno[ano]) mesesPorAno[ano] = [];
           mesesPorAno[ano].push({ mes, percentagem });
         });
-
         Object.keys(mesesPorAno).forEach((ano) => {
-          // garantir que o array existe antes de ordenar
           const mesesDoAno = mesesPorAno[Number(ano)];
-          if (mesesDoAno) {
-            mesesDoAno.sort((a, b) => a.mes - b.mes);
-          }
+          if (mesesDoAno) mesesDoAno.sort((a, b) => a.mes - b.mes);
         });
         return {
-          ...recurso,
+          ...recurso, // Spreading PageRecurso, which includes userId
+          userId: recurso.userId, // Explicitly carry over userId for TS
           mesesPorAno,
           totalAlocacoes: recurso.alocacoes.length,
         };
       });
-
       return {
         ...wp,
         recursos,
@@ -783,10 +700,12 @@ function ImportarExcelContent() {
                         <User className="mr-1 h-3.5 w-3.5" />
                         {wp.recursos.length} recursos
                       </Badge>
-                      <Badge variant="outline" className="bg-azul/5">
-                        <Package className="mr-1 h-3.5 w-3.5" />
-                        {wp.materiais.length} materiais
-                      </Badge>
+                      {wp.materiais && wp.materiais.length > 0 && (
+                        <Badge variant="outline" className="bg-azul/5">
+                          <Package className="mr-1 h-3.5 w-3.5" />
+                          {wp.materiais.length} materiais
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="mb-4">
@@ -798,7 +717,7 @@ function ImportarExcelContent() {
                       </p>
                     </div>
 
-                    {wp.materiais.length > 0 && (
+                    {wp.materiais && wp.materiais.length > 0 && (
                       <div className="mb-8">
                         <div className="mb-3 flex items-center gap-2">
                           <Package className="h-4 w-4 text-azul" />
@@ -822,14 +741,13 @@ function ImportarExcelContent() {
                                 <tr key={idx} className="hover:bg-azul/5">
                                   <td className="border-b border-azul/10 p-2">{material.nome}</td>
                                   <td className="border-b border-azul/10 p-2 text-right">
-                                    {material.preco.toLocaleString("pt-PT")} €
+                                    {typeof material.preco === 'number' ? material.preco.toLocaleString("pt-PT") : material.preco} €
                                   </td>
                                   <td className="border-b border-azul/10 p-2 text-center">
                                     {material.quantidade}
                                   </td>
                                   <td className="border-b border-azul/10 p-2 text-right">
-                                    {(material.preco * material.quantidade).toLocaleString("pt-PT")}{" "}
-                                    €
+                                    {(typeof material.preco === 'number' ? material.preco * material.quantidade : 0).toLocaleString("pt-PT")} €
                                   </td>
                                   <td className="border-b border-azul/10 p-2 text-center">
                                     {material.ano_utilizacao}
@@ -850,9 +768,8 @@ function ImportarExcelContent() {
                                 </td>
                                 <td className="p-2 text-right">
                                   {wp.materiais
-                                    .reduce((total, m) => total + m.preco * m.quantidade, 0)
-                                    .toLocaleString("pt-PT")}{" "}
-                                  €
+                                    .reduce((total, m) => total + (typeof m.preco === 'number' ? m.preco * m.quantidade : 0), 0)
+                                    .toLocaleString("pt-PT")} €
                                 </td>
                                 <td colSpan={2}></td>
                               </tr>
@@ -870,9 +787,9 @@ function ImportarExcelContent() {
                         </div>
 
                         <div className="space-y-6">
-                          {wp.recursos.map((recurso, idx) => (
+                          {wp.recursos.map((recurso, idx) => ( // recurso here is the mapped object from alocacoesFormatadas
                             <div
-                              key={idx}
+                              key={idx} 
                               className="overflow-hidden rounded-lg border border-azul/10 bg-white"
                             >
                               <div className="flex items-center justify-between border-b border-azul/10 p-4">
@@ -882,6 +799,7 @@ function ImportarExcelContent() {
                                   </div>
                                   <div>
                                     <h4 className="font-medium text-azul">{recurso.nome}</h4>
+                                    {recurso.userId && <p className="text-xs text-gray-500">ID: {recurso.userId}</p>}
                                     <div className="flex items-center gap-2 text-xs text-azul/60">
                                       <Calendar className="h-3.5 w-3.5" />
                                       <span>{recurso.totalAlocacoes} meses alocados</span>
@@ -913,7 +831,7 @@ function ImportarExcelContent() {
                                                 variant="outline"
                                                 className={`${badgeClass} whitespace-nowrap py-1`}
                                               >
-                                                {mesFormatado}: {(item.percentagem * 100).toFixed(1)}%
+                                                {mesFormatado}: {item.percentagem.toFixed(1)}%
                                               </Badge>
                                             );
                                           })}

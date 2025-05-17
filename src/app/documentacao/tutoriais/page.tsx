@@ -58,7 +58,7 @@ export default function TutoriaisDocumentacao() {
     {
       id: "introducao",
       title: "Introdução à Plataforma",
-      description: "Série de tutoriais em vídeo para novos utilizadores se familiarizarem com a interface e funcionalidades básicas do StarSoftFlow.",
+      description: "Série de tutoriais em vídeo para novos utilizadores se familiarizarem com a interface e funcionalidades básicas do STARSoftFlow.",
       icon: <BookOpen className="h-8 w-8 text-azul" />,
       features: [
         "Visão geral da plataforma e navegação básica",
@@ -73,7 +73,7 @@ export default function TutoriaisDocumentacao() {
     {
       id: "projetos",
       title: "Gestão de Projetos",
-      description: "Tutoriais avançados sobre como criar, organizar e gerir projetos de forma eficiente na plataforma StarSoftFlow.",
+      description: "Tutoriais avançados sobre como criar, organizar e gerir projetos de forma eficiente na plataforma STARSoftFlow.",
       icon: <BarChart3 className="h-8 w-8 text-azul" />,
       steps: [
         "Como criar um novo projeto com todas as configurações necessárias",

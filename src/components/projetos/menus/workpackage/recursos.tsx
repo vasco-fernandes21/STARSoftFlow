@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, Users } from "lucide-react";
 import type { WorkpackageCompleto } from "@/components/projetos/types";
-import { useMutations } from "@/hooks/useMutations";
 import { Form as RecursoForm } from "@/components/projetos/criar/novo/recursos/form";
 import { api } from "@/trpc/react";
 import { Item } from "@/components/projetos/criar/novo/recursos/item";
@@ -25,11 +24,22 @@ export function WorkpackageRecursos({
   const [addingRecurso, setAddingRecurso] = useState(false);
   const [expandedUsuarioId, setExpandedUsuarioId] = useState<string | null>(null);
 
-  // Mutations usando o projetoId
-  const mutations = useMutations(projetoId);
+  const utils = api.useUtils();
 
   // Query para obter todos os utilizadores usando TanStack
   const { data: utilizadores = { items: [] } } = api.utilizador.findAll.useQuery({ limit: 100 });
+
+  const addAlocacaoMutation = api.workpackage.addAlocacao.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+    },
+  });
+
+  const removeAlocacaoMutation = api.workpackage.removeAlocacao.useMutation({
+    onSuccess: () => {
+      utils.projeto.findById.invalidate(projetoId);
+    },
+  });
 
   // Mapear utilizadores para o formato esperado pelo componente
   const utilizadoresList = (utilizadores?.items || []).map((user) => ({
@@ -59,7 +69,7 @@ export function WorkpackageRecursos({
 
   // Handler para adicionar recursos
   const handleAddRecurso = (
-    workpackageId: string,
+    _workpackageIdParam: string,
     alocacoes: Array<{
       userId: string;
       mes: number;
@@ -70,7 +80,7 @@ export function WorkpackageRecursos({
   ) => {
     // Para cada alocação no array, criar uma alocação individual
     alocacoes.forEach((alocacao) => {
-      mutations.workpackage.addAlocacao.mutate({
+      addAlocacaoMutation.mutate({
         workpackageId: _workpackageId,
         userId: alocacao.userId,
         mes: alocacao.mes,
@@ -86,7 +96,7 @@ export function WorkpackageRecursos({
   const handleUpdateAlocacao = (userId: string, alocacoes: Array<any>) => {
     // Para cada alocação no array, usar a mutação updateAlocacao (ou addAlocacao com upsert)
     alocacoes.forEach((alocacao) => {
-      mutations.workpackage.addAlocacao.mutate({
+      addAlocacaoMutation.mutate({
         workpackageId: _workpackageId,
         userId: userId,
         mes: alocacao.mes,
@@ -106,7 +116,7 @@ export function WorkpackageRecursos({
 
       // Remover cada alocação individualmente
       alocacoesUsuario.forEach((alocacao) => {
-        mutations.workpackage.removeAlocacao.mutate({
+        removeAlocacaoMutation.mutate({
           workpackageId: _workpackageId,
           userId: alocacao.userId,
           mes: alocacao.mes,

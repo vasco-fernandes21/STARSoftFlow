@@ -154,7 +154,7 @@ function DefinirPasswordContent() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
             >
-              Defina a sua palavra-passe para começar a usar a plataforma StarSoftFlow e acompanhar
+              Defina a sua palavra-passe para começar a usar a plataforma STARSoftFlow e acompanhar
               os seus projetos em tempo real.
             </motion.p>
           </motion.div>

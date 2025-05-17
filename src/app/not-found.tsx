@@ -56,7 +56,7 @@ export default function NotFound() {
       </div>
       
       <div className="mt-8 text-center text-xs text-slate-400">
-        <p>StarSoftFlow • Sistema de Gestão de Projetos</p>
+        <p>STARSoftFlow • Sistema de Gestão de Projetos</p>
       </div>
     </div>
   );

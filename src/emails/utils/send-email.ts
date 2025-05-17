@@ -7,7 +7,7 @@ import { env } from "@/env";
 // Mapa de templates disponíveis
 const EMAIL_TEMPLATES = {
   welcome: {
-    subject: "Bem-vindo ao StarSoftFlow",
+    subject: "Bem-vindo ao STARSoftFlow",
     template: "welcome.html",
   },
   resetPassword: {
@@ -15,11 +15,11 @@ const EMAIL_TEMPLATES = {
     template: "reset-password.html",
   },
   inviteUser: {
-    subject: "Convite para o StarSoftFlow",
+    subject: "Convite para o STARSoftFlow",
     template: "invite-user.html",
   },
   notification: {
-    subject: "Notificação do StarSoftFlow",
+    subject: "Notificação do STARSoftFlow",
     template: "notification.html",
   },
 } as const;
@@ -214,7 +214,7 @@ export async function sendEmail({ to, type, variables }: SendEmailOptions) {
     // Determinar o email de origem correto
     // Em ambiente de desenvolvimento, usar o endereço padrão do Resend
     // Em produção, usar o endereço configurado em .env
-    const fromEmail = isDev ? "onboarding@starsoftflow.tech" : env.RESEND_FROM_EMAIL;
+    const fromEmail = isDev ? "onboarding@STARSoftFlow.tech" : env.RESEND_FROM_EMAIL;
 
     // Preparar o payload do email
     const emailPayload = {
