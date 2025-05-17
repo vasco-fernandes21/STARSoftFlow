@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
     if (requiredRoles) {
       if (!userRole || !requiredRoles.includes(userRole)) {
         console.log(
-          `Unauthorized access attempt by role ${userRole} to ${path}. Redirecting.`
+          `Acesso não autorizado por role ${userRole} a ${path}. A redirecionar.`
         );
         // Redireciona para a dashboard padrão do utilizador ou para uma página de "não autorizado"
         // Por simplicidade, redirecionaremos para a página inicial ou a dashboard padrão do role

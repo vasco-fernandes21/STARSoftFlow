@@ -10,8 +10,7 @@ type UserWithPermissao = {
   id: string;
 } & Record<string, any>;
 
-// Função auxiliar para calcular salário ajustado
-function calcularSalarioAjustado(salario: Decimal | number | null | undefined): Decimal {
+export function calcularSalarioAjustado(salario: Decimal | number | null | undefined): Decimal {
   if (salario === null || salario === undefined) {
     return new Decimal(0);
   }

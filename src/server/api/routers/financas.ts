@@ -3,19 +3,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import type { Prisma, Rubrica } from "@prisma/client";
 import { Decimal } from "decimal.js";
+import { calcularSalarioAjustado } from "./admin";
 
-/**
- * Função auxiliar para calcular salário ajustado
- */
-function calcularSalarioAjustado(salario: Decimal | number | null | undefined): Decimal {
-  if (salario === null || salario === undefined) {
-    return new Decimal(0);
-  }
-  const salarioDecimal = new Decimal(salario);
-  const VALOR_SALARIO = new Decimal(1.223);
-  const FATOR_MESES = new Decimal(14).dividedBy(new Decimal(11)); 
-  return salarioDecimal.times(VALOR_SALARIO).times(FATOR_MESES);
-}
 
 /**
  * Calcula o orçamento submetido de um projeto.
