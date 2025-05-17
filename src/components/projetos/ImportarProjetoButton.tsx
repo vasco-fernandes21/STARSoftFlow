@@ -31,6 +31,7 @@ import {
   extrairUtilizadores,
   extrairDadosRH,
   atribuirMateriaisAosWorkpackages,
+  processReportSheetData,
 } from "@/lib/importar_excel";
 
 // Componente Principal
@@ -255,102 +256,97 @@ export default function ImportarProjetoButton() {
           let overhead: number | null = null;
           let valorEti: number | null = null;
 
-          if (sheetsData["HOME"]) {
-            const dadosProjeto = extrairDadosProjeto(sheetsData["HOME"]);
-            nomeProjeto = dadosProjeto.nomeProjeto;
-          }
+          if (sheetsData["REPORT"]) {
+            const reportResult = processReportSheetData(sheetsData["REPORT"], utilizadores);
+            
+            nomeProjeto = reportResult.nomeProjeto || "";
+            dataInicioProjeto = reportResult.dataInicioProjeto;
+            dataFimProjeto = reportResult.dataFimProjeto;
+            taxaFinanciamento = reportResult.taxaFinanciamento;
+            wps = reportResult.workpackages;
+            
+            materiais = [];
 
-          if (sheetsData["BUDGET"]) {
-            const dadosFinanciamentoExt = extrairDadosFinanciamento(sheetsData["BUDGET"]);
-            tipoFinanciamento = dadosFinanciamentoExt.tipoFinanciamento;
-            taxaFinanciamento = dadosFinanciamentoExt.taxaFinanciamento;
-            overhead = dadosFinanciamentoExt.overhead;
-            valorEti = dadosFinanciamentoExt.valorEti;
-          }
-
-          if (sheetsData["RH_Budget_SUBM"]) {
-            const valorEtiRH = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
-            if (valorEtiRH !== null) {
-              valorEti = valorEtiRH;
+          } else {
+            if (sheetsData["HOME"]) {
+              const dadosProjetoExt = extrairDadosProjeto(sheetsData["HOME"]);
+              nomeProjeto = dadosProjetoExt.nomeProjeto;
             }
-            const resultado = extrairDadosRH(sheetsData["RH_Budget_SUBM"], utilizadores);
-            wps = resultado.workpackages;
-            dataInicioProjeto = resultado.dataInicioProjeto;
-            dataFimProjeto = resultado.dataFimProjeto;
 
-            const recursosNaoMatchados = wps.flatMap(wp => 
-              wp.recursos.filter(r => !r.userId).map(r => ({
-                nome: r.nome,
-                salario: r.salario ? Math.round(r.salario) : undefined
-              }))
-            );
+            if (sheetsData["BUDGET"]) {
+              const dadosFinanciamentoExt = extrairDadosFinanciamento(sheetsData["BUDGET"]);
+              tipoFinanciamento = dadosFinanciamentoExt.tipoFinanciamento;
+              taxaFinanciamento = dadosFinanciamentoExt.taxaFinanciamento;
+              overhead = dadosFinanciamentoExt.overhead;
+              valorEti = dadosFinanciamentoExt.valorEti;
+            }
 
-            const recursosUnicos = Array.from(new Map(
-              recursosNaoMatchados.map(item => [item.nome, item])
-            ).values());
-
-            const estadoAtual : EstadoImportacao = {
-              sheetsData,
-              nomeProjeto,
-              tipoFinanciamento,
-              taxaFinanciamento,
-              overhead,
-              valorEti,
-              workpackages: wps,
-              materiais: [],
-              dataInicioProjeto,
-              dataFimProjeto
-            };
+            if (sheetsData["RH_Budget_SUBM"]) {
+              const valorEtiRH = extrairValorEti(sheetsData["RH_Budget_SUBM"]);
+              if (valorEtiRH !== null) {
+                valorEti = valorEtiRH;
+              }
+              const resultadoRH = extrairDadosRH(sheetsData["RH_Budget_SUBM"], utilizadores);
+              wps = resultadoRH.workpackages;
+              if (!dataInicioProjeto) dataInicioProjeto = resultadoRH.dataInicioProjeto;
+              if (!dataFimProjeto) dataFimProjeto = resultadoRH.dataFimProjeto;
+            }
 
             if (sheetsData["Outros_Budget"]) {
               materiais = extrairMateriais(sheetsData["Outros_Budget"]);
-              estadoAtual.materiais = materiais;
             }
 
             if (wps.length > 0 && materiais.length > 0) {
-               estadoAtual.workpackages = atribuirMateriaisAosWorkpackages(estadoAtual.workpackages, estadoAtual.materiais);
+              wps = atribuirMateriaisAosWorkpackages(wps, materiais);
             }
-            
-            setEstadoImportacao(estadoAtual);
+          }
 
-            if (recursosUnicos.length > 0) {
-              setRecursosNaoAssociados(recursosUnicos);
-              setOpen(false);
-              
-              setTimeout(() => {
-                if (recursosUnicos[0]) {
-                  setNovoContratadoData(recursosUnicos[0]);
-                  setShouldRenderContratadoForm(true);
-                  setShowContratadoForm(true);
-                }
-              }, 500);
-              
-              setIsLoading(false);
-              return;
-            } else {
-               setProcessamentoPendente(true);
-            }
+          const estadoAtual: EstadoImportacao = {
+            sheetsData,
+            nomeProjeto,
+            tipoFinanciamento,
+            taxaFinanciamento,
+            overhead,
+            valorEti,
+            workpackages: wps,
+            materiais,
+            dataInicioProjeto,
+            dataFimProjeto,
+          };
+          
+          setEstadoImportacao(estadoAtual);
+
+          const recursosNaoMatchados = wps.flatMap(wp => 
+            wp.recursos.filter(r => !r.userId).map(r => ({
+              nome: r.nome,
+              salario: r.salario ? Math.round(r.salario) : undefined
+            }))
+          );
+
+          const recursosUnicos = Array.from(new Map(
+            recursosNaoMatchados.map(item => [item.nome, item])
+          ).values());
+
+          if (recursosUnicos.length > 0) {
+            setRecursosNaoAssociados(recursosUnicos);
+            setOpen(false); 
+            
+            setTimeout(() => {
+              if (recursosUnicos[0]) {
+                setNovoContratadoData(recursosUnicos[0]);
+                setShouldRenderContratadoForm(true);
+                setShowContratadoForm(true);
+              }
+            }, 500);
+            
+            setIsLoading(false);
+            return; 
           } else {
-             if (sheetsData["Outros_Budget"]) {
-                materiais = extrairMateriais(sheetsData["Outros_Budget"]);
-             }
-             
-             setEstadoImportacao({
-                sheetsData,
-                nomeProjeto,
-                tipoFinanciamento,
-                taxaFinanciamento,
-                overhead,
-                valorEti,
-                workpackages: [],
-                materiais,
-                dataInicioProjeto: null,
-                dataFimProjeto: null,
-             });
-             setProcessamentoPendente(true);
+            setProcessamentoPendente(true); 
           }
 
         } catch (error) {
+          console.error("Erro detalhado ao processar o ficheiro Excel:", error);
           toast.error("Ocorreu um erro durante a leitura dos dados do ficheiro");
           setIsLoading(false);
         } finally {
