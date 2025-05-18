@@ -10,8 +10,8 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
-import { AdminReceitasDespesasGraph } from "./components/AdminReceitasDespesasGraph";
-import { AdminDespesas } from "./components/AdminDespesas";
+import { AdminReceitasDespesasGraph } from "./admin/AdminReceitasDespesasGraph";
+import { AdminDespesas } from "./admin/AdminDespesas";
 import { NovoProjeto } from "@/components/projetos/NovoProjeto";
 import { useEffect } from "react";
 
@@ -143,4 +143,4 @@ export default function AdminDashboard() {
       </div>
     </div>
   );
-}
+} 

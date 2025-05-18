@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import MediasAlocacoes from "./components/MediasAlocacoes";
-import ProximosMateriais from "./components/ProximosMateriais";
-import ProximosEventos from "./components/ProximosEventos";
+import MediasAlocacoes from "./gestor/MediasAlocacoes";
+import ProximosMateriais from "./gestor/ProximosMateriais";
+import ProximosEventos from "./gestor/ProximosEventos";
 import { useSession } from "next-auth/react";
-import { GestorStats } from "./components/GestorStats";
+import { GestorStats } from "./gestor/GestorStats";
 
 export default function GestorDashboard() {
   const { data: session } = useSession();
@@ -40,4 +40,4 @@ export default function GestorDashboard() {
       </div>
     </div>
   );
-}
+} 

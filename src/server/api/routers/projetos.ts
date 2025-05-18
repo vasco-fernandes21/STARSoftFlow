@@ -1056,8 +1056,8 @@ export const projetoRouter = createTRPCRouter({
           if (projeto.responsavelId) {
             const notificacaoAprovacao = await ctx.db.notificacao.create({
               data: {
-                titulo: `Projeto "${projeto.nome}" foi aprovado`,
-                descricao: `O seu projeto "${projeto.nome}" foi aprovado por ${user.name}.`,
+                titulo: `Candidatura "${projeto.nome}" aprovada`,
+                descricao: `A sua candidatura "${projeto.nome}" foi aprovada por ${user.name}.`,
                 entidade: "PROJETO", 
                 entidadeId: projeto.id,
                 urgencia: "ALTA",
@@ -1074,7 +1074,7 @@ export const projetoRouter = createTRPCRouter({
 
           return {
             success: true,
-            message: `Projeto "${projeto.nome}" aprovado com sucesso`,
+            message: `Candidatura "${projeto.nome}" aprovada`,
             data: projetoAtualizado,
           };
         } 
@@ -1084,8 +1084,8 @@ export const projetoRouter = createTRPCRouter({
           if (projeto.responsavelId) { // Verificar se o responsável existe
             const notificacaoRejeicao = await ctx.db.notificacao.create({
               data: {
-                titulo: `Projeto "${projeto.nome}" foi rejeitado`,
-                descricao: `O seu projeto "${projeto.nome}" foi rejeitado por ${user.name} e foi eliminado.`,
+                titulo: `Candidatura "${projeto.nome}" foi rejeitada`,
+                descricao: `A sua candidatura "${projeto.nome}" foi rejeitada por ${user.name}.`,
                 entidade: "PROJETO",
                 entidadeId: projeto.id,
                 urgencia: "ALTA",
@@ -1165,7 +1165,7 @@ export const projetoRouter = createTRPCRouter({
 
           return {
             success: true,
-            message: `Projeto "${projeto.nome}" rejeitado e eliminado`,
+            message: `Candidatura "${projeto.nome}" rejeitada`,
             data: null,
           };
         }

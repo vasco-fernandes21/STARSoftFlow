@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, lazy } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -20,7 +20,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { api } from "@/trpc/react";
 import type { Permissao, Regime, ProjetoEstado } from "@prisma/client";
-import { TabelaAlocacoes } from "./components/TabelaAlocacoes";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
@@ -31,14 +30,17 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EditarUtilizadorForm } from "./components/EditarUtilizadorForm";
-import { ConfiguracaoMensalUtilizador } from "./components/ConfiguracaoMensalUtilizador";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// Lazy load components
+const TabelaAlocacoes = lazy(() => import("./components/TabelaAlocacoes").then(module => ({ default: module.TabelaAlocacoes })));
+const EditarUtilizadorForm = lazy(() => import("./components/EditarUtilizadorForm").then(module => ({ default: module.EditarUtilizadorForm })));
+const ConfiguracaoMensalUtilizador = lazy(() => import("./components/ConfiguracaoMensalUtilizador").then(module => ({ default: module.ConfiguracaoMensalUtilizador })));
 
 // Interfaces e mapeamentos
 interface UserWithDetails {
@@ -343,12 +345,14 @@ export default function PerfilUtilizador() {
       };
       // Monthly configuration modal/sheet
       const monthlyConfigSheet = (
-        <ConfiguracaoMensalUtilizador
-          open={showMonthlyConfig}
-          onOpenChange={setShowMonthlyConfig}
-          onSave={handleMonthlyConfigUpdate}
-          userId={utilizadorComDetalhes.regime === "PARCIAL" ? utilizadorComDetalhes.id : undefined}
-        />
+        <React.Suspense fallback={<div>A carregar configuração...</div>}>
+          <ConfiguracaoMensalUtilizador
+            open={showMonthlyConfig}
+            onOpenChange={setShowMonthlyConfig}
+            onSave={handleMonthlyConfigUpdate}
+            userId={utilizadorComDetalhes.regime === "PARCIAL" ? utilizadorComDetalhes.id : undefined}
+          />
+        </React.Suspense>
       );
 
       // Botões de ação do perfil
@@ -391,20 +395,22 @@ export default function PerfilUtilizador() {
               <DialogHeader>
                 <DialogTitle>Editar Informações do Utilizador</DialogTitle>
               </DialogHeader>
-              <EditarUtilizadorForm
-                user={{
-                  id: utilizadorComDetalhes.id,
-                  name: utilizadorComDetalhes.name,
-                  email: utilizadorComDetalhes.email,
-                  atividade: utilizadorComDetalhes.atividade,
-                  permissao: utilizadorComDetalhes.permissao,
-                  regime: utilizadorComDetalhes.regime,
-                  informacoes: utilizadorComDetalhes.informacoes,
-                  salario: utilizadorComDetalhes.salario,
-                }}
-                onSave={handleUserUpdate}
-                onCancel={() => setShowUserEdit(false)}
-              />
+              <React.Suspense fallback={<div>A carregar formulário...</div>}>
+                <EditarUtilizadorForm
+                  user={{
+                    id: utilizadorComDetalhes.id,
+                    name: utilizadorComDetalhes.name,
+                    email: utilizadorComDetalhes.email,
+                    atividade: utilizadorComDetalhes.atividade,
+                    permissao: utilizadorComDetalhes.permissao,
+                    regime: utilizadorComDetalhes.regime,
+                    informacoes: utilizadorComDetalhes.informacoes,
+                    salario: utilizadorComDetalhes.salario,
+                  }}
+                  onSave={handleUserUpdate}
+                  onCancel={() => setShowUserEdit(false)}
+                />
+              </React.Suspense>
             </DialogContent>
           </Dialog>
           <div className="max-w-8xl mx-auto p-6 lg:p-8">
@@ -497,14 +503,16 @@ export default function PerfilUtilizador() {
               
               <TabsContent value="allocations" className="mt-0">
                 {/* Tabela de Alocações - Full Width */}
-                <TabelaAlocacoes 
-                  alocacoes={alocacoesTabela}
-                  viewMode={viewMode}
-                  ano={currentYear}
-                  onSave={() => {
-                    console.log("Save triggered");
-                  }}
-                />
+                <React.Suspense fallback={<div>A carregar alocações...</div>}>
+                  <TabelaAlocacoes 
+                    alocacoes={alocacoesTabela}
+                    viewMode={viewMode}
+                    ano={currentYear}
+                    onSave={() => {
+                      console.log("Save triggered");
+                    }}
+                  />
+                </React.Suspense>
               </TabsContent>
               
               <TabsContent value="cv" className="mt-0">

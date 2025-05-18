@@ -18,7 +18,7 @@ import { fasesOrdem } from "@/components/projetos/types";
 import { api } from "@/trpc/react";
 import { ProjetoEstado, Rubrica } from "@prisma/client";
 import { Decimal } from "decimal.js";
-import { generateUUID } from "@/server/api/utils/token";
+import { generateUUID } from "@/server/api/utils";
 import ImportarProjetoButton from "@/components/projetos/ImportarProjetoButton";
 import { Button } from "@/components/ui/button";
 import { Save, Trash2 } from "lucide-react";
@@ -108,21 +108,23 @@ function ProjetoFormContent() {
 
   // Mutation para criar projeto
   const criarProjetoMutation = api.projeto.createCompleto.useMutation({
-    onSuccess: async (data) => {
-      if (data.success) {
-        // Invalidar queries
-        const projetosKey = getQueryKey(api.projeto.findAll);
-        await queryClient.invalidateQueries({ queryKey: projetosKey });
+    onSuccess: (data) => {
+      if (data.success && data.data?.id) {
+        toast.success("Projeto criado com sucesso!");
+        router.push(`/projetos/${data.data.id}`);
 
-        // Se for um rascunho, invalidar também a query de rascunhos
+        // Invalidar queries em segundo plano (fire and forget)
+        const projetosKey = getQueryKey(api.projeto.findAll);
+        queryClient.invalidateQueries({ queryKey: projetosKey });
+
         if (rascunhoId && isComum) {
           const rascunhosKey = getQueryKey(api.rascunho.findAll);
-          await queryClient.invalidateQueries({ queryKey: rascunhosKey });
+          queryClient.invalidateQueries({ queryKey: rascunhosKey });
         }
-
-        toast.success("Projeto criado com sucesso!");
-        router.push(`/projetos/${data.data?.id}`);
-      } else {
+      } else if (data.success && !data.data?.id) {
+        console.error("Projeto criado com sucesso, mas ID está ausente nos dados de resposta:", data);
+        toast.error("Projeto criado, mas ocorreu um erro ao obter o ID. Tente atualizar a lista de projetos.");
+      } else { // data.success é false
         toast.error("Erro ao criar projeto");
       }
     },

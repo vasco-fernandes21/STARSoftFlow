@@ -518,7 +518,7 @@ export function AdminDespesas() {
               <p className="text-xs text-slate-500">
                 A mostrar{" "}
                 <span className="font-medium text-slate-700">
-                  {(paginatedData.startIndex ?? 0) + 1}-{paginatedData.endIndex ?? 0}
+                  {(paginatedData.startIndex ?? 0) + 1}-{(paginatedData.endIndex ?? 0)}
                 </span>{" "}
                 de{" "}
                 <span className="font-medium text-slate-700">

@@ -104,55 +104,59 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <Button
         onClick={handleAprovar}
         disabled={isAprovando || isRejeitando}
-        variant="outline"
-        size="sm"
-        className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
+        className="flex h-10 items-center gap-1.5 rounded-full bg-emerald-500 px-4 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-60"
       >
         {isAprovando ? (
           <Loader2 className="mr-1 h-4 w-4 animate-spin" />
         ) : (
           <Check className="mr-1 h-4 w-4" />
         )}
-        <span>Aprovar</span>
+        <span>Aprovar Projeto</span>
       </Button>
 
       <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <AlertDialogTrigger asChild>
           <Button
-            variant="outline"
-            size="sm"
-            className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700"
             disabled={isAprovando || isRejeitando}
+            className="flex h-10 items-center gap-1.5 rounded-full border border-rose-200 bg-white px-4 text-sm font-medium text-rose-500 hover:bg-rose-50 disabled:opacity-60"
           >
             <X className="mr-1 h-4 w-4" />
             <span>Rejeitar</span>
           </Button>
         </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Rejeitar Projeto</AlertDialogTitle>
-            <AlertDialogDescription>
-              {`Tem a certeza que pretende rejeitar o projeto "${nome}"? Esta ação não pode ser revertida.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleRejeitar}
-              disabled={isRejeitando}
-            >
-              {isRejeitando ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Rejeitar"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+        <AlertDialogContent className="rounded-xl border-none p-0 shadow-xl">
+          <div className="p-6">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-semibold text-gray-900">Rejeitar Projeto</AlertDialogTitle>
+              <AlertDialogDescription className="pt-2 text-gray-600">
+                Tem a certeza que pretende rejeitar o projeto <span className="font-medium text-gray-900">"{nome}"</span>?
+                <p className="mt-2">Esta ação não pode ser revertida.</p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-6 flex gap-3">
+              <AlertDialogCancel className="flex-1 rounded-lg border border-gray-200 bg-white py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-500 py-2 text-sm font-medium text-white hover:bg-rose-600"
+                onClick={handleRejeitar}
+                disabled={isRejeitando}
+              >
+                {isRejeitando ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>A rejeitar...</span>
+                  </>
+                ) : (
+                  "Rejeitar"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </div>

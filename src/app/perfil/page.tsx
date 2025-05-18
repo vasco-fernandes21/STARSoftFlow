@@ -454,7 +454,7 @@ export default function PerfilPage() {
           {/* Coluna Lateral - Card do Perfil */}
           <div className="space-y-6">
             {/* Card do Perfil - Aumentado */}
-            <Card className="border rounded-2xl shadow-lg overflow-hidden">
+            <Card className="border rounded-2xl shadow-lg overflow-hidden min-h-[500px]">
               <div className="h-36 bg-gradient-to-r from-azul/80 to-azul relative" />
               <CardContent className="pt-0 relative px-6 pb-6">
                 <div className="flex flex-col items-center text-center">
@@ -598,7 +598,7 @@ export default function PerfilPage() {
           {/* Conteúdo Principal - Informações e Alocações lado a lado */}
           <div className="space-y-6">
             {/* Informações Profissionais */}
-            <Card className="border rounded-2xl shadow-lg overflow-hidden">
+            <Card className="border rounded-2xl shadow-lg overflow-hidden min-h-[240px]">
               <CardHeader className="px-6 py-4 bg-gray-50 border-b">
                 <CardTitle className="text-lg font-semibold text-gray-900">
                   <User className="inline mr-2 h-4 w-4" />
@@ -627,7 +627,7 @@ export default function PerfilPage() {
             </Card>
 
             {/* Alocações */}
-            <Card className="border rounded-2xl shadow-lg overflow-hidden">
+            <Card className="border rounded-2xl shadow-lg overflow-hidden min-h-[320px]">
               <CardHeader className="px-6 py-4 bg-gray-50 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="text-lg font-semibold text-gray-900">

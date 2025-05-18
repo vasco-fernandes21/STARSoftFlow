@@ -13,7 +13,7 @@ import { ExternalLink, FileSpreadsheet, Upload } from "lucide-react";
 import { useProjetoForm } from "@/components/projetos/criar/ProjetoFormContext";
 import * as XLSX from "xlsx";
 import { Decimal } from "decimal.js";
-import { generateUUID } from "@/server/api/utils/token";
+import { generateUUID } from "@/server/api/utils";
 import { api } from "@/trpc/react";
 import { GerirFinanciamentosModal } from "@/components/projetos/criar/novo/financas/GerirFinanciamentosModal";
 import { FormContratado } from "@/components/projetos/criar/novo/recursos/form-contratado";

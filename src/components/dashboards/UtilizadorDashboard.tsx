@@ -60,7 +60,7 @@ const NOTIFICATION_COLORS = {
   SISTEMA: "text-slate-600 bg-slate-50",
 };
 
-export default function UserDashboard() {
+export default function UtilizadorDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
   const utils = api.useUtils();
