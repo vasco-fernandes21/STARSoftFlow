@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, lazy } from "react";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -19,7 +19,7 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { api } from "@/trpc/react";
-import type { Permissao, Regime, ProjetoEstado } from "@prisma/client";
+import type { Permissao, Regime } from "@prisma/client";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { isCuid } from "@/lib/utils";
 
 // Lazy load components
 const TabelaAlocacoes = lazy(() => import("./components/TabelaAlocacoes").then(module => ({ default: module.TabelaAlocacoes })));
@@ -58,32 +59,6 @@ interface UserWithDetails {
 }
 
 export type ViewMode = 'real' | 'submetido';
-
-// Interface para os dados recebidos da API
-interface AlocacaoAPI {
-  workpackageId: string;
-  workpackageNome: string;
-  projetoId: string;
-  projetoNome: string;
-  projetoEstado: ProjetoEstado;
-  mes: number;
-  ano: number;
-  ocupacao: number;
-}
-
-interface AlocacaoOriginal {
-  ano: number;
-  mes: number;
-  ocupacao: number;
-  workpackage: { id: string; nome: string };
-  projeto: { id: string; nome: string; estado?: ProjetoEstado };
-}
-
-interface AlocacoesData {
-  real: AlocacaoOriginal[];
-  submetido: AlocacaoOriginal[];
-  anos: number[];
-}
 
 const PERMISSAO_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -133,46 +108,50 @@ export default function PerfilUtilizador() {
   const paramValue = params?.param;
 
   // Estados
-  const [viewMode, setViewMode] = useState<ViewMode>('real');
-  const currentYear = new Date().getFullYear();
   const [showUserEdit, setShowUserEdit] = useState(false);
   const [showMonthlyConfig, setShowMonthlyConfig] = useState(false);
 
-  // Verificar se o parâmetro é um UUID (ID)
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paramValue || "") || 
-                 /^c[a-z0-9]{20,}$/i.test(paramValue || ""); // Formato Cuid
-
   // Usar a query apropriada baseado no tipo do parâmetro
-  const { 
-    data: utilizador,
-    isLoading: isLoadingUtilizador,
-    error: utilizadorError,
-  } = isUUID 
-    ? api.utilizador.findById.useQuery(paramValue || "", {
-        enabled: !!paramValue,
-        refetchOnWindowFocus: false,
-      })
-    : api.utilizador.getByUsername.useQuery(paramValue || "", {
-        enabled: !!paramValue,
-        refetchOnWindowFocus: false,
-      });
-  
-  const { 
-    data: userDetails,
-    isLoading: isLoadingDetails
-  } = api.utilizador.findById.useQuery(utilizador?.id || "", {
-    enabled: !!utilizador?.id,
+  const isParamCuid = !!paramValue && isCuid(paramValue);
+
+
+  const {
+    data: userById,
+    isLoading: isLoadingUserById,
+    error: userByIdError,
+  } = api.utilizador.findById.useQuery(paramValue || "", {
+    enabled: !!paramValue && isParamCuid,
     refetchOnWindowFocus: false,
   });
 
+  const {
+    data: userByUsername,
+    isLoading: isLoadingUserByUsername,
+    error: userByUsernameError,
+  } = api.utilizador.findByUsername.useQuery(paramValue || "", {
+    enabled: !!paramValue && !isParamCuid,
+    refetchOnWindowFocus: false,
+  });
+
+  const utilizador = isParamCuid ? userById : userByUsername;
+  const isLoadingUtilizador = isParamCuid ? isLoadingUserById : isLoadingUserByUsername;
+  const utilizadorError = isParamCuid ? userByIdError : userByUsernameError;
+  
+  const userId = useMemo(() => {
+    if (isParamCuid && paramValue) {
+      return paramValue;
+    }
+    if (!isParamCuid && userByUsername?.id) {
+      return userByUsername.id;
+    }
+    return undefined;
+  }, [isParamCuid, paramValue, userByUsername]);
+
   const { 
-    data: alocacoes, 
-    isLoading: isLoadingAlocacoes 
-  } = api.utilizador.getAlocacoes.useQuery({
-    userId: utilizador?.id || "",
-    ano: currentYear,
-  }, {
-    enabled: !!utilizador?.id,
+    data: userDetails,
+    isLoading: isLoadingDetails
+  } = api.utilizador.findById.useQuery(userId || "", {
+    enabled: !!userId,
     refetchOnWindowFocus: false,
   });
 
@@ -186,64 +165,8 @@ export default function PerfilUtilizador() {
     },
   });
 
-  // Transformar dados para o formato da tabela
-  const alocacoesTabela = useMemo(() => {
-    if (!alocacoes?.real || !alocacoes?.pendente) return {
-      real: [],
-      submetido: [],
-      total: 0,
-      anos: []
-    };
-
-    // Converter para o formato AlocacaoOriginal
-    const real = alocacoes.real.map((item): AlocacaoOriginal => ({
-      ano: item.ano,
-      mes: item.mes,
-      ocupacao: item.ocupacao,
-      workpackage: {
-        id: item.workpackageId,
-        nome: item.workpackageNome
-      },
-      projeto: {
-        id: item.projetoId,
-        nome: item.projetoNome,
-        estado: item.projetoEstado
-      }
-    }));
-
-    const submetido = alocacoes.pendente.map((item): AlocacaoOriginal => ({
-      ano: item.ano,
-      mes: item.mes,
-      ocupacao: item.ocupacao,
-      workpackage: {
-        id: item.workpackageId,
-        nome: item.workpackageNome
-      },
-      projeto: {
-        id: item.projetoId,
-        nome: item.projetoNome,
-        estado: item.projetoEstado
-      }
-    }));
-
-    return {
-      real,
-      submetido,
-      total: real.length + submetido.length,
-      anos: alocacoes.anos
-    };
-  }, [alocacoes]);
-
   // Estado de carregamento geral
-  const isLoading = isLoadingUtilizador || isLoadingAlocacoes || isLoadingDetails;
-
-  // Resetar para modo real quando não houver dados submetidos
-  useEffect(() => {
-    if (viewMode === 'submetido' && !alocacoes?.pendente) {
-      setViewMode('real');
-      toast("Voltando para dados reais pois não existem dados submetidos.");
-    }
-  }, [viewMode, alocacoes?.pendente]);
+  const isLoading = isLoadingUtilizador || isLoadingDetails;
 
   // Função para enviar convite
   const handleEnviarConvite = async () => {
@@ -503,16 +426,13 @@ export default function PerfilUtilizador() {
               
               <TabsContent value="allocations" className="mt-0">
                 {/* Tabela de Alocações - Full Width */}
-                <React.Suspense fallback={<div>A carregar alocações...</div>}>
-                  <TabelaAlocacoes 
-                    alocacoes={alocacoesTabela}
-                    viewMode={viewMode}
-                    ano={currentYear}
-                    onSave={() => {
-                      console.log("Save triggered");
-                    }}
-                  />
-                </React.Suspense>
+                <Suspense fallback={<div>A carregar alocações...</div>}>
+                  {userId ? (
+                    <TabelaAlocacoes userId={userId} />
+                  ) : (
+                    <div>À espera de ID do utilizador para carregar alocações...</div>
+                  )}
+                </Suspense>
               </TabsContent>
               
               <TabsContent value="cv" className="mt-0">

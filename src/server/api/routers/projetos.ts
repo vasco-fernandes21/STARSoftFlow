@@ -401,291 +401,8 @@ export const projetoRouter = createTRPCRouter({
       }
     }),
 
-  // Criar projeto
-  create: protectedProcedure.input(createProjetoSchema).mutation(async ({ ctx, input }) => {
-    try {
-      if (input.inicio && input.fim) {
-        const { success } = projetoDateValidationSchema.safeParse({
-          inicio: input.inicio,
-          fim: input.fim,
-        });
-
-        if (!success) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "A data de fim deve ser posterior à data de início",
-          });
-        }
-      }
-
-      // Extrair o ID do utilizador da sessão
-      const userId = ctx.session.user.id;
-
-      const {
-        nome,
-        descricao,
-        inicio,
-        fim,
-        estado = ProjetoEstado.RASCUNHO,
-        financiamentoId,
-        overhead = 0,
-        taxa_financiamento = 0,
-        valor_eti = 0,
-      } = input;
-
-      const createData = {
-        nome,
-        descricao,
-        inicio,
-        fim,
-        estado,
-        overhead,
-        taxa_financiamento,
-        valor_eti,
-        // Usar a sintaxe de relacionamento para o responsável
-        responsavel: {
-          connect: { id: userId },
-        },
-        ...(financiamentoId
-          ? {
-              financiamento: {
-                connect: { id: financiamentoId },
-              },
-            }
-          : {}),
-      } as any;
-
-      const projeto = await ctx.db.projeto.create({
-        data: createData,
-        include: {
-          financiamento: true,
-          responsavel: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      // Buscar todos os admins
-      const admins = await ctx.db.user.findMany({
-        where: {
-          permissao: "ADMIN"
-        },
-        select: {
-          id: true
-        }
-      });
-
-      // Criar notificações
-      const notificacoes = [];
-
-      // Notificação para cada admin (exceto se for o próprio criador)
-      for (const admin of admins) {
-        if (admin.id !== userId) {
-          notificacoes.push(
-            ctx.db.notificacao.create({
-              data: {
-                titulo: `Novo projeto criado por ${ctx.session.user.name}`,
-                descricao: `Um novo projeto "${nome}" foi criado.`,
-                entidade: "PROJETO",
-                entidadeId: projeto.id,
-                urgencia: "MEDIA",
-                destinatario: {
-                  connect: { id: admin.id },
-                },
-                estado: "NAO_LIDA",
-              },
-            })
-          );
-        }
-      }
-
-      // Criar todas as notificações e emitir eventos
-      const notificacoesCriadas = await Promise.all(notificacoes);
-      
-      // Emitir eventos para cada notificação
-      for (const notificacao of notificacoesCriadas) {
-        const channelName = `${CHANNELS.NOTIFICACOES_GERAIS}-${notificacao.destinatarioId}`;
-        await triggerPusherEvent(channelName, EVENTS.NOVA_NOTIFICACAO, notificacao);
-      }
-
-      return projeto;
-    } catch (error) {
-      return handlePrismaError(error);
-    }
-  }),
-
-  // Atualizar projeto
-  update: protectedProcedure.input(updateProjetoSchema).mutation(async ({ ctx, input }) => {
-    try {
-      // Get the project first to check permissions
-      const projeto = await ctx.db.projeto.findUnique({
-        where: { id: input.id },
-        select: { responsavelId: true },
-      });
-
-      if (!projeto) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Projeto não encontrado",
-        });
-      }
-
-      // Get user with permission
-      const user = await ctx.db.user.findUnique({
-        where: { id: ctx.session.user.id },
-        select: { permissao: true },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Utilizador não encontrado",
-        });
-      }
-
-      // Check if user has permission (admin, gestor or responsavel)
-      const isAdmin = user.permissao === "ADMIN";
-      const isGestor = user.permissao === "GESTOR";
-      const isResponsavel = projeto.responsavelId === ctx.session.user.id;
-
-      if (!isAdmin && !isGestor && !isResponsavel) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Sem permissão para editar este projeto",
-        });
-      }
-
-      // Prepare update data
-      const updateData: Prisma.ProjetoUpdateInput = {
-        nome: input.nome,
-        descricao: input.descricao,
-        inicio: input.inicio,
-        fim: input.fim,
-        overhead: input.overhead,
-        taxa_financiamento: input.taxa_financiamento,
-        valor_eti: input.valor_eti,
-        ...(input.financiamentoId !== undefined && {
-          financiamento: input.financiamentoId
-            ? {
-                connect: { id: input.financiamentoId },
-              }
-            : { disconnect: true },
-        }),
-      };
-
-      // Update the project
-      const updatedProjeto = await ctx.db.projeto.update({
-        where: { id: input.id },
-        data: updateData,
-        include: {
-          responsavel: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          financiamento: true,
-          workpackages: {
-            include: {
-              tarefas: {
-                include: {
-                  entregaveis: true,
-                },
-              },
-              materiais: true,
-              recursos: {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      name: true,
-                      salario: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      return updatedProjeto;
-    } catch (error) {
-      if (error instanceof TRPCError) throw error;
-
-      console.error("Erro ao atualizar projeto:", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Erro ao atualizar projeto",
-        cause: error,
-      });
-    }
-  }),
-
-  // Apagar projeto
-  delete: protectedProcedure
-    .input(z.string().uuid("ID do projeto inválido"))
-    .mutation(async ({ ctx, input: id }) => {
-      try {
-        const workpackages = await ctx.db.workpackage.findMany({
-          where: { projetoId: id },
-          include: {
-            tarefas: true,
-          },
-        });
-
-        for (const wp of workpackages) {
-          if (wp.tarefas.length > 0) {
-            await ctx.db.tarefa.deleteMany({
-              where: { workpackageId: wp.id },
-            });
-          }
-        }
-
-        await ctx.db.workpackage.deleteMany({
-          where: { projetoId: id },
-        });
-
-        await ctx.db.projeto.delete({
-          where: { id },
-        });
-
-        return { success: true };
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-
-  // Alterar estado do projeto
-  updateEstado: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid("ID do projeto inválido"),
-        estado: z.nativeEnum(ProjetoEstado),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      try {
-        const { id, estado } = input;
-
-        const projeto = await ctx.db.projeto.update({
-          where: { id },
-          data: { estado },
-        });
-
-        return projeto;
-      } catch (error) {
-        return handlePrismaError(error);
-      }
-    }),
-
   // Criar projeto completo com workpackages, tarefas, entregáveis, materiais e alocações
-  createCompleto: protectedProcedure
+  create: protectedProcedure
     .input(createProjetoCompletoSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -902,6 +619,149 @@ export const projetoRouter = createTRPCRouter({
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
              console.error("Prisma Error Code:", error.code);
         }
+        return handlePrismaError(error);
+      }
+    }),
+
+  // Atualizar projeto
+  update: protectedProcedure.input(updateProjetoSchema).mutation(async ({ ctx, input }) => {
+    try {
+      // Get the project first to check permissions
+      const projeto = await ctx.db.projeto.findUnique({
+        where: { id: input.id },
+        select: { responsavelId: true },
+      });
+
+      if (!projeto) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Projeto não encontrado",
+        });
+      }
+
+      // Get user with permission
+      const user = await ctx.db.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { permissao: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Utilizador não encontrado",
+        });
+      }
+
+      // Check if user has permission (admin, gestor or responsavel)
+      const isAdmin = user.permissao === "ADMIN";
+      const isGestor = user.permissao === "GESTOR";
+      const isResponsavel = projeto.responsavelId === ctx.session.user.id;
+
+      if (!isAdmin && !isGestor && !isResponsavel) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Sem permissão para editar este projeto",
+        });
+      }
+
+      // Prepare update data
+      const updateData: Prisma.ProjetoUpdateInput = {
+        nome: input.nome,
+        descricao: input.descricao,
+        inicio: input.inicio,
+        fim: input.fim,
+        overhead: input.overhead,
+        taxa_financiamento: input.taxa_financiamento,
+        valor_eti: input.valor_eti,
+        ...(input.financiamentoId !== undefined && {
+          financiamento: input.financiamentoId
+            ? {
+                connect: { id: input.financiamentoId },
+              }
+            : { disconnect: true },
+        }),
+      };
+
+      // Update the project
+      const updatedProjeto = await ctx.db.projeto.update({
+        where: { id: input.id },
+        data: updateData,
+        include: {
+          responsavel: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          financiamento: true,
+          workpackages: {
+            include: {
+              tarefas: {
+                include: {
+                  entregaveis: true,
+                },
+              },
+              materiais: true,
+              recursos: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      salario: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return updatedProjeto;
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+
+      console.error("Erro ao atualizar projeto:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Erro ao atualizar projeto",
+        cause: error,
+      });
+    }
+  }),
+
+  // Apagar projeto
+  delete: protectedProcedure
+    .input(z.string().uuid("ID do projeto inválido"))
+    .mutation(async ({ ctx, input: id }) => {
+      try {
+        const workpackages = await ctx.db.workpackage.findMany({
+          where: { projetoId: id },
+          include: {
+            tarefas: true,
+          },
+        });
+
+        for (const wp of workpackages) {
+          if (wp.tarefas.length > 0) {
+            await ctx.db.tarefa.deleteMany({
+              where: { workpackageId: wp.id },
+            });
+          }
+        }
+
+        await ctx.db.workpackage.deleteMany({
+          where: { projetoId: id },
+        });
+
+        await ctx.db.projeto.delete({
+          where: { id },
+        });
+
+        return { success: true };
+      } catch (error) {
         return handlePrismaError(error);
       }
     }),
@@ -1349,6 +1209,132 @@ export const projetoRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao obter estatísticas dos projetos",
+          cause: error,
+        });
+      }
+    }),
+
+  // Nova procedure para obter totais de alocações por projeto
+  getTotalAlocacoes: protectedProcedure
+    .input(
+      z.object({
+        projetoIds: z.array(z.string().uuid("ID de projeto inválido")).min(1, "Pelo menos um ID de projeto é obrigatório"),
+        ano: z.number().int().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const { projetoIds, ano } = input;
+
+        // Interface para o snapshot (semelhante à usada em utilizadorRouter)
+        interface ApprovedSnapshotResource {
+          userId: string; // Não usado aqui, mas parte da estrutura
+          mes: number;    // Não usado diretamente para o total, mas parte da estrutura
+          ano: number;
+          ocupacao: number;
+        }
+        interface ApprovedSnapshotWorkpackage {
+          id: string;
+          nome: string;
+          recursos: ApprovedSnapshotResource[];
+        }
+        interface ApprovedSnapshot {
+          workpackages: ApprovedSnapshotWorkpackage[];
+        }
+
+        // 1. Calcular Total de Alocações Reais
+        const alocacoesReaisDb = await ctx.db.alocacaoRecurso.findMany({
+          where: {
+            workpackage: {
+              projetoId: { in: projetoIds },
+              projeto: { estado: { in: Object.values(ProjetoEstado).filter(s => s !== "PENDENTE" && s !== "RASCUNHO") } }, // Reutilizando validProjectStates indiretamente
+            },
+            ...(ano && { ano }),
+          },
+          select: {
+            ocupacao: true,
+            workpackage: { 
+              select: { 
+                projetoId: true,
+                projeto: {
+                  select: {
+                    nome: true
+                  }
+                }
+              } 
+            },
+          },
+        });
+
+        const totaisReaisMap = new Map<string, Decimal>();
+        const nomesProjetosMap = new Map<string, string>();
+        alocacoesReaisDb.forEach(ar => {
+          const projetoId = ar.workpackage.projetoId;
+          const currentTotal = totaisReaisMap.get(projetoId) || new Decimal(0);
+          totaisReaisMap.set(projetoId, currentTotal.add(new Decimal(ar.ocupacao)));
+          if (ar.workpackage.projeto.nome) {
+            nomesProjetosMap.set(projetoId, ar.workpackage.projeto.nome);
+          }
+        });
+
+        // 2. Calcular Total de Alocações Submetidas (do Snapshot)
+        const projetosComSnapshot = await ctx.db.projeto.findMany({
+          where: {
+            id: { in: projetoIds },
+            estado: { in: Object.values(ProjetoEstado).filter(s => s !== "PENDENTE" && s !== "RASCUNHO") }, // Apenas projetos em estados válidos
+            aprovado: { not: Prisma.DbNull }, // Garantir que o snapshot existe
+          },
+          select: {
+            id: true,
+            nome: true,
+            aprovado: true, // O snapshot JSON
+          },
+        });
+
+        const totaisSubmetidosMap = new Map<string, Decimal>();
+        projetosComSnapshot.forEach(p => {
+          if (p.aprovado) {
+            try {
+              const snapshot = p.aprovado as unknown as ApprovedSnapshot;
+              let totalOcupacaoSnapshot = new Decimal(0);
+              if (snapshot && Array.isArray(snapshot.workpackages)) {
+                snapshot.workpackages.forEach(wp => {
+                  if (wp.recursos && Array.isArray(wp.recursos)) {
+                    wp.recursos.forEach(r => {
+                      if (!ano || r.ano === ano) { // Filtrar por ano se fornecido
+                        totalOcupacaoSnapshot = totalOcupacaoSnapshot.add(new Decimal(r.ocupacao));
+                      }
+                    });
+                  }
+                });
+              }
+              totaisSubmetidosMap.set(p.id, totalOcupacaoSnapshot);
+              if (p.nome) {
+                nomesProjetosMap.set(p.id, p.nome);
+              }
+            } catch (e) {
+              console.error(`Error parsing snapshot for projeto ${p.id}:`, e);
+              totaisSubmetidosMap.set(p.id, new Decimal(0)); // Default to 0 on error
+            }
+          }
+        });
+
+        // 3. Combinar resultados
+        const resultado = projetoIds.map(pid => ({
+          projetoId: pid,
+          nome: nomesProjetosMap.get(pid) || "",
+          totalAlocacoesReais: (totaisReaisMap.get(pid) || new Decimal(0)).toNumber(),
+          totalAlocacoesSubmetidas: (totaisSubmetidosMap.get(pid) || new Decimal(0)).toNumber(),
+        }));
+
+        return resultado;
+
+      } catch (error) {
+        console.error("Erro ao obter totais de alocações por projeto:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao obter totais de alocações",
           cause: error,
         });
       }

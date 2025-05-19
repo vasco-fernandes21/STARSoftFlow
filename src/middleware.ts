@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
   );
 
   console.log(
-    `Path: ${path}, Logged in: ${isLoggedIn}, Role: ${userRole}, Public: ${isPublicRoute}`
+    `Path: ${path}, Sessão Iniciada: ${isLoggedIn}, Permissão: ${userRole}, Pública: ${isPublicRoute}`
   );
 
   // Se o utilizador não estiver autenticado e a rota não for pública,

@@ -27,13 +27,12 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Permissao, Regime, ProjetoEstado } from "@prisma/client";
+import type { Regime } from "@prisma/client";
 import { AlocacoesDetalhadas } from "@/app/utilizadores/[param]/AlocacoesDetalhadas";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -46,25 +45,9 @@ import Cropper from 'react-easy-crop';
 import type { Area, Point } from 'react-easy-crop';
 
 
-// Define a type for user data that includes the optional informacoes field
-interface UserData {
-  id: string;
-  name: string | null;
-  email: string | null;
-  emailVerified: Date | null;
-  atividade: string | null;
-  contratacao: Date | null;
-  username: string | null;
-  permissao: Permissao;
-  regime: Regime | null;
-  informacoes?: string | null;
-  profilePhotoUrl?: string | null;
-}
-
 export default function PerfilPage() {
   // Move all hooks to the top and ensure they're called unconditionally
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const { data: session } = useSession();
   const utils = api.useUtils();
   const userId = session?.user?.id || "";  // Provide default value
   
@@ -97,7 +80,7 @@ export default function PerfilPage() {
   
   const { data: alocacoesData, isLoading: isLoadingAlocacoes } = api.utilizador.getAlocacoes.useQuery(
     { 
-      userId, 
+      userId: userId, 
       ano: selectedYear 
     },
     { 
@@ -176,7 +159,7 @@ export default function PerfilPage() {
   
   // Processar alocações
   const alocacoesReais = transformAlocacoes(alocacoesData?.real || []);
-  const alocacoesPendentes = transformAlocacoes(alocacoesData?.pendente || []);
+  const alocacoesSubmetidas = transformAlocacoes(alocacoesData?.submetido || []);
   
   // Obter anos disponíveis para seleção
   const anosDisponiveis = alocacoesData?.anos || [new Date().getFullYear()];
@@ -200,7 +183,7 @@ export default function PerfilPage() {
     const contratacao = new Date(dataContratacao);
     
     const anos = hoje.getFullYear() - contratacao.getFullYear();
-    let meses = hoje.getMonth() - contratacao.getMonth();
+    const meses = hoje.getMonth() - contratacao.getMonth();
     
     if (meses < 0) {
       return `${anos - 1} anos e ${meses + 12} meses`;
@@ -460,10 +443,10 @@ export default function PerfilPage() {
                 <div className="flex flex-col items-center text-center">
                   {/* Avatar com botões de ação mais acessíveis */}
                   <div className="relative">
-                    <Avatar className="h-32 w-32 border-4 border-white shadow-xl absolute -top-16 left-1/2 transform -translate-x-1/2">
+                    <Avatar className="h-32 w-32 border-4 border-white bg-white shadow-xl absolute -top-16 left-1/2 transform -translate-x-1/2">
                       <AvatarImage 
                         id="profile-avatar"
-                        src={userData?.profilePhotoUrl || `/images/default-avatar.png`}
+                        src={userData?.profilePhotoUrl || "/images/default-avatar.png"}
                         alt={userData?.name || ""}
                         className="object-cover"
                         onError={(e) => {
@@ -692,7 +675,7 @@ export default function PerfilPage() {
                 ) : (
                   <AlocacoesDetalhadas 
                     alocacoesReais={alocacoesReais} 
-                    alocacoesPendentes={alocacoesPendentes} 
+                    alocacoesPendentes={alocacoesSubmetidas} 
                   />
                 )}
               </CardContent>

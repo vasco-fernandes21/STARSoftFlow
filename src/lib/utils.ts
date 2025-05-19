@@ -213,3 +213,12 @@ export function formatBytes(bytes: number, decimals = 2): string {
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
+
+/**
+ * Verifica se uma string é um CUID válido
+ * @param value - String a ser verificada
+ * @returns true se for um CUID válido, false caso contrário
+ */
+export function isCuid(value: string): boolean {
+  return /^c[a-z0-9]{24}$/i.test(value);
+}

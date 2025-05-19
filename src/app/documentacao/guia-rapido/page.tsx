@@ -101,7 +101,7 @@ export default function GuiaRapidoDocumentacao() {
         "Feedback: Envie sugestões ou comunique problemas à equipa"
       ],
       accessLevel: "Acesso comum a todos os utilizadores",
-      image: `https://${baseURL}/docs/guia/navegacao.png`
+      image: `/docs/guia/navegacao.png`
     },
     {
       id: "niveis-acesso",
@@ -115,7 +115,7 @@ export default function GuiaRapidoDocumentacao() {
         "Visitante: Visualização apenas dos projetos públicos e da documentação (sem autenticação necessária)"
       ],
       accessLevel: "Informação disponível para todos os níveis de acesso",
-      image: `https://${baseURL}/docs/guia/niveis.png`
+      image: `/docs/guia/niveis.png`
     },
     {
       id: "areas-restritas",
@@ -130,7 +130,7 @@ export default function GuiaRapidoDocumentacao() {
         "Gestão de Equipas: Adicionar ou remover membros de projetos (ADMIN, GESTOR, responsável do projeto)"
       ],
       accessLevel: "Visível para todos, mas funcionalidades acessíveis apenas por perfis específicos",
-      image: `https://${baseURL}/docs/guia/acessorestrito.png`
+      image: `/docs/guia/acessorestrito.png`
     },
     {
       id: "areas-comuns",
@@ -146,7 +146,7 @@ export default function GuiaRapidoDocumentacao() {
         "Tarefas Atribuídas: Lista de tarefas designadas a si"
       ],
       accessLevel: "Acessível a todos os utilizadores autenticados",
-      image: `https://${baseURL}/docs/guia/acessocomum.png`
+      image: `/docs/guia/acessocomum.png`
     },
     {
       id: "login",
@@ -161,7 +161,7 @@ export default function GuiaRapidoDocumentacao() {
         "Para recuperar a palavra-passe, clique em 'Esqueceu-se?' na página de login"
       ],
       accessLevel: "Procedimento válido para todos os utilizadores",
-      image: `https://${baseURL}/docs/guia/comoaceder.png`
+      image: `/docs/guia/comoaceder.png`
     },
     {
       id: "fluxo-trabalho",
@@ -178,44 +178,66 @@ export default function GuiaRapidoDocumentacao() {
         "7. Gerar relatórios quando necessário (botão 'Exportar' ou 'Relatório' nas páginas relevantes)"
       ],
       accessLevel: "Procedimento para Administradores, Gestores e responsáveis de projeto",
-      image: `https://${baseURL}/docs/guia/fluxotipico.png`
+      image: `/docs/guia/fluxotipico.png`
     }
   ];
 
   // Define os dados estatísticos para o StatsGrid
   const statsItems: StatItem[] = [
     {
-      icon: BarChart3,
-      label: "Plataforma de Gestão",
+      icon: Compass,
+      label: "Navegação Intuitiva",
       value: 1,
       iconClassName: "text-azul",
       iconContainerClassName: "bg-azul/10",
-      secondaryText: "O STAR SoftFlow é uma plataforma completa para gestão de projetos, equipas e recursos no contexto de inovação e investigação",
-      badgeText: "Como navegar",
+      secondaryText: "Descubra como se movimentar pela plataforma, aceder às diferentes secções e encontrar a informação que precisa de forma rápida e fácil.",
+      badgeText: "Explorar a plataforma",
       badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
       href: "#navegacao"
     },
     {
-      icon: Users,
-      label: "Perfis de Acesso",
-      value: 4,
+      icon: Key,
+      label: "Perfis e Permissões",
+      value: 2,
       iconClassName: "text-azul",
       iconContainerClassName: "bg-azul/10",
-      secondaryText: "A plataforma oferece diferentes níveis de acesso para garantir o fluxo adequado de informações e controlo de operações",
-      badgeText: "Compreender as permissões",
+      secondaryText: "Entenda os diferentes níveis de acesso (Administrador, Gestor, Utilizador) e o que cada perfil pode visualizar e gerir no STAR SoftFlow.",
+      badgeText: "Conhecer os acessos",
       badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
       href: "#niveis-acesso"
     },
     {
-      icon: Settings,
-      label: "Começar a Utilizar",
+      icon: Layers,
+      label: "Funcionalidades Essenciais",
+      value: 3,
+      iconClassName: "text-azul",
+      iconContainerClassName: "bg-azul/10",
+      secondaryText: "Conheça as áreas comuns da plataforma e as funcionalidades restritas, garantindo que tira o máximo partido das ferramentas disponíveis.",
+      badgeText: "Ver funcionalidades",
+      badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
+      href: "#areas-comuns"
+    },
+    {
+      icon: Users,
+      label: "Primeiros Passos",
+      value: 4,
+      iconClassName: "text-azul",
+      iconContainerClassName: "bg-azul/10",
+      secondaryText: "Saiba como aceder à plataforma pela primeira vez, configurar a sua conta e começar a explorar as suas capacidades.",
+      badgeText: "Como aceder",
+      badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
+      href: "#login"
+    },
+    {
+      icon: BarChart3,
+      label: "Fluxo de Trabalho Principal",
       value: 5,
       iconClassName: "text-azul",
       iconContainerClassName: "bg-azul/10",
-      secondaryText: "Descubra como começar a utilizar a plataforma, aceder às suas funcionalidades e familiarizar-se com o fluxo de trabalho",
-      badgeText: "Primeiros passos",
+      secondaryText: "Compreenda o ciclo de vida típico de um projeto dentro do STAR SoftFlow, desde a criação e submissão até ao acompanhamento e gestão.",
+      badgeText: "Entender o processo",
       badgeClassName: "text-azul bg-azul/10 hover:bg-azul/20 border-azul/20",
-      href: "#login"
+      href: "#fluxo-trabalho"
     }
   ];
 

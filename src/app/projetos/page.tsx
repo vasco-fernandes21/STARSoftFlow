@@ -387,8 +387,6 @@ export default function Projetos() {
     if (!allItems.length) return [];
 
     let result = [...allItems];
-    console.log("--- Filtragem iniciada ---");
-    console.log("Itens antes de filtrar:", result.length);
 
     // Filtro por estado
     if (estadoFilter !== "todos") {
@@ -396,7 +394,7 @@ export default function Projetos() {
         if (project.isRascunho) return estadoFilter === "RASCUNHO";
         return project.estado === estadoFilter;
       });
-      console.log(`Itens após filtro ESTADO (${estadoFilter}):`, result.length);
+    
     }
 
     // Filtro por prazo - sempre incluir rascunhos
@@ -424,9 +422,9 @@ export default function Projetos() {
             return true;
         }
       });
-      console.log(`Itens após filtro PRAZO (${prazoFilter}):`, result.length);
+ 
     }
-    console.log("Itens finais (filteredProjects):", result.length);
+
 
     return result;
   }, [allItems, estadoFilter, prazoFilter]);

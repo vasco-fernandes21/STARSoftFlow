@@ -93,8 +93,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: user.email,
             name: user.name,
             permissao: user.permissao,
-            atividade: user.atividade,
-            regime: user.regime,
+            atividade: user.atividade ?? "",
+            regime: user.regime ?? "",
             username: user.username,
             contratacao: user.contratacao,
           };
@@ -119,7 +119,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token: { label: "Token", type: "text" },
         password: { label: "Nova Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, _request) {
         try {
           // Validar o token e a senha
           const { token, password } = await tokenValidationSchema.parseAsync(credentials);
@@ -199,10 +199,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               id: user.id,
               email: user.email,
               name: user.name,
-              // Usar campos adicionais como propriedades personalizadas
               permissao: user.permissao,
-              atividade: user.atividade,
-              regime: user.regime,
+              atividade: user.atividade ?? "",
+              regime: user.regime ?? "",
               username: user.username,
               contratacao: user.contratacao,
             };
@@ -265,10 +264,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: user.id,
             email: user.email,
             name: user.name,
-            // Usar campos adicionais como propriedades personalizadas
             permissao: user.permissao,
-            atividade: user.atividade,
-            regime: user.regime,
+            atividade: user.atividade ?? "",
+            regime: user.regime ?? "",
             username: user.username,
             contratacao: user.contratacao,
           };

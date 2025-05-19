@@ -81,7 +81,7 @@ export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizado
     onSuccess: () => {
       onSave();
       utils.utilizador.findById.invalidate();
-      utils.utilizador.getByUsername.invalidate();
+      utils.utilizador.findByUsername.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao atualizar utilizador: ${error.message}`);

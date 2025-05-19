@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo, useCallback, useState, useEffect } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
+  Info,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -28,6 +30,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePDFExport } from '@/hooks/usePDFExport';
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+interface AlocacaoAPIItem {
+  workpackageId: string;
+  workpackageNome: string;
+  projetoId: string;
+  projetoNome: string;
+  projetoEstado: ProjetoEstado;
+  mes: number;
+  ano: number;
+  ocupacao: number;
+}
+
+export interface AlocacoesApiResponse {
+  real: AlocacaoAPIItem[];
+  submetido: AlocacaoAPIItem[];
+  anos: number[];
+  projetosIds: string[];
+}
+
+interface Projeto {
+  id: string;
+  nome: string;
+  estado?: ProjetoEstado;
+  wps: Set<string>;
+}
 
 interface AlocacaoOriginal {
   ano: number;
@@ -40,125 +69,152 @@ interface AlocacaoOriginal {
 interface AlocacoesData {
   real: AlocacaoOriginal[];
   submetido: AlocacaoOriginal[];
+  pendente: AlocacaoOriginal[];
   anos: number[];
 }
 
-interface TabelaProps {
-  alocacoes: AlocacoesData;
-  viewMode: "real" | "submetido";
-  ano: number;
-  onSave: (alocacoesReais: AlocacaoOriginal[]) => Promise<void> | void;
-  singleYear?: boolean;
+interface Props {
+  userId: string;
 }
 
-interface Projeto {
-  id: string;
-  nome: string;
-  estado?: ProjetoEstado;
-  wps: Set<string>;
-}
-
-// Novo hook para buscar alocações diretamente da API
-export function useAlocacoes(username: string, ano?: number) {
-  const query = api.utilizador.getAlocacoes.useQuery({ 
-    userId: username,
-    ano
-  }, {
-    refetchOnWindowFocus: false,
-    // Não vamos processar caso não tenhamos dados
-    enabled: !!username
-  });
-
-  // Transformar os dados para o formato esperado pelo componente
-  const data = React.useMemo(() => {
-    if (!query.data) return undefined;
-
-    // Interface para os dados da API
-    interface AlocacaoAPIItem {
-      ano: number;
-      mes: number;
-      ocupacao: number;
-      workpackageId: string;
-      workpackageNome: string;
-      projetoId: string;
-      projetoNome: string;
-      projetoEstado: ProjetoEstado;
-    }
-
-    // Mapear os dados para o formato AlocacoesData
-    return {
-      real: query.data.real.map((item: AlocacaoAPIItem) => ({
-        ano: item.ano,
-        mes: item.mes,
-        ocupacao: item.ocupacao,
-        workpackage: { 
-          id: item.workpackageId, 
-          nome: item.workpackageNome 
-        },
-        projeto: { 
-          id: item.projetoId, 
-          nome: item.projetoNome,
-          estado: item.projetoEstado
-        }
-      })),
-      submetido: query.data.pendente?.map((item: AlocacaoAPIItem) => ({
-        ano: item.ano,
-        mes: item.mes,
-        ocupacao: item.ocupacao,
-        workpackage: { 
-          id: item.workpackageId, 
-          nome: item.workpackageNome 
-        },
-        projeto: { 
-          id: item.projetoId, 
-          nome: item.projetoNome,
-          estado: item.projetoEstado
-        }
-      })) || [],
-      anos: query.data.anos
-    };
-  }, [query.data]);
-
-  return { ...query, data };
-}
-
-export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialViewMode, ano, onSave, singleYear }: TabelaProps) {
-  // Estado local para viewMode, permitindo alternar entre visões dentro do componente
-  const [viewMode, setViewMode] = useState<"real" | "submetido">(initialViewMode);
+export function TabelaAlocacoes({ userId }: Props) {
+  const [viewMode, setViewMode] = useState<"real" | "submetido">("real");
   const isSubmetido = viewMode === "submetido";
   
-  const [anoSelecionado, setAnoSelecionado] = useState(ano);
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
   const [mesSelecionado, setMesSelecionado] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Constantes
   const mesesFull = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
   
-  // Usar alocacoes das props
-  const alocacoes = propAlocacoes;
-
-  // Parâmetros da URL
-  const params = useParams();
-  const username = typeof params?.param === 'string' ? params.param : 
-                  typeof params?.username === 'string' ? params.username : undefined;
-
-  // API para gerar PDF
   const { mutate: gerarPDF } = usePDFExport();
 
-  // Função para exportar PDF
+  const [isSaving, setIsSaving] = useState(false);
+
+  // CUID check function
+  const isCUID = (id: string | undefined): boolean => {
+    if (!id) return false;
+    return id.length === 25; // Simplified check for 25 characters
+  };
+
+  const queryInput = useMemo(() => {
+    if (!userId) return { ano: anoSelecionado, userId: undefined, username: undefined }; // Ensure disabled query has a consistent shape
+
+    if (isCUID(userId)) {
+      return { userId: userId, username: undefined, ano: anoSelecionado };
+    } else {
+      return { username: userId, userId: undefined, ano: anoSelecionado };
+    }
+  }, [userId, anoSelecionado]);
+
+  const { 
+    data: apiData, 
+    isLoading: isLoadingAlocacoes, 
+    error: alocacoesError,
+    refetch: refetchAlocacoes 
+  } = api.utilizador.getAlocacoes.useQuery(
+    {
+      userId,
+      ano: anoSelecionado
+    },
+    {
+      enabled: !!userId,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+  
+  const { 
+    data: totaisAlocacoesProjetos, 
+    isLoading: isLoadingTotaisAlocacoes 
+  } = api.projeto.getTotalAlocacoes.useQuery(
+    {
+      projetoIds: apiData?.projetosIds ?? [],
+      ano: anoSelecionado,
+    },
+    {
+      enabled: !!apiData?.projetosIds && apiData.projetosIds.length > 0,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const updateAlocacoesBatchMutation = api.utilizador.updateAlocacoesBatch.useMutation({
+    onSuccess: () => {
+      toast.success("Alocações guardadas com sucesso!");
+      refetchAlocacoes();
+      setEditValues(new Map());
+    },
+    onError: (error: any) => {
+      toast.error(`Erro ao guardar alocações: ${error.message}`);
+    },
+    onSettled: () => {
+      setIsSaving(false);
+    }
+  });
+
+  const processedAlocacoes = useMemo<AlocacoesData>(() => {
+    if (!apiData) {
+      return { real: [], submetido: [], pendente: [], anos: [anoSelecionado] };
+    }
+    const mapApiItemToOriginal = (item: AlocacaoAPIItem): AlocacaoOriginal => ({
+      ano: item.ano,
+      mes: item.mes,
+      ocupacao: item.ocupacao,
+      workpackage: { 
+        id: item.workpackageId, 
+        nome: item.workpackageNome 
+      },
+      projeto: { 
+        id: item.projetoId, 
+        nome: item.projetoNome,
+        estado: item.projetoEstado
+      }
+    });
+    return {
+      real: apiData.real.map(mapApiItemToOriginal),
+      submetido: apiData.submetido?.map(mapApiItemToOriginal) || [],
+      pendente: apiData.pendente?.map(mapApiItemToOriginal) || [],
+      anos: apiData.anos && apiData.anos.length > 0 ? apiData.anos.filter((ano: number) => !isNaN(ano)) : [anoSelecionado]
+    };
+  }, [apiData, anoSelecionado]);
+
+  const alocacoes = processedAlocacoes;
+
+  const alocacoesSummary = useMemo(() => {
+    if (!totaisAlocacoesProjetos || isLoadingTotaisAlocacoes || totaisAlocacoesProjetos.length === 0) {
+      return null;
+    }
+
+    // Find projects with discrepancies
+    const projetosComDiscrepancia = totaisAlocacoesProjetos
+      .filter(item => Math.abs(item.totalAlocacoesReais - item.totalAlocacoesSubmetidas) > 0.01) // Use small epsilon for floating point comparison
+      .map(item => ({
+        nome: item.nome,
+        reais: item.totalAlocacoesReais,
+        submetidas: item.totalAlocacoesSubmetidas,
+        diferenca: item.totalAlocacoesReais - item.totalAlocacoesSubmetidas
+      }));
+
+    if (projetosComDiscrepancia.length === 0) return null;
+
+    return {
+      projetosComDiscrepancia
+    };
+  }, [totaisAlocacoesProjetos, isLoadingTotaisAlocacoes]);
+
   const handleExportPDF = () => {
     if (mesSelecionado) {
       setIsGeneratingPDF(true);
-      if (!username) {
-        alert('Erro: Username não encontrado na URL. Certifique-se de estar na página correta do utilizador.');
+      if (!userId) {
+        alert('Erro: ID do Utilizador não encontrado. Certifique-se de estar na página correta do utilizador.');
         setIsGeneratingPDF(false);
         return;
       }
       gerarPDF({
-        username,
+        id: userId,
         mes: mesSelecionado,
         ano: anoSelecionado
       });
@@ -174,13 +230,14 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
     return Array.from({length:12}, (_,i)=> i+1);
   }, [mesSelecionado]);
 
-  // Memo para obter projetos
   const projetos = useMemo(() => {
     const projetosMap = new Map<string, Projeto>();
-    // Ensure we handle the case where submetido might be undefined
-    const allAllocations = [...alocacoes.real, ...(alocacoes.submetido || [])];
+    const allAllocations = [
+      ...alocacoes.real.filter((a: AlocacaoOriginal) => a.ano === anoSelecionado),
+      ...(alocacoes.submetido?.filter((a: AlocacaoOriginal) => a.ano === anoSelecionado) || [])
+    ];
     
-    allAllocations.forEach(a => {
+    allAllocations.forEach((a: AlocacaoOriginal) => {
       if (!projetosMap.has(a.projeto.id)) {
         projetosMap.set(a.projeto.id, {
           id: a.projeto.id,
@@ -195,11 +252,10 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
       }
     });
     return Array.from(projetosMap.values());
-  }, [alocacoes.real, alocacoes.submetido]);
+  }, [alocacoes.real, alocacoes.submetido, anoSelecionado]);
 
-  // Função para obter valor real de alocação
   const getValorReal = useCallback((wpId: string, mes: number) => {
-    const alocacao = alocacoes.real.find(a => 
+    const alocacao = alocacoes.real.find((a: AlocacaoOriginal) => 
       a.workpackage.id === wpId && 
       a.mes === mes && 
       a.ano === anoSelecionado
@@ -207,11 +263,10 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
     return alocacao ? alocacao.ocupacao : 0;
   }, [alocacoes.real, anoSelecionado]);
 
-  // Função para obter valor submetido de alocação
   const getValorSubmetido = useCallback((wpId: string, mes: number) => {
     if (!alocacoes.submetido) return 0;
     
-    const alocacao = alocacoes.submetido.find(a => 
+    const alocacao = alocacoes.submetido.find((a: AlocacaoOriginal) => 
       a.workpackage.id === wpId && 
       a.mes === mes && 
       a.ano === anoSelecionado
@@ -219,50 +274,53 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
     return alocacao ? alocacao.ocupacao : 0;
   }, [alocacoes.submetido, anoSelecionado]);
 
-  // Função para obter valor com base no modo de visualização
   const getValor = useCallback((wpId: string, mes: number) => {
     return isSubmetido ? getValorSubmetido(wpId, mes) : getValorReal(wpId, mes);
   }, [isSubmetido, getValorReal, getValorSubmetido]);
 
   function handleInputChange(wpId: string, mes: number, e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
-    
-    // If empty, allow it (user is typing)
-    if (value === "") {
-      const key = `${wpId}-${mes}-${anoSelecionado}`;
-      setEditValues(prev => {
-        const copy = new Map(prev);
-        copy.set(key, value);
-        return copy;
-      });
-      return;
-    }
-
-    // If first character is 1, only allow "1"
-    if (value.startsWith("1")) {
-      if (value !== "1") return;
-    } 
-    // If first character is 0, enforce 0,XX format
-    else if (value.startsWith("0")) {
-      // Allow "0" or "0," while typing
-      if (value === "0" || value === "0,") {
-        // Do nothing, allow it
-      } 
-      // Check if it follows 0,XX format
-      else {
-        const match = value.match(/^0,(\d{0,2})$/);
-        if (!match) return;
-      }
-    } 
-    // If doesn't start with 0 or 1, invalid
-    else return;
-
     const key = `${wpId}-${mes}-${anoSelecionado}`;
+    
+    // Always store the value first, validation comes after
     setEditValues(prev => {
       const copy = new Map(prev);
       copy.set(key, value);
       return copy;
     });
+
+    // If empty, we've already stored it, so return
+    if (value === "") return;
+
+    // Validate the input format
+    if (value.startsWith("1")) {
+      if (value !== "1") {
+        setEditValues(prev => {
+          const copy = new Map(prev);
+          copy.delete(key); // Remove invalid value
+          return copy;
+        });
+      }
+    } 
+    else if (value.startsWith("0")) {
+      if (value === "0" || value === "0," || value.match(/^0,\d{0,2}$/)) {
+        // Valid format, we keep it (already stored)
+        return;
+      } else {
+        setEditValues(prev => {
+          const copy = new Map(prev);
+          copy.delete(key); // Remove invalid value
+          return copy;
+        });
+      }
+    } 
+    else {
+      setEditValues(prev => {
+        const copy = new Map(prev);
+        copy.delete(key); // Remove invalid value
+        return copy;
+      });
+    }
   }
 
   const calcularTotal = useCallback((arr: AlocacaoOriginal[], mes: number) => {
@@ -272,23 +330,16 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
       .filter(a => a.ano === anoSelecionado && a.mes === mes)
       .reduce((s, a) => s + a.ocupacao, 0);
       
-    // Se estamos calculando valores submetidos, retornar diretamente o valor fixo
     if (arr === alocacoes.submetido) {
       return valoresFixos;
     }
     
-    // Se estamos editando valores reais, incluir os valores editados no cálculo total
     let total = valoresFixos;
-    
-    // Substituir valores editados
     arr.forEach(a => {
       if (a.ano === anoSelecionado && a.mes === mes) {
         const key = `${a.workpackage.id}-${mes}-${anoSelecionado}`;
         if (editValues.has(key)) {
-          // Subtrair o valor original
           total -= a.ocupacao;
-          
-          // Adicionar o valor editado (convertendo a string para número)
           const editedValue = editValues.get(key) || "";
           const numValue = parseFloat(editedValue.replace(',', '.')) || 0;
           total += numValue;
@@ -297,16 +348,135 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
     });
     
     return total;
-  }, [anoSelecionado, editValues, alocacoes.submetido]);
+  }, [anoSelecionado, editValues, alocacoes.submetido, alocacoes.real]);
 
-  async function handleSave(){
-    setLoading(true);
-    try{
-      await onSave(alocacoes.real);
-    }finally{
-      setLoading(false);
+  async function handleSave() {
+    setIsSaving(true);
+
+    if (!userId) {
+      toast.error("ID do utilizador não encontrado. Não é possível guardar.");
+      setIsSaving(false);
+      return;
+    }
+
+    const payload: Array<{ workpackageId: string; userId: string; mes: number; ano: number; ocupacao: number }> = [];
+
+    // Create a map of original values for easy lookup
+    const originalValuesMap = new Map<string, number>();
+    if (apiData?.real) {
+      apiData.real.forEach((aloc: AlocacaoAPIItem) => {
+        if (aloc.ano === anoSelecionado) {
+          originalValuesMap.set(`${aloc.workpackageId}-${aloc.mes}`, aloc.ocupacao);
+        }
+      });
+    }
+
+    // Debug: Log all edit values
+    console.log('All edit values:', Array.from(editValues.entries()));
+
+    // Iterate over edited values
+    for (const [key, valueStr] of editValues.entries()) {
+      // Debug: Log the current key being processed
+      console.log('Processing key:', key);
+      
+      // Extract workpackageId - it might contain hyphens, so we need to handle it differently
+      const lastTwoHyphens = key.split('-').slice(-2);
+      if (lastTwoHyphens.length !== 2) {
+        console.warn('Invalid key format (not enough parts):', key);
+        continue;
+      }
+
+      const [mesStr, anoStr] = lastTwoHyphens;
+      const wpId = key.slice(0, key.length - (mesStr?.length ?? 0) - (anoStr?.length ?? 0) - 2); // -2 for the two hyphens
+
+      if (!wpId || !mesStr || !anoStr) {
+        console.warn('Invalid key parts:', { wpId, mesStr, anoStr });
+        continue;
+      }
+
+      // Debug: Log the parsed parts
+      console.log('Parsed parts:', { wpId, mesStr, anoStr });
+
+      const mes = parseInt(mesStr);
+      const ano = parseInt(anoStr);
+
+      if (isNaN(mes) || isNaN(ano) || ano !== anoSelecionado) {
+        console.warn('Invalid mes/ano:', { mes, ano, anoSelecionado });
+        continue;
+      }
+
+      // Convert the edited value to a number, handling empty strings and commas
+      let editedValue: number;
+      if (valueStr.trim() === "") {
+        editedValue = 0;
+      } else {
+        // Replace comma with dot and parse
+        editedValue = parseFloat(valueStr.replace(',', '.'));
+        if (isNaN(editedValue)) {
+          console.warn('Invalid edited value:', valueStr);
+          continue;
+        }
+      }
+
+      // Get the original value (0 if it didn't exist)
+      const originalValue = originalValuesMap.get(`${wpId}-${mes}`) ?? 0;
+
+      // Compare the values with fixed precision to avoid floating point issues
+      const originalValueFixed = Number(originalValue.toFixed(2));
+      const editedValueFixed = Number(editedValue.toFixed(2));
+
+      // Debug: Log the values being compared
+      console.log('Values:', { originalValueFixed, editedValueFixed });
+
+      // Always include in payload if the cell was edited (has blue border)
+      payload.push({
+        workpackageId: wpId,
+        userId: userId,
+        mes: mes,
+        ano: anoSelecionado,
+        ocupacao: editedValueFixed
+      });
+    }
+
+    if (payload.length > 0) {
+      console.log('Saving changes:', payload);
+      updateAlocacoesBatchMutation.mutate(payload);
+    } else {
+      toast.info("Nenhuma alteração para guardar.");
+      setIsSaving(false);
     }
   }
+
+  if (isLoadingAlocacoes) {
+    return (
+      <Card className="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md">
+        <CardHeader className="px-5 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+          <h3 className="text-lg font-semibold text-slate-800">Alocação de Horas</h3>
+        </CardHeader>
+        <CardContent className="p-5 text-center text-slate-500 flex items-center justify-center min-h-[200px]">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-500 mr-2" />
+          A carregar dados de alocação...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (alocacoesError) {
+    return (
+      <Card className="relative overflow-hidden rounded-xl border border-red-200 bg-red-50 shadow-md">
+        <CardHeader className="px-5 py-4 bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200">
+          <h3 className="text-lg font-semibold text-red-700">Erro ao Carregar Alocações</h3>
+        </CardHeader>
+        <CardContent className="p-5 text-center text-red-600">
+          <p>Não foi possível carregar os dados de alocação.</p>
+          <p className="text-sm">{alocacoesError.message}</p>
+          <Button onClick={() => refetchAlocacoes()} variant="destructive" className="mt-4">Tentar Novamente</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const dropdownAnos = alocacoes.anos.length > 0 ? alocacoes.anos : [anoSelecionado];
 
   return (
     <Card className="relative overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md transition-all hover:shadow-lg">
@@ -351,6 +521,77 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
       </CardHeader>
       
       <CardContent className="p-0">
+        {alocacoesSummary && (
+          <div className="px-5 py-3 border-b border-slate-100">
+            <div className="bg-gradient-to-r from-amber-50 to-amber-100/70 border border-amber-200/70 rounded-xl overflow-hidden shadow-sm">
+              <div className="flex items-start gap-3 p-4">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="bg-amber-100 h-9 w-9 rounded-full flex items-center justify-center shadow-sm">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <h4 className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                      Divergências de Alocação Detectadas
+                      <Badge variant="outline" className="bg-amber-100/70 text-amber-700 border-amber-200 text-[10px] h-5 font-medium">
+                        {anoSelecionado}
+                      </Badge>
+                    </h4>
+                    <span className="text-xs text-amber-600 bg-amber-100/60 px-2 py-0.5 rounded-full border border-amber-200/60">
+                      {alocacoesSummary.projetosComDiscrepancia.length} {alocacoesSummary.projetosComDiscrepancia.length === 1 ? 'projeto' : 'projetos'} com divergências
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-700 mb-3">
+                    As ETIs reais registradas diferem das ETIs submetidas nos seguintes projetos:
+                  </p>
+                  <div className="bg-white/60 rounded-lg border border-amber-200/40 overflow-hidden">
+                    <table className="min-w-full divide-y divide-amber-200/60">
+                      <thead className="bg-amber-50/80">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-amber-800 tracking-wider">Projeto</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium text-amber-800 tracking-wider w-[110px]">ETIs Reais</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium text-amber-800 tracking-wider w-[140px]">ETIs Submetidas</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium text-amber-800 tracking-wider w-[100px]">Diferença</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-amber-100/60">
+                        {alocacoesSummary.projetosComDiscrepancia.map((projeto, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                            <td className="px-3 py-2 text-xs text-amber-900 font-medium">
+                              {projeto.nome}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-center text-amber-900 font-medium">
+                              {projeto.reais.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-center text-amber-900 font-medium">
+                              {projeto.submetidas.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-center">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-xs font-medium",
+                                projeto.diferenca < 0 
+                                  ? "bg-red-100 text-red-700" 
+                                  : "bg-blue-100 text-blue-700"
+                              )}>
+                                {projeto.diferenca < 0 ? "-" : "+"}{Math.abs(projeto.diferenca).toFixed(2)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-3 text-xs text-amber-700">
+                    <Info className="h-3.5 w-3.5 text-amber-500" />
+                    <span>Valores positivos indicam excesso de ETIs reais; valores negativos indicam falta de ETIs reais em relação às submetidas.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3 bg-gradient-to-r from-white to-slate-50/50">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="h-7 rounded-full border-slate-200 px-3 text-sm text-slate-600 bg-white shadow-sm">
@@ -366,7 +607,6 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
           </div>
           
           <div className="flex flex-wrap items-center gap-2">
-            {/* Dropdown para seleção de filtros */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 gap-1 text-sm rounded-full shadow-sm transition-all hover:bg-slate-100">
@@ -377,18 +617,19 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 rounded-xl p-2 border-slate-200 shadow-lg">
                 <div className="p-2 space-y-3">
-                  {!singleYear && (
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-600">Ano</label>
-                      <SelectField
-                        label=""
-                        value={anoSelecionado.toString()}
-                        onChange={v => setAnoSelecionado(parseInt(v))}
-                        options={(alocacoes.anos ?? [ano]).map(a => ({ label: `${a}`, value: `${a}` }))}
-                        className="w-full text-sm"
-                      />
-                    </div>
-                  )}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Ano</label>
+                    <SelectField
+                      label=""
+                      value={anoSelecionado.toString()}
+                      onChange={v => {
+                        setAnoSelecionado(parseInt(v));
+                        setEditValues(new Map());
+                      }}
+                      options={dropdownAnos.map(a => ({ label: a.toString(), value: a.toString() }))}
+                      className="w-full text-sm"
+                    />
+                  </div>
                   
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600">Mês</label>
@@ -413,13 +654,14 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
             {!isSubmetido && (
               <Button 
                 onClick={handleSave} 
-                disabled={loading}
+                disabled={isSaving || editValues.size === 0}
                 className={cn(
                   "h-9 gap-1 rounded-full px-4 text-sm transition-all duration-300 shadow-sm",
-                  "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-md hover:from-blue-600 hover:to-blue-700"
+                  "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-md hover:from-blue-600 hover:to-blue-700",
+                  (isSaving || editValues.size === 0) && "opacity-50 cursor-not-allowed"
                 )}
               >
-                {loading ? (
+                {isSaving ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Save className="h-3.5 w-3.5" />
@@ -496,133 +738,148 @@ export function TabelaAlocacoes({ alocacoes: propAlocacoes, viewMode: initialVie
             </TableHeader>
             
             <TableBody>
-              {projetos.map((projeto, projIndex) => {
-                // Get all workpackages for this project
-                const projectWps = Array.from(projeto.wps).map(wpId => {
-                  const wp = isSubmetido && alocacoes.submetido 
-                    ? alocacoes.submetido.find(a => a.workpackage.id === wpId)?.workpackage
-                    : alocacoes.real.find(a => a.workpackage.id === wpId)?.workpackage;
-                  return wp;
-                }).filter(Boolean);
+              {(() => {
+                const alocacoesAnoAtual = {
+                  real: alocacoes.real.filter(a => a.ano === anoSelecionado),
+                  submetido: alocacoes.submetido.filter(a => a.ano === anoSelecionado)
+                };
                 
-                return (
-                  <React.Fragment key={projeto.id}>
-                    {/* Project header row */}
-                    <TableRow className={cn(
-                      "group",
-                      projIndex > 0 ? "border-t border-slate-200" : ""
-                    )}>
-                      <TableCell
-                        colSpan={mesSelecionado ? 2 : 13}
-                        className={cn(
-                          "sticky left-0 z-20 px-4 py-2",
-                          isSubmetido 
-                            ? "bg-indigo-50/80 text-indigo-900" 
-                            : "bg-blue-50/80 text-blue-900",
-                          "transition-colors duration-200"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold shadow-sm flex-shrink-0",
-                            isSubmetido 
-                              ? "bg-indigo-100 text-indigo-700" 
-                              : "bg-blue-100 text-blue-700"
-                          )}>
-                            {projeto.nome.substring(0, 2).toUpperCase()}
-                          </div>
-                          <span className={cn(
-                            "font-medium text-sm truncate", 
-                            isSidebarCollapsed && "hidden",
-                            mesSelecionado && "text-base"
-                          )}>
-                            {projeto.nome}
-                          </span>
-                        </div>
+                if ((!apiData || (alocacoesAnoAtual.real.length === 0 && alocacoesAnoAtual.submetido.length === 0)) && !isLoadingAlocacoes) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={getMeses().length + 1} className="text-center py-10 text-slate-500">
+                        Nenhuma alocação encontrada para o ano de {anoSelecionado}.
                       </TableCell>
                     </TableRow>
+                  );
+                }
+                
+                return projetos.map((projeto, projIndex) => {
+                  const projectWps = Array.from(projeto.wps).map(wpId => {
+                    const wpSource = isSubmetido ? alocacoes.submetido : alocacoes.real;
+                    const alocacaoCorrespondente = wpSource.find(a => a.workpackage.id === wpId && a.ano === anoSelecionado);
+                    return alocacaoCorrespondente ? alocacaoCorrespondente.workpackage : null;
+                  }).filter(Boolean) as { id: string; nome: string }[];
+                  
+                  if (projectWps.length === 0 && apiData) return null; 
 
-                    {/* Workpackage rows */}
-                    {projectWps.map((wp) => {
-                      if (!wp) return null;
-                      const wpId = wp.id;
-
-                      return (
-                        <TableRow
-                          key={`${projeto.id}-${wpId}`}
-                          className="group transition-all duration-150 ease-in-out hover:bg-slate-50/70"
+                  return (
+                    <React.Fragment key={projeto.id}>
+                      <TableRow className={cn(
+                        "group",
+                        projIndex > 0 ? "border-t border-slate-200" : ""
+                      )}>
+                        <TableCell
+                          colSpan={mesSelecionado ? 2 : getMeses().length + 1}
+                          className={cn(
+                            "sticky left-0 z-20 px-4 py-2",
+                            isSubmetido 
+                              ? "bg-indigo-50/80 text-indigo-900" 
+                              : "bg-blue-50/80 text-blue-900",
+                            "transition-colors duration-200"
+                          )}
                         >
-                          <TableCell className={cn(
-                            "px-4 py-3 align-middle text-sm sticky left-0 bg-white z-10 group-hover:bg-slate-50/70 transition-all duration-300 ease-in-out",
-                            mesSelecionado && "max-w-0",
-                            isSidebarCollapsed ? "w-0 p-0 opacity-0 pointer-events-none" : ""
-                          )}>
-                            <div className={cn("flex items-center gap-1.5 pl-4", isSidebarCollapsed && "hidden")}>
-                              <div className={cn(
-                                "h-2 w-2 rounded-full transition-colors duration-200 flex-shrink-0",
-                                isSubmetido ? "bg-indigo-400 group-hover:bg-indigo-500" : "bg-blue-400 group-hover:bg-blue-500"
-                              )} />
-                              <span className={cn(
-                                "text-sm transition-colors duration-200 group-hover:text-slate-800 truncate",
-                                mesSelecionado && "line-clamp-1 font-medium"
-                              )}>{wp.nome}</span>
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold shadow-sm flex-shrink-0",
+                              isSubmetido 
+                                ? "bg-indigo-100 text-indigo-700" 
+                                : "bg-blue-100 text-blue-700"
+                            )}>
+                              {projeto.nome.substring(0, 2).toUpperCase()}
                             </div>
-                          </TableCell>
-                          
-                          {getMeses().map((mes) => {
-                            const valor = getValor(wpId, mes);
-                            const valorNum = typeof valor === 'number' ? valor : 0;
-                            const isEditing = editValues.has(`${wpId}-${mes}-${anoSelecionado}`);
+                            <span className={cn(
+                              "font-medium text-sm truncate", 
+                              isSidebarCollapsed && "hidden",
+                              mesSelecionado && "text-base"
+                            )}>
+                              {projeto.nome}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+
+                      {projectWps.map((wp) => {
+                        if (!wp) return null;
+                        const wpId = wp.id;
+
+                        return (
+                          <TableRow
+                            key={`${projeto.id}-${wpId}`}
+                            className="group transition-all duration-150 ease-in-out hover:bg-slate-50/70"
+                          >
+                            <TableCell className={cn(
+                              "px-4 py-3 align-middle text-sm sticky left-0 bg-white z-10 group-hover:bg-slate-50/70 transition-all duration-300 ease-in-out",
+                              mesSelecionado && "max-w-0",
+                              isSidebarCollapsed ? "w-0 p-0 opacity-0 pointer-events-none" : ""
+                            )}>
+                              <div className={cn("flex items-center gap-1.5 pl-4", isSidebarCollapsed && "hidden")}>
+                                <div className={cn(
+                                  "h-2 w-2 rounded-full transition-colors duration-200 flex-shrink-0",
+                                  isSubmetido ? "bg-indigo-400 group-hover:bg-indigo-500" : "bg-blue-400 group-hover:bg-blue-500"
+                                )} />
+                                <span className={cn(
+                                  "text-sm transition-colors duration-200 group-hover:text-slate-800 truncate",
+                                  mesSelecionado && "line-clamp-1 font-medium"
+                                )}>{wp.nome}</span>
+                              </div>
+                            </TableCell>
                             
-                            return (
-                              <TableCell 
-                                key={mes} 
-                                className={cn(
-                                  "px-3 py-2 text-center align-middle transition-all duration-200",
-                                  mes % 2 !== 0 ? "bg-slate-50/30" : "bg-white",
-                                  mesSelecionado && "w-[40%]"
-                                )}
-                              >
-                                <div className="flex flex-col items-center">
-                                  {isSubmetido ? (
-                                    <div className={cn(
-                                      "flex items-center justify-center h-9 min-w-[80px] px-3 text-sm rounded-md",
-                                      valorNum > 0 
-                                        ? "font-medium text-indigo-700 bg-indigo-50/60 border border-indigo-100" 
-                                        : "text-slate-400 bg-slate-50/50 border border-slate-100",
-                                      mesSelecionado && "text-base h-10 min-w-[100px]"
-                                    )}>
-                                      {valorNum.toFixed(2)}
-                                    </div>
-                                  ) : (
-                                    <Input
-                                      type="text"
-                                      value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) || "" : valorNum.toFixed(2).replace(".", ",")}
-                                      onChange={(e) => handleInputChange(wpId, mes, e)}
-                                      placeholder="0,00"
-                                      className={cn(
-                                        "h-9 min-w-[80px] text-center text-sm border rounded-md",
-                                        "focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none",
-                                        "transition-all duration-200",
-                                        isEditing 
-                                          ? "bg-blue-50/60 border-blue-300 shadow-sm" 
-                                          : valorNum > 0 
-                                            ? "bg-blue-50/30 border-blue-100 text-blue-700 font-medium" 
-                                            : "bg-slate-50/50 border-slate-100 text-slate-500",
-                                        mesSelecionado && "text-base h-10 min-w-[100px]"
-                                      )}
-                                    />
+                            {getMeses().map((mes) => {
+                              const valor = getValor(wpId, mes);
+                              const valorNum = typeof valor === 'number' ? valor : 0;
+                              const isEditing = editValues.has(`${wpId}-${mes}-${anoSelecionado}`);
+                              
+                              return (
+                                <TableCell 
+                                  key={mes} 
+                                  className={cn(
+                                    "px-3 py-2 text-center align-middle transition-all duration-200",
+                                    mes % 2 !== 0 ? "bg-slate-50/30" : "bg-white",
+                                    mesSelecionado && "w-[40%]"
                                   )}
-                                </div>
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
+                                >
+                                  <div className="flex flex-col items-center">
+                                    {isSubmetido ? (
+                                      <div className={cn(
+                                        "flex items-center justify-center h-9 min-w-[80px] px-3 text-sm rounded-md",
+                                        valorNum > 0 
+                                          ? "font-medium text-indigo-700 bg-indigo-50/60 border border-indigo-100" 
+                                          : "text-slate-400 bg-slate-50/50 border border-slate-100",
+                                        mesSelecionado && "text-base h-10 min-w-[100px]"
+                                      )}>
+                                        {valorNum > 0 ? valorNum.toFixed(2) : ""}
+                                      </div>
+                                    ) : (
+                                      <Input
+                                        type="text"
+                                        value={isEditing ? editValues.get(`${wpId}-${mes}-${anoSelecionado}`) || "" : (valorNum > 0 ? valorNum.toFixed(2).replace(".", ",") : "")}
+                                        onChange={(e) => handleInputChange(wpId, mes, e)}
+                                        placeholder="0,00"
+                                        className={cn(
+                                          "h-9 min-w-[80px] text-center text-sm border rounded-md",
+                                          "focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none",
+                                          "transition-all duration-200",
+                                          isEditing 
+                                            ? "bg-blue-50/60 border-blue-300 shadow-sm" 
+                                            : valorNum > 0 
+                                              ? "bg-blue-50/30 border-blue-100 text-blue-700 font-medium" 
+                                              : "bg-slate-50/50 border-slate-100 text-slate-500",
+                                          mesSelecionado && "text-base h-10 min-w-[100px]"
+                                        )}
+                                      />
+                                    )}
+                                  </div>
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                });
+              })()}
             </TableBody>
             
             <TableFooter className="sticky bottom-0 z-20 bg-slate-100/95 backdrop-blur-sm">

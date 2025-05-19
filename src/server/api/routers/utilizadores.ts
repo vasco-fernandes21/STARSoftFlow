@@ -1,7 +1,7 @@
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Permissao, Regime, ProjetoEstado } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
+import { Permissao, Regime, ProjetoEstado, Prisma } from "@prisma/client";
+import type { Prisma as PrismaTypes } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { sendPrimeiroAcessoEmail, sendPasswordResetEmail } from "@/emails/utils/email";
 import { hash } from "bcryptjs";
@@ -166,7 +166,7 @@ export const utilizadorRouter = createTRPCRouter({
         // Verifica se temos paginação válida
         const hasPagination = typeof page === 'number' && typeof limit === 'number' && page > 0 && limit > 0;
 
-        const whereClause: Prisma.UserWhereInput = {}; // Preparar para filtros futuros, se necessário
+        const whereClause: PrismaTypes.UserWhereInput = {}; // Preparar para filtros futuros, se necessário
 
         // Buscar utilizadores
         const users = await ctx.db.user.findMany({
@@ -316,7 +316,7 @@ export const utilizadorRouter = createTRPCRouter({
 
         // Buscar todas as alocações existentes do utilizador no mesmo mês/ano
         // Excluindo a alocação atual se estiver em modo de edição
-        const whereCondition: Prisma.AlocacaoRecursoWhereInput = {
+        const whereCondition: PrismaTypes.AlocacaoRecursoWhereInput = {
           userId,
           mes,
           ano,
@@ -472,7 +472,7 @@ export const utilizadorRouter = createTRPCRouter({
   }),
 
   //Obter por username
-  getByUsername: protectedProcedure.input(z.string()).query(async ({ ctx, input: username }) => {
+  findByUsername: protectedProcedure.input(z.string()).query(async ({ ctx, input: username }) => {
     try {
       const user = await ctx.db.user.findUnique({
         where: { username },
@@ -801,43 +801,91 @@ export const utilizadorRouter = createTRPCRouter({
   // Nova função unificada que combina alocações reais e submetidas
   getAlocacoes: protectedProcedure
     .input(z.object({
-      userId: z.string(),
+      userId: z.string().optional(), // Reverted to optional userId
+      username: z.string().optional(), // Reverted to optional username
       ano: z.number().optional(),
+    }).superRefine((data, ctx) => { // Added superRefine back
+      if (!data.userId && !data.username) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Either userId or username must be provided",
+          path: ["userId"],
+        });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Either userId or username must be provided",
+          path: ["username"],
+        });
+      }
+      if (data.userId && data.username) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Provide either userId or username, not both",
+          path: ["userId"],
+        });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Provide either userId or username, not both",
+          path: ["username"],
+        });
+      }
     }))
     .query(async ({ ctx, input }) => {
       try {
-        // Interface for snapshot
-        interface ApprovedSnapshot {
-          workpackages: Array<{
-            id: string;
-            nome: string;
-            recursos: Array<{
-              userId: string;
-              mes: number;
-              ano: number;
-              ocupacao: number;
-            }>;
-          }>;
+        let actualUserId: string;
+
+        if (input.username) {
+          const user = await ctx.db.user.findUnique({
+            where: { username: input.username },
+            select: { id: true },
+          });
+          if (!user) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `User with username '${input.username}' not found.`,
+            });
+          }
+          actualUserId = user.id;
+          console.log(`Getting allocations for username: '${input.username}' (resolved to ID: ${actualUserId}), year: ${input.ano ?? 'All'}`);
+        } else if (input.userId) {
+          actualUserId = input.userId;
+          console.log(`Getting allocations for userId: '${actualUserId}', year: ${input.ano ?? 'All'}`);
+        } else {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "User identifier (userId or username) is missing.", // Should be caught by superRefine
+          });
         }
 
-        // Debug log
-        console.log("Getting allocations for user:", input.userId, "year:", input.ano);
+        // Interface for snapshot
+        interface ApprovedSnapshotResource {
+          userId: string;
+          mes: number;
+          ano: number;
+          ocupacao: number;
+        }
+        interface ApprovedSnapshotWorkpackage {
+          id: string;
+          nome: string;
+          recursos: ApprovedSnapshotResource[];
+        }
+        interface ApprovedSnapshot {
+          workpackages: ApprovedSnapshotWorkpackage[];
+        }
 
-        // Set for unique years
         const anosSet = new Set<number>();
+        const projetoIdsSet = new Set<string>(); // Initialize set for project IDs
 
         // 1. Get real allocations (approved, in development, completed)
-        const alocacoesReais = await ctx.db.alocacaoRecurso.findMany({
+        const alocacoesReaisDb = await ctx.db.alocacaoRecurso.findMany({
           where: {
-            userId: input.userId,
+            userId: actualUserId,
             ...(input.ano ? { ano: input.ano } : {}),
             workpackage: {
               projeto: {
-                estado: {
-                  in: validProjectStates
-                }
-              }
-            }
+                estado: { in: validProjectStates },
+              },
+            },
           },
           select: {
             mes: true,
@@ -861,16 +909,34 @@ export const utilizadorRouter = createTRPCRouter({
           },
         });
 
-        // 2. Get pending project allocations
-        const alocacoesPendentes = await ctx.db.alocacaoRecurso.findMany({
+        // 2. Process realData and collect keys/project IDs
+        const realData = alocacoesReaisDb.map(alocacao => {
+          anosSet.add(alocacao.ano);
+          projetoIdsSet.add(alocacao.workpackage.projeto.id); // Populate projetoIdsSet
+          return {
+            workpackageId: alocacao.workpackage.id,
+            workpackageNome: alocacao.workpackage.nome,
+            projetoId: alocacao.workpackage.projeto.id,
+            projetoNome: alocacao.workpackage.projeto.nome,
+            projetoEstado: alocacao.workpackage.projeto.estado as ProjetoEstado,
+            mes: alocacao.mes,
+            ano: alocacao.ano,
+            ocupacao: Number(alocacao.ocupacao.toFixed(3)),
+          };
+        });
+        
+        // const relevantProjetoIds = Array.from(new Set(realData.map(r => r.projetoId))); // Old logic, replaced by comprehensive projetoIdsSet
+
+        // 3. Get PENDING allocations
+        const alocacoesPendentesDb = await ctx.db.alocacaoRecurso.findMany({
           where: {
-            userId: input.userId,
+            userId: actualUserId,
             ...(input.ano ? { ano: input.ano } : {}),
             workpackage: {
               projeto: {
-                estado: "PENDENTE"
-              }
-            }
+                estado: ProjetoEstado.PENDENTE,
+              },
+            },
           },
           select: {
             mes: true,
@@ -894,143 +960,98 @@ export const utilizadorRouter = createTRPCRouter({
           },
         });
 
-        // Debug log
-        console.log("Found real allocations:", alocacoesReais.length);
-        console.log("Found pending allocations:", alocacoesPendentes.length);
+        // 4. Process pendenteData
+        const pendenteData = alocacoesPendentesDb.map(alocacao => {
+          anosSet.add(alocacao.ano);
+          projetoIdsSet.add(alocacao.workpackage.projeto.id); // Populate projetoIdsSet
+          return {
+            workpackageId: alocacao.workpackage.id,
+            workpackageNome: alocacao.workpackage.nome,
+            projetoId: alocacao.workpackage.projeto.id,
+            projetoNome: alocacao.workpackage.projeto.nome,
+            projetoEstado: alocacao.workpackage.projeto.estado as ProjetoEstado,
+            mes: alocacao.mes,
+            ano: alocacao.ano,
+            ocupacao: Number(alocacao.ocupacao.toFixed(3)),
+          };
+        });
 
-        // 3. Get all projects with snapshots (filtered by state)
+
+        // 5. Get snapshots for relevant projects
         const projetosComSnapshot = await ctx.db.projeto.findMany({
           where: {
-            estado: {
-              in: validProjectStates
-            },
-            workpackages: {
-              some: {
-                recursos: {
-                  some: {
-                    userId: input.userId,
-                  },
-                },
-              },
-            },
+            aprovado: { not: Prisma.DbNull },
           },
           select: {
             id: true,
-            nome: true,
-            estado: true,
-            aprovado: true,
+            nome: true, 
+            estado: true, 
+            aprovado: true, 
           },
         });
 
-        // Debug log
-        console.log("Found projects with snapshots:", projetosComSnapshot.length);
-
-        // 4. Process real allocations
-        const realData = alocacoesReais.map(alocacao => {
-          // Add year to set
-          anosSet.add(alocacao.ano);
-          
-          return {
-            workpackageId: alocacao.workpackage.id,
-            workpackageNome: alocacao.workpackage.nome,
-            projetoId: alocacao.workpackage.projeto.id,
-            projetoNome: alocacao.workpackage.projeto.nome,
-            projetoEstado: alocacao.workpackage.projeto.estado as ProjetoEstado,
-            mes: alocacao.mes,
-            ano: alocacao.ano,
-            ocupacao: Number(alocacao.ocupacao.toFixed(3)),
-          };
-        });
-
-        // 5. Process pending allocations
-        const pendenteData = alocacoesPendentes.map(alocacao => {
-          // Add year to set
-          anosSet.add(alocacao.ano);
-          
-          return {
-            workpackageId: alocacao.workpackage.id,
-            workpackageNome: alocacao.workpackage.nome,
-            projetoId: alocacao.workpackage.projeto.id,
-            projetoNome: alocacao.workpackage.projeto.nome,
-            projetoEstado: alocacao.workpackage.projeto.estado as ProjetoEstado,
-            mes: alocacao.mes,
-            ano: alocacao.ano,
-            ocupacao: Number(alocacao.ocupacao.toFixed(3)),
-          };
-        });
-
         // 6. Process submitted allocations from snapshots
-        const submetidoData = projetosComSnapshot.flatMap(projeto => {
-          // Garantir que estamos processando apenas projetos nos estados válidos
-          if (!projeto.aprovado || !validProjectStates.includes(projeto.estado as typeof validProjectStates[number])) return [];
+        const submetidoDataMap = new Map<string, (typeof realData)[0]>(); 
+
+        projetosComSnapshot.forEach(projeto => {
+          if (!projeto.aprovado) return; 
 
           try {
             const snapshotAprovado = projeto.aprovado as unknown as ApprovedSnapshot;
+            if (!snapshotAprovado || !Array.isArray(snapshotAprovado.workpackages)) {
+              return;
+            }
             
-            // Group allocations by workpackage
-            const alocacoesPorMes = new Map<string, {
-              workpackageId: string;
-              workpackageNome: string;
-              projetoId: string;
-              projetoNome: string;
-              projetoEstado: typeof validProjectStates[number];
-              mes: number;
-              ano: number;
-              ocupacao: number;
-            }>();
-
             snapshotAprovado.workpackages.forEach(wp => {
-              if (!wp.recursos) return;
+              if (!wp.recursos || !Array.isArray(wp.recursos)) return;
 
               wp.recursos
-                .filter(r => r.userId === input.userId)
-                .filter(r => !input.ano || r.ano === input.ano)
+                .filter(r => r.userId === actualUserId && (!input.ano || r.ano === input.ano))
                 .forEach(recurso => {
-                  const key = `${recurso.mes}-${recurso.ano}-${wp.id}`;
+                  const snapshotKey = `${projeto.id}-${wp.id}-${recurso.mes}-${recurso.ano}`; 
                   
-                  // Add year to set
-                  anosSet.add(recurso.ano);
-                  
-                  if (alocacoesPorMes.has(key)) {
-                    const existing = alocacoesPorMes.get(key)!;
+                  if (submetidoDataMap.has(snapshotKey)) {
+                    const existing = submetidoDataMap.get(snapshotKey)!;
                     existing.ocupacao = Number((existing.ocupacao + Number(recurso.ocupacao)).toFixed(3));
                   } else {
-                    alocacoesPorMes.set(key, {
-                      workpackageId: wp.id,
-                      workpackageNome: wp.nome,
-                      projetoId: projeto.id,
-                      projetoNome: projeto.nome,
-                      projetoEstado: projeto.estado as typeof validProjectStates[number],
+                    submetidoDataMap.set(snapshotKey, {
+                      workpackageId: wp.id, 
+                      workpackageNome: wp.nome, 
+                      projetoId: projeto.id, 
+                      projetoNome: projeto.nome, 
+                      projetoEstado: projeto.estado as ProjetoEstado, 
                       mes: recurso.mes,
                       ano: recurso.ano,
                       ocupacao: Number(Number(recurso.ocupacao).toFixed(3)),
                     });
                   }
+                  anosSet.add(recurso.ano); 
                 });
             });
-
-            return Array.from(alocacoesPorMes.values());
           } catch (error) {
-            console.error(`Error processing snapshot for project ${projeto.id}:`, error);
-            return [];
+            // console.error(`Error processing snapshot for project ${projeto.id}:`, error);
           }
         });
-
-        // Debug log final results
+        const submetidoData = Array.from(submetidoDataMap.values());
+        submetidoData.forEach(item => projetoIdsSet.add(item.projetoId)); // Populate projetoIdsSet from submitted data
+        
+        const anosAlocados = Array.from(anosSet).sort((a, b) => b - a);
+        const projetosIds = Array.from(projetoIdsSet); // Convert set to array
+        
         console.log("Final results:", {
           realCount: realData.length,
-          pendenteCount: pendenteData.length,
           submittedCount: submetidoData.length,
-          uniqueYears: Array.from(anosSet),
+          pendingCount: pendenteData.length,
+          uniqueYears: anosAlocados,
+          projetosIdsCount: projetosIds.length, // Log count of unique project IDs
         });
 
-        // Convert Set to array and sort
-        const anosAlocados = Array.from(anosSet).sort((a, b) => b - a);
-
         return {
-          real: [...realData, ...submetidoData], // Combine real and snapshot data
+          real: realData, 
+          submetido: submetidoData,
           pendente: pendenteData,
           anos: anosAlocados,
+          projetosIds: projetosIds, // Return the array of project IDs
         };
       } catch (error) {
         console.error("Error in getAlocacoes:", error);
@@ -1406,16 +1427,58 @@ export const utilizadorRouter = createTRPCRouter({
 
   // Gerar PDF do relatório
   gerarRelatorioPDF: protectedProcedure
-    .input(z.object({
-      username: z.string(),
-      mes: z.number().min(1).max(12),
-      ano: z.number(),
-    }))
+    .input(
+      z.object({
+        username: z.string().optional(),
+        id: z.string().optional(),
+        mes: z.number().min(1).max(12),
+        ano: z.number(),
+      }).refine(
+        (data) => data.username !== undefined || data.id !== undefined,
+        {
+          message: "É necessário fornecer 'username' ou 'id'.",
+          path: ["username"], // Or path: ["id"] or no specific path for a general error
+        }
+      )
+    )
     .mutation(async ({ ctx, input }) => {
       try {
+        let reportUsername: string;
+
+        if (input.username) {
+          reportUsername = input.username;
+        } else if (input.id) {
+          const user = await ctx.db.user.findUnique({
+            where: { id: input.id },
+            select: { username: true, name: true }, // Select username and name as a fallback
+          });
+
+          if (!user) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Utilizador com ID ${input.id} não encontrado.`,
+            });
+          }
+          if (!user.username) {
+            // Fallback to name if username is not set, or throw error if username is strictly required
+            // For this example, let's consider username essential for the report context
+             throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Utilizador com ID ${input.id} não possui um nome de utilizador (username) definido.`,
+            });
+          }
+          reportUsername = user.username;
+        } else {
+          // This case should ideally be caught by Zod's .refine()
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Input inválido: 'username' ou 'id' deve ser fornecido.",
+          });
+        }
+
         // Reutilizar a lógica do getRelatorioMensal para obter os dados completos
         const dadosRelatorio = await utilizadorRouter.createCaller(ctx).getRelatorioMensal({
-          username: input.username,
+          username: reportUsername,
           mes: input.mes,
           ano: input.ano
         });
@@ -1438,7 +1501,7 @@ export const utilizadorRouter = createTRPCRouter({
         // Criar um servidor HTTP temporário para servir o HTML
         const server = await new Promise<http.Server>((resolve) => {
           const srv = http.createServer((req, res) => {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(html);
           });
           srv.listen(0, '127.0.0.1', () => resolve(srv));
@@ -1485,7 +1548,7 @@ export const utilizadorRouter = createTRPCRouter({
 
           return {
             pdf: Buffer.from(pdf).toString("base64"),
-            filename: `${input.username}_${input.mes}_${input.ano}.pdf`,
+            filename: `${reportUsername}_${input.mes}_${input.ano}.pdf`,
           };
         } finally {
           // Fechar o browser e o servidor
@@ -1494,6 +1557,7 @@ export const utilizadorRouter = createTRPCRouter({
         }
       } catch (error) {
         console.error("Erro ao gerar PDF:", error);
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao gerar PDF do relatório",
@@ -1803,6 +1867,107 @@ export const utilizadorRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Erro ao fazer upload da foto de perfil",
+          cause: error,
+        });
+      }
+    }),
+
+  // Atualizar alocações em lote
+  updateAlocacoesBatch: protectedProcedure
+    .input(z.array(z.object({
+      workpackageId: z.string(),
+      userId: z.string(),
+      mes: z.number().int().min(1).max(12),
+      ano: z.number().int().min(2000),
+      ocupacao: z.number().min(0).max(1),
+    })))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const results = await Promise.all(
+          input.map(async (alocacao) => {
+            // Verificar se o workpackage existe
+            const workpackage = await ctx.db.workpackage.findUnique({
+              where: { id: alocacao.workpackageId },
+              include: { projeto: true },
+            });
+
+            if (!workpackage) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: `Workpackage ${alocacao.workpackageId} não encontrado`,
+              });
+            }
+
+            // Verificar se o utilizador existe
+            const user = await ctx.db.user.findUnique({
+              where: { id: alocacao.userId },
+            });
+
+            if (!user) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: `Utilizador ${alocacao.userId} não encontrado`,
+              });
+            }
+
+            // Buscar outras alocações do mesmo mês/ano (excluindo a atual)
+            const outrasAlocacoes = await ctx.db.alocacaoRecurso.findMany({
+              where: {
+                userId: alocacao.userId,
+                mes: alocacao.mes,
+                ano: alocacao.ano,
+                NOT: {
+                  workpackageId: alocacao.workpackageId,
+                },
+              },
+              select: { ocupacao: true },
+            });
+
+            // Calcular soma das outras alocações
+            const somaOutrasAlocacoes = outrasAlocacoes.reduce(
+              (sum, aloc) => sum.add(aloc.ocupacao),
+              new Decimal(0)
+            );
+
+            // Verificar se a soma total excede 100%
+            const novaOcupacaoTotal = somaOutrasAlocacoes.add(new Decimal(alocacao.ocupacao));
+            if (novaOcupacaoTotal.greaterThan(1)) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `A ocupação total para ${user.name || alocacao.userId} em ${alocacao.mes}/${alocacao.ano} excederia 100% (${novaOcupacaoTotal.times(100).toFixed(0)}%)`,
+              });
+            }
+
+            // Atualizar ou criar a alocação
+            return ctx.db.alocacaoRecurso.upsert({
+              where: {
+                workpackageId_userId_mes_ano: {
+                  workpackageId: alocacao.workpackageId,
+                  userId: alocacao.userId,
+                  mes: alocacao.mes,
+                  ano: alocacao.ano,
+                },
+              },
+              update: {
+                ocupacao: new Decimal(alocacao.ocupacao),
+              },
+              create: {
+                workpackageId: alocacao.workpackageId,
+                userId: alocacao.userId,
+                mes: alocacao.mes,
+                ano: alocacao.ano,
+                ocupacao: new Decimal(alocacao.ocupacao),
+              },
+            });
+          })
+        );
+
+        return results;
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao atualizar alocações",
           cause: error,
         });
       }

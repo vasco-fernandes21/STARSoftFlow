@@ -5,9 +5,8 @@ import AdminDashboard from "@/components/dashboards/AdminDashboard";
 import GestorDashboard from "@/components/dashboards/GestorDashboard";
 import UtilizadorDashboard from "@/components/dashboards/UtilizadorDashboard";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation"; // Or "next/router" for older Next.js versions
+import { useRouter } from "next/navigation";
 
-// Extend the Session type to include our custom fields
 declare module "next-auth" {
   interface User {
     permissao: string;
@@ -21,10 +20,8 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If there's no session and not loading, redirect to login
-    // This is a common pattern, but middleware might handle this too
     if (status === "unauthenticated") {
-      router.push("/login"); // Adjust if your login path is different
+      router.push("/login");
     }
   }, [status, router]);
 
@@ -52,7 +49,6 @@ export default function HomePage() {
       return <UtilizadorDashboard />;
     }
 
-    // Fallback for authenticated users with an unrecognized role
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center">
         <h1 className="text-2xl font-semibold text-gray-800">Acesso Não Autorizado</h1>
@@ -62,14 +58,10 @@ export default function HomePage() {
         <p className="mt-1 text-sm text-gray-500">
           Se acredita que isto é um erro, por favor contacte o suporte.
         </p>
-        {/* You might want a sign-out button here */}
       </div>
     );  
   }
 
-  // Fallback for unauthenticated status if not redirecting immediately,
-  // or if middleware handles redirection and this page is somehow reached.
-  // This part might be unreachable if the useEffect redirect is effective.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center">
       <h1 className="text-2xl font-semibold text-gray-800">Redirecionando...</h1>

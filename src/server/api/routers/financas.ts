@@ -413,86 +413,6 @@ async function calcularCustosDetalhadosSnapshotFiltrado(
   };
 }
 
-/**
- * Calcula os totais financeiros de um projeto.
- * Retorna apenas métricas essenciais:
- * - Orçamento Submetido
- * - Orçamento Real
- * - Resultado Financeiro
- * - Margem
- * - VAB/Custos Pessoal
- * - Folga
- */
-async function getTotais(
-  db: Prisma.TransactionClient,
-  projetoId: string,
-  options?: {
-    ano?: number;
-  }
-) {
-  // Obter o projeto com taxa de financiamento
-  const projeto = await db.projeto.findUnique({
-    where: { id: projetoId },
-    select: {
-      valor_eti: true,
-      taxa_financiamento: true,
-      overhead: true,
-    },
-  });
-
-  if (!projeto) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Projeto não encontrado",
-    });
-  }
-
-  // Obter o orçamento submetido
-  const orcamentoSubmetidoInfo = await getOrcamentoSubmetido(db, projetoId, { ano: options?.ano });
-  const orcamentoSubmetidoValor = orcamentoSubmetidoInfo.orcamentoTotal;
-
-  // Obter o orçamento real (custos efetivos)
-  const orcamentoReal = await getOrcamentoReal(db, projetoId, { ano: options?.ano });
-
-  // taxa de financiamento já vem em decimal, não precisa dividir por 100
-  const taxaFinanciamento = projeto.taxa_financiamento
-    ? new Decimal(projeto.taxa_financiamento)
-    : new Decimal(0);
-
-  // Calcular valor financiado (orçamento submetido * taxa de financiamento)
-  const valorFinanciado = orcamentoSubmetidoValor.times(taxaFinanciamento);
-  
-  // Calcular overhead - Usa o CUSTO REAL de recursos
-  const overheadCalculadoReal = orcamentoReal.custoRecursos.times(new Decimal(-0.15)); 
-
-  // Calcular resultado financeiro (orçamento submetido * taxa de financiamento - custo real total + overhead)
-  const resultado = valorFinanciado.minus(orcamentoReal.total).plus(overheadCalculadoReal);
-
-  // Calcular VAB (orçamento submetido * taxa de financiamento - custo materiais)
-  const vab = valorFinanciado.minus(orcamentoReal.custoMateriais);
-
-  // Calcular margem (resultado / orçamento submetido)
-  const margem = orcamentoSubmetidoValor.isZero() 
-    ? new Decimal(0) 
-    : resultado.dividedBy(orcamentoSubmetidoValor).times(new Decimal(100));
-
-  // Calcular VAB / Custos com Pessoal
-  const vabCustosPessoal = orcamentoReal.custoRecursos.isZero()
-    ? new Decimal(0)
-    : vab.dividedBy(orcamentoReal.custoRecursos);
-
-  // Calculo da folga (orçamento submetido - custo real + overhead)
-  const folga = orcamentoSubmetidoValor.minus(orcamentoReal.total).plus(overheadCalculadoReal);
-
-  return {
-    orcamentoSubmetido: orcamentoSubmetidoValor,
-    orcamentoReal: orcamentoReal.total,
-    resultadoFinanceiro: resultado,
-    margem,
-    vabCustosPessoal,
-    folga,
-  };
-}
 
 export const financasRouter = createTRPCRouter({
 
@@ -954,7 +874,6 @@ export const financasRouter = createTRPCRouter({
         } else {
           // Usar getOrcamentoSubmetido para cada workpackage quando não há snapshot
           const orcamentoSubmetidoWPInfo = await getOrcamentoSubmetido(ctx.db, projetoId);
-          const filteredOrcamento = orcamentoSubmetidoWPInfo.detalhes;
           
           if (orcamentoSubmetidoWPInfo.tipoCalculo === 'ETI_DB') {
             // Para ETI, precisamos calcular a proporção deste WP
@@ -1539,34 +1458,11 @@ export const financasRouter = createTRPCRouter({
         const custoRealMateriais = orcamentoRealTotal.custoMateriais;
         const overheadCalculadoReal = orcamentoRealTotal.custoRecursos.times(new Decimal(-0.15));
 
-        // Logging dos valores para debug
-        console.log('=== Cálculo do Resultado Financeiro ===');
-        console.log('1. Componentes do Valor Financiado:');
-        console.log('   - Orçamento Submetido:', orcamentoSubmetidoValor.toNumber());
-        console.log('   - Taxa Financiamento (%):', projetoDB.taxa_financiamento);
-        console.log('   - Taxa Financiamento (decimal):', taxaFinanciamento.toNumber());
-        console.log('   = Valor Financiado:', orcamentoSubmetidoValor.times(taxaFinanciamento).toNumber());
-        
-        console.log('\n2. Componentes do Custo Real:');
-        console.log('   - Custo Recursos:', custoRealRecursos.toNumber());
-        console.log('   - Custo Materiais:', custoRealMateriais.toNumber());
-        console.log('   = Custo Real Total:', custoRealTotal.toNumber());
-        
-        console.log('\n3. Overhead:');
-        console.log('   - Base (Custo Recursos):', custoRealRecursos.toNumber());
-        console.log('   - Percentagem:', '15%');
-        console.log('   = Overhead Calculado:', overheadCalculadoReal.toNumber());
-
         // Novo cálculo do resultado financeiro
         const valorFinanciado = orcamentoSubmetidoValor.times(taxaFinanciamento);
         const resultado = valorFinanciado
           .minus(custoRealTotal)
           .plus(overheadCalculadoReal);
-
-        console.log('\n4. Cálculo Final do Resultado:');
-        console.log('   Resultado = Valor Financiado - Custo Real Total + Overhead');
-        console.log(`   Resultado = ${valorFinanciado.toNumber()} - ${custoRealTotal.toNumber()} + ${overheadCalculadoReal.toNumber()}`);
-        console.log('   = ', resultado.toNumber());
 
         const vab = orcamentoSubmetidoValor.times(taxaFinanciamento).minus(orcamentoRealTotal.custoMateriais);
         const margem = custoRealTotal.isZero()

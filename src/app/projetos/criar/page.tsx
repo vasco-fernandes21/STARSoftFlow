@@ -107,7 +107,7 @@ function ProjetoFormContent() {
   }, [draftData, dispatch]);
 
   // Mutation para criar projeto
-  const criarProjetoMutation = api.projeto.createCompleto.useMutation({
+  const criarProjetoMutation = api.projeto.create.useMutation({
     onSuccess: (data) => {
       if (data.success && data.data?.id) {
         toast.success("Projeto criado com sucesso!");
