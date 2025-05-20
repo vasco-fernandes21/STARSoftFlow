@@ -1,7 +1,7 @@
 import { api } from '@/trpc/react';
 
 export function usePDFExport() {
-  return api.utilizador.gerarRelatorioPDF.useMutation({
+  return api.utilizador.relatorios.gerarRelatorioPDF.useMutation({
     onSuccess: (data: { pdfBase64: string; fileName: string }) => {
       console.log('PDF export response:', data);
       // Check for valid base64 string (simple regex, not exhaustive)

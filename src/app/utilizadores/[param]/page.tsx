@@ -119,7 +119,7 @@ export default function PerfilUtilizador() {
     data: userById,
     isLoading: isLoadingUserById,
     error: userByIdError,
-  } = api.utilizador.findById.useQuery(paramValue || "", {
+  } = api.utilizador.core.findById.useQuery(paramValue || "", {
     enabled: !!paramValue && isParamCuid,
     refetchOnWindowFocus: false,
   });
@@ -128,7 +128,7 @@ export default function PerfilUtilizador() {
     data: userByUsername,
     isLoading: isLoadingUserByUsername,
     error: userByUsernameError,
-  } = api.utilizador.findByUsername.useQuery(paramValue || "", {
+  } = api.utilizador.core.findByUsername.useQuery(paramValue || "", {
     enabled: !!paramValue && !isParamCuid,
     refetchOnWindowFocus: false,
   });
@@ -150,7 +150,7 @@ export default function PerfilUtilizador() {
   const { 
     data: userDetails,
     isLoading: isLoadingDetails
-  } = api.utilizador.findById.useQuery(userId || "", {
+  } = api.utilizador.core.findById.useQuery(userId || "", {
     enabled: !!userId,
     refetchOnWindowFocus: false,
   });

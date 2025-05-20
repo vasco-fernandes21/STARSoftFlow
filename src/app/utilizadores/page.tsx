@@ -182,11 +182,11 @@ const Users = () => {
 
   // Prefetch na montagem do componente
   useEffect(() => {
-    void utils.utilizador.findAll.prefetch();
+    void utils.utilizador.core.findAll.prefetch();
   }, [utils]);
 
   // Fetch all data at once since we're using client-side pagination
-  const { data, isLoading } = api.utilizador.findAll.useQuery(undefined, {
+  const { data, isLoading } = api.utilizador.core.findAll.useQuery(undefined, {
     staleTime: 5 * 60 * 1000, // 5 minutos de staleTime
     refetchOnWindowFocus: true,
   });
@@ -295,7 +295,7 @@ const Users = () => {
   const { mutate: deleteUser } = api.utilizador.delete.useMutation({
     onSuccess: () => {
       toast.success("Utilizador apagado com sucesso");
-      utils.utilizador.findAll.invalidate();
+      utils.utilizador.core.findAll.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao apagar utilizador: ${error.message}`);

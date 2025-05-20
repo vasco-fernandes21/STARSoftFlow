@@ -77,11 +77,11 @@ export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizado
   });
 
   // TRPC mutation for updating user
-  const updateUserMutation = api.utilizador.updateUser.useMutation({
+  const updateUserMutation = api.utilizador.core.update.useMutation({
     onSuccess: () => {
       onSave();
-      utils.utilizador.findById.invalidate();
-      utils.utilizador.findByUsername.invalidate();
+      utils.utilizador.core.findById.invalidate();
+      utils.utilizador.core.findByUsername.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao atualizar utilizador: ${error.message}`);

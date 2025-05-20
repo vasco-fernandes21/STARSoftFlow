@@ -84,7 +84,7 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
 
   const updateMaterial = api.material.update.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Material atualizado com sucesso");
     },
     onError: (error) => {
@@ -96,7 +96,7 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
 
   const toggleEstadoMutation = api.material.atualizarEstado.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       utils.financas.invalidate();
       toast.success("Estado do material atualizado com sucesso");
     },

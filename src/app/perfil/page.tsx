@@ -70,7 +70,7 @@ export default function PerfilPage() {
   const [croppedImagePreview, setCroppedImagePreview] = useState<string | null>(null);
 
   // Query hooks - always call them regardless of userId
-  const { data: userData, isLoading, refetch } = api.utilizador.findById.useQuery(
+  const { data: userData, isLoading, refetch } = api.utilizador.core.findById.useQuery(
     userId, 
     { 
       enabled: Boolean(userId),
@@ -78,7 +78,7 @@ export default function PerfilPage() {
     }
   );
   
-  const { data: alocacoesData, isLoading: isLoadingAlocacoes } = api.utilizador.getAlocacoes.useQuery(
+  const { data: alocacoesData, isLoading: isLoadingAlocacoes } = api.utilizador.alocacoes.findCompleto.useQuery(
     { 
       userId: userId, 
       ano: selectedYear 
@@ -90,7 +90,7 @@ export default function PerfilPage() {
   );
 
   // Mutation hooks
-  const updateUserMutation = api.utilizador.updateInformacoes.useMutation({
+  const updateUserMutation = api.utilizador.core.updateInformacoes.useMutation({
     onSuccess: (data) => {
       toast.success("Perfil atualizado com sucesso");
       if (data?.informacoes) {
@@ -106,7 +106,7 @@ export default function PerfilPage() {
   
   const uploadPhotoMutation = api.utilizador.uploadProfilePhoto.useMutation({
     onSuccess: (data) => {
-      utils.utilizador.findById.invalidate(userId);
+      utils.utilizador.core.findById.invalidate(userId);
       toast.success("Foto de perfil atualizada com sucesso");
       setPhotoPreview(null);
       setSelectedFile(null);
@@ -123,7 +123,7 @@ export default function PerfilPage() {
   
   const deletePhotoMutation = api.utilizador.deleteAllUserPhotos.useMutation({
     onSuccess: () => {
-      utils.utilizador.findById.invalidate(userId);
+      utils.utilizador.core.findById.invalidate(userId);
       toast.success("Foto de perfil removida com sucesso");
     },
     onError: (error) => {

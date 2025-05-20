@@ -62,10 +62,10 @@ export function NovoUtilizadorModal() {
 
   const utils = trpcApi.useUtils();
 
-  const createUserMutation = api.utilizador.create.useMutation({
+  const createUserMutation = api.utilizador.core.create.useMutation({
     onSuccess: () => {
       toast.success("Utilizador criado com sucesso");
-      utils.utilizador.findAll.invalidate();
+      utils.utilizador.core.findAll.invalidate();
       resetFormAndClose();
     },
     onError: (error) => {

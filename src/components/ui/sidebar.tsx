@@ -183,7 +183,7 @@ export const AppSidebar = () => {
   const { hasPermission } = usePermissions();
   
   // Buscar informações do usuário, incluindo a foto de perfil
-  const { data: userData } = api.utilizador.findById.useQuery(
+  const { data: userData } = api.utilizador.core.findById.useQuery(
     session?.user?.id || "", 
     { 
       enabled: !!session?.user?.id,

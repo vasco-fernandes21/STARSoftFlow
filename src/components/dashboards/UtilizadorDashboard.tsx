@@ -262,7 +262,7 @@ export default function UtilizadorDashboard() {
   );
 
   // Calculando dados para os gráficos
-  const { data: ocupacaoMensalData } = api.utilizador.getOcupacaoMensal.useQuery(
+  const { data: ocupacaoMensalData } = api.utilizador.alocacoes.findAll.useQuery(
     {
       userId: session?.user?.id || "",
       ano: new Date().getFullYear(),

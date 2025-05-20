@@ -39,7 +39,7 @@ export function WorkpackageInformacoes({
 
   const updateWorkpackageMutation = api.workpackage.update.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
     },
   });
 

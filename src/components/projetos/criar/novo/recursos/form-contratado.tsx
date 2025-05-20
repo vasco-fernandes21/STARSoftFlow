@@ -101,11 +101,11 @@ export function FormContratado({
     return Object.keys(newErrors).length === 0;
   };
 
-  const createUserMutation = api.utilizador.create.useMutation({
+  const createUserMutation = api.utilizador.core.create.useMutation({
     onSuccess: (data) => {
       // console.log(`[Contratado] Criado com sucesso: ${data.name} (ID: ${data.id})`);
       toast.success(`Contratado ${data.name} criado com sucesso!`);
-      utils.utilizador.findAll.invalidate();
+      utils.utilizador.core.findAll.invalidate();
       resetFormAndClose();
       if (onSuccess && data.id) {
         // console.log(`[Contratado] Chamando onSuccess com ID: ${data.id}`);

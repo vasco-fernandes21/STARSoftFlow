@@ -35,7 +35,7 @@ interface Alocacao {
 
 // Dados dos membros da equipa obtidos da API
 const useRecursosData = () => {
-  const { data } = api.utilizador.findAll.useQuery();
+  const { data } = api.utilizador.core.findAll.useQuery();
 
   if (!data) {
     toast.error("Erro ao carregar utilizadores");

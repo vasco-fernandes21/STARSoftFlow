@@ -52,7 +52,7 @@ export function TarefaItem({
   const utils = api.useUtils();
   const updateTarefa = api.tarefa.update.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate();
+      utils.projeto.core.findById.invalidate();
     },
     onError: () => {
       toast.error("Erro ao atualizar estado");

@@ -61,7 +61,7 @@ export function WorkpackageMateriais({
   // tRPC mutations
   const createMaterial = api.material.create.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Material criado", {
         description: "O material foi criado com sucesso."
       });
@@ -76,7 +76,7 @@ export function WorkpackageMateriais({
 
   const updateMaterial = api.material.update.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Material atualizado", {
         description: "O material foi atualizado com sucesso."
       });
@@ -90,7 +90,7 @@ export function WorkpackageMateriais({
 
   const deleteMaterial = api.material.delete.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Material removido", {
         description: "O material foi removido com sucesso."
       });
@@ -104,7 +104,7 @@ export function WorkpackageMateriais({
 
   const toggleEstadoMaterial = api.material.atualizarEstado.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
     },
     onError: () => {
       toast.error("Erro ao atualizar estado", {

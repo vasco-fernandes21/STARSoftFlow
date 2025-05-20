@@ -91,7 +91,7 @@ export function Cronograma({
   const toggleEstadoMutation = api.entregavel.toggleEstado.useMutation({
     onSuccess: () => {
       // Invalidar o cache do projeto para atualizar a UI
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
     },
   });
 

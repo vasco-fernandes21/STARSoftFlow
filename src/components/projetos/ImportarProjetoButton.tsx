@@ -229,7 +229,7 @@ export default function ImportarProjetoButton() {
     setMapaContratadosCriados(new Map());
 
     try {
-      const dadosUtilizadores = await utils.utilizador.findAll.fetch();
+      const dadosUtilizadores = await utils.utilizador.core.findAll.fetch();
       const utilizadores = extrairUtilizadores(dadosUtilizadores);
 
       if (!utilizadores) {

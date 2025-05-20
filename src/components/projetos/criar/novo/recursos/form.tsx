@@ -137,7 +137,7 @@ export function Form({
 
   // Buscar ocupações mensais usando tRPC
   const { data: ocupacoesMensaisData, error: ocupacoesMensaisError } =
-    api.utilizador.getOcupacaoMensal.useQuery(
+    api.utilizador.alocacoes.findAll.useQuery(
       {
         userId: selectedUserId,
         ano: anoAtual,

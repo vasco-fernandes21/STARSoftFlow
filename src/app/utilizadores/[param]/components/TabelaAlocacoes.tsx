@@ -114,7 +114,7 @@ export function TabelaAlocacoes({ userId }: Props) {
     isLoading: isLoadingAlocacoes, 
     error: alocacoesError,
     refetch: refetchAlocacoes 
-  } = api.utilizador.getAlocacoes.useQuery(
+  } = api.utilizador.alocacoes.findCompleto.useQuery(
     {
       userId,
       ano: anoSelecionado
@@ -141,7 +141,7 @@ export function TabelaAlocacoes({ userId }: Props) {
     }
   );
 
-  const updateAlocacoesBatchMutation = api.utilizador.updateAlocacoesBatch.useMutation({
+  const updateManyMutation = api.utilizador.alocacoes.updateMany.useMutation({
     onSuccess: () => {
       toast.success("Alocações guardadas com sucesso!");
       refetchAlocacoes();
@@ -440,7 +440,7 @@ export function TabelaAlocacoes({ userId }: Props) {
 
     if (payload.length > 0) {
       console.log('Saving changes:', payload);
-      updateAlocacoesBatchMutation.mutate(payload);
+      updateManyMutation.mutate(payload);
     } else {
       toast.info("Nenhuma alteração para guardar.");
       setIsSaving(false);

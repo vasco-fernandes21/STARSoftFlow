@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { emailSchema, passwordSchema } from "./utilizador";
+import { emailSchema, passwordSchema } from "@/server/api/routers/utilizadores/schemas";
 
 /**
  * Schema para login

@@ -299,7 +299,7 @@ export default function DocumentacaoPage() {
                     className="rounded-lg overflow-hidden bg-gray-800 p-4 text-gray-300 font-mono text-sm shadow-inner border border-gray-700"
                   >
                     <pre>{`// Exemplo de requisição
-api.utilizador.findByUsername.useQuery(username, {
+api.utilizador.core.findByUsername.useQuery(username, {
   enabled: !!username,
   refetchOnWindowFocus: false
 })

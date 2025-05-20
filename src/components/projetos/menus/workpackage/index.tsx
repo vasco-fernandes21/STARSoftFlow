@@ -133,7 +133,7 @@ export function MenuWorkpackage({
   // API mutations
   const createTarefa = api.tarefa.create.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       setAddingTarefa(false);
       toast.success("Tarefa criada com sucesso");
     },
@@ -141,42 +141,42 @@ export function MenuWorkpackage({
 
   const updateTarefa = api.tarefa.update.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Tarefa atualizada com sucesso");
     },
   });
 
   const deleteTarefa = api.tarefa.delete.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Tarefa removida com sucesso");
     },
   });
 
   const createEntregavel = api.entregavel.create.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Entregável adicionado com sucesso");
     },
   });
 
   const updateEntregavel = api.entregavel.update.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Entregável atualizado com sucesso");
     },
   });
 
   const deleteEntregavel = api.entregavel.delete.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       toast.success("Entregável removido com sucesso");
     },
   });
 
   const deleteWorkpackage = api.workpackage.delete.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
       utils.financas.getVisaoProjeto.invalidate();
       utils.financas.getComparacaoGastos.invalidate();
       utils.financas.getPainelFinanceiroProjeto.invalidate();

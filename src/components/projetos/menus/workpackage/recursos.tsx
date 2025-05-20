@@ -27,17 +27,17 @@ export function WorkpackageRecursos({
   const utils = api.useUtils();
 
   // Query para obter todos os utilizadores usando TanStack
-  const { data: utilizadores = { items: [] } } = api.utilizador.findAll.useQuery({ limit: 100 });
+  const { data: utilizadores = { items: [] } } = api.utilizador.core.findAll.useQuery({ limit: 100 });
 
-  const addAlocacaoMutation = api.workpackage.addAlocacao.useMutation({
+  const addAlocacaoMutation = api.utilizador.alocacoes.create.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
     },
   });
 
-  const removeAlocacaoMutation = api.workpackage.removeAlocacao.useMutation({
+  const removeAlocacaoMutation = api.utilizador.alocacoes.delete.useMutation({
     onSuccess: () => {
-      utils.projeto.findById.invalidate(projetoId);
+      utils.projeto.core.findById.invalidate(projetoId);
     },
   });
 
