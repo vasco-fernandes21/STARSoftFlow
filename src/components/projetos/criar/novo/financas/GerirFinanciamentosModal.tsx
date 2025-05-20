@@ -6,7 +6,7 @@ import { api } from "@/trpc/react";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, AlertCircle } from "lucide-react";
 import { TextField } from "@/components/projetos/criar/components/FormFields";
-import { DecimalField } from "@/components/projetos/criar/components/FormFields";
+import { DecimalField, PercentageField } from "@/components/projetos/criar/components/FormFields";
 import { MoneyField } from "@/components/projetos/criar/components/FormFields";
 
 // Importar AlertDialog para substituir o useConfirmacao
@@ -254,35 +254,29 @@ export function GerirFinanciamentosModal({
                   className="bg-white"
                 />
 
-                <DecimalField
+                <PercentageField
                   label="Overhead"
-                  value={parseFloat(novoFinanciamento.overhead?.toFixed(2) ?? "0")}
+                  value={novoFinanciamento.overhead}
                   onChange={(value) => setNovoFinanciamento((prev) => ({ 
                     ...prev, 
-                    overhead: value !== null ? parseFloat(value.toFixed(2)) : 0 
+                    overhead: value
                   }))}
-                  suffix="%"
-                  min={0}
-                  max={100}
-                  step={0.01}
                   tooltip="Percentagem de overhead aplicada ao financiamento (opcional)"
                   className="bg-white"
+                  decimalPlaces={2}
                 />
 
-                <DecimalField
+                <PercentageField
                   label="Taxa de Financiamento"
-                  value={novoFinanciamento.taxa_financiamento ?? 0}
+                  value={novoFinanciamento.taxa_financiamento}
                   onChange={(value) => setNovoFinanciamento((prev) => ({ 
                     ...prev, 
-                    taxa_financiamento: value !== null ? Number(Number(value).toFixed(2)) : 0 
+                    taxa_financiamento: value
                   }))}
-                  suffix="%"
-                  min={0}
-                  max={100}
-                  step={0.01}
                   required
                   tooltip="Taxa de financiamento aplicada ao projeto"
                   className="bg-white"
+                  decimalPlaces={2}
                 />
 
                 <MoneyField

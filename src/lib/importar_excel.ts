@@ -588,34 +588,15 @@ export function processReportSheetData(
     if (!wp) {
       // Default: code is full name, name is full name
       let finalCodigo = activityNameRaw;
-      let finalNome = activityNameRaw;
-
-      // Try to extract "<code> <description>" pattern
-      // Code can be "1.", "A1.", "WP1", "A1", "1", etc. followed by a space
-      const pattern = /^([A-Za-z0-9\.\-]+)\s+(.+)$/; // Added hyphen to code pattern
+      // Tentar extrair o código, mas o nome é sempre o texto integral
+      const pattern = /^([A-Za-z0-9\.\-]+)\s+(.+)$/;
       const parts = activityNameRaw.match(pattern);
-
-      if (parts && parts[1] && parts[2]) {
-        const potentialCode = parts[1];
-        const potentialName = parts[2];
-        // Heuristic: if potentialCode looks like a typical code
-        // (e.g., ends with '.', contains numbers, or is short like WP1, T1.2)
-        const isLikelyCode =
-          potentialCode.endsWith('.') ||                 // "1.", "A1."
-          /^[A-Za-z]+[\-\.]?\d/.test(potentialCode) ||     // "WP1", "A1", "T1.2", "P-01"
-          /^\d+[\.\-]/.test(potentialCode) ||              // "1.", "1-", "1.2."
-          (/^\d+$/.test(potentialCode) && potentialCode.length <= 3); // Short numbers like "1", "01"
-
-        if (isLikelyCode) {
-          finalCodigo = potentialCode;
-          finalNome = potentialName;
-        }
-        // If not, finalCodigo and finalNome remain activityNameRaw (no change from default)
+      if (parts && parts[1]) {
+        finalCodigo = parts[1];
       }
-
       wp = {
-        codigo: finalCodigo, 
-        nome: finalNome,
+        codigo: finalCodigo,
+        nome: activityNameRaw, // SEMPRE o texto integral
         recursos: [],
         materiais: [],
         dataInicio: null,
@@ -689,13 +670,12 @@ export function processReportSheetData(
 
         const monthStartDate = new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth(), 1));
         
+        // Para o REPORT, tanto dataInicio como dataFim são o primeiro dia do mês
         if (!currentWpMinDate || monthStartDate < currentWpMinDate) {
           currentWpMinDate = monthStartDate;
         }
-        // For max date, consider the end of the month of the allocation
-        const monthEndDate = new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth() + 1, 0));
-        if (!currentWpMaxDate || monthEndDate > currentWpMaxDate) {
-          currentWpMaxDate = monthEndDate;
+        if (!currentWpMaxDate || monthStartDate > currentWpMaxDate) {
+          currentWpMaxDate = monthStartDate;
         }
       }
     }
