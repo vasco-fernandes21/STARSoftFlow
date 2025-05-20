@@ -33,7 +33,7 @@ const config = {
   // Configuração do webpack para marcar bcrypt como externo
   webpack: (config) => {
     // Adicionar bcrypt e handlebars à lista de módulos externos
-    config.externals = [...(config.externals || []), "bcrypt", "handlebars"];
+    config.externals = [...(config.externals || []), "bcrypt", "handlebars", "@sparticuz/chromium"];
 
     // Manter as outras configurações que já tens
     config.resolve.fallback = {
@@ -62,7 +62,24 @@ const config = {
   },
 
   // Configuração mínima do Turbopack
-  turbopack: {}
+  turbopack: {},
+
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
+  },
+
+  serverRuntimeConfig: {
+    // Aumentar o timeout para 60 segundos
+    apiResponseTimeout: 60000,
+  },
+
+  // Configuração específica para o Vercel
+  functions: {
+    // Aumentar o timeout para 60 segundos
+    maxDuration: 60,
+  },
 };
 
 export default config;

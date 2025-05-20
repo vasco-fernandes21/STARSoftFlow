@@ -5,10 +5,11 @@ import fs from 'fs/promises';
 import path from 'path';
 
 // Interface para os dados recebidos da API
-interface RelatorioMensalOutput {
+export interface RelatorioMensalOutput {
     utilizador: {
       id: string;
       nome: string;
+      username?: string;
       email?: string;
       cargo?: string;
     };
