@@ -17,18 +17,15 @@ import {
   X,
   Loader2,
   Plus,
-  AlertTriangle,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ProjetoEstado } from "@prisma/client";
-import { useQueryClient } from "@tanstack/react-query";
-import { EditarProjeto } from "@/components/projetos/EditarProjeto";
-import { StatsGrid } from "@/components/common/StatsGrid";
-import type { StatItem } from "@/components/common/StatsGrid";
 import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
+import { StatsGrid } from "@/components/common/StatsGrid";
+import type { StatItem } from "@/components/common/StatsGrid";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +41,7 @@ import { useSession } from "next-auth/react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { WorkpackageForm } from "@/components/projetos/criar/novo/workpackages/workpackage/form";
+import { EditarProjeto } from "@/components/projetos/EditarProjeto";
 
 // Lazy load dos componentes de tab
 const CronogramaTab = lazy(() => import("@/components/projetos/tabs/Cronograma"));
@@ -54,14 +52,13 @@ const VisaoGeral = lazy(() => import("@/components/projetos/tabs/VisaoGeral"));
 
 
 // Componente para validar projeto (aprovar/rejeitar)
-const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
+const ValidarProjeto = memo(({ id, nome, utils }: { id: string; nome: string; utils: ReturnType<typeof api.useUtils> }) => {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [isAprovando, setIsAprovando] = useState(false);
   const [isRejeitando, setIsRejeitando] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const validarProjetoMutation = api.projeto.validarProjeto.useMutation({
+  const validarProjetoMutation = api.projeto.core.validarProjeto.useMutation({
     onSuccess: (data) => {
       if (data.success) {
         toast.success(data.message);
@@ -70,10 +67,7 @@ const ValidarProjeto = memo(({ id, nome }: { id: string; nome: string }) => {
         if (!data.data) {
           router.push("/projetos");
         } else {
-          // Atualizar cache se o projeto foi aprovado
-          void queryClient.invalidateQueries({ 
-            queryKey: [["projeto", "findById"], { input: id }] 
-          });
+          utils.projeto.core.findById.invalidate();
         }
       }
       setIsAprovando(false);
@@ -198,7 +192,7 @@ const ProjectBreadcrumb = memo(
       
       {/* Botões de validação - aparecem apenas se projeto está pendente e o utilizador é validador */}
       {estado === "PENDENTE" && isValidator && (
-        <ValidarProjeto id={projetoId} nome={nome} />
+        <ValidarProjeto id={projetoId} nome={nome} utils={api.useUtils()} />
       )}
     </div>
   )
@@ -270,7 +264,6 @@ const StatisticsCards = memo(
     dataFim,
     duracaoMeses,
     progresso,
-    estado,
   }: {
     workpackagesCount: number;
     totalTarefas: number;
@@ -365,6 +358,7 @@ const ProjectTabs = memo(
     disableInteractions,
     openNovoWP,
     setOpenNovoWP,
+    utils,
   }: {
     separadorAtivo: string;
     onTabChange: (value: string) => void;
@@ -375,6 +369,7 @@ const ProjectTabs = memo(
     disableInteractions: boolean;
     openNovoWP: boolean;
     setOpenNovoWP: (open: boolean) => void;
+    utils: ReturnType<typeof api.useUtils>;
   }) => {
     const params = useParams<{ id: string }>();
     const projetoId = params?.id || "";
@@ -388,13 +383,11 @@ const ProjectTabs = memo(
     // Define quais tabs o utilizador pode ver
     const podeVerTodasTabs = isAdmin || isGestor || isResponsavel;
 
-    const utils = api.useUtils();
-
     const createWorkpackage = api.workpackage.create.useMutation({
       onSuccess: () => {
         toast.success("Workpackage criado com sucesso!");
         setOpenNovoWP(false);
-        utils.projeto.findById.invalidate();
+        utils.projeto.core.findById.invalidate();
       },
       onError: (error) => {
         toast.error(error.message || "Erro ao criar workpackage");
@@ -593,7 +586,7 @@ export default function DetalheProjeto() {
   const params = useParams<{ id: string }>();
   const id = params?.id || "";
   const [separadorAtivo, setSeparadorAtivo] = useState("cronograma");
-  const queryClient = useQueryClient();
+  const utils = api.useUtils();
   const { isGestor, isAdmin } = usePermissions();
   const { data: session } = useSession();
   const usuarioAtualId = session?.user?.id;
@@ -605,7 +598,7 @@ export default function DetalheProjeto() {
     data: projeto,
     isLoading,
     error,
-  } = api.projeto.findById.useQuery(id, {
+  } = api.projeto.core.findById.useQuery(id, {
     enabled: !!id,
     staleTime: 30 * 1000, 
   });
@@ -647,16 +640,12 @@ export default function DetalheProjeto() {
   const handleBack = useCallback(() => router.push("/projetos"), [router]);
 
   const handleUpdateWorkPackage = useCallback(async (): Promise<void> => {
-    await queryClient.invalidateQueries({
-      queryKey: ["projeto.findById", id],
-    });
-  }, [queryClient, id]);
+    await utils.projeto.core.findById.invalidate();
+  }, [utils]);
 
   const handleUpdateTarefa = useCallback(async (): Promise<void> => {
-    await queryClient.invalidateQueries({
-      queryKey: ["projeto.findById", id],
-    });
-  }, [queryClient, id]);
+    await utils.projeto.core.findById.invalidate();
+  }, [utils]);
 
   // Valores calculados memorizados
   const calculatedValues = useMemo(() => {
@@ -775,6 +764,7 @@ export default function DetalheProjeto() {
           disableInteractions={viewMode === 'submetido'}
           openNovoWP={openNovoWP}
           setOpenNovoWP={setOpenNovoWP}
+          utils={utils}
         />
       </div>
     </div>

@@ -78,13 +78,13 @@ export default function Projetos() {
   }, [utils, queryParams]);
 
   // Consulta projetos (que já incluem os rascunhos na resposta)
-  const { data: projetosData, isLoading } = api.projeto.findAll.useQuery(queryParams, {
+  const { data: projetosData, isLoading } = api.projeto.core.findAll.useQuery(queryParams, {
     refetchOnWindowFocus: true,
     staleTime: 60 * 1000, // 60 segundos
   });
 
   // Buscar estatísticas dos projetos
-  const { data: statsData } = api.projeto.getProjetosStats.useQuery(undefined, {
+  const { data: statsData } = api.projeto.estatisticas.getProjetosStats.useQuery(undefined, {
     refetchOnWindowFocus: true,
     staleTime: 60 * 1000, // 60 segundos
   });
@@ -96,7 +96,7 @@ export default function Projetos() {
   }, [utils]);
 
   // Mutation para apagar projeto
-  const deleteProjetoMutation = api.projeto.delete.useMutation({
+  const deleteProjetoMutation = api.projeto.core.delete.useMutation({
     onSuccess: () => {
       toast.success("Projeto apagado com sucesso");
       void utils.projeto.findAll.invalidate();

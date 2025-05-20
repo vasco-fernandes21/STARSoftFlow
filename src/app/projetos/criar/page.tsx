@@ -32,8 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useQueryClient } from "@tanstack/react-query";
-import { getQueryKey } from "@trpc/react-query";
+
 import { usePermissions } from "@/hooks/usePermissions";
 
 import {
@@ -79,7 +78,7 @@ function ProjetoFormContent() {
   );
   const [mostrarCronograma, setMostrarCronograma] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const queryClient = useQueryClient();
+  const utils = api.useUtils();
   const { isComum } = usePermissions();
 
   // Query para carregar rascunho
@@ -107,19 +106,17 @@ function ProjetoFormContent() {
   }, [draftData, dispatch]);
 
   // Mutation para criar projeto
-  const criarProjetoMutation = api.projeto.create.useMutation({
+  const criarProjetoMutation = api.projeto.core.create.useMutation({
     onSuccess: (data) => {
       if (data.success && data.data?.id) {
         toast.success("Projeto criado com sucesso!");
         router.push(`/projetos/${data.data.id}`);
 
-        // Invalidar queries em segundo plano (fire and forget)
-        const projetosKey = getQueryKey(api.projeto.findAll);
-        queryClient.invalidateQueries({ queryKey: projetosKey });
+      
+        utils.projeto.core.findAll.invalidate();
 
         if (rascunhoId && isComum) {
-          const rascunhosKey = getQueryKey(api.rascunho.findAll);
-          queryClient.invalidateQueries({ queryKey: rascunhosKey });
+          utils.rascunho.findAll.invalidate();
         }
       } else if (data.success && !data.data?.id) {
         console.error("Projeto criado com sucesso, mas ID está ausente nos dados de resposta:", data);

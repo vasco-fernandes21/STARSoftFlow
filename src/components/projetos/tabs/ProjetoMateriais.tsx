@@ -112,7 +112,7 @@ export default function ProjetoMateriais({ projetoId }: ProjetoMateriaisProps) {
     data: projeto,
     isLoading,
     error,
-  } = api.projeto.findById.useQuery(projetoId, {
+  } = api.projeto.core.findById.useQuery(projetoId, {
     enabled: !!projetoId,
   });
 

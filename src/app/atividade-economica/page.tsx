@@ -20,7 +20,7 @@ const ProjetoMateriais = lazy(() => import("@/components/projetos/tabs/ProjetoMa
 const VisaoGeral = lazy(() => import("@/components/projetos/tabs/VisaoGeral"));
 
 export default function AtividadeEconomicaPage() {
-  const { data: projeto, isLoading } = api.projeto.getAtividadeEconomica.useQuery();
+  const { data: projeto, isLoading } = api.projeto.atividade.getAtividadeEconomica.useQuery();
   const [tab, setTab] = useState("cronograma");
 
   // Usar diretamente as datas do backend (Date | null)

@@ -8,13 +8,7 @@ export const paginationSchema = z.object({
   limit: z.number().int().positive().max(100).default(10),
 });
 
-/**
- * Schema para ordenação
- */
-export const sortSchema = z.object({
-  field: z.string(),
-  direction: z.enum(["asc", "desc"]).default("asc"),
-});
+
 
 /**
  * Tipo genérico para resposta paginada

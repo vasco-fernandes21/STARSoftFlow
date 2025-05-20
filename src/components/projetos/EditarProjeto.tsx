@@ -71,7 +71,7 @@ export function EditarProjeto({ projeto, financiamentos, renderTrigger }: Editar
   const utils = api.useUtils();
 
   // Mutation para atualizar projeto
-  const updateProjeto = api.projeto.update.useMutation({
+  const updateProjeto = api.projeto.core.update.useMutation({
     onSuccess: () => {
       utils.projeto.findById.invalidate(projeto.id);
       toast.success("Projeto atualizado com sucesso!");

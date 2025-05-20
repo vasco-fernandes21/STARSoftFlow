@@ -86,7 +86,7 @@ export function OverviewTab({
   setSelectedYear,
 }: OverviewTabProps) {
   // Fetch project details to determine available years
-  const { data: projetoDetails } = api.projeto.findById.useQuery(
+  const { data: projetoDetails } = api.projeto.core.findById.useQuery(
     projetoId,
     { enabled: !!projetoId }
   );

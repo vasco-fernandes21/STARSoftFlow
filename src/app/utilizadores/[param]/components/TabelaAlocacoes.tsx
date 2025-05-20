@@ -129,7 +129,7 @@ export function TabelaAlocacoes({ userId }: Props) {
   const { 
     data: totaisAlocacoesProjetos, 
     isLoading: isLoadingTotaisAlocacoes 
-  } = api.projeto.getTotalAlocacoes.useQuery(
+  } = api.projeto.estatisticas.getTotalAlocacoes.useQuery(
     {
       projetoIds: apiData?.projetosIds ?? [],
       ano: anoSelecionado,

@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, AlertCircle } from "lucide-react";
 import { TextField } from "@/components/projetos/criar/components/FormFields";
-import { DecimalField, PercentageField } from "@/components/projetos/criar/components/FormFields";
+import { PercentageField } from "@/components/projetos/criar/components/FormFields";
 import { MoneyField } from "@/components/projetos/criar/components/FormFields";
 
 // Importar AlertDialog para substituir o useConfirmacao

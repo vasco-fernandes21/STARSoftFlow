@@ -34,7 +34,7 @@ export function OrcamentoRealTab({
   
   const utils = api.useUtils();
   
-  const { data: projetoDetails } = api.projeto.findById.useQuery(
+  const { data: projetoDetails } = api.projeto.core.findById.useQuery(
     projetoId,
     { enabled: !!projetoId }
   );

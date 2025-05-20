@@ -45,7 +45,7 @@ const ProjetoRecursos = ({ projetoId }: ProjetoRecursosProps) => {
   const [selectedResource, setSelectedResource] = useState<string | null>(null);
 
   // Buscar dados do projeto
-  const { data: projeto, isLoading } = api.projeto.findById.useQuery(projetoId, {
+  const { data: projeto, isLoading } = api.projeto.core.findById.useQuery(projetoId, {
     enabled: !!projetoId,
   });
 
