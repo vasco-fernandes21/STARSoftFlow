@@ -65,7 +65,7 @@ function RecuperarPasswordContent() {
   }, [password]);
 
   // Mutation para reset de password
-  const resetPasswordMutation = api.utilizador.resetPassword.useMutation({
+  const resetPasswordMutation = api.utilizador.core.resetPassword.useMutation({
     onSuccess: () => {
       setSuccess(true);
       toast.success("Email enviado com sucesso. Por favor, verifique a sua caixa de entrada.");

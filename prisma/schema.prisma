@@ -129,7 +129,6 @@ model ConfiguracaoMensal {
   mes             Int
   ano             Int
   diasUteis       Int
-  horasPotenciais Decimal  @db.Decimal(10, 2)
   jornadaDiaria   Int?     
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -144,7 +143,6 @@ model ConfiguracaoUtilizadorMensal {
   mes             Int
   ano             Int
   diasUteis       Int
-  horasPotenciais Decimal  @db.Decimal(10, 2)
   jornadaDiaria   Int?     
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -155,17 +153,18 @@ model ConfiguracaoUtilizadorMensal {
 }
 
 model AlocacaoRecurso {
-  workpackageId String      @map("workpackage_id") @db.Uuid
+  id            String      @id @default(uuid()) @db.Uuid
+  workpackageId String?     @map("workpackage_id") @db.Uuid
   userId        String      @map("user_id")
   mes           Int
   ano           Int
   ocupacao      Decimal     @db.Decimal(4, 3)
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workpackage   Workpackage @relation("WorkpackageRecursos", fields: [workpackageId], references: [id], onDelete: Cascade)
+  workpackage   Workpackage? @relation("WorkpackageRecursos", fields: [workpackageId], references: [id], onDelete: Cascade)
 
-  @@id([workpackageId, userId, mes, ano])
+  @@unique([workpackageId, userId, mes, ano])
   @@index([userId, ano, mes])
-  @@index([workpackageId, ano, mes])
+  @@index([workpackageId, ano, mes], map: "AlocacaoRecurso_workpackageId_ano_mes")
   @@map("alocacoes_recursos")
 }
 

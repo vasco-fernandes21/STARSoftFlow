@@ -17,6 +17,7 @@ export interface RelatorioMensalOutput {
       diasUteis: number;
       horasPotenciais: number;
       jornadaDiaria?: number;
+      ausencias?: number; // Adicionado
     };
     alocacoes: Array<{
       workpackageId: string;
@@ -533,7 +534,7 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
                     </div>
                     <div class="info-card">
                         <div class="info-label">Férias e ausências</div>
-                        <div class="info-value">0,00</div>
+                        <div class="info-value">${formatNumber(data.configuracaoMensal.ausencias || 0)}</div>
                     </div>
                 </div>
                 
@@ -589,4 +590,4 @@ export async function RelatorioTemplate({ data, periodo }: RelatorioTemplateProp
     </body>
     </html>
   `;
-} 
+}

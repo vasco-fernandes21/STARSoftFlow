@@ -30,6 +30,7 @@ export const coreUtilizadorRouter = createTRPCRouter({
             id: true,
             name: true,
             email: true,
+            n_colaborador: true,
             atividade: true,
             contratacao: true,
             username: true,
@@ -37,7 +38,7 @@ export const coreUtilizadorRouter = createTRPCRouter({
             regime: true,
             emailVerified: true,
           },
-          orderBy: { name: "asc" },
+          orderBy: { n_colaborador: "asc" },
           ...(hasPagination && { skip: (page - 1) * limit, take: limit }),
         });
         const totalCount = await ctx.db.user.count({ where: {} });
@@ -69,6 +70,7 @@ export const coreUtilizadorRouter = createTRPCRouter({
           id: true,
           name: true,
           email: true,
+          n_colaborador: true,
           atividade: true,
           contratacao: true,
           username: true,
@@ -103,6 +105,7 @@ export const coreUtilizadorRouter = createTRPCRouter({
           id: true,
           name: true,
           email: true,
+          n_colaborador: true,
           atividade: true,
           contratacao: true,
           username: true,
@@ -135,14 +138,21 @@ export const coreUtilizadorRouter = createTRPCRouter({
         if (!input.name || !input.name.trim()) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Nome é obrigatório para contratado" });
         }
+        // Buscar o maior n_colaborador atual
+        const ultimo = await ctx.db.user.findFirst({
+          orderBy: { n_colaborador: "desc" },
+          select: { n_colaborador: true },
+        });
+        const proximoN = (ultimo?.n_colaborador ?? 0) + 1;
         const newUser = await ctx.db.user.create({
           data: {
             name: input.name,
             informacoes: input.informacoes,
             salario: input.salario,
             contratado: true,
+            n_colaborador: proximoN,
           },
-          select: { id: true, name: true, informacoes: true },
+          select: { id: true, name: true, informacoes: true, n_colaborador: true },
         });
         return newUser;
       }
@@ -159,12 +169,19 @@ export const coreUtilizadorRouter = createTRPCRouter({
       if (existingUser) {
         throw new TRPCError({ code: "CONFLICT", message: `O email ${processedUserData.email} já está registado no sistema.` });
       }
+      // Buscar o maior n_colaborador atual
+      const ultimo = await ctx.db.user.findFirst({
+        orderBy: { n_colaborador: "desc" },
+        select: { n_colaborador: true },
+      });
+      const proximoN = (ultimo?.n_colaborador ?? 0) + 1;
       const token = randomUUID();
       const tokenExpiry = new Date();
       tokenExpiry.setHours(tokenExpiry.getHours() + 24);
       const newUser = await ctx.db.user.create({
         data: {
           ...processedUserData,
+          n_colaborador: proximoN,
           password: password
             ? { create: { hash: await hash(password, 10) } }
             : undefined,
@@ -179,6 +196,7 @@ export const coreUtilizadorRouter = createTRPCRouter({
           permissao: true,
           regime: true,
           emailVerified: true,
+          n_colaborador: true,
         },
       });
       if (!password && newUser.email) {
@@ -197,6 +215,7 @@ export const coreUtilizadorRouter = createTRPCRouter({
         permissao: newUser.permissao,
         regime: newUser.regime,
         emailVerified: newUser.emailVerified ? newUser.emailVerified.toISOString() : null,
+        n_colaborador: newUser.n_colaborador,
       };
     } catch (error) {
       return handlePrismaError(error);

@@ -10,7 +10,7 @@ import { TabelaDados } from "@/components/common/TabelaDados";
 import { BadgeEstado } from "@/components/common/BadgeEstado";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { Permissao, Regime } from "@prisma/client";
-import { type ColumnDef } from "@tanstack/react-table";
+import { type ColumnDef, type SortingState } from "@tanstack/react-table";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import {
   AlertDialog,
@@ -179,6 +179,10 @@ const Users = () => {
   const utils = api.useUtils();
   const [estadoFilter, setEstadoFilter] = useState<"all" | Permissao>("all");
   const [regimeFilter, setRegimeFilter] = useState<"all" | Regime>("all");
+  // Configuração de ordenação padrão por número de colaborador
+  const [initialSorting] = useState<SortingState>([
+    { id: "n_colaborador", desc: false }
+  ]);
 
   // Prefetch na montagem do componente
   useEffect(() => {
@@ -292,7 +296,7 @@ const Users = () => {
   ];
 
   // Mutation para apagar utilizador
-  const { mutate: deleteUser } = api.utilizador.delete.useMutation({
+  const { mutate: deleteUser } = api.utilizador.core.delete.useMutation({
     onSuccess: () => {
       toast.success("Utilizador apagado com sucesso");
       utils.utilizador.core.findAll.invalidate();
@@ -311,8 +315,15 @@ const Users = () => {
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <SimpleAvatar utilizador={row.original} />
-            <div>
-              <p className="font-medium text-gray-900">{row.original?.name || "N/A"}</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900">{row.original?.name || "N/A"}</p>
+                {row.original?.n_colaborador && (
+                  <span className="inline-flex text-xs font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                    #{row.original.n_colaborador}
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-500">{row.original?.atividade || "N/A"}</p>
             </div>
           </div>

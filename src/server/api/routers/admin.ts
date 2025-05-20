@@ -428,16 +428,16 @@ export const adminRouter = createTRPCRouter({
             const salarioMensal = calcularSalarioAjustado(alocacao.user.salario);
             const custoEstimado = alocacao.ocupacao.times(salarioMensal);
             const custoRealizado = mesJaPassou ? custoEstimado : new Decimal(0);
-            const valorETI = alocacao.workpackage.projeto.valor_eti 
-              ? new Decimal(alocacao.workpackage.projeto.valor_eti)
+            const valorETI = alocacao.workpackage?.projeto?.valor_eti
+              ? new Decimal(alocacao.workpackage?.projeto?.valor_eti)
               : new Decimal(0);
             const valorETIAlocacao = alocacao.ocupacao.times(valorETI);
 
             dadosMes.alocacoes.push({
               userId: alocacao.user.id,
               nome: alocacao.user.name,
-              workpackage: alocacao.workpackage.nome,
-              projeto: alocacao.workpackage.projeto.nome,
+              workpackage: alocacao.workpackage?.nome,
+              projeto: alocacao.workpackage?.projeto?.nome,
               ocupacao: alocacao.ocupacao.toNumber(),
               ocupacaoEstimada: alocacao.ocupacao.toNumber(),
               ocupacaoRealizada: alocacao.ocupacao.toNumber(),

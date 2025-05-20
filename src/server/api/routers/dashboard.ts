@@ -569,7 +569,7 @@ export const dashboardRouter = createTRPCRouter({
             select: { workpackageId: true },
             distinct: ['workpackageId'],
           });
-          relevantWorkpackageIds = workpackagesAlocados.map(wa => wa.workpackageId);
+          relevantWorkpackageIds = workpackagesAlocados.map(wa => wa.workpackageId).filter((id): id is string => !!id);
 
           if (relevantWorkpackageIds.length === 0) {
             return {

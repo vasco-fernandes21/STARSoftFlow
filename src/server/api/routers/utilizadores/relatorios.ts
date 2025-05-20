@@ -26,6 +26,270 @@ async function launchChromium() {
   }
 }
 
+// Função utilitária para obter os dados do relatório mensal
+async function obterRelatorioMensal(ctx: any, input: any) {
+  // Buscar utilizador por userId ou username
+  let utilizador;
+  if (input.userId) {
+    utilizador = await ctx.db.user.findUnique({
+      where: { id: input.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        atividade: true,
+        regime: true,
+      },
+    });
+  } else if (input.username) {
+    utilizador = await ctx.db.user.findUnique({
+      where: { username: input.username },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        atividade: true,
+        regime: true,
+      },
+    });
+  }
+
+  if (!utilizador) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Utilizador não encontrado",
+    });
+  }
+
+  // Calcular datas do mês
+  const dataInicio = new Date(input.ano, input.mes - 1, 1);
+  const dataFim = new Date(input.ano, input.mes, 0);
+
+  // Buscar configuração baseada no regime do utilizador
+  let configuracaoMensal;
+  if (utilizador.regime === "PARCIAL") {
+    configuracaoMensal = await ctx.db.configuracaoUtilizadorMensal.findFirst({
+      where: {
+        userId: utilizador.id,
+        mes: input.mes,
+        ano: input.ano,
+      },
+      select: {
+        diasUteis: true,
+        jornadaDiaria: true,
+      },
+    });
+  }
+  if (!configuracaoMensal) {
+    configuracaoMensal = await ctx.db.configuracaoMensal.findFirst({
+      where: {
+        mes: input.mes,
+        ano: input.ano,
+      },
+      select: {
+        diasUteis: true,
+        jornadaDiaria: true,
+      },
+    });
+  }
+  if (!configuracaoMensal) {
+    const diasUteis = 20;
+    const jornadaDiaria = 8;
+    const horasPotenciais = new Decimal(diasUteis * jornadaDiaria);
+    configuracaoMensal = {
+      diasUteis,
+      horasPotenciais,
+      jornadaDiaria,
+    };
+    const user = ctx.session?.user as UserWithPermissao | undefined;
+    if (user && (user.permissao === "ADMIN" || user.permissao === "GESTOR")) {
+      if (utilizador.regime === "PARCIAL") {
+        await ctx.db.configuracaoUtilizadorMensal.create({
+          data: {
+            userId: utilizador.id,
+            mes: input.mes,
+            ano: input.ano,
+            diasUteis,
+            jornadaDiaria,
+          },
+        });
+      } else {
+        await ctx.db.configuracaoMensal.create({
+          data: {
+            mes: input.mes,
+            ano: input.ano,
+            diasUteis,
+            jornadaDiaria,
+          },
+        });
+      }
+    }
+  }
+
+  // Buscar alocações do utilizador
+  const alocacoes = await ctx.db.alocacaoRecurso.findMany({
+    where: {
+      userId: utilizador.id,
+      mes: input.mes,
+      ano: input.ano,
+      workpackage: {
+        projeto: {
+          estado: {
+            in: ['APROVADO', 'EM_DESENVOLVIMENTO', 'CONCLUIDO']
+          }
+        }
+      }
+    },
+    select: {
+      workpackageId: true,
+      ocupacao: true,
+      workpackage: {
+        select: {
+          nome: true,
+          projeto: {
+            select: {
+              id: true,
+              nome: true,
+              estado: true,
+              tipo: true,
+            },
+          },
+        },
+      },
+    },
+    distinct: ['workpackageId'],
+  });
+
+  // Processar alocações: agregar por projeto se for ATIVIDADE_ECONOMICA
+  const agregadas: any[] = [];
+  const outros: any[] = [];
+  const atividadeEconomicaMap = new Map<string, { projetoId: string, projetoNome: string, projetoEstado: string, ocupacao: number }>();
+
+  for (const alocacao of alocacoes) {
+    const projeto = alocacao.workpackage?.projeto;
+    if (projeto?.tipo === 'ATIVIDADE_ECONOMICA') {
+      // Agregar por projeto
+      if (!atividadeEconomicaMap.has(projeto.id)) {
+        atividadeEconomicaMap.set(projeto.id, {
+          projetoId: projeto.id,
+          projetoNome: 'Atividade Económica',
+          projetoEstado: projeto.estado,
+          ocupacao: 0,
+        });
+      }
+      const entry = atividadeEconomicaMap.get(projeto.id)!;
+      entry.ocupacao += Number(alocacao.ocupacao);
+    } else {
+      outros.push({
+        workpackageId: alocacao.workpackageId,
+        workpackageNome: alocacao.workpackage?.nome ?? 'Workpackage sem nome',
+        projetoId: projeto?.id ?? 'Projeto sem ID',
+        projetoNome: projeto?.nome ?? 'Projeto sem nome',
+        projetoEstado: projeto?.estado,
+        ocupacao: Number(alocacao.ocupacao),
+      });
+    }
+  }
+
+  // Adicionar as linhas agregadas de atividade económica
+  for (const entry of atividadeEconomicaMap.values()) {
+    agregadas.push({
+      workpackageId: '',
+      workpackageNome: 'Atividade Económica',
+      projetoId: entry.projetoId,
+      projetoNome: 'Atividade Económica',
+      projetoEstado: entry.projetoEstado,
+      ocupacao: entry.ocupacao,
+    });
+  }
+
+  const alocacoesFormatadas = [...outros, ...agregadas];
+
+  // Buscar tarefas do mês
+  const tarefas = await ctx.db.tarefa.findMany({
+    where: {
+      workpackage: {
+        recursos: {
+          some: {
+            userId: utilizador.id,
+            mes: input.mes,
+            ano: input.ano,
+          },
+        },
+      },
+      inicio: {
+        gte: dataInicio,
+        lte: dataFim,
+      },
+    },
+    select: {
+      id: true,
+      nome: true,
+      descricao: true,
+      inicio: true,
+      estado: true,
+    },
+  });
+
+  // Buscar atividades do mês (simulado)
+  const atividades: Array<{
+    id: string;
+    descricao: string;
+    data: Date;
+    tipo: "tarefa" | "projeto" | "reunião";
+    duracao: number;
+  }> = [];
+
+  // Calcular estatísticas
+  const tarefasCompletadas = tarefas.filter((t: any) => t.estado).length;
+  const tarefasPendentes = tarefas.filter((t: any) => !t.estado).length;
+  const horasPotenciaisCalculadas = new Decimal(configuracaoMensal.diasUteis).mul(new Decimal(configuracaoMensal.jornadaDiaria || 8));
+  const horasTrabalhadas = alocacoes.reduce((acc: any, a: any) => acc + Number(a.ocupacao) * horasPotenciaisCalculadas.toNumber(), 0);
+  const produtividade = tarefas.length > 0 ? Math.round((tarefasCompletadas / tarefas.length) * 100) : 0;
+
+  // Buscar alocações de férias/ausências
+  const alocacoesAusencias = await ctx.db.alocacaoRecurso.findMany({
+    where: {
+      userId: utilizador.id,
+      mes: input.mes,
+      ano: input.ano,
+      workpackageId: null,
+    },
+    select: {
+      ocupacao: true,
+    },
+  });
+
+  const totalOcupacaoAusencias = alocacoesAusencias.reduce((sum: any, a: any) => sum + Number(a.ocupacao), 0);
+  const horasAusencias = totalOcupacaoAusencias * horasPotenciaisCalculadas.toNumber();
+
+  return {
+    utilizador: {
+      id: utilizador.id,
+      nome: utilizador.name,
+      email: utilizador.email,
+      cargo: utilizador.atividade || "Cargo não definido",
+    },
+    configuracaoMensal: {
+      diasUteis: configuracaoMensal.diasUteis,
+      horasPotenciais: horasPotenciaisCalculadas.toNumber(),
+      jornadaDiaria: configuracaoMensal.jornadaDiaria || 8,
+      ausencias: horasAusencias, // Adicionado
+    },
+    alocacoes: alocacoesFormatadas,
+    estatisticas: {
+      tarefasCompletadas,
+      tarefasPendentes,
+      horasTrabalhadas,
+      produtividade,
+    },
+    atividades: atividades.map((a) => ({
+      ...a,
+      data: a.data.toISOString(),
+    })),
+  };
+}
+
 export const relatoriosUtilizadorRouter = createTRPCRouter({
   // Query para obter os dados do relatório mensal
   getRelatorioMensal: protectedProcedure
@@ -41,216 +305,7 @@ export const relatoriosUtilizadorRouter = createTRPCRouter({
       )
     )
     .query(async ({ ctx, input }) => {
-      // Buscar utilizador por userId ou username
-      let utilizador;
-      if (input.userId) {
-        utilizador = await ctx.db.user.findUnique({
-          where: { id: input.userId },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            atividade: true,
-            regime: true,
-          },
-        });
-      } else if (input.username) {
-        utilizador = await ctx.db.user.findUnique({
-          where: { username: input.username },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            atividade: true,
-            regime: true,
-          },
-        });
-      }
-
-      if (!utilizador) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Utilizador não encontrado",
-        });
-      }
-
-      // Calcular datas do mês
-      const dataInicio = new Date(input.ano, input.mes - 1, 1);
-      const dataFim = new Date(input.ano, input.mes, 0);
-
-      // Buscar configuração baseada no regime do utilizador
-      let configuracaoMensal;
-      if (utilizador.regime === "PARCIAL") {
-        configuracaoMensal = await ctx.db.configuracaoUtilizadorMensal.findFirst({
-          where: {
-            userId: utilizador.id,
-            mes: input.mes,
-            ano: input.ano,
-          },
-          select: {
-            diasUteis: true,
-            horasPotenciais: true,
-            jornadaDiaria: true,
-          },
-        });
-      }
-      if (!configuracaoMensal) {
-        configuracaoMensal = await ctx.db.configuracaoMensal.findFirst({
-          where: {
-            mes: input.mes,
-            ano: input.ano,
-          },
-          select: {
-            diasUteis: true,
-            horasPotenciais: true,
-            jornadaDiaria: true,
-          },
-        });
-      }
-      if (!configuracaoMensal) {
-        const diasUteis = 20;
-        const horasPotenciais = new Decimal(diasUteis * 8);
-        const jornadaDiaria = 8;
-        configuracaoMensal = {
-          diasUteis,
-          horasPotenciais,
-          jornadaDiaria,
-        };
-        const user = ctx.session?.user as UserWithPermissao | undefined;
-        if (user && (user.permissao === "ADMIN" || user.permissao === "GESTOR")) {
-          if (utilizador.regime === "PARCIAL") {
-            await ctx.db.configuracaoUtilizadorMensal.create({
-              data: {
-                userId: utilizador.id,
-                mes: input.mes,
-                ano: input.ano,
-                diasUteis,
-                horasPotenciais,
-                jornadaDiaria,
-              },
-            });
-          } else {
-            await ctx.db.configuracaoMensal.create({
-              data: {
-                mes: input.mes,
-                ano: input.ano,
-                diasUteis,
-                horasPotenciais,
-                jornadaDiaria,
-              },
-            });
-          }
-        }
-      }
-
-      // Buscar alocações do utilizador
-      const alocacoes = await ctx.db.alocacaoRecurso.findMany({
-        where: {
-          userId: utilizador.id,
-          mes: input.mes,
-          ano: input.ano,
-          workpackage: {
-            projeto: {
-              estado: {
-                in: ['APROVADO', 'EM_DESENVOLVIMENTO', 'CONCLUIDO']
-              }
-            }
-          }
-        },
-        select: {
-          workpackageId: true,
-          ocupacao: true,
-          workpackage: {
-            select: {
-              nome: true,
-              projeto: {
-                select: {
-                  id: true,
-                  nome: true,
-                  estado: true,
-                },
-              },
-            },
-          },
-        },
-        distinct: ['workpackageId'],
-      });
-
-      // Formatar alocações
-      const alocacoesFormatadas = alocacoes.map((alocacao) => ({
-        workpackageId: alocacao.workpackageId,
-        workpackageNome: alocacao.workpackage.nome ?? "Workpackage sem nome",
-        projetoId: alocacao.workpackage.projeto.id,
-        projetoNome: alocacao.workpackage.projeto.nome ?? "Projeto sem nome",
-        projetoEstado: alocacao.workpackage.projeto.estado,
-        ocupacao: Number(alocacao.ocupacao),
-      }));
-
-      // Buscar tarefas do mês
-      const tarefas = await ctx.db.tarefa.findMany({
-        where: {
-          workpackage: {
-            recursos: {
-              some: {
-                userId: utilizador.id,
-                mes: input.mes,
-                ano: input.ano,
-              },
-            },
-          },
-          inicio: {
-            gte: dataInicio,
-            lte: dataFim,
-          },
-        },
-        select: {
-          id: true,
-          nome: true,
-          descricao: true,
-          inicio: true,
-          estado: true,
-        },
-      });
-
-      // Buscar atividades do mês (simulado)
-      const atividades: Array<{
-        id: string;
-        descricao: string;
-        data: Date;
-        tipo: "tarefa" | "projeto" | "reunião";
-        duracao: number;
-      }> = [];
-
-      // Calcular estatísticas
-      const tarefasCompletadas = tarefas.filter((t) => t.estado).length;
-      const tarefasPendentes = tarefas.filter((t) => !t.estado).length;
-      const horasTrabalhadas = alocacoes.reduce((acc, a) => acc + Number(a.ocupacao) * Number(configuracaoMensal.horasPotenciais), 0);
-      const produtividade = tarefas.length > 0 ? Math.round((tarefasCompletadas / tarefas.length) * 100) : 0;
-
-      return {
-        utilizador: {
-          id: utilizador.id,
-          nome: utilizador.name,
-          email: utilizador.email,
-          cargo: utilizador.atividade || "Cargo não definido",
-        },
-        configuracaoMensal: {
-          diasUteis: configuracaoMensal.diasUteis,
-          horasPotenciais: Number(configuracaoMensal.horasPotenciais),
-          jornadaDiaria: configuracaoMensal.jornadaDiaria || 8,
-        },
-        alocacoes: alocacoesFormatadas,
-        estatisticas: {
-          tarefasCompletadas,
-          tarefasPendentes,
-          horasTrabalhadas,
-          produtividade,
-        },
-        atividades: atividades.map((a) => ({
-          ...a,
-          data: a.data.toISOString(),
-        })),
-      };
+      return obterRelatorioMensal(ctx, input);
     }),
 
   // Mutation para gerar o PDF do relatório mensal
@@ -279,99 +334,27 @@ export const relatoriosUtilizadorRouter = createTRPCRouter({
       try {
         // 1. Determinar o usuário com base no input (username ou id)
         if (input.username) {
-          const user = await ctx.db.user.findUnique({
-            where: { username: input.username },
-            select: { id: true, username: true },
-          });
-          if (!user) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: `Utilizador com username ${input.username} não encontrado.`,
-            });
-          }
+          const user = await ctx.db.user.findUnique({ where: { username: input.username }, select: { id: true, name: true } });
+          if (!user) throw new TRPCError({ code: "NOT_FOUND", message: `Utilizador ${input.username} não encontrado.` });
           userId = user.id;
-          reportUsername = user.username || "Utilizador";
+          reportUsername = user.name ?? input.username;
         } else if (input.id) {
-          const user = await ctx.db.user.findUnique({
-            where: { id: input.id },
-            select: { id: true, username: true },
-          });
-          if (!user) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: `Utilizador com ID ${input.id} não encontrado.`,
-            });
-          }
+          const user = await ctx.db.user.findUnique({ where: { id: input.id }, select: { id: true, name: true } });
+          if (!user) throw new TRPCError({ code: "NOT_FOUND", message: `Utilizador com ID ${input.id} não encontrado.` });
           userId = user.id;
-          reportUsername = user.username || "Utilizador";
+          reportUsername = user.name ?? input.id;
         } else {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Input inválido: 'username' ou 'id' deve ser fornecido.",
-          });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "É necessário fornecer username ou id." });
         }
 
-        // 2. Obter e formatar dados do relatório
-        const dadosBrutos = await ctx.db.user.findUnique({
-          where: { id: userId },
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            email: true,
-            workpackages: {
-              where: { mes: input.mes, ano: input.ano },
-              select: {
-                ocupacao: true,
-                workpackage: {
-                  select: {
-                    id: true,
-                    nome: true,
-                    projeto: {
-                      select: {
-                        id: true,
-                        nome: true,
-                        estado: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+        // Obter dados do relatório usando a função utilitária
+        dadosRelatorio = await obterRelatorioMensal(ctx, {
+          userId: userId, // Passando userId que já foi determinado
+          mes: input.mes,
+          ano: input.ano,
         });
 
-        if (!dadosBrutos) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Dados do utilizador não encontrados para este período.",
-          });
-        }
-
-        dadosRelatorio = {
-          utilizador: {
-            id: dadosBrutos.id,
-            nome: dadosBrutos.name ?? "Nome Indisponível",
-            username: dadosBrutos.username ?? "Username Indisponível",
-            email: dadosBrutos.email ?? undefined,
-          },
-          configuracaoMensal: {
-            diasUteis: 22, // Placeholder
-            horasPotenciais: 22 * 8, // Placeholder
-          },
-          alocacoes: dadosBrutos.workpackages?.map(aloc => ({
-            workpackageId: aloc.workpackage.id,
-            workpackageNome: aloc.workpackage.nome ?? "Workpackage sem nome",
-            projetoId: aloc.workpackage.projeto.id,
-            projetoNome: aloc.workpackage.projeto.nome ?? "Projeto sem nome",
-            projetoEstado: aloc.workpackage.projeto.estado,
-            ocupacao: Number(aloc.ocupacao),
-          })) ?? [],
-          estatisticas: {},
-          atividades: [],
-        };
-
-        // 3. Gerar o HTML do relatório usando a função RelatorioTemplate
+        // Gerar HTML usando o template
         htmlContent = await RelatorioTemplate({
           data: dadosRelatorio,
           periodo: { mes: input.mes, ano: input.ano },

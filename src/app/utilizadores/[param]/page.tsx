@@ -56,6 +56,7 @@ interface UserWithDetails {
   regime: Regime;
   informacoes: string | null;
   salario: number | null;
+  n_colaborador?: number;
 }
 
 export type ViewMode = 'real' | 'submetido';
@@ -156,7 +157,7 @@ export default function PerfilUtilizador() {
   });
 
   // Mutation para convidar utilizador
-  const convidarUtilizadorMutation = api.utilizador.convidarUtilizador.useMutation({
+  const convidarUtilizadorMutation = api.utilizador.core.convidarUtilizador.useMutation({
     onSuccess: () => {
       toast.success("O utilizador receberá um email para definir a sua password.");
     },
@@ -181,7 +182,6 @@ export default function PerfilUtilizador() {
 
   // Handler para atualização do utilizador
   const handleUserUpdate = () => {
-    toast.success("Informações do utilizador atualizadas com sucesso.");
     setShowUserEdit(false);
     // Aqui adicionaríamos lógica para atualizar o cache ou refetch
   };
@@ -265,6 +265,7 @@ export default function PerfilUtilizador() {
         regime: validatedUser.regime,
         informacoes: validatedUser.informacoes ?? null,
         salario: validatedUser.salario,
+        n_colaborador: (utilizador as any).n_colaborador ?? undefined,
       };
       // Monthly configuration modal/sheet
       const monthlyConfigSheet = (
@@ -314,16 +315,15 @@ export default function PerfilUtilizador() {
         <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
           {monthlyConfigSheet}
           <Dialog open={showUserEdit} onOpenChange={setShowUserEdit}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Editar Informações do Utilizador</DialogTitle>
-              </DialogHeader>
+            <DialogContent className="max-w-2xl p-0 bg-transparent border-0 shadow-none">
+              <DialogTitle className="sr-only">Editar Utilizador</DialogTitle>
               <React.Suspense fallback={<div>A carregar formulário...</div>}>
                 <EditarUtilizadorForm
                   user={{
                     id: utilizadorComDetalhes.id,
                     name: utilizadorComDetalhes.name,
                     email: utilizadorComDetalhes.email,
+                    n_colaborador: utilizadorComDetalhes.n_colaborador,
                     atividade: utilizadorComDetalhes.atividade,
                     permissao: utilizadorComDetalhes.permissao,
                     regime: utilizadorComDetalhes.regime,

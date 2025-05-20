@@ -1,6 +1,4 @@
 import { createTRPCRouter } from "@/server/api/trpc";
-
-import { utilizadorRouter } from "./routers/utilizadores";
 import { projetoRouter } from "./routers/projetos";
 import { financiamentoRouter } from "./routers/financiamento";
 import { workpackageRouter } from "./routers/workpackages";
@@ -10,12 +8,11 @@ import { materialRouter } from "./routers/materiais";
 import { dashboardRouter } from "./routers/dashboard";
 import { financasRouter } from "./routers/financas";
 import { rascunhoRouter } from "./routers/rascunhos";
-import { configuracaoRouter } from "./routers/configuracoes";
 import { feedbackRouter } from "./routers/feedback";
 import { notificacoesRouter } from "./routers/notificacoes";
 import { adminRouter } from "./routers/admin";
 import { gestorRouter } from "./routers/gestor";
-
+import { utilizadorRouter } from "./routers/utilizadores";
 
 export const appRouter = createTRPCRouter({
   utilizador: utilizadorRouter,
@@ -29,7 +26,6 @@ export const appRouter = createTRPCRouter({
   dashboard: dashboardRouter,
   financas: financasRouter,
   rascunho: rascunhoRouter,
-  configuracao: configuracaoRouter,
   notificacao: notificacoesRouter,
   admin: adminRouter,
   gestor: gestorRouter,

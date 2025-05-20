@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Cropper from 'react-easy-crop';
 import type { Area, Point } from 'react-easy-crop';
+import Image from "next/image";
 
 
 export default function PerfilPage() {
@@ -70,13 +71,28 @@ export default function PerfilPage() {
   const [croppedImagePreview, setCroppedImagePreview] = useState<string | null>(null);
 
   // Query hooks - always call them regardless of userId
-  const { data: userData, isLoading, refetch } = api.utilizador.core.findById.useQuery(
+  type UserDataType = {
+    id: string;
+    name: string | null;
+    email: string | null;
+    atividade: string | null;
+    contratacao: Date | null;
+    username: string | null;
+    permissao: string;
+    regime: Regime | null;
+    informacoes?: string | null;
+    [key: string]: any;
+  };
+  const userQuery = api.utilizador.core.findById.useQuery(
     userId, 
     { 
       enabled: Boolean(userId),
       refetchOnWindowFocus: false
     }
   );
+  const userData: UserDataType | undefined = userQuery.data;
+  const isLoading = userQuery.isLoading;
+  const refetch = userQuery.refetch;
   
   const { data: alocacoesData, isLoading: isLoadingAlocacoes } = api.utilizador.alocacoes.findCompleto.useQuery(
     { 
@@ -90,21 +106,21 @@ export default function PerfilPage() {
   );
 
   // Mutation hooks
-  const updateUserMutation = api.utilizador.core.updateInformacoes.useMutation({
-    onSuccess: (data) => {
+  const updateUserMutation = api.utilizador.core.update.useMutation({
+    onSuccess: (data: ({ name: string | null; email: string | null; atividade: string | null; contratacao: Date | null; username: string | null; permissao: string; regime: Regime | null; id: string; } & { informacoes?: string | null })) => {
       toast.success("Perfil atualizado com sucesso");
-      if (data?.informacoes) {
+      if (data && typeof data.informacoes === "string") {
         setBio(data.informacoes);
       }
       setIsEditing(false);
       refetch();
     },
-    onError: (error) => {
-      toast.error(`Erro ao atualizar perfil: ${error.message}`);
+    onError: (_error) => {
+      toast.error(`Erro ao atualizar perfil: ${_error.message}`);
     }
   });
   
-  const uploadPhotoMutation = api.utilizador.uploadProfilePhoto.useMutation({
+  const uploadPhotoMutation = api.utilizador.storage.uploadProfilePhoto.useMutation({
     onSuccess: (data) => {
       utils.utilizador.core.findById.invalidate(userId);
       toast.success("Foto de perfil atualizada com sucesso");
@@ -121,7 +137,7 @@ export default function PerfilPage() {
     }
   });
   
-  const deletePhotoMutation = api.utilizador.deleteAllUserPhotos.useMutation({
+  const deletePhotoMutation = api.utilizador.storage.deleteAllUserPhotos.useMutation({
     onSuccess: () => {
       utils.utilizador.core.findById.invalidate(userId);
       toast.success("Foto de perfil removida com sucesso");
@@ -133,10 +149,10 @@ export default function PerfilPage() {
 
   // Effect to set initial bio when userData changes
   useEffect(() => {
-    if (userData?.informacoes) {
-      setBio(userData.informacoes);
+    if (userData && (userData as { informacoes?: string | null }).informacoes !== undefined) {
+      setBio((userData as { informacoes?: string | null }).informacoes ?? "");
     }
-  }, [userData?.informacoes]);
+  }, [userData]);
   
   // Transformar dados de alocações para o formato esperado pelo componente AlocacoesDetalhadas
   const transformAlocacoes = (alocacoes: any[]) => {
@@ -218,10 +234,9 @@ export default function PerfilPage() {
   // Handler para guardar perfil
   const handleSaveProfile = () => {
     if (!userData || !userId) return;
-    
     updateUserMutation.mutate({
-      userId: userId,
-      informacoes: bio,
+      id: userId,
+      data: { informacoes: bio },
     });
   };
 
@@ -336,7 +351,7 @@ export default function PerfilPage() {
   
   // Função para criar a imagem cortada
   const createCroppedImage = async (imageSrc: string, pixelCrop: Area, rotation = 0): Promise<string> => {
-    const image = new Image();
+    const image = document.createElement("img") as HTMLImageElement;
     image.src = imageSrc;
     
     return new Promise((resolve, reject) => {
@@ -389,7 +404,7 @@ export default function PerfilPage() {
         resolve(base64Image);
       };
       
-      image.onerror = (error) => reject(new Error('Image failed to load')); // Use a static error message
+      image.onerror = (_error: unknown) => reject(new Error('Image failed to load'));
     });
   };
   
@@ -760,10 +775,13 @@ export default function PerfilPage() {
             
             {!isCropping && croppedImagePreview && (
               <div className="relative w-40 h-40 overflow-hidden rounded-full border-4 border-white shadow-lg">
-                <img 
+                <Image
                   src={croppedImagePreview} 
                   alt="Preview" 
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover rounded-full"
+                  sizes="160px"
+                  priority
                 />
               </div>
             )}

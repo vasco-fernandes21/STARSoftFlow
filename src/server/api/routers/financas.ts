@@ -612,7 +612,7 @@ export const financasRouter = createTRPCRouter({
           let realRecursosWP = new Decimal(0);
           let realMateriaisWP = new Decimal(0);
           const realRubricasWP: Record<string, Decimal> = {};
-          alocacoesReaisDB.filter(a => a.workpackage.id === wpId).forEach(aloc => {
+          alocacoesReaisDB.filter(a => a.workpackageId === wpId).forEach(aloc => {
               const custoRealRec = new Decimal(aloc.ocupacao).times(calcularSalarioAjustado(aloc.user.salario));
               realRecursosWP = realRecursosWP.plus(custoRealRec);
           });

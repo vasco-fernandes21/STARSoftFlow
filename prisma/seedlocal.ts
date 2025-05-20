@@ -82,6 +82,7 @@ async function main() {
       permissao: Permissao.GESTOR,
       regime: Regime.INTEGRAL,
       salario: new Decimal(3500.0),
+      n_colaborador: 8,
     },
     "gestor123"
   );
@@ -95,6 +96,7 @@ async function main() {
       username: "ricardo.correia",
       regime: Regime.PARCIAL,
       salario: new Decimal(2000.0),
+      n_colaborador: 21,
     },
     {
       name: "Ana Isabel Carvalho",
@@ -103,6 +105,7 @@ async function main() {
       contratacao: new Date("2021-03-22"),
       username: "ana.i.carvalho",
       regime: Regime.PARCIAL,
+      n_colaborador: 19,
     },
     {
       name: "Ana Claudia Carvalho",
@@ -111,6 +114,7 @@ async function main() {
       contratacao: new Date("2022-01-05"),
       username: "ana.c.carvalho",
       regime: Regime.INTEGRAL,
+      n_colaborador: 18,
     },
     {
       name: "João Lopes",
@@ -119,14 +123,16 @@ async function main() {
       contratacao: new Date("2022-06-12"),
       username: "joao.lopes",
       regime: Regime.INTEGRAL,
-    },
-    {
+      n_colaborador: 10,
+      },
+      {
       name: "Filipe Coutinho",
       email: "filipe.coutinho@starinstitute.pt",
       atividade: "Investigador no Laboratório Digital",
       contratacao: new Date("2023-02-01"),
       username: "filipe.coutinho",
       regime: Regime.INTEGRAL,
+      n_colaborador: 17,
     },
     {
       name: "Rui Coimbra",
@@ -135,6 +141,7 @@ async function main() {
       contratacao: new Date("2023-02-01"),
       username: "rui.coimbra",
       regime: Regime.INTEGRAL,
+      n_colaborador: 7,
     },
     {
       name: "Elisio Oliveira",
@@ -143,6 +150,7 @@ async function main() {
       contratacao: new Date("2023-01-01"),
       username: "elisio.oliveira",
       regime: Regime.INTEGRAL,
+      n_colaborador: 4,
     },
     {
       name: "Luis Almeida",
@@ -151,6 +159,7 @@ async function main() {
       contratacao: new Date("2023-01-01"),
       username: "luis.almeida",
       regime: Regime.INTEGRAL,
+      n_colaborador: 5,
     },
     {
       name: "Mafalda lisboa",
@@ -159,6 +168,7 @@ async function main() {
       contratacao: new Date("2023-06-01"),
       username: "mafalda.lisboa",
       regime: Regime.INTEGRAL,
+      n_colaborador: 6,
     },
     {
       name: "Domingos Moreia",
@@ -167,6 +177,7 @@ async function main() {
       contratacao: new Date("2023-08-01"),
       username: "domingos.moreia",
       regime: Regime.INTEGRAL,
+      n_colaborador: 9,
     },
     {
       name: "Carlos Mesquita",
@@ -175,6 +186,7 @@ async function main() {
       contratacao: new Date("2023-09-01"),
       username: "carlos.mesquita",
       regime: Regime.INTEGRAL,
+      n_colaborador: 11,
     },
     {
       name: "José Carlos Lopes",
@@ -183,7 +195,7 @@ async function main() {
       contratacao: new Date("2023-11-01"),
       username: "jose.c.lopes",
       regime: Regime.INTEGRAL,
-      salario: new Decimal(5500.0),
+      n_colaborador: 12,
     },
     {
       name: "Joana Matos",
@@ -193,6 +205,7 @@ async function main() {
       username: "joana.matos",
       regime: Regime.INTEGRAL,
       salario: new Decimal(2500.0),
+      n_colaborador: 13,
     },
     {
       name: "Mariana Domingos",
@@ -202,6 +215,7 @@ async function main() {
       username: "mariana.domingos",
       regime: Regime.INTEGRAL,
       salario: new Decimal(3500.0),
+      n_colaborador: 14,
     },
     {
       name: "Carla Gomes",
@@ -211,6 +225,7 @@ async function main() {
       username: "carla.gomes",
       regime: Regime.INTEGRAL,
       salario: new Decimal(3250.0),
+      n_colaborador: 15,
     },
     {
       name: "Nelson Lorenzoni",
@@ -220,6 +235,7 @@ async function main() {
       username: "nelson.lorenzoni",
       regime: Regime.INTEGRAL,
       salario: new Decimal(3500.0),
+      n_colaborador: 16,
     },
     {
       name: "André Fernandes",
@@ -228,6 +244,7 @@ async function main() {
       contratacao: new Date("2024-08-01"),
       username: "andre.fernandes",
       regime: Regime.INTEGRAL,
+      n_colaborador: 20,
     },
     {
       name: "Pedro Soares",
@@ -236,6 +253,7 @@ async function main() {
       contratacao: new Date("2024-09-01"),
       username: "pedro.soares",
       regime: Regime.INTEGRAL,
+      n_colaborador: 22,
     },
     {
       name: "Ricardo Carvalho",
@@ -244,6 +262,7 @@ async function main() {
       contratacao: new Date("2024-12-01"),
       username: "ricardo.carvalho",
       regime: Regime.INTEGRAL,
+      n_colaborador: 23,
       salario: new Decimal(1700.0),
     },
     {
@@ -253,6 +272,7 @@ async function main() {
       contratacao: new Date("2025-02-01"),
       username: "filipe.ramalho",
       regime: Regime.INTEGRAL,
+      n_colaborador: 24,
     },
   ];
 

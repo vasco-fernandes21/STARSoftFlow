@@ -164,11 +164,13 @@ export const estatisticasProjetoRouter = createTRPCRouter({
         const totaisReaisMap = new Map<string, Decimal>();
         const nomesProjetosMap = new Map<string, string>();
         alocacoesReaisDb.forEach(ar => {
-          const projetoId = ar.workpackage.projetoId;
-          const currentTotal = totaisReaisMap.get(projetoId) || new Decimal(0);
-          totaisReaisMap.set(projetoId, currentTotal.add(new Decimal(ar.ocupacao)));
-          if (ar.workpackage.projeto.nome) {
-            nomesProjetosMap.set(projetoId, ar.workpackage.projeto.nome);
+          const projetoId = ar.workpackage?.projetoId;
+          if (typeof projetoId === 'string') {
+            const currentTotal = totaisReaisMap.get(projetoId) || new Decimal(0);
+            totaisReaisMap.set(projetoId, currentTotal.add(new Decimal(ar.ocupacao)));
+            if (ar.workpackage?.projeto?.nome) {
+              nomesProjetosMap.set(projetoId, ar.workpackage.projeto.nome);
+            }
           }
         });
 

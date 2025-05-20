@@ -74,7 +74,7 @@ export default function Projetos() {
 
   // Prefetch na montagem do componente
   useEffect(() => {
-    void utils.projeto.findAll.prefetch(queryParams);
+    void utils.projeto.core.findAll.prefetch(queryParams);
   }, [utils, queryParams]);
 
   // Consulta projetos (que já incluem os rascunhos na resposta)
@@ -91,15 +91,15 @@ export default function Projetos() {
 
   // Efeito para invalidar as queries quando a página monta
   useEffect(() => {
-    void utils.projeto.findAll.invalidate();
-    void utils.projeto.getProjetosStats.invalidate();
+    void utils.projeto.core.findAll.invalidate();
+    void utils.projeto.estatisticas.getProjetosStats.invalidate();
   }, [utils]);
 
   // Mutation para apagar projeto
   const deleteProjetoMutation = api.projeto.core.delete.useMutation({
     onSuccess: () => {
       toast.success("Projeto apagado com sucesso");
-      void utils.projeto.findAll.invalidate();
+      void utils.projeto.core.findAll.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao apagar projeto: ${error.message}`);

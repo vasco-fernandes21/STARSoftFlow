@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, useState, useEffect } from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
@@ -23,7 +23,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SelectField } from "@/components/projetos/criar/components/FormFields";
 import { api } from "@/trpc/react";
 import type { ProjetoEstado } from "@prisma/client";
-import { useParams } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,14 +30,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { usePDFExport } from '@/hooks/usePDFExport';
 import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface AlocacaoAPIItem {
-  workpackageId: string;
-  workpackageNome: string;
-  projetoId: string;
-  projetoNome: string;
-  projetoEstado: ProjetoEstado;
+  workpackageId: string | null;
+  workpackageNome: string | null;
+  projetoId: string | null;
+  projetoNome: string | null;
+  projetoEstado?: ProjetoEstado | null;
   mes: number;
   ano: number;
   ocupacao: number;
@@ -62,8 +60,8 @@ interface AlocacaoOriginal {
   ano: number;
   mes: number;
   ocupacao: number;
-  workpackage: { id: string; nome: string };
-  projeto: { id: string; nome: string; estado?: ProjetoEstado };
+  workpackage: { id: string | null; nome: string | null };
+  projeto: { id: string | null; nome: string | null; estado?: ProjetoEstado };
 }
 
 interface AlocacoesData {
@@ -93,21 +91,13 @@ export function TabelaAlocacoes({ userId }: Props) {
 
   const [isSaving, setIsSaving] = useState(false);
 
+  const utils = api.useUtils();
+
   // CUID check function
   const isCUID = (id: string | undefined): boolean => {
     if (!id) return false;
     return id.length === 25; // Simplified check for 25 characters
   };
-
-  const queryInput = useMemo(() => {
-    if (!userId) return { ano: anoSelecionado, userId: undefined, username: undefined }; // Ensure disabled query has a consistent shape
-
-    if (isCUID(userId)) {
-      return { userId: userId, username: undefined, ano: anoSelecionado };
-    } else {
-      return { username: userId, userId: undefined, ano: anoSelecionado };
-    }
-  }, [userId, anoSelecionado]);
 
   const { 
     data: apiData, 
@@ -145,6 +135,7 @@ export function TabelaAlocacoes({ userId }: Props) {
     onSuccess: () => {
       toast.success("Alocações guardadas com sucesso!");
       refetchAlocacoes();
+      utils.projeto.estatisticas.getTotalAlocacoes.invalidate();
       setEditValues(new Map());
     },
     onError: (error: any) => {
@@ -170,7 +161,7 @@ export function TabelaAlocacoes({ userId }: Props) {
       projeto: { 
         id: item.projetoId, 
         nome: item.projetoNome,
-        estado: item.projetoEstado
+        estado: item.projetoEstado ?? undefined
       }
     });
     return {
@@ -233,21 +224,23 @@ export function TabelaAlocacoes({ userId }: Props) {
   const projetos = useMemo(() => {
     const projetosMap = new Map<string, Projeto>();
     const allAllocations = [
-      ...alocacoes.real.filter((a: AlocacaoOriginal) => a.ano === anoSelecionado),
-      ...(alocacoes.submetido?.filter((a: AlocacaoOriginal) => a.ano === anoSelecionado) || [])
+      ...alocacoes.real.filter((a: AlocacaoOriginal) => a.ano === anoSelecionado && a.workpackage.id !== null && a.workpackage.id !== ""),
+      ...(alocacoes.submetido?.filter((a: AlocacaoOriginal) => a.ano === anoSelecionado && a.workpackage.id !== null && a.workpackage.id !== "") || [])
     ];
     
     allAllocations.forEach((a: AlocacaoOriginal) => {
+      if (!a.projeto.id) return; // Ignorar alocações sem projeto (férias/ausências)
+      
       if (!projetosMap.has(a.projeto.id)) {
         projetosMap.set(a.projeto.id, {
           id: a.projeto.id,
-          nome: a.projeto.nome,
+          nome: a.projeto.nome ?? "Sem nome",
           estado: a.projeto.estado,
           wps: new Set()
         });
       }
       const projeto = projetosMap.get(a.projeto.id);
-      if (projeto) {
+      if (projeto && a.workpackage.id) {
         projeto.wps.add(a.workpackage.id);
       }
     });
@@ -278,9 +271,23 @@ export function TabelaAlocacoes({ userId }: Props) {
     return isSubmetido ? getValorSubmetido(wpId, mes) : getValorReal(wpId, mes);
   }, [isSubmetido, getValorReal, getValorSubmetido]);
 
+  const getValorFerias = useCallback((mes: number) => {
+    const alocacoes = isSubmetido ? processedAlocacoes.submetido : processedAlocacoes.real;
+    if (!alocacoes) return 0;
+    
+    // Filtrar as alocações que não possuem workpackage (férias/ausências)
+    const alocacaoFerias = alocacoes.find(a => 
+      (a.workpackage.id === null || a.workpackage.id === "") && 
+      a.mes === mes && 
+      a.ano === anoSelecionado
+    );
+    
+    return alocacaoFerias ? alocacaoFerias.ocupacao : 0;
+  }, [isSubmetido, processedAlocacoes, anoSelecionado]);
+
   function handleInputChange(wpId: string, mes: number, e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
-    const key = `${wpId}-${mes}-${anoSelecionado}`;
+    const key = wpId === "ferias" ? `ferias-${mes}-${anoSelecionado}` : `${wpId}-${mes}-${anoSelecionado}`;
     
     // Always store the value first, validation comes after
     setEditValues(prev => {
@@ -334,21 +341,44 @@ export function TabelaAlocacoes({ userId }: Props) {
       return valoresFixos;
     }
     
-    let total = valoresFixos;
+    let total = 0; // Iniciar do zero e calcular tudo
+    
+    // Processar todas as alocações regulares (com workpackageId)
     arr.forEach(a => {
       if (a.ano === anoSelecionado && a.mes === mes) {
-        const key = `${a.workpackage.id}-${mes}-${anoSelecionado}`;
-        if (editValues.has(key)) {
-          total -= a.ocupacao;
-          const editedValue = editValues.get(key) || "";
-          const numValue = parseFloat(editedValue.replace(',', '.')) || 0;
-          total += numValue;
+        if (a.workpackage.id !== null) {
+          const key = `${a.workpackage.id}-${mes}-${anoSelecionado}`;
+          if (editValues.has(key)) {
+            const editedValue = editValues.get(key) || "";
+            const numValue = parseFloat(editedValue.replace(',', '.')) || 0;
+            total += numValue;
+          } else {
+            total += a.ocupacao;
+          }
         }
       }
     });
     
+    // Adicionar férias/ausências ao total
+    const feriasKey = `ferias-${mes}-${anoSelecionado}`;
+    if (editValues.has(feriasKey)) {
+      const editedValue = editValues.get(feriasKey) || "";
+      const numValue = parseFloat(editedValue.replace(',', '.')) || 0;
+      total += numValue;
+    } else {
+      // Procurar alocações de férias existentes
+      const alocacaoFerias = arr.find(a => 
+        (a.workpackage.id === null || a.workpackage.id === "") && 
+        a.mes === mes && 
+        a.ano === anoSelecionado
+      );
+      if (alocacaoFerias) {
+        total += alocacaoFerias.ocupacao;
+      }
+    }
+    
     return total;
-  }, [anoSelecionado, editValues, alocacoes.submetido, alocacoes.real]);
+  }, [anoSelecionado, editValues, alocacoes.submetido]);
 
   async function handleSave() {
     setIsSaving(true);
@@ -371,6 +401,35 @@ export function TabelaAlocacoes({ userId }: Props) {
       });
     }
 
+    // Verificar se algum mês excede 100% de alocação
+    const mesesParaValidar = new Set<number>();
+    for (const [key, _] of editValues.entries()) {
+      if (key.includes('-')) {
+        const parts = key.split('-');
+        if (parts.length >= 2) {
+          const mes = parseInt(parts[parts.length-2] ?? "");
+          if (!isNaN(mes)) {
+            mesesParaValidar.add(mes);
+          }
+        }
+      }
+    }
+
+    let temExcesso = false;
+    for (const mes of mesesParaValidar) {
+      const total = calcularTotal(alocacoes.real, mes);
+      if (total > 1.0) {
+        toast.error(`O mês ${mesesFull[mes-1]} excede 100% de alocação total (${(total*100).toFixed(1)}%). Por favor, ajuste as alocações.`);
+        temExcesso = true;
+        break;
+      }
+    }
+
+    if (temExcesso) {
+      setIsSaving(false);
+      return;
+    }
+
     // Debug: Log all edit values
     console.log('All edit values:', Array.from(editValues.entries()));
 
@@ -378,6 +437,49 @@ export function TabelaAlocacoes({ userId }: Props) {
     for (const [key, valueStr] of editValues.entries()) {
       // Debug: Log the current key being processed
       console.log('Processing key:', key);
+      
+      if (key.startsWith('ferias-')) {
+        // Caso especial para férias/ausências (sem workpackageId)
+        const parts = key.split('-');
+        if (parts.length !== 3) {
+          console.warn('Invalid ferias key format:', key);
+          continue;
+        }
+        
+        const [_, mesStr, anoStr] = parts;
+        const mes = parseInt(mesStr ?? "");
+        const ano = parseInt(anoStr ?? "");
+        
+        if (isNaN(mes) || isNaN(ano) || ano !== anoSelecionado) {
+          console.warn('Invalid mes/ano for ferias:', { mes, ano, anoSelecionado });
+          continue;
+        }
+        
+        // Convert the edited value to a number, handling empty strings and commas
+        let editedValue: number;
+        if (valueStr.trim() === "") {
+          editedValue = 0;
+        } else {
+          // Replace comma with dot and parse
+          editedValue = parseFloat(valueStr.replace(',', '.'));
+          if (isNaN(editedValue)) {
+            console.warn('Invalid edited value for ferias:', valueStr);
+            continue;
+          }
+        }
+        
+        const editedValueFixed = Number(editedValue.toFixed(2));
+        
+        payload.push({
+          workpackageId: "", // Usando string vazia em vez de null para férias/ausências
+          userId: userId,
+          mes: mes,
+          ano: anoSelecionado,
+          ocupacao: editedValueFixed
+        });
+        
+        continue; // Vá para a próxima iteração
+      }
       
       // Extract workpackageId - it might contain hyphens, so we need to handle it differently
       const lastTwoHyphens = key.split('-').slice(-2);
@@ -397,8 +499,8 @@ export function TabelaAlocacoes({ userId }: Props) {
       // Debug: Log the parsed parts
       console.log('Parsed parts:', { wpId, mesStr, anoStr });
 
-      const mes = parseInt(mesStr);
-      const ano = parseInt(anoStr);
+      const mes = parseInt(mesStr ?? "");
+      const ano = parseInt(anoStr ?? "");
 
       if (isNaN(mes) || isNaN(ano) || ano !== anoSelecionado) {
         console.warn('Invalid mes/ano:', { mes, ano, anoSelecionado });
@@ -883,6 +985,61 @@ export function TabelaAlocacoes({ userId }: Props) {
             </TableBody>
             
             <TableFooter className="sticky bottom-0 z-20 bg-slate-100/95 backdrop-blur-sm">
+              <TableRow className="border-t border-slate-200 hover:bg-slate-50/70">
+                <TableCell className={cn(
+                  "px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 z-10 bg-slate-50/80 transition-all duration-300 ease-in-out",
+                  isSidebarCollapsed ? "w-[60px] min-w-[60px] text-center" : ""
+                )}>
+                  <span className={cn(isSidebarCollapsed && "hidden")}>Férias/Ausências</span>
+                  {isSidebarCollapsed && <span title="Férias/Ausências">🏖️</span>}
+                </TableCell>
+                {getMeses().map((mes) => {
+                  const valorFerias = getValorFerias(mes);
+                  const feriasKey = `ferias-${mes}-${anoSelecionado}`;
+                  const isEditing = editValues.has(feriasKey);
+                  
+                  return (
+                    <TableCell
+                      key={mes}
+                      className={cn(
+                        "px-3 py-2 text-center align-middle transition-all duration-200",
+                        mes % 2 !== 0 ? "bg-slate-50/30" : "bg-white"
+                      )}
+                    >
+                      {isSubmetido ? (
+                        <div className={cn(
+                          "flex items-center justify-center h-9 min-w-[80px] px-3 text-sm rounded-md",
+                          valorFerias > 0 
+                            ? "font-medium text-indigo-700 bg-indigo-50/60 border border-indigo-100" 
+                            : "text-slate-400 bg-slate-50/50 border border-slate-100",
+                          mesSelecionado && "text-base h-10 min-w-[100px]"
+                        )}>
+                          {valorFerias > 0 ? valorFerias.toFixed(2) : ""}
+                        </div>
+                      ) : (
+                        <Input
+                          type="text"
+                          value={isEditing ? editValues.get(feriasKey) || "" : (valorFerias > 0 ? valorFerias.toFixed(2).replace(".", ",") : "")}
+                          onChange={(e) => handleInputChange("ferias", mes, e)}
+                          placeholder="0,00"
+                          className={cn(
+                            "h-9 min-w-[80px] text-center text-sm border rounded-md",
+                            "focus:border-amber-300 focus:ring-1 focus:ring-amber-300 focus:outline-none",
+                            "transition-all duration-200",
+                            isEditing 
+                              ? "bg-amber-50/60 border-amber-300 shadow-sm" 
+                              : valorFerias > 0 
+                                ? "bg-amber-50/30 border-amber-100 text-amber-700 font-medium" 
+                                : "bg-slate-50/50 border-slate-100 text-slate-500",
+                            mesSelecionado && "text-base h-10 min-w-[100px]"
+                          )}
+                        />
+                      )}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+              
               <TableRow className="border-t border-slate-200">
                 <TableCell className={cn(
                   "px-4 py-3 text-sm font-semibold text-slate-700 sticky left-0 z-10 bg-slate-100/95 transition-all duration-300 ease-in-out",
@@ -895,6 +1052,10 @@ export function TabelaAlocacoes({ userId }: Props) {
                   const totalReal = calcularTotal(alocacoes.real, mes);
                   const totalSubmetido = calcularTotal(alocacoes.submetido, mes);
                   const totalAtual = isSubmetido ? totalSubmetido : totalReal;
+                  
+                  // Determinar cores baseadas na porcentagem de alocação
+                  const excedeuLimite = totalAtual > 1.0;
+                  const proximoDoLimite = totalAtual >= 0.95 && totalAtual <= 1.0;
 
                   return (
                     <TableCell
@@ -902,8 +1063,16 @@ export function TabelaAlocacoes({ userId }: Props) {
                       className={cn(
                         "px-3 py-3 text-center font-semibold",
                         isSubmetido 
-                          ? "bg-indigo-100/40 text-indigo-800 text-sm" 
-                          : "bg-blue-100/40 text-blue-800 text-sm",
+                          ? excedeuLimite 
+                            ? "bg-red-100/50 text-red-800 text-sm"
+                            : proximoDoLimite
+                              ? "bg-amber-100/40 text-amber-800 text-sm"
+                              : "bg-indigo-100/40 text-indigo-800 text-sm" 
+                          : excedeuLimite
+                            ? "bg-red-100/50 text-red-800 text-sm"
+                            : proximoDoLimite
+                              ? "bg-amber-100/40 text-amber-800 text-sm"
+                              : "bg-blue-100/40 text-blue-800 text-sm",
                         mesSelecionado && "text-base"
                       )}
                     >
@@ -911,7 +1080,9 @@ export function TabelaAlocacoes({ userId }: Props) {
                         "flex items-center justify-center",
                         mesSelecionado && "text-lg"
                       )}>
+                        {excedeuLimite && <AlertTriangle className="h-3.5 w-3.5 text-red-600 mr-1.5" />}
                         {totalAtual.toFixed(2)}
+                        {totalAtual > 0 && <span className="text-xs ml-1.5">({(totalAtual * 100).toFixed(0)}%)</span>}
                       </div>
                     </TableCell>
                   );
@@ -930,6 +1101,14 @@ export function TabelaAlocacoes({ userId }: Props) {
             <div className="flex items-center">
               <div className="h-2 w-2 rounded-full bg-indigo-400 mr-1.5"></div>
               <span>Alocações Submetidas (Meta)</span>
+            </div>
+            <div className="flex items-center">
+              <div className="h-2 w-2 rounded-full bg-amber-400 mr-1.5"></div>
+              <span>Férias/Ausências</span>
+            </div>
+            <div className="flex items-center ml-auto">
+              <AlertTriangle className="h-3 w-3 text-amber-500 mr-1" />
+              <span>O total de alocações (incl. férias/ausências) não pode exceder 100%</span>
             </div>
           </div>
         </div>

@@ -1,17 +1,16 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Decimal } from "decimal.js";
-import { handlePrismaError } from "../../utils";
-import { ProjetoEstado } from "@prisma/client";
+import { handlePrismaError } from "@/server/api/utils";
+import { ProjetoEstado } from "@prisma/client"; // Adicionado para ProjetoEstado
 
 // Schema para input de alocação
 const workpackageUserSchema = z.object({
-  workpackageId: z.string(),
+  workpackageId: z.string().nullable(), 
   userId: z.string(),
   mes: z.number().int().min(1).max(12),
   ano: z.number().int().min(2000),
-  ocupacao: z.number().min(0).max(1),
+  ocupacao: z.number().min(0).max(1)
 });
 
 export const alocacoesUtilizadorRouter = createTRPCRouter({
@@ -19,29 +18,53 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
   create: protectedProcedure.input(workpackageUserSchema).mutation(async ({ ctx, input }) => {
     try {
       const { workpackageId, userId, mes, ano, ocupacao } = input;
-      const workpackage = await ctx.db.workpackage.findUnique({ where: { id: workpackageId } });
-      if (!workpackage) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Workpackage não encontrado" });
+      
+      const isFerias = workpackageId === null || workpackageId === undefined;
+      
+      if (!isFerias && workpackageId) { // Adicionado workpackageId para garantir que não é null
+        const wpExists = await ctx.db.workpackage.findUnique({ where: { id: workpackageId } });
+        if (!wpExists) {
+          throw new TRPCError({ code: "NOT_FOUND", message: `Workpackage ${workpackageId} não encontrado` });
+        }
       }
+      
       const user = await ctx.db.user.findUnique({ where: { id: userId } });
       if (!user) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Utilizador não encontrado" });
+        throw new TRPCError({ code: "NOT_FOUND", message: `Utilizador ${userId} não encontrado` });
       }
-      const alocacao = await ctx.db.alocacaoRecurso.upsert({
-        where: {
-          workpackageId_userId_mes_ano: {
-            workpackageId,
-            userId,
-            mes,
-            ano,
+      
+      let result;
+      if (workpackageId === null) {
+        const existingAlocacao = await ctx.db.alocacaoRecurso.findFirst({
+          where: { userId, mes, ano, workpackageId: null },
+        });
+        if (existingAlocacao) {
+          result = await ctx.db.alocacaoRecurso.update({
+            where: { id: existingAlocacao.id },
+            data: { ocupacao },
+          });
+        } else {
+          result = await ctx.db.alocacaoRecurso.create({
+            data: { workpackageId, userId, mes, ano, ocupacao },
+          });
+        }
+      } else {
+        result = await ctx.db.alocacaoRecurso.upsert({
+          where: {
+            workpackageId_userId_mes_ano: {
+              workpackageId: workpackageId!, // Afirmar que não é null aqui
+              userId,
+              mes,
+              ano,
+            },
           },
-        },
-        update: { ocupacao },
-        create: { workpackageId, userId, mes, ano, ocupacao },
-      });
-      return alocacao;
+          update: { ocupacao },
+          create: { workpackageId, userId, mes, ano, ocupacao },
+        });
+      }
+      return result;
     } catch (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao adicionar ou atualizar alocação", cause: error });
+      return handlePrismaError(error);
     }
   }),
 
@@ -49,40 +72,49 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
   update: protectedProcedure.input(workpackageUserSchema).mutation(async ({ ctx, input }) => {
     try {
       const { workpackageId, userId, mes, ano, ocupacao } = input;
-      const alocacaoExistente = await ctx.db.alocacaoRecurso.findUnique({
-        where: {
-          workpackageId_userId_mes_ano: {
-            workpackageId,
-            userId,
-            mes,
-            ano,
+      
+      let alocacaoAtualizada;
+      if (workpackageId === null) {
+        const alocacaoExistente = await ctx.db.alocacaoRecurso.findFirst({
+          where: { userId, mes, ano, workpackageId: null },
+        });
+        if (!alocacaoExistente) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Alocação (férias/ausência) não encontrada para atualização" });
+        }
+        alocacaoAtualizada = await ctx.db.alocacaoRecurso.update({
+          where: { id: alocacaoExistente.id },
+          data: { ocupacao },
+        });
+      } else {
+        const alocacaoExistente = await ctx.db.alocacaoRecurso.findUnique({
+          where: {
+            workpackageId_userId_mes_ano: {
+              workpackageId: workpackageId!, // Afirmar que não é null
+              userId,
+              mes,
+              ano,
+            },
           },
-        },
-      });
-      if (!alocacaoExistente) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Alocação não encontrada" });
+        });
+
+        if (!alocacaoExistente) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Alocação não encontrada para atualização" });
+        }
+        alocacaoAtualizada = await ctx.db.alocacaoRecurso.update({
+          where: { id: alocacaoExistente.id }, // Usar o ID primário para update
+          data: { ocupacao },
+        });
       }
-      const alocacao = await ctx.db.alocacaoRecurso.update({
-        where: {
-          workpackageId_userId_mes_ano: {
-            workpackageId,
-            userId,
-            mes,
-            ano,
-          },
-        },
-        data: { ocupacao },
-      });
-      return alocacao;
+      return alocacaoAtualizada;
     } catch (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao atualizar alocação", cause: error });
+      return handlePrismaError(error);
     }
   }),
 
   // Atualizar alocações em lote
   updateMany: protectedProcedure
     .input(z.array(z.object({
-      workpackageId: z.string(),
+      workpackageId: z.string().nullable(),
       userId: z.string(),
       mes: z.number().int().min(1).max(12),
       ano: z.number().int().min(2000),
@@ -92,51 +124,79 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
       try {
         const results = await Promise.all(
           input.map(async (alocacao) => {
-            const workpackage = await ctx.db.workpackage.findUnique({ where: { id: alocacao.workpackageId }, include: { projeto: true } });
-            if (!workpackage) {
-              throw new TRPCError({ code: "NOT_FOUND", message: `Workpackage ${alocacao.workpackageId} não encontrado` });
-            }
             const user = await ctx.db.user.findUnique({ where: { id: alocacao.userId } });
             if (!user) {
-              throw new TRPCError({ code: "NOT_FOUND", message: `Utilizador ${alocacao.userId} não encontrado` });
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: `Utilizador ${alocacao.userId} não encontrado`,
+              });
             }
-            const outrasAlocacoes = await ctx.db.alocacaoRecurso.findMany({
-              where: {
-                userId: alocacao.userId,
-                mes: alocacao.mes,
-                ano: alocacao.ano,
-                NOT: { workpackageId: alocacao.workpackageId },
-              },
-              select: { ocupacao: true },
-            });
-            const somaOutrasAlocacoes = outrasAlocacoes.reduce((sum, aloc) => sum.add(aloc.ocupacao), new Decimal(0));
-            const novaOcupacaoTotal = somaOutrasAlocacoes.add(new Decimal(alocacao.ocupacao));
-            if (novaOcupacaoTotal.greaterThan(1)) {
-              throw new TRPCError({ code: "BAD_REQUEST", message: `A ocupação total para ${user.name || alocacao.userId} em ${alocacao.mes}/${alocacao.ano} excederia 100% (${novaOcupacaoTotal.times(100).toFixed(0)}%)` });
-            }
-            return ctx.db.alocacaoRecurso.upsert({
-              where: {
-                workpackageId_userId_mes_ano: {
-                  workpackageId: alocacao.workpackageId,
+
+            let result;
+            // Tratar string vazia como null para workpackageId
+            const effectiveWorkpackageId = alocacao.workpackageId === "" ? null : alocacao.workpackageId;
+
+            if (effectiveWorkpackageId === null) {
+              const existingAlocacao = await ctx.db.alocacaoRecurso.findFirst({
+                where: {
                   userId: alocacao.userId,
                   mes: alocacao.mes,
                   ano: alocacao.ano,
+                  workpackageId: null,
                 },
-              },
-              update: { ocupacao: new Decimal(alocacao.ocupacao) },
-              create: {
-                workpackageId: alocacao.workpackageId,
-                userId: alocacao.userId,
-                mes: alocacao.mes,
-                ano: alocacao.ano,
-                ocupacao: new Decimal(alocacao.ocupacao),
-              },
-            });
+              });
+
+              if (existingAlocacao) {
+                result = await ctx.db.alocacaoRecurso.update({
+                  where: { id: existingAlocacao.id },
+                  data: { ocupacao: alocacao.ocupacao },
+                });
+              } else {
+                result = await ctx.db.alocacaoRecurso.create({
+                  data: {
+                    userId: alocacao.userId,
+                    mes: alocacao.mes,
+                    ano: alocacao.ano,
+                    workpackageId: null,
+                    ocupacao: alocacao.ocupacao,
+                  },
+                });
+              }
+            } else {
+              // Se chegou aqui, effectiveWorkpackageId é uma string não vazia e não nula.
+              // Verificar se o workpackage existe antes do upsert
+              const wpExists = await ctx.db.workpackage.findUnique({ where: { id: effectiveWorkpackageId } });
+              if (!wpExists) {
+                throw new TRPCError({ code: "NOT_FOUND", message: `Workpackage ${effectiveWorkpackageId} não encontrado para a alocação.` });
+              }
+
+              result = await ctx.db.alocacaoRecurso.upsert({
+                where: {
+                  workpackageId_userId_mes_ano: {
+                    workpackageId: effectiveWorkpackageId, // Agora é garantido que não é null nem string vazia
+                    userId: alocacao.userId,
+                    mes: alocacao.mes,
+                    ano: alocacao.ano,
+                  },
+                },
+                update: { ocupacao: alocacao.ocupacao },
+                create: {
+                  workpackageId: effectiveWorkpackageId,
+                  userId: alocacao.userId,
+                  mes: alocacao.mes,
+                  ano: alocacao.ano,
+                  ocupacao: alocacao.ocupacao,
+                },
+              });
+            }
+            return result;
           })
         );
         return results;
       } catch (error) {
-        if (error instanceof TRPCError) throw error;
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         return handlePrismaError(error);
       }
     }),
@@ -144,7 +204,7 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
   // Remover alocação de recurso
   delete: protectedProcedure.input(
     z.object({
-      workpackageId: z.string(),
+      workpackageId: z.string().nullable(),
       userId: z.string(),
       mes: z.number(),
       ano: z.number(),
@@ -152,32 +212,43 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
   ).mutation(async ({ ctx, input }) => {
     try {
       const { workpackageId, userId, mes, ano } = input;
-      const alocacao = await ctx.db.alocacaoRecurso.findUnique({
-        where: {
-          workpackageId_userId_mes_ano: {
-            workpackageId,
-            userId,
-            mes,
-            ano,
+      
+      let deletedAlocacao;
+      if (workpackageId === null) {
+        const alocacaoExistente = await ctx.db.alocacaoRecurso.findFirst({
+          where: { userId, mes, ano, workpackageId: null },
+        });
+        if (!alocacaoExistente) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Alocação (férias/ausência) não encontrada para remoção" });
+        }
+        deletedAlocacao = await ctx.db.alocacaoRecurso.delete({
+          where: { id: alocacaoExistente.id },
+        });
+      } else {
+        const alocacaoExistente = await ctx.db.alocacaoRecurso.findUnique({
+          where: {
+            workpackageId_userId_mes_ano: {
+              workpackageId: workpackageId!, // Afirmar que não é null
+              userId,
+              mes,
+              ano,
+            },
           },
-        },
-      });
-      if (!alocacao) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Alocação não encontrada" });
+        });
+        if (!alocacaoExistente) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Alocação não encontrada para remoção" });
+        }
+        deletedAlocacao = await ctx.db.alocacaoRecurso.delete({
+          where: { id: alocacaoExistente.id }, // Usar o ID primário para delete
+        });
       }
-      await ctx.db.alocacaoRecurso.delete({
-        where: {
-          workpackageId_userId_mes_ano: {
-            workpackageId,
-            userId,
-            mes,
-            ano,
-          },
-        },
-      });
+      
+      if (!deletedAlocacao) {
+         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Falha ao remover alocação"});
+      }
       return { success: true };
     } catch (error) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao remover alocação", cause: error });
+      return handlePrismaError(error);
     }
   }),
 
@@ -214,13 +285,14 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
           const ocupacaoAprovada = alocacoesMes
             .filter(
               (a) =>
-                a.workpackage.projeto.estado === "APROVADO" ||
-                a.workpackage.projeto.estado === "EM_DESENVOLVIMENTO"
+                a.workpackage && a.workpackage.projeto &&
+                (a.workpackage.projeto.estado === "APROVADO" ||
+                 a.workpackage.projeto.estado === "EM_DESENVOLVIMENTO")
             )
             .reduce((sum, a) => sum + Number(a.ocupacao), 0);
           // Soma das ocupações em projetos pendentes
           const ocupacaoPendente = alocacoesMes
-            .filter((a) => a.workpackage.projeto.estado === "PENDENTE")
+            .filter((a) => a.workpackage && a.workpackage.projeto && a.workpackage.projeto.estado === "PENDENTE")
             .reduce((sum, a) => sum + Number(a.ocupacao), 0);
           return { mes, ocupacaoAprovada, ocupacaoPendente };
         });
@@ -297,15 +369,23 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
         const anosSet = new Set<number>();
         const projetoIdsSet = new Set<string>();
         // 1. Procurar alocações reais (projetos aprovados, em desenvolvimento ou concluídos)
+        //    e alocações de férias/ausências (workpackageId é null)
         const alocacoesReaisDb = await ctx.db.alocacaoRecurso.findMany({
           where: {
             userId: actualUserId,
             ...(input.ano ? { ano: input.ano } : {}),
-            workpackage: {
-              projeto: {
-                estado: { in: validProjectStates },
+            OR: [
+              {
+                workpackage: {
+                  projeto: {
+                    estado: { in: validProjectStates },
+                  },
+                },
               },
-            },
+              {
+                workpackageId: null, // Inclui férias/ausências
+              },
+            ],
           },
           select: {
             mes: true,
@@ -328,16 +408,19 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
             },
           },
         });
-        // Processa as alocações reais e coleta anos/projetos
+        // Processa as alocacoes reais e coleta anos/projetos
         const realData = alocacoesReaisDb.map(alocacao => {
           anosSet.add(alocacao.ano);
-          projetoIdsSet.add(alocacao.workpackage.projeto.id);
+          if (alocacao.workpackage && alocacao.workpackage.projeto) {
+            projetoIdsSet.add(alocacao.workpackage.projeto.id);
+          }
+          // Para férias/ausências, workpackage e projeto serão null
           return {
-            workpackageId: alocacao.workpackage.id,
-            workpackageNome: alocacao.workpackage.nome,
-            projetoId: alocacao.workpackage.projeto.id,
-            projetoNome: alocacao.workpackage.projeto.nome,
-            projetoEstado: alocacao.workpackage.projeto.estado,
+            workpackageId: alocacao.workpackage?.id ?? null,
+            workpackageNome: alocacao.workpackage?.nome ?? null,
+            projetoId: alocacao.workpackage?.projeto?.id ?? null,
+            projetoNome: alocacao.workpackage?.projeto?.nome ?? null,
+            projetoEstado: alocacao.workpackage?.projeto?.estado ?? null,
             mes: alocacao.mes,
             ano: alocacao.ano,
             ocupacao: Number(alocacao.ocupacao.toFixed(3)),
@@ -378,13 +461,15 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
         // Processa as alocações pendentes
         const pendenteData = alocacoesPendentesDb.map(alocacao => {
           anosSet.add(alocacao.ano);
-          projetoIdsSet.add(alocacao.workpackage.projeto.id);
+          if (alocacao.workpackage && alocacao.workpackage.projeto) {
+            projetoIdsSet.add(alocacao.workpackage.projeto.id);
+          }
           return {
-            workpackageId: alocacao.workpackage.id,
-            workpackageNome: alocacao.workpackage.nome,
-            projetoId: alocacao.workpackage.projeto.id,
-            projetoNome: alocacao.workpackage.projeto.nome,
-            projetoEstado: alocacao.workpackage.projeto.estado,
+            workpackageId: alocacao.workpackage?.id ?? null,
+            workpackageNome: alocacao.workpackage?.nome ?? null,
+            projetoId: alocacao.workpackage?.projeto?.id ?? null,
+            projetoNome: alocacao.workpackage?.projeto?.nome ?? null,
+            projetoEstado: alocacao.workpackage?.projeto?.estado ?? null,
             mes: alocacao.mes,
             ano: alocacao.ano,
             ocupacao: Number(alocacao.ocupacao.toFixed(3)),
@@ -395,7 +480,7 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
           where: { aprovado: { not: undefined } },
           select: { id: true, nome: true, estado: true, aprovado: true },
         });
-        // Processa as alocações submetidas a partir dos snapshots
+        // Processa as alocacoes submetidas a partir dos snapshots
         const submetidoDataMap = new Map();
         projetosComSnapshot.forEach(projeto => {
           const aprovado = projeto.aprovado as any;
