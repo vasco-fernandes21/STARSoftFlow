@@ -87,7 +87,7 @@ export function TabelaAlocacoes({ userId }: Props) {
 
   const mesesFull = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
   
-  const { mutate: gerarPDF } = usePDFExport();
+  const gerarPDFMutation = usePDFExport();
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -204,11 +204,17 @@ export function TabelaAlocacoes({ userId }: Props) {
         setIsGeneratingPDF(false);
         return;
       }
-      gerarPDF({
-        id: userId,
-        mes: mesSelecionado,
-        ano: anoSelecionado
-      });
+      gerarPDFMutation.mutate(
+        {
+          id: userId,
+          mes: mesSelecionado,
+          ano: anoSelecionado
+        },
+        {
+          onSuccess: () => setIsGeneratingPDF(false),
+          onError: () => setIsGeneratingPDF(false)
+        }
+      );
     } else {
       alert('Por favor, selecione um mês para exportar o relatório.');
     }

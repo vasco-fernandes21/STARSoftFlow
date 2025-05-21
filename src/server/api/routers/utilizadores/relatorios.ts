@@ -36,6 +36,7 @@ async function obterRelatorioMensal(ctx: any, input: any) {
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         atividade: true,
         regime: true,
@@ -47,6 +48,7 @@ async function obterRelatorioMensal(ctx: any, input: any) {
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         atividade: true,
         regime: true,
@@ -334,15 +336,15 @@ export const relatoriosUtilizadorRouter = createTRPCRouter({
       try {
         // 1. Determinar o usuário com base no input (username ou id)
         if (input.username) {
-          const user = await ctx.db.user.findUnique({ where: { username: input.username }, select: { id: true, name: true } });
+          const user = await ctx.db.user.findUnique({ where: { username: input.username }, select: { id: true, username: true } });
           if (!user) throw new TRPCError({ code: "NOT_FOUND", message: `Utilizador ${input.username} não encontrado.` });
           userId = user.id;
-          reportUsername = user.name ?? input.username;
+          reportUsername = user.username ?? input.username;
         } else if (input.id) {
-          const user = await ctx.db.user.findUnique({ where: { id: input.id }, select: { id: true, name: true } });
+          const user = await ctx.db.user.findUnique({ where: { id: input.id }, select: { id: true, username: true } });
           if (!user) throw new TRPCError({ code: "NOT_FOUND", message: `Utilizador com ID ${input.id} não encontrado.` });
           userId = user.id;
-          reportUsername = user.name ?? input.id;
+          reportUsername = user.username ?? input.id;
         } else {
           throw new TRPCError({ code: "BAD_REQUEST", message: "É necessário fornecer username ou id." });
         }

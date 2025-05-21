@@ -699,11 +699,24 @@ validarProjeto: protectedProcedure
           });
         }
 
+        // Nova lógica: se a data de início já passou ou é hoje, estado = EM_DESENVOLVIMENTO
+        let novoEstado: ProjetoEstado = ProjetoEstado.APROVADO;
+        if (projetoCompleto.inicio) {
+          const hoje = new Date();
+          const inicioProjeto = new Date(projetoCompleto.inicio);
+          // Ignorar horas/minutos/segundos para comparação de datas
+          hoje.setHours(0,0,0,0);
+          inicioProjeto.setHours(0,0,0,0);
+          if (inicioProjeto <= hoje) {
+            novoEstado = ProjetoEstado.EM_DESENVOLVIMENTO;
+          }
+        }
+
         // Atualizar o projeto com o novo estado e guardar o snapshot
         const projetoAtualizado = await ctx.db.projeto.update({
           where: { id },
           data: { 
-            estado: ProjetoEstado.APROVADO,
+            estado: novoEstado,
             aprovado: projetoCompleto, // Salvamos o estado completo do projeto
           } as Prisma.ProjetoUpdateInput,
           include: {
