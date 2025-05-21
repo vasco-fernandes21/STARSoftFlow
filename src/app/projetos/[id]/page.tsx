@@ -102,7 +102,16 @@ const ValidarProjeto = memo(({ id, nome, utils }: { id: string; nome: string; ut
       <Button
         onClick={handleAprovar}
         disabled={isAprovando || isRejeitando}
-        className="flex h-10 items-center gap-1.5 rounded-full bg-emerald-500 px-4 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-60"
+        className={cn(
+          "relative inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-all duration-200",
+          "bg-azul text-white shadow-md",
+          "hover:bg-azul-light hover:shadow-azul/20",
+          "active:bg-azul-dark",
+          "focus:outline-none focus:ring-2 focus:ring-azul/20 focus:ring-offset-2",
+          "disabled:pointer-events-none disabled:opacity-60",
+          "before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-gradient-to-b before:from-white/10 before:to-transparent before:opacity-0 before:transition-opacity",
+          "hover:before:opacity-100"
+        )}
       >
         {isAprovando ? (
           <Loader2 className="mr-1 h-4 w-4 animate-spin" />
@@ -116,7 +125,16 @@ const ValidarProjeto = memo(({ id, nome, utils }: { id: string; nome: string; ut
         <AlertDialogTrigger asChild>
           <Button
             disabled={isAprovando || isRejeitando}
-            className="flex h-10 items-center gap-1.5 rounded-full border border-rose-200 bg-white px-4 text-sm font-medium text-rose-500 hover:bg-rose-50 disabled:opacity-60"
+            className={cn(
+              "relative inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-all duration-200",
+              "border border-slate-200 bg-white text-slate-700 shadow-sm",
+              "hover:bg-slate-50 hover:text-slate-900",
+              "active:bg-slate-100",
+              "focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2",
+              "disabled:pointer-events-none disabled:opacity-60",
+              "before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-gradient-to-b before:from-white/5 before:to-transparent before:opacity-0 before:transition-opacity",
+              "hover:before:opacity-100"
+            )}
           >
             <X className="mr-1 h-4 w-4" />
             <span>Rejeitar</span>
@@ -136,7 +154,13 @@ const ValidarProjeto = memo(({ id, nome, utils }: { id: string; nome: string; ut
                 Cancelar
               </AlertDialogCancel>
               <AlertDialogAction
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-500 py-2 text-sm font-medium text-white hover:bg-rose-600"
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all duration-200",
+                  "bg-azul text-white shadow-md",
+                  "hover:bg-azul-light hover:shadow-azul/20",
+                  "active:bg-azul-dark",
+                  "disabled:opacity-60"
+                )}
                 onClick={handleRejeitar}
                 disabled={isRejeitando}
               >

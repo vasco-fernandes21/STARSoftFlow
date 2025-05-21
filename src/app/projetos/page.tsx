@@ -100,6 +100,7 @@ export default function Projetos() {
     onSuccess: () => {
       toast.success("Projeto apagado com sucesso");
       void utils.projeto.core.findAll.invalidate();
+      void utils.projeto.estatisticas.getProjetosStats.invalidate();
     },
     onError: (error) => {
       toast.error(`Erro ao apagar projeto: ${error.message}`);

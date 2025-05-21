@@ -77,7 +77,7 @@ export const estatisticasProjetoRouter = createTRPCRouter({
           where: {
             ...baseWhere,
             estado: {
-              in: ["APROVADO", "EM_DESENVOLVIMENTO"],
+              in: ["APROVADO", "EM_DESENVOLVIMENTO", "CONCLUIDO"],
             },
             workpackages: {
               some: {

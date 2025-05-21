@@ -1,6 +1,6 @@
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Permissao, ProjetoEstado } from "@prisma/client";
+import { Permissao, ProjetoEstado, ProjetoTipo } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { z } from "zod";
 
@@ -36,21 +36,25 @@ export const adminRouter = createTRPCRouter({
 
         // Buscar contagem de projetos por estado
         const projetosAprovados = await ctx.db.projeto.count({
-          where: { estado: ProjetoEstado.APROVADO }
+          where: { estado: ProjetoEstado.APROVADO, tipo: ProjetoTipo.STANDARD }
         });
 
         const projetosEmDesenvolvimento = await ctx.db.projeto.count({
-          where: { estado: ProjetoEstado.EM_DESENVOLVIMENTO }
+          where: { estado: ProjetoEstado.EM_DESENVOLVIMENTO, tipo: ProjetoTipo.STANDARD }
         });
 
         const projetosPendentes = await ctx.db.projeto.count({
-          where: { estado: ProjetoEstado.PENDENTE }
+          where: { estado: ProjetoEstado.PENDENTE, tipo: ProjetoTipo.STANDARD }
         });
 
         // Buscar projetos com entregáveis em atraso
         const hoje = new Date();
         const projetosComEntregaveisAtrasados = await ctx.db.projeto.count({
           where: {
+            tipo: ProjetoTipo.STANDARD,
+            estado: {
+              in: [ProjetoEstado.APROVADO, ProjetoEstado.EM_DESENVOLVIMENTO, ProjetoEstado.CONCLUIDO]
+            },
             workpackages: {
               some: {
                 tarefas: {
