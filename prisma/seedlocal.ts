@@ -361,6 +361,7 @@ async function main() {
       nome: "Atividade Económica",
       descricao: "",
       tipo: "ATIVIDADE_ECONOMICA",
+      estado: ProjetoEstado.EM_DESENVOLVIMENTO,
       workpackages: {
         create: projetosParaWP.map((proj) => ({
           nome: proj.nome,

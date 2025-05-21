@@ -256,17 +256,23 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
     .input(
       z.object({
         userId: z.string(),
-        ano: z.number(),
+        ano: z.number().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       try {
-        const { userId, ano } = input;
-        // Procurar todas as alocações do utilizador para o ano especificado
+        const { userId, ano: inputAno } = input;
+
+        const whereClause: { userId: string; ano?: number } = { userId };
+        if (inputAno) {
+          whereClause.ano = inputAno;
+        }
+
         const alocacoes = await ctx.db.alocacaoRecurso.findMany({
-          where: { userId, ano },
+          where: whereClause,
           select: {
             mes: true,
+            ano: true, // Importante para o retorno
             ocupacao: true,
             workpackage: {
               select: {
@@ -276,30 +282,52 @@ export const alocacoesUtilizadorRouter = createTRPCRouter({
               },
             },
           },
+          orderBy: [
+            { ano: 'asc' },
+            { mes: 'asc' },
+          ]
         });
-        // Para cada mês, calcular a soma das ocupações por estado do projeto
-        const meses = Array.from({ length: 12 }, (_, i) => i + 1);
-        const ocupacaoPorMes = meses.map((mes) => {
-          const alocacoesMes = alocacoes.filter((a) => a.mes === mes);
-          // Soma das ocupações em projetos aprovados ou em desenvolvimento
-          const ocupacaoAprovada = alocacoesMes
-            .filter(
-              (a) =>
-                a.workpackage && a.workpackage.projeto &&
-                (a.workpackage.projeto.estado === "APROVADO" ||
-                 a.workpackage.projeto.estado === "EM_DESENVOLVIMENTO")
-            )
-            .reduce((sum, a) => sum + Number(a.ocupacao), 0);
-          // Soma das ocupações em projetos pendentes
-          const ocupacaoPendente = alocacoesMes
-            .filter((a) => a.workpackage && a.workpackage.projeto && a.workpackage.projeto.estado === "PENDENTE")
-            .reduce((sum, a) => sum + Number(a.ocupacao), 0);
-          return { mes, ocupacaoAprovada, ocupacaoPendente };
-        });
-        // Retorna um array com a ocupação por mês, separando aprovada e pendente
-        return ocupacaoPorMes;
+
+        const agregadosMap = new Map<string, { ano: number; mes: number; ocupacaoAprovada: number; ocupacaoPendente: number }>();
+
+        for (const alocacao of alocacoes) {
+          const key = `${alocacao.ano}-${alocacao.mes}`;
+          let agregado = agregadosMap.get(key);
+
+          if (!agregado) {
+            agregado = {
+              ano: alocacao.ano,
+              mes: alocacao.mes,
+              ocupacaoAprovada: 0,
+              ocupacaoPendente: 0,
+            };
+            agregadosMap.set(key, agregado);
+          }
+
+          const isAprovadoOuEmDesenvolvimento =
+            alocacao.workpackage?.projeto?.estado === "APROVADO" ||
+            alocacao.workpackage?.projeto?.estado === "EM_DESENVOLVIMENTO";
+          
+          const isPendente = alocacao.workpackage?.projeto?.estado === "PENDENTE";
+
+          if (isAprovadoOuEmDesenvolvimento) {
+            agregado.ocupacaoAprovada += Number(alocacao.ocupacao);
+          } else if (isPendente) {
+            agregado.ocupacaoPendente += Number(alocacao.ocupacao);
+          }
+        }
+
+        const resultadoFinal = Array.from(agregadosMap.values());
+        return resultadoFinal;
+
       } catch (error) {
-        return handlePrismaError(error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        // Se handlePrismaError não lançar um TRPCError, esta parte pode precisar de ajuste
+        // para garantir que um erro apropriado seja propagado.
+        // Por enquanto, mantendo como estava, assumindo que handlePrismaError é adequado.
+        return handlePrismaError(error); 
       }
     }),
 
