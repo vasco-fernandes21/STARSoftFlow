@@ -26,8 +26,9 @@ import {
 } from "@/components/ui/select";
 import type { Permissao, Regime } from "@prisma/client";
 import { api } from "@/trpc/react";
-import { Loader2, Save, UserCog, Mail, Briefcase, BadgeEuro, FileText, Hash } from "lucide-react";
+import { Loader2, Save, UserCog, Mail, Briefcase, BadgeEuro, FileText, Hash, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { DateField } from "@/components/projetos/criar/components/FormFields";
 
 // Form schema
 const formSchema = z.object({
@@ -42,6 +43,7 @@ const formSchema = z.object({
     (v) => (v === "" || v === null ? undefined : Number(v)),
     z.number().min(0, "O salário deve ser positivo").optional()
   ),
+  contratacao: z.date().optional(),
 });
 
 // Props interface
@@ -56,6 +58,7 @@ interface EditarUtilizadorFormProps {
     informacoes: string | null;
     salario: number | null;
     n_colaborador?: number;
+    contratacao?: string | null | undefined;
   };
   onSave: () => void;
   onCancel: () => void;
@@ -64,6 +67,37 @@ interface EditarUtilizadorFormProps {
 export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizadorFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const utils = api.useUtils();
+
+  // Processar a data de contratação se existir
+  const dataContratacao = (() => {
+    if (!user.contratacao) return undefined;
+    
+    console.log('Data de contratação original:', user.contratacao, typeof user.contratacao);
+    
+    try {
+      // Converter string para objeto Date preservando o dia exato
+      const dateString = user.contratacao;
+      
+      // Extrair componentes da data (ano, mês, dia) da string ISO
+      const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      
+      if (match) {
+        const [_, year, month, day] = match;
+        // Criar a data usando UTC para evitar problemas de fuso horário
+        const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+        
+        console.log('Data de contratação ajustada para fuso horário:', date, date.toISOString());
+        return date;
+      }
+      
+      // Fallback para conversão padrão se o padrão não for encontrado
+      const date = new Date(dateString);
+      return !isNaN(date.getTime()) ? date : undefined;
+    } catch (error) {
+      console.error('Erro ao processar data de contratação:', error);
+      return undefined;
+    }
+  })();
 
   // Set up form with default values
   const form = useForm<z.infer<typeof formSchema>>({
@@ -77,6 +111,7 @@ export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizado
       permissao: user.permissao,
       informacoes: user.informacoes ?? "",
       salario: user.salario ?? undefined,
+      contratacao: dataContratacao,
     },
   });
 
@@ -101,9 +136,22 @@ export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizado
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
+      // Certifique-se de que a data está correta antes de enviar para o servidor
+      const processedValues = {
+        ...values,
+        contratacao: values.contratacao ? new Date(Date.UTC(
+          values.contratacao.getFullYear(),
+          values.contratacao.getMonth(),
+          values.contratacao.getDate(),
+          12, 0, 0
+        )) : undefined
+      };
+      
+      console.log('Valores a enviar:', processedValues);
+      
       await updateUserMutation.mutateAsync({
         id: user.id,
-        data: values,
+        data: processedValues,
       });
     } catch (error) {
       console.error("Erro ao atualizar utilizador:", error);
@@ -269,6 +317,39 @@ export function EditarUtilizadorForm({ user, onSave, onCancel }: EditarUtilizado
                     <FormMessage className="text-xs text-red-500" />
                   </FormItem>
                 )}
+              />
+            </div>
+
+            {/* Nova linha: Data de Contratação */}
+            <div className="grid grid-cols-1 gap-6">
+              <FormField
+                control={form.control}
+                name="contratacao"
+                render={({ field }) => {
+                  // Garantir que o valor é uma data válida
+                  const dateValue = field.value instanceof Date && !isNaN(field.value.getTime())
+                    ? field.value
+                    : null;
+                    
+                  return (
+                    <FormItem className="space-y-2">
+                      <FormControl>
+                        <DateField
+                          label="Data de Contratação"
+                          value={dateValue}
+                          onChange={field.onChange}
+                          required={false}
+                          id="contratacao"
+                          className="[&>div>label]:text-gray-700"
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs text-gray-500">
+                        Data de início do colaborador na organização
+                      </FormDescription>
+                      <FormMessage className="text-xs text-red-500" />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
 

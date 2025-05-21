@@ -42,8 +42,7 @@ export function DatePicker({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   // Definimos o minDate dentro do componente
-  const defaultMinDate = React.useMemo(() => new Date(), []);
-  const effectiveMinDate = minDate || defaultMinDate;
+  const effectiveMinDate = minDate;
 
   // Função para calcular a posição ideal do calendário
   const updatePosition = React.useCallback(() => {
@@ -89,15 +88,26 @@ export function DatePicker({
       if (maxDate && date > maxDate) {
         return;
       }
-    }
-
-    if (onChange) {
-      onChange(date);
-    }
-
-    // Atualizar o estado do calendário para a data selecionada
-    if (date) {
-      setCalendarDate(date);
+      
+      // Preservar a data selecionada exatamente como foi escolhida
+      // para evitar problemas de fuso horário
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+      
+      // Usar meio-dia UTC para evitar problemas de fuso horário
+      const adjustedDate = new Date(Date.UTC(year, month, day, 12, 0, 0));
+      
+      if (onChange) {
+        onChange(adjustedDate);
+      }
+      
+      // Atualizar o estado do calendário para a data selecionada
+      setCalendarDate(adjustedDate);
+    } else {
+      if (onChange) {
+        onChange(undefined);
+      }
     }
   };
 
@@ -203,7 +213,7 @@ export function DatePicker({
               initialFocus
               locale={pt}
               disabled={(date) => {
-                if (date < effectiveMinDate) return true;
+                if (effectiveMinDate && date < effectiveMinDate) return true;
                 if (maxDate && date > maxDate) return true;
                 return false;
               }}

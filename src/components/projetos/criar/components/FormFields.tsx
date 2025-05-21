@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import React from "react";
+import { Control } from "react-hook-form";
 
 // Props base para todos os campos
 interface BaseFieldProps {
@@ -454,7 +455,7 @@ export function TextareaField({
   );
 }
 
-// DateField atualizado para usar Date | undefined
+// DateField atualizado para usar Date | undefined com suporte para react-hook-form
 interface DateFieldProps extends BaseFieldProps {
   value: Date | null;
   onChange: (date: Date | null) => void;
@@ -475,6 +476,21 @@ export function DateField({
   id,
   disabled,
 }: DateFieldProps) {
+  // Quando uma data é selecionada, garantir que ela mantenha o dia correto
+  const handleDateChange = (date?: Date) => {
+    if (date) {
+      // Criar uma nova data com o mesmo dia, mês e ano, mas ignorando o horário
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+      // Usar UTC para evitar problemas de fuso horário
+      const adjustedDate = new Date(Date.UTC(year, month, day, 12, 0, 0));
+      if (onChange) onChange(adjustedDate);
+    } else {
+      if (onChange) onChange(null);
+    }
+  };
+
   return (
     <div className={cn("space-y-1.5", className)}>
       <FormLabel htmlFor={id} required={required} tooltip={tooltip}>
@@ -483,10 +499,7 @@ export function DateField({
       <div className={disabled ? "pointer-events-none opacity-60" : ""}>
         <DatePicker
           value={value ?? undefined}
-          onChange={(date) => {
-            console.log("DateField onChange:", date);
-            if (onChange) onChange(date ?? null);
-          }}
+          onChange={handleDateChange}
           minDate={minDate}
           maxDate={maxDate}
         />

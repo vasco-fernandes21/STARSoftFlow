@@ -324,6 +324,7 @@ export default function PerfilUtilizador() {
                     name: utilizadorComDetalhes.name,
                     email: utilizadorComDetalhes.email,
                     n_colaborador: utilizadorComDetalhes.n_colaborador,
+                    contratacao: utilizadorComDetalhes.contratacao ? utilizadorComDetalhes.contratacao.toISOString() : null,
                     atividade: utilizadorComDetalhes.atividade,
                     permissao: utilizadorComDetalhes.permissao,
                     regime: utilizadorComDetalhes.regime,
