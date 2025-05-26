@@ -108,23 +108,23 @@ export function OverviewTab({
     const anos = new Set<number>();
     const currentYear = new Date().getFullYear();
     
-    // Add current year and previous year as defaults
-    anos.add(currentYear);
-    anos.add(currentYear - 1);
-    
-    // Add years from project duration if available
+    // If project has start and/or end dates, use only those years
     if (projetoDetails?.inicio || projetoDetails?.fim) {
       const startYear = projetoDetails.inicio 
         ? new Date(projetoDetails.inicio).getFullYear() 
-        : currentYear - 1;
+        : (projetoDetails.fim ? new Date(projetoDetails.fim).getFullYear() - 1 : currentYear - 1);
       
       const endYear = projetoDetails.fim 
         ? new Date(projetoDetails.fim).getFullYear() 
-        : currentYear + 1;
+        : (projetoDetails.inicio ? new Date(projetoDetails.inicio).getFullYear() + 1 : currentYear + 1);
       
       for (let year = startYear; year <= endYear; year++) {
         anos.add(year);
       }
+    } else {
+      // Fallback: Add current year and previous year as defaults only if no project dates
+      anos.add(currentYear);
+      anos.add(currentYear - 1);
     }
     
     return Array.from(anos).sort((a, b) => b - a); // Sort descending

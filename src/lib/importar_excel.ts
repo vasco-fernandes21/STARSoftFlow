@@ -312,6 +312,33 @@ export function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackag
   let wpAtual: WorkpackageSimples | null = null;
   let currentWPIndices = {idxCodigoWP: -1, idxNomeWP: -1, idxNomeRecurso: -1};
 
+  // Log temporário: primeiro passo para coletar todos os nomes de recursos lidos
+  const recursosLidosRH = new Set<string>();
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (!row || row.length < 3) continue;
+
+    // Detetar início de WP
+    const wpColInfo = findWPCodeAndName(row);
+    if (wpColInfo.idxCodigoWP !== -1) {
+      currentWPIndices = wpColInfo;
+      continue;
+    }
+
+    if (currentWPIndices.idxNomeRecurso === -1) continue;
+
+    const nomeRecurso = row[currentWPIndices.idxNomeRecurso];
+    if (typeof nomeRecurso === 'string' && 
+        nomeRecurso.trim() !== '' && 
+        !nomeRecurso.toLowerCase().includes('total') && 
+        !nomeRecurso.toLowerCase().includes('subtotal') &&
+        !nomeRecurso.toLowerCase().includes('células cinza')) {
+      recursosLidosRH.add(nomeRecurso.trim());
+    }
+  }
+  
+  console.log(`[extrairDadosRH] RECURSOS DISTINTOS LIDOS:`, Array.from(recursosLidosRH).sort());
+
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length < 3) continue;
@@ -347,34 +374,69 @@ export function extrairDadosRH(data: any[][], utilizadores: any[]): { workpackag
     const nomeRecursoLower = nomeRecurso.toLowerCase().trim();
     
     // Verificar se o nome corresponde ao padrão "Contratado X"
-    const isContratadoGenerico = /^contratado\s+\d+$/i.test(nomeRecursoLower);
+    const isContratadoGenerico = /^contratado(\s+\d+)?$/i.test(nomeRecursoLower);
 
     if (!isContratadoGenerico) {
-      // Se NÃO for um contratado genérico, tentar encontrar correspondência
-      let bestMatch: any = null;
-      let bestScore = 0.0;
+      console.log(`[extrairDadosRH] A processar recurso: '${nomeRecurso}' (lower: '${nomeRecursoLower}')`);
+      
+      // Para recursos específicos como "Contratação MSc - Ambiente", fazer matching exato primeiro
+      let exactMatch: any = null;
       for (const u of utilizadores) {
-        const dbName = u.name?.trim().toLowerCase();
+        const dbName = u.name?.trim();
         if (!dbName) continue;
-        const score = similarity(nomeRecursoLower, dbName);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = u;
+        
+        // Tentativa de match exato (case-insensitive)
+        if (dbName.toLowerCase() === nomeRecursoLower) {
+          exactMatch = u;
+          break;
         }
       }
       
-      // Considera match se pelo menos 60% das palavras coincidirem
-      if (bestScore >= 0.6) {
-        userId = bestMatch.id;
+      if (exactMatch) {
+        userId = exactMatch.id;
+        console.log(`[extrairDadosRH] Recurso '${nomeRecurso}' matched exactly to '${exactMatch.name}'.`);
       } else {
-        // fallback: tentar includes (como antes), mas talvez mais restritivo?
-        const potentialMatches = utilizadores.filter(u => {
-          const dbNameTrimmedLower = u.name?.trim().toLowerCase();
-          // Apenas faz match se o nome da DB incluir exatamente o nome lido (evita matches parciais indesejados)
-          return dbNameTrimmedLower?.includes(nomeRecursoLower) || nomeRecursoLower.includes(dbNameTrimmedLower ?? ""); 
-        });
-        if (potentialMatches.length === 1) {
-          userId = potentialMatches[0]?.id || null;
+        // Se não houver match exato, tentar similaridade mas com threshold mais alto para recursos específicos
+        let bestMatch: any = null;
+        let bestScore = 0.0;
+        
+        // Para recursos que começam com "Contratação", usar threshold mais alto para evitar matches incorretos
+        const isContratacaoEspecifica = nomeRecursoLower.startsWith("contratação");
+        const thresholdSimilarity = isContratacaoEspecifica ? 0.85 : 0.6;
+        
+        for (const u of utilizadores) {
+          const dbName = u.name?.trim().toLowerCase();
+          if (!dbName) continue;
+          const score = similarity(nomeRecursoLower, dbName);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = u;
+          }
+        }
+        
+        if (bestScore >= thresholdSimilarity) {
+          userId = bestMatch.id;
+          console.log(`[extrairDadosRH] Recurso '${nomeRecurso}' matched by similarity (${bestScore.toFixed(3)}) to '${bestMatch.name}'.`);
+        } else {
+          // Para recursos específicos como "Contratação MSc - X", não fazer fallback com includes
+          // porque pode causar matches incorretos entre especializações diferentes
+          if (!isContratacaoEspecifica) {
+            // Fallback apenas para recursos que não começam com "Contratação"
+            const potentialMatches = utilizadores.filter(u => {
+              const dbNameTrimmedLower = u.name?.trim().toLowerCase();
+              return dbNameTrimmedLower?.includes(nomeRecursoLower) || nomeRecursoLower.includes(dbNameTrimmedLower ?? ""); 
+            });
+            if (potentialMatches.length === 1) {
+              userId = potentialMatches[0]?.id || null;
+              console.log(`[extrairDadosRH] Recurso '${nomeRecurso}' matched by fallback to '${potentialMatches[0]?.name}'.`);
+            } else if (potentialMatches.length > 1) {
+              console.warn(`[extrairDadosRH] Recurso '${nomeRecurso}' had multiple fallback matches. UserId remains null.`);
+            } else {
+              console.warn(`[extrairDadosRH] Recurso '${nomeRecurso}' had best similarity score ${bestScore.toFixed(3)} with '${bestMatch?.name}', below threshold. UserId remains null.`);
+            }
+          } else {
+            console.log(`[extrairDadosRH] Recurso específico de contratação '${nomeRecurso}' não encontrou match adequado. UserId será null para criar novo recurso.`);
+          }
         }
       }
     } else {
@@ -564,6 +626,30 @@ export function processReportSheetData(
     return { dataInicioProjeto, dataFimProjeto, workpackages: [], nomeProjeto, taxaFinanciamento };
   }
   
+  // Log temporário: mostrar todos os nomes de recursos lidos
+  const recursosLidos = new Set<string>();
+  for (let i = allocationDataStartIndex; i < reportSheetData.length; i++) {
+    const row = reportSheetData[i];
+    if (!Array.isArray(row) || row.length < 2 || typeof row[0] !== 'string' || typeof row[1] !== 'string') {
+      if(Array.isArray(row) && typeof row[0] === 'string' && row[0].trim().toLowerCase() === 'total') break;
+      if(Array.isArray(row) && row.every(cell => cell === null || cell === undefined || cell === '')) break;
+      continue;
+    }
+
+    const resourceNameRaw = row[0].trim();
+    const activityNameRaw = row[1].trim();
+
+    if (resourceNameRaw === '' || activityNameRaw === '' || 
+        resourceNameRaw.toLowerCase().includes('total') || activityNameRaw.toLowerCase().includes('total') ||
+        resourceNameRaw.toLowerCase().startsWith("subtotal") || activityNameRaw.toLowerCase().startsWith("subtotal")) {
+      continue;
+    }
+    
+    recursosLidos.add(resourceNameRaw);
+  }
+  
+  console.log(`[processReportSheetData] RECURSOS DISTINTOS LIDOS:`, Array.from(recursosLidos).sort());
+  
   // 3. Parse allocations
   for (let i = allocationDataStartIndex; i < reportSheetData.length; i++) {
     const row = reportSheetData[i];
@@ -607,41 +693,76 @@ export function processReportSheetData(
 
     let userId: string | null = null;
     const resourceNameLower = resourceNameRaw.toLowerCase();
-    const isContratadoGenerico = /^contratado(\\s+\\d+)?$/i.test(resourceNameLower) || 
-                                resourceNameLower.startsWith("contrata\\u00e7\\u00e3o msc"); // e.g. "Contratado", "Contratado 1", "Contratação MSc - Ambiente"
-
+    
+    // Identificar recursos genéricos apenas se forem exatamente "Contratado" ou "Contratado X"
+    const isContratadoGenerico = /^contratado(\s+\d+)?$/i.test(resourceNameLower);
 
     if (!isContratadoGenerico) {
-      let bestMatch: any = null;
-      let bestScore = -1; // Start with -1 to ensure any similarity is better
+      console.log(`[processReportSheetData] A processar recurso: '${resourceNameRaw}' (lower: '${resourceNameLower}')`);
+      
+      // Para recursos específicos como "Contratação MSc - Ambiente", fazer matching exato primeiro
+      let exactMatch: any = null;
       for (const u of utilizadoresSistema) {
-        const dbName = u.name?.trim().toLowerCase();
+        const dbName = u.name?.trim();
         if (!dbName) continue;
-        const score = similarity(resourceNameLower, dbName);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = u;
+        
+        // Tentativa de match exato (case-insensitive)
+        if (dbName.toLowerCase() === resourceNameLower) {
+          exactMatch = u;
+          break;
         }
       }
-      if (bestScore >= 0.5) { // Adjusted threshold, can be tuned
-        userId = bestMatch.id;
+      
+      if (exactMatch) {
+        userId = exactMatch.id;
+        console.log(`[processReportSheetData] Recurso '${resourceNameRaw}' matched exactly to '${exactMatch.name}'.`);
       } else {
-         // Fallback for partial matches if no strong similarity match
-        const potentialMatches = utilizadoresSistema.filter(u => {
-            const dbNameTrimmedLower = u.name?.trim().toLowerCase();
-            return dbNameTrimmedLower?.includes(resourceNameLower) || resourceNameLower.includes(dbNameTrimmedLower ?? "");
-        });
-        if (potentialMatches.length === 1 && bestScore < 0.5) { // Only if similarity was too low
-            userId = potentialMatches[0]?.id || null;
-             console.log(`[processReportSheetData] Recurso '${resourceNameRaw}' matched by fallback to '${potentialMatches[0]?.name}'.`);
-        } else if (potentialMatches.length > 1 && bestScore < 0.5) {
-          console.warn(`[processReportSheetData] Recurso '${resourceNameRaw}' (low similarity score) had multiple fallback matches. UserId remains null.`);
-        } else if (bestScore < 0.5 && bestScore > -1) { // Had some similarity but not enough
-            console.warn(`[processReportSheetData] Recurso '${resourceNameRaw}' had best similarity score ${bestScore} with '${bestMatch?.name}', below threshold. UserId remains null.`);
+        // Se não houver match exato, tentar similaridade mas com threshold mais alto para recursos específicos
+        let bestMatch: any = null;
+        let bestScore = -1;
+        
+        // Para recursos que começam com "Contratação", usar threshold mais alto para evitar matches incorretos
+        const isContratacaoEspecifica = resourceNameLower.startsWith("contratação");
+        const thresholdSimilarity = isContratacaoEspecifica ? 0.85 : 0.6; // Threshold mais alto para "Contratação"
+        
+        for (const u of utilizadoresSistema) {
+          const dbName = u.name?.trim().toLowerCase();
+          if (!dbName) continue;
+          const score = similarity(resourceNameLower, dbName);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = u;
+          }
+        }
+        
+        if (bestScore >= thresholdSimilarity) {
+          userId = bestMatch.id;
+          console.log(`[processReportSheetData] Recurso '${resourceNameRaw}' matched by similarity (${bestScore.toFixed(3)}) to '${bestMatch.name}'.`);
+        } else {
+          // Para recursos específicos como "Contratação MSc - X", não fazer fallback com includes
+          // porque pode causar matches incorretos entre especializações diferentes
+          if (isContratacaoEspecifica) {
+            console.log(`[processReportSheetData] Recurso específico '${resourceNameRaw}' não encontrou match adequado. UserId será null para criar novo recurso.`);
+          } else {
+            // Fallback para outros tipos de recursos (não "Contratação")
+            const potentialMatches = utilizadoresSistema.filter(u => {
+              const dbNameTrimmedLower = u.name?.trim().toLowerCase();
+              return dbNameTrimmedLower?.includes(resourceNameLower) || resourceNameLower.includes(dbNameTrimmedLower ?? "");
+            });
+            
+            if (potentialMatches.length === 1) {
+              userId = potentialMatches[0]?.id || null;
+              console.log(`[processReportSheetData] Recurso '${resourceNameRaw}' matched by fallback to '${potentialMatches[0]?.name}'.`);
+            } else if (potentialMatches.length > 1) {
+              console.warn(`[processReportSheetData] Recurso '${resourceNameRaw}' had multiple fallback matches. UserId remains null.`);
+            } else {
+              console.warn(`[processReportSheetData] Recurso '${resourceNameRaw}' had best similarity score ${bestScore.toFixed(3)} with '${bestMatch?.name}', below threshold. UserId remains null.`);
+            }
+          }
         }
       }
     } else {
-      console.log(`[processReportSheetData] Recurso '${resourceNameRaw}' identified as generic. UserId will be null, new resource to be created.`);
+      console.log(`[processReportSheetData] Recurso '${resourceNameRaw}' identified as generic contractor. UserId will be null, new resource to be created.`);
     }
     
     const recurso: Recurso = {

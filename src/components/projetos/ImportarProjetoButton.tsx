@@ -61,6 +61,8 @@ export default function ImportarProjetoButton() {
   const [estadoImportacao, setEstadoImportacao] = useState<EstadoImportacao | null>(null);
   const [processamentoPendente, setProcessamentoPendente] = useState(false);
   const [mapaContratadosCriados, setMapaContratadosCriados] = useState<Map<string, string>>(new Map());
+  const [totalRecursosParaCriar, setTotalRecursosParaCriar] = useState(0);
+  const [recursosJaCriados, setRecursosJaCriados] = useState(0);
 
   const { data: financiamentosData } = api.financiamento.findAll.useQuery({ limit: 100 });
   const utils = api.useUtils();
@@ -227,6 +229,8 @@ export default function ImportarProjetoButton() {
     setEstadoImportacao(null);
     setProcessamentoPendente(false);
     setMapaContratadosCriados(new Map());
+    setTotalRecursosParaCriar(0);
+    setRecursosJaCriados(0);
 
     try {
       const dadosUtilizadores = await utils.utilizador.core.findAll.fetch();
@@ -329,6 +333,8 @@ export default function ImportarProjetoButton() {
 
           if (recursosUnicos.length > 0) {
             setRecursosNaoAssociados(recursosUnicos);
+            setTotalRecursosParaCriar(recursosUnicos.length);
+            setRecursosJaCriados(0);
             setOpen(false); 
             
             setTimeout(() => {
@@ -381,17 +387,27 @@ export default function ImportarProjetoButton() {
     
     const nomeOriginal = novoContratadoData.nome;
     setMapaContratadosCriados(prevMap => new Map(prevMap).set(nomeOriginal, novoUserId));
+    setRecursosJaCriados(prev => prev + 1);
     
     const recursosRestantes = recursosNaoAssociados.slice(1);
     setRecursosNaoAssociados(recursosRestantes);
 
+    // Sempre fechar o modal atual
+    setShowContratadoForm(false);
+
+    // Se ainda há recursos para processar, abrir o próximo modal
     if (recursosRestantes.length > 0 && recursosRestantes[0]) {
-      setNovoContratadoData(recursosRestantes[0]);
-      setShouldRenderContratadoForm(true);
-      setShowContratadoForm(true);
-    } else {
-      setShowContratadoForm(false);
-      
+      setTimeout(() => {
+        setNovoContratadoData(recursosRestantes[0]!);
+        setShouldRenderContratadoForm(true);
+        setShowContratadoForm(true);
+      }, 300);
+    }
+
+    // Verificar se TODOS os recursos foram criados (usar o estado atualizado)
+    const totalCriados = recursosJaCriados + 1; // +1 porque o estado ainda não foi atualizado
+    if (totalCriados >= totalRecursosParaCriar) {
+      // Todos os recursos foram criados, agora processar as alocações
       if (!estadoImportacao) {
         toast.error("Erro interno: estado de importação perdido.");
         setIsLoading(false);
@@ -426,14 +442,19 @@ export default function ImportarProjetoButton() {
         };
       });
 
+      // Resetar estados de controle
       setMapaContratadosCriados(new Map());
+      setTotalRecursosParaCriar(0);
+      setRecursosJaCriados(0);
       setProcessamentoPendente(true);
     }
   }, [
       estadoImportacao, 
       recursosNaoAssociados, 
       novoContratadoData, 
-      mapaContratadosCriados
+      mapaContratadosCriados,
+      totalRecursosParaCriar,
+      recursosJaCriados
   ]);
 
   const handleFinanciamentoCriado = useCallback((financiamento: FinanciamentoAPI) => {
