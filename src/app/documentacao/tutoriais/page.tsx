@@ -94,7 +94,7 @@ const getYouTubeVideoId = (url: string): string | null => {
 };
 
 // Função para gerar URL de thumbnail do YouTube
-const getYouTubeThumbnail = (url: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'maxresdefault'): string | null => {
+const getYouTubeThumbnail = (url: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'maxres'): string | null => {
   const videoId = getYouTubeVideoId(url);
   if (!videoId) return null;
   

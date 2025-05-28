@@ -1,47 +1,68 @@
+/**
+ * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially useful
+ * for Docker builds.
+ */
+// @ts-nocheck
+await import("./src/env.js");
+
 /** @type {import("next").NextConfig} */
 const config = {
-  images: {
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    formats: ['image/webp'],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'kd6uxjvo8hyw1ahh.public.blob.vercel-storage.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'img.youtube.com',
-        pathname: '/vi/**',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.sharepoint.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'estgv-my.sharepoint.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.ytimg.com',
-        pathname: '/**',
-      },
-    ],
+    images: {
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: 'lh3.googleusercontent.com',
+                port: '',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'avatars.githubusercontent.com',
+                port: '',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'kd6uxjvo8hyw1ahh.public.blob.vercel-storage.com', 
+                pathname: '/**',
+                port: '',
+            },
+        ],
+    },
+
+  // Configuração do webpack para marcar bcrypt como externo
+  webpack: (config) => {
+    // Adicionar bcrypt e handlebars à lista de módulos externos
+    config.externals = [...(config.externals || []), "bcrypt", "handlebars", "@sparticuz/chromium"];
+
+    // Manter as outras configurações que já tens
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      os: false,
+      nock: false,
+      "@mswjs/interceptors/presets/node": false,
+    };
+
+    // Ignorar ficheiros HTML em node_modules
+    config.module.rules.push({
+      test: /\.html$/,
+      include: /node_modules/,
+      use: "null-loader",
+    });
+
+    // Configurar handlebars para usar o loader correto
+    config.module.rules.push({
+      test: /\.handlebars$/,
+      loader: "handlebars-loader",
+    });
+
+    return config;
   },
+
+  // Configuração mínima do Turbopack
+  turbopack: {},
 
   experimental: {
     serverActions: {
@@ -50,32 +71,14 @@ const config = {
   },
 
   serverRuntimeConfig: {
+    // Aumentar o timeout para 60 segundos
     apiResponseTimeout: 60000,
   },
 
-  turbopack: {},
-
-  async headers() {
-    return [
-      {
-        source: '/:all*(svg|jpg|png)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, stale-while-revalidate=86400',
-          },
-        ],
-      },
-    ];
+  // Configuração específica para o Vercel
+  functions: {
+    // Aumentar o timeout para 60 segundos
+    maxDuration: 60,
   },
 };
 

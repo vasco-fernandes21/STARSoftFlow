@@ -191,7 +191,8 @@ const Users = () => {
 
   // Fetch all data at once since we're using client-side pagination
   const { data, isLoading } = api.utilizador.core.findAll.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000, // 5 minutos de staleTime
+    staleTime: 0, // Dados sempre considerados desatualizados
+    refetchOnMount: "always", // Sempre buscar dados novos quando o componente montar
     refetchOnWindowFocus: true,
   });
 

@@ -80,7 +80,9 @@ export default function Projetos() {
   // Consulta projetos (que já incluem os rascunhos na resposta)
   const { data: projetosData, isLoading } = api.projeto.core.findAll.useQuery(queryParams, {
     refetchOnWindowFocus: true,
-    staleTime: 60 * 1000, // 60 segundos
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    staleTime: 60 * 1000,
   });
 
   // Buscar estatísticas dos projetos

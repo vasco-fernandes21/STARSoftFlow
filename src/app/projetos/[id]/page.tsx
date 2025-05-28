@@ -62,6 +62,8 @@ const ValidarProjeto = memo(({ id, nome, utils }: { id: string; nome: string; ut
     onSuccess: (data) => {
       if (data.success) {
         toast.success(data.message);
+        utils.projeto.core.findAll.invalidate();
+        utils.projeto.core.findById.invalidate();
         
         // Se o projeto foi rejeitado e removido, redirecionar para a lista de projetos
         if (!data.data) {
