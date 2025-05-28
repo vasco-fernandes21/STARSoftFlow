@@ -564,6 +564,19 @@ delete: protectedProcedure
   .input(z.string().uuid("ID do projeto inválido"))
   .mutation(async ({ ctx, input: id }) => {
     try {
+      // Verificar se o projeto existe primeiro
+      const projetoExistente = await ctx.db.projeto.findUnique({
+        where: { id },
+      });
+
+      if (!projetoExistente) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Projeto não encontrado",
+        });
+      }
+
+      // Buscar workpackages do projeto
       const workpackages = await ctx.db.workpackage.findMany({
         where: { projetoId: id },
         include: {
@@ -571,6 +584,7 @@ delete: protectedProcedure
         },
       });
 
+      // Apagar tarefas dos workpackages
       for (const wp of workpackages) {
         if (wp.tarefas.length > 0) {
           await ctx.db.tarefa.deleteMany({
@@ -579,17 +593,26 @@ delete: protectedProcedure
         }
       }
 
+      // Apagar workpackages
       await ctx.db.workpackage.deleteMany({
         where: { projetoId: id },
       });
 
+      // Apagar o projeto
       await ctx.db.projeto.delete({
         where: { id },
       });
 
       return { success: true };
     } catch (error) {
-      return handlePrismaError(error);
+      if (error instanceof TRPCError) throw error;
+      
+      console.error("Erro ao apagar projeto:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Erro ao apagar projeto",
+        cause: error,
+      });
     }
   }),
 

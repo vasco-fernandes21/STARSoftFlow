@@ -17,13 +17,10 @@ import {
   UserPlus,
   CheckCircle2,
   Settings,
-  Lock,
   BookOpen,
   Clock,
   Target,
   Activity,
-  Zap,
-  ArrowUpRight,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

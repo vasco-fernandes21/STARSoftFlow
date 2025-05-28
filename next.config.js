@@ -12,20 +12,17 @@ const config = {
             {
                 protocol: 'https',
                 hostname: 'lh3.googleusercontent.com',
-                port: '',
                 pathname: '/**',
             },
             {
                 protocol: 'https',
                 hostname: 'avatars.githubusercontent.com',
-                port: '',
                 pathname: '/**',
             },
             {
                 protocol: 'https',
                 hostname: 'kd6uxjvo8hyw1ahh.public.blob.vercel-storage.com', 
                 pathname: '/**',
-                port: '',
             },
         ],
     },
@@ -75,11 +72,7 @@ const config = {
     apiResponseTimeout: 60000,
   },
 
-  // Configuração específica para o Vercel
-  functions: {
-    // Aumentar o timeout para 60 segundos
-    maxDuration: 60,
-  },
+  // O timeout já está configurado em serverRuntimeConfig
 };
 
 export default config;

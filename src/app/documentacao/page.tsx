@@ -6,7 +6,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { 
   ChevronRight, 
-  Search,
   BookOpen,
   Code,
   ArrowLeft,
@@ -19,7 +18,8 @@ import {
   ArrowUpRight,
   Clock,
   Terminal,
-  Copy
+  Copy,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

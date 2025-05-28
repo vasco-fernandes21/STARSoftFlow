@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
@@ -7,18 +7,6 @@ import { Pencil, Trash2, Plus, AlertCircle } from "lucide-react";
 import { TextField } from "@/components/projetos/criar/components/FormFields";
 import { PercentageField } from "@/components/projetos/criar/components/FormFields";
 import { MoneyField } from "@/components/projetos/criar/components/FormFields";
-
-// Importar AlertDialog para substituir o useConfirmacao
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 // Tipo para o que vem da API
 type FinanciamentoAPI = {
@@ -67,10 +55,8 @@ export function GerirFinanciamentosModal({
     valor_eti: dadosPreenchidos?.valor_eti ?? 0,
   });
 
-  // Estados para o AlertDialog
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [deleteFinanciamentoId, setDeleteFinanciamentoId] = useState<number | null>(null);
-  const [deleteFinanciamentoNome, setDeleteFinanciamentoNome] = useState<string>("");
+  // Estado para confirmação de exclusão inline
+  const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null);
 
   // Atualizar o estado quando os dadosPreenchidos mudarem
   useEffect(() => {
@@ -184,27 +170,29 @@ export function GerirFinanciamentosModal({
     }
   };
 
+  const iniciarConfirmacaoExclusao = (id: number) => {
+    setConfirmarExclusao(id);
+  };
+
+  const cancelarExclusao = () => {
+    setConfirmarExclusao(null);
+  };
+
+  const confirmarExclusaoFinanciamento = (id: number) => {
+    removerFinanciamento({ id });
+    setConfirmarExclusao(null);
+  };
+
+  // Cancelar confirmação de exclusão quando iniciar edição de outro financiamento
   const iniciarEdicao = (financiamento: FinanciamentoAPI) => {
+    setConfirmarExclusao(null); // Cancelar qualquer confirmação pendente
     setModoEdicao(financiamento.id);
     setNovoFinanciamento({
       nome: financiamento.nome,
-      overhead: Number(Number(financiamento.overhead).toFixed(2)), // Já vem em percentagem
-      taxa_financiamento: Number(Number(financiamento.taxa_financiamento).toFixed(2)), // Já vem em percentagem
+      overhead: Number(Number(financiamento.overhead).toFixed(2)),
+      taxa_financiamento: Number(Number(financiamento.taxa_financiamento).toFixed(2)),
       valor_eti: Number(Number(financiamento.valor_eti).toFixed(2)),
     });
-  };
-
-  const openDeleteDialog = (id: number, nome: string) => {
-    setDeleteFinanciamentoId(id);
-    setDeleteFinanciamentoNome(nome);
-    setIsDeleteAlertOpen(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deleteFinanciamentoId !== null) {
-      removerFinanciamento({ id: deleteFinanciamentoId });
-      setIsDeleteAlertOpen(false);
-    }
   };
 
   useEffect(() => {
@@ -221,16 +209,14 @@ export function GerirFinanciamentosModal({
   }, [financiamentosResponse, dadosPreenchidos, onFinanciamentoCriado]);
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogOverlay className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogContent className="max-w-5xl z-[1001] bg-white rounded-xl border border-azul/10 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-&lsqb;state=closed&rsqb;:slide-out-to-top-&lsqb;48%&rsqb data-[state=open]:slide-in-from-left-1/2 data-&lsqb;state=open&rsqb;:slide-in-from-top-&lsqb;48%&rsqb;">
-          <DialogHeader className="border-b border-azul/10 pb-4">
-            <DialogTitle className="text-2xl font-semibold tracking-tight text-azul flex items-center gap-2">
-              <AlertCircle className="h-6 w-6 text-azul/80" />
-              Financiamentos Existentes
-            </DialogTitle>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl bg-white rounded-xl border border-azul/10 shadow-lg">
+        <DialogHeader className="border-b border-azul/10 pb-4">
+          <DialogTitle className="text-2xl font-semibold tracking-tight text-azul flex items-center gap-2">
+            <AlertCircle className="h-6 w-6 text-azul/80" />
+            Financiamentos Existentes
+          </DialogTitle>
+        </DialogHeader>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-2">
             {/* Formulário */}
@@ -322,63 +308,93 @@ export function GerirFinanciamentosModal({
                     key={financiamento.id}
                     className="group relative mb-4 p-4 rounded-lg border border-azul/10 bg-white/80 hover:bg-white hover:shadow-sm transition-all duration-200"
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-medium text-azul text-lg">{financiamento.nome}</h4>
-                        <div className="mt-2 space-y-2 text-sm text-azul/80">
-                          <p className="flex items-center gap-2">
-                            <span className="font-medium">Overhead:</span>
-                            <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
-                              {Number(financiamento.overhead).toLocaleString("pt-PT", {
-                                style: "percent",
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </span>
-                          </p>
-                          <p className="flex items-center gap-2">
-                            <span className="font-medium">Taxa:</span>
-                            <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
-                              {Number(financiamento.taxa_financiamento).toLocaleString("pt-PT", {
-                                style: "percent",
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </span>
-                          </p>
-                          <p className="flex items-center gap-2">
-                            <span className="font-medium">ETI:</span>
-                            <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
-                              {Number(financiamento.valor_eti).toLocaleString("pt-PT", {
-                                style: "currency",
-                                currency: "EUR",
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </span>
+                    {confirmarExclusao === financiamento.id ? (
+                      // Modo de confirmação
+                      <div className="space-y-3">
+                        <div className="text-center">
+                          <p className="text-azul font-medium">Confirmar remoção?</p>
+                          <p className="text-sm text-azul/70 mt-1">
+                            "{financiamento.nome}" será removido permanentemente
                           </p>
                         </div>
+                        <div className="flex gap-2 justify-center">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full border-azul/20 text-azul hover:bg-azul/5"
+                            onClick={cancelarExclusao}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="rounded-full bg-red-500 text-white hover:bg-red-600"
+                            onClick={() => confirmarExclusaoFinanciamento(financiamento.id)}
+                          >
+                            Remover
+                          </Button>
+                        </div>
                       </div>
+                    ) : (
+                      // Modo normal
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium text-azul text-lg">{financiamento.nome}</h4>
+                          <div className="mt-2 space-y-2 text-sm text-azul/80">
+                            <p className="flex items-center gap-2">
+                              <span className="font-medium">Overhead:</span>
+                              <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
+                                {Number(financiamento.overhead).toLocaleString("pt-PT", {
+                                  style: "percent",
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <span className="font-medium">Taxa:</span>
+                              <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
+                                {Number(financiamento.taxa_financiamento).toLocaleString("pt-PT", {
+                                  style: "percent",
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <span className="font-medium">ETI:</span>
+                              <span className="bg-azul/5 px-2 py-0.5 rounded text-azul font-medium">
+                                {Number(financiamento.valor_eti).toLocaleString("pt-PT", {
+                                  style: "currency",
+                                  currency: "EUR",
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
 
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-full text-azul/60 hover:bg-azul/5 hover:text-azul transition-colors"
-                          onClick={() => iniciarEdicao(financiamento)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-full text-red-500/60 hover:bg-red-50 hover:text-red-500 transition-colors"
-                          onClick={() => openDeleteDialog(financiamento.id, financiamento.nome)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full text-azul/60 hover:bg-azul/5 hover:text-azul transition-colors"
+                            onClick={() => iniciarEdicao(financiamento)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full text-red-500/60 hover:bg-red-50 hover:text-red-500 transition-colors"
+                            onClick={() => iniciarConfirmacaoExclusao(financiamento.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -386,28 +402,5 @@ export function GerirFinanciamentosModal({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* AlertDialog para confirmação de exclusão */}
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent className="border border-azul/10 bg-white rounded-xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl text-azul font-semibold">Remover Financiamento</AlertDialogTitle>
-            <AlertDialogDescription className="text-azul/70">
-              Tem a certeza que deseja remover o financiamento <span className="font-medium text-azul">"{deleteFinanciamentoNome}"</span>? Esta
-              ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full border-azul/20 text-azul hover:bg-azul/5">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
-            >
-              Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
+    );
+  }

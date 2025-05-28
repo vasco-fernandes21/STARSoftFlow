@@ -7,7 +7,6 @@ import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import { 
   ChevronRight, 
-  Search,
   BookOpen,
   ArrowLeft,
   FileText,
@@ -15,18 +14,15 @@ import {
   Users,
   Key,
   BarChart3,
-  Rocket,
-  Video,
-  Zap,
-  ArrowUpRight,
-  Clock,
-  CheckCircle2,
   Layers,
   Settings,
   Lock,
   Unlock,
   X,
-  HelpCircle
+  HelpCircle,
+  Search,
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -143,9 +143,9 @@ export function extrairDadosFinanciamento(dadosBudget: any[][]): {
       if (linha[6] === "Tipo de projeto " && linha[7]) {
         tipoFinanciamento = linha[7];
       } else if (linha[6] === "Taxa de financiamento" && typeof linha[7] === "number") {
-        taxaFinanciamento = Number((linha[7] * 100).toFixed(2)); // Limitar a 2 casas decimais
+        taxaFinanciamento = Number(linha[7].toFixed(2)); // Limitar a 2 casas decimais, sem multiplicar
       } else if (linha[6] === "Custos indiretos" && typeof linha[7] === "number") {
-        overhead = Number((linha[7] * 100).toFixed(2)); // Limitar a 2 casas decimais
+        overhead = Number(linha[7].toFixed(2)); // Limitar a 2 casas decimais, sem multiplicar
       }
     }
   }

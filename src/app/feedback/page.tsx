@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -60,7 +60,7 @@ type Feedback = {
 const ITEMS_PER_PAGE = 3;
 
 export default function FeedbackPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<StatusFilter>("todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -93,33 +93,28 @@ export default function FeedbackPage() {
     return filteredFeedbacks?.slice(startIndex, startIndex + ITEMS_PER_PAGE) || [];
   }, [filteredFeedbacks, currentPage]);
 
+  // Contagem de itens por estado
+  const pendingCount = useMemo(() => allFeedbacks?.filter(f => f.estado === "PENDENTE").length || 0, [allFeedbacks]);
+  const resolvedCount = useMemo(() => allFeedbacks?.filter(f => f.estado === "RESOLVIDO").length || 0, [allFeedbacks]);
+  const totalCount = useMemo(() => allFeedbacks?.length || 0, [allFeedbacks]);
+
   // Reset para a primeira página quando mudar os filtros
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery]);
 
-  // Contagem de itens por estado
-  const pendingCount = allFeedbacks?.filter(f => f.estado === "PENDENTE").length || 0;
-  const resolvedCount = allFeedbacks?.filter(f => f.estado === "RESOLVIDO").length || 0;
-  const totalCount = allFeedbacks?.length || 0;
-
-  // Redirecionar se não autenticado
-  if (!session) {
-    redirect("/login");
-  }
-
   // Função para navegar para a página desejada
-  const goToPage = (page: number) => {
+  const goToPage = useCallback((page: number) => {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
     // Scroll para o topo da lista
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, [totalPages]);
 
   // Gerar os números para paginação baseado no TabelaDados.tsx
   const paginationNumbers = useMemo(() => {
     const totalPages = Math.ceil((filteredFeedbacks?.length || 0) / ITEMS_PER_PAGE);
-    const currentPageIndex = currentPage - 1; // Ajustando para índice zero-based
+    const currentPageIndex = currentPage - 1;
     const pageNumbers: (number | string)[] = [];
     const MAX_VISIBLE_PAGES_AROUND_CURRENT = 1;
     const MAX_TOTAL_VISIBLE_BUTTONS = 5;
@@ -129,7 +124,7 @@ export default function FeedbackPage() {
         pageNumbers.push(i);
       }
     } else {
-      pageNumbers.push(0); // Sempre mostrar a primeira página
+      pageNumbers.push(0);
 
       const startPage = Math.max(1, currentPageIndex - MAX_VISIBLE_PAGES_AROUND_CURRENT);
       const endPage = Math.min(totalPages - 2, currentPageIndex + MAX_VISIBLE_PAGES_AROUND_CURRENT);
@@ -147,12 +142,28 @@ export default function FeedbackPage() {
       }
 
       if (totalPages > 1) {
-        pageNumbers.push(totalPages - 1); // Sempre mostrar a última página
+        pageNumbers.push(totalPages - 1);
       }
     }
 
     return pageNumbers;
   }, [filteredFeedbacks, currentPage]);
+
+  // Mostrar loading state enquanto verifica a sessão
+  if (status === "loading") {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-azul"></div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  // Redirecionar somente depois de ter certeza que não há sessão
+  if (status === "unauthenticated") {
+    redirect("/login");
+  }
 
   return (
     <PageLayout>
