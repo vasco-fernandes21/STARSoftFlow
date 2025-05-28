@@ -2,13 +2,27 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { loginSchema } from "@/server/api/schemas/auth";
 import { ZodError } from "zod";
 import { toast } from "sonner";
+import dynamic from 'next/dynamic';
+
+// Carregamento dinâmico do lado decorativo
+const AnimatedSide = dynamic(() => import('./AnimatedSide'), {
+  ssr: false,
+  loading: () => (
+    <div className="hidden lg:flex lg:w-1/2 bg-azul/20">
+      <div className="w-full max-w-md p-12">
+        <div className="w-full h-[80px] bg-gray-200 animate-pulse rounded-md mb-12" />
+        <div className="h-8 bg-gray-200 animate-pulse rounded-md w-3/4 mb-6" />
+        <div className="h-20 bg-gray-200 animate-pulse rounded-md w-full" />
+      </div>
+    </div>
+  )
+});
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -63,57 +77,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen w-full">
-      {/* Lado esquerdo - Animação e imagem */}
-      <div className="relative hidden bg-azul/20 lg:flex lg:w-1/2">
-        {/* Fundo gradiente com desfoque */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(120deg, rgba(255,255,255,0.9) 0%, rgba(59,130,246,0.5) 100%)",
-            backdropFilter: "blur(16px)",
-          }}
-        />
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.8 }}
-            className="w-full max-w-md"
-          >
-            <Image
-              src="/star-institute-logo.png"
-              alt="STAR Institute"
-              width={280}
-              height={80}
-              priority
-              unoptimized={true}
-              className="mb-12 drop-shadow-lg"
-              onError={(e) => {
-                console.error("Error loading logo:", e);
-                e.currentTarget.src = "/favicon.ico";
-              }}
-            />
-            <motion.h1
-              className="mb-6 text-4xl font-bold text-azul"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-            >
-              STARSoftFlow
-            </motion.h1>
-            <motion.p
-              className="text-lg text-azul/80"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-            >
-              Acompanhe em tempo real o progresso, simplifique a alocação de recursos e maximize a
-              sua eficiência.
-            </motion.p>
-          </motion.div>
-        </div>
-      </div>
+      <AnimatedSide />
 
       {/* Lado direito - Formulário de login */}
       <div className="relative flex w-full items-center justify-center bg-white lg:w-1/2">
@@ -126,7 +90,6 @@ export default function LoginPage() {
               width={180}
               height={48}
               priority
-              unoptimized={true}
               className="h-10 w-auto"
               onError={(e) => {
                 console.error("Error loading logo:", e);

@@ -145,7 +145,7 @@ export default function ProjetosDocumentacao() {
         "⚡ Ações rápidas com atalhos de teclado",
         "🏷️ Sistema de etiquetas para categorização avançada"
       ],
-      image: "/docs/projects-list.jpg",
+      image: "/docs/projetos/consultar.png",
       link: { label: "Explorar Lista de Projetos", href: "/projetos" }
     },
     {
@@ -180,7 +180,7 @@ export default function ProjetosDocumentacao() {
           access: "Gestores de recursos"
         }
       ],
-      image: "/docs/create-project.jpg",
+      image: "/docs/projetos/criar.png",
       link: { label: "Iniciar Novo Projeto", href: "/projetos/criar" }
     },
     {
@@ -200,7 +200,7 @@ export default function ProjetosDocumentacao() {
         "🏷️ Organização: Etiquetas e pastas personalizadas para rascunhos complexos",
         "⏰ Lembretes: Notificações inteligentes para rascunhos antigos ou incompletos"
       ],
-      image: "/docs/drafts.jpg",
+      image: "/docs/projetos/rascunho.png",
       link: { label: "Gerir Rascunhos", href: "/projetos" }
     },
     {
@@ -220,7 +220,7 @@ export default function ProjetosDocumentacao() {
         "⚠️ Detecção de conflitos e resolução guiada de problemas",
         "📊 Relatório detalhado pós-importação com estatísticas e recomendações"
       ],
-      image: "/docs/import-excel.jpg",
+      image: "/docs/projetos/excel.png",
       link: { label: "Importar Projetos", href: "/importar" }
     },
     {
@@ -255,7 +255,7 @@ export default function ProjetosDocumentacao() {
           access: "Controllers e Gestores financeiros"
         }
       ],
-      image: "/docs/project-details.jpg",
+      image: "/docs/projetos/detalhes.png",
       link: { label: "Ver Projetos Ativos", href: "/projetos" }
     }
   ];

@@ -1,11 +1,33 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import AdminDashboard from "@/components/dashboards/AdminDashboard";
-import GestorDashboard from "@/components/dashboards/GestorDashboard";
-import UtilizadorDashboard from "@/components/dashboards/UtilizadorDashboard";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from 'next/dynamic';
+
+const AdminDashboard = dynamic(() => import("@/components/dashboards/AdminDashboard"), {
+  loading: () => <DashboardSkeleton />
+});
+
+const GestorDashboard = dynamic(() => import("@/components/dashboards/GestorDashboard"), {
+  loading: () => <DashboardSkeleton />
+});
+
+const UtilizadorDashboard = dynamic(() => import("@/components/dashboards/UtilizadorDashboard"), {
+  loading: () => <DashboardSkeleton />
+});
+
+const DashboardSkeleton = () => (
+  <div className="w-full max-w-7xl mx-auto p-4 space-y-4">
+    <div className="h-8 bg-gray-200 rounded-md animate-pulse w-1/4"></div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {[1,2,3].map((i) => (
+        <div key={i} className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
+      ))}
+    </div>
+    <div className="h-64 bg-gray-200 rounded-lg animate-pulse"></div>
+  </div>
+);
 
 declare module "next-auth" {
   interface User {
@@ -26,14 +48,7 @@ export default function HomePage() {
   }, [status, router]);
 
   if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="flex flex-col items-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-          <p className="mt-4 text-lg font-medium text-gray-700">A carregar sessão...</p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (status === "authenticated" && session?.user) {

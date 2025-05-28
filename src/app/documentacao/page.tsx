@@ -302,7 +302,7 @@ export default function DocumentacaoPage() {
           </div>
         </section>
 
-        {/* API Documentation Section */}
+        {/* tRPC API Documentation Section */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -319,66 +319,109 @@ export default function DocumentacaoPage() {
                   <Code className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-3xl md:text-4xl font-bold mb-2">API & Integrações</h2>
-                  <p className="text-gray-300 text-lg">Integre o STARSoftFlow com outras ferramentas e sistemas</p>
+                  <h2 className="text-3xl md:text-4xl font-bold mb-2">API tRPC & Integrações</h2>
+                  <p className="text-gray-300 text-lg">Aceda às funcionalidades do STARSoftFlow através da nossa API tRPC type-safe</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 <div>
-                  <h3 className="text-2xl font-bold mb-4 text-blue-300">Começar Agora</h3>
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-2xl font-bold text-blue-300">tRPC API</h3>
+                    <span className="px-3 py-1 bg-yellow-500/20 text-yellow-300 text-xs font-semibold rounded-full border border-yellow-500/30">
+                      Em Desenvolvimento
+                    </span>
+                  </div>
                   <p className="text-gray-300 mb-6 leading-relaxed">
-                    Acesse nossa API RESTful para integrar funcionalidades do STARSoftFlow 
-                    diretamente nas suas aplicações.
+                    A nossa API tRPC oferece type-safety end-to-end, validação automática de dados e uma experiência de desenvolvimento superior para integrar as funcionalidades do STARSoftFlow.
                   </p>
                   
                   <div className="space-y-4">
-                    <Link 
-                      href="/documentacao/api" 
-                      className="group flex items-center gap-3 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300 border border-white/10 hover:border-white/30"
-                    >
-                      <Terminal className="h-5 w-5 text-blue-300" />
+                    <div className="group flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/10 opacity-60 cursor-not-allowed">
+                      <Terminal className="h-5 w-5 text-gray-400" />
                       <div>
-                        <span className="font-semibold">Referência da API</span>
-                        <p className="text-sm text-gray-400">Documentação completa dos endpoints</p>
+                        <span className="font-semibold text-gray-400">Referência da API tRPC</span>
+                        <p className="text-sm text-gray-500">Documentação completa dos procedimentos</p>
                       </div>
-                      <ArrowUpRight className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    </Link>
+                      <span className="ml-auto text-xs text-gray-500 bg-gray-600/30 px-2 py-1 rounded">Em desenvolvimento</span>
+                    </div>
 
-                    <Link 
-                      href="/documentacao/webhooks" 
-                      className="group flex items-center gap-3 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300 border border-white/10 hover:border-white/30"
-                    >
-                      <Zap className="h-5 w-5 text-yellow-300" />
+                    <div className="group flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/10 opacity-60 cursor-not-allowed">
+                      <Sparkles className="h-5 w-5 text-gray-400" />
                       <div>
-                        <span className="font-semibold">Webhooks</span>
-                        <p className="text-sm text-gray-400">Receba notificações em tempo real</p>
+                        <span className="font-semibold text-gray-400">SDK TypeScript</span>
+                        <p className="text-sm text-gray-500">Cliente oficial para aplicações TypeScript</p>
                       </div>
-                      <ArrowUpRight className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    </Link>
+                      <span className="ml-auto text-xs text-gray-500 bg-gray-600/30 px-2 py-1 rounded">Em desenvolvimento</span>
+                    </div>
+
+                    <div className="group flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/10 opacity-60 cursor-not-allowed">
+                      <Zap className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <span className="font-semibold text-gray-400">Real-time Subscriptions</span>
+                        <p className="text-sm text-gray-500">Atualizações em tempo real via WebSockets</p>
+                      </div>
+                      <span className="ml-auto text-xs text-gray-500 bg-gray-600/30 px-2 py-1 rounded">Em desenvolvimento</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-black/40 rounded-2xl p-6 border border-white/10">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-green-400 font-mono text-sm">$ api-example</span>
+                    <span className="text-green-400 font-mono text-sm">$ tRPC client example</span>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => copyCommand('curl -X GET "https://api.starsoftflow.com/v1/projects" -H "Authorization: Bearer YOUR_API_KEY"')}
-                      className="hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-300"
+                      disabled
+                      className="hover:bg-white/10 text-gray-500 cursor-not-allowed"
                     >
-                      {copiedCommand === 'curl -X GET "https://api.starsoftflow.com/v1/projects" -H "Authorization: Bearer YOUR_API_KEY"' ? 
-                        <Check className="h-4 w-4" /> : 
-                        <Copy className="h-4 w-4" />
-                      }
+                      <Copy className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="font-mono text-sm space-y-2">
-                    <div className="text-blue-300">curl -X GET \</div>
-                    <div className="text-yellow-300 pl-4">"https://api.starsoftflow.com/v1/projects" \</div>
-                    <div className="text-green-300 pl-4">-H "Authorization: Bearer YOUR_API_KEY"</div>
+                  <div className="font-mono text-sm space-y-2 opacity-60">
+                    <div className="text-blue-300">// Exemplo de utilização da API tRPC</div>
+                    <div className="text-yellow-300">const {'{'}  data: projetos {'}'} = trpc.projetos.findAll.useQuery({'{'}</div>
+                    <div className="text-green-300 pl-4">search: &quot;star&quot;,</div>
+                    <div className="text-green-300 pl-4">estado: &quot;ATIVO&quot;,</div>
+                    <div className="text-green-300 pl-4">page: 1,</div>
+                    <div className="text-green-300 pl-4">limit: 10</div>
+                    <div className="text-yellow-300">{'}'});</div>
+                    <div className="text-gray-400 mt-4">// Type-safe, validado automaticamente</div>
                   </div>
+                </div>
+              </div>
+
+              {/* Available Procedures Preview */}
+              <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                  <h4 className="font-bold text-white mb-2">📋 Projetos</h4>
+                  <ul className="text-sm text-gray-300 space-y-1">
+                    <li>• projetos.findAll</li>
+                    <li>• projetos.findById</li>
+                    <li>• projetos.create</li>
+                    <li>• projetos.update</li>
+                    <li>• projetos.delete</li>
+                  </ul>
+                </div>
+                <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                  <h4 className="font-bold text-white mb-2">👥 Utilizadores</h4>
+                  <ul className="text-sm text-gray-300 space-y-1">
+                    <li>• utilizadores.findAll</li>
+                    <li>• utilizadores.findById</li>
+                    <li>• utilizadores.create</li>
+                    <li>• utilizadores.update</li>
+                    <li>• utilizadores.delete</li>
+                  </ul>
+                </div>
+                <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                  <h4 className="font-bold text-white mb-2">📊 Relatórios</h4>
+                  <ul className="text-sm text-gray-300 space-y-1">
+                    <li>• relatorios.dashboard</li>
+                    <li>• relatorios.projetos</li>
+                    <li>• relatorios.utilizadores</li>
+                    <li>• relatorios.exportar</li>
+                    <li>• relatorios.metricas</li>
+                  </ul>
                 </div>
               </div>
             </div>

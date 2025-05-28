@@ -175,7 +175,7 @@ export default function UtilizadoresDocumentacao() {
         "🎯 Responsável: Adequado para coordenadores de projeto, que só podem gerir os seus próprios projetos",
         "👤 Utilizador Comum: Para membros regulares da equipa, com acesso limitado a projetos específicos (perfil padrão na criação)"
       ],
-      image: "/docs/utilizadores/user-profiles.jpg",
+      image: "/docs/utilizadores/consulta.png",
       link: { label: "Ver Lista de Utilizadores", href: "/utilizadores" }
     },
     {
@@ -210,7 +210,7 @@ export default function UtilizadoresDocumentacao() {
           access: "Gestores e Admins"
         }
       ],
-      image: "/docs/utilizadores/user-management.jpg",
+      image: "/docs/utilizadores/detalhes.png",
       link: { label: "Ir para Gestão de Utilizadores", href: "/utilizadores" }
     },
     {
@@ -230,8 +230,8 @@ export default function UtilizadoresDocumentacao() {
         "📦 Na secção 'Projetos', marque as caixas dos projetos a que o utilizador deve ter acesso",
         "✅ Verifique todas as informações e clique em 'Criar Utilizador' para enviar o convite por email"
       ],
-      image: "/docs/utilizadores/create-user.jpg",
-      link: { label: "Criar Novo Utilizador", href: "/utilizadores/criar" }
+      image: "/docs/utilizadores/criar.png",
+      link: { label: "Criar Novo Utilizador", href: "/utilizadores" }
     },
     {
       id: "perfil",
@@ -248,7 +248,7 @@ export default function UtilizadoresDocumentacao() {
         "🔔 Configurar Notificações: No separador 'Notificações', ative ou desative alertas por email ou no sistema para diferentes eventos",
         "🔒 Alterar Palavra-passe: Aceda a 'Segurança', introduza a sua palavra-passe atual e depois a nova palavra-passe",
       ],
-      image: "/docs/user-profile.jpg",
+      image: "/docs/utilizadores/perfil.png",
       link: { label: "Aceder ao Seu Perfil", href: "/perfil" }
     }
   ];

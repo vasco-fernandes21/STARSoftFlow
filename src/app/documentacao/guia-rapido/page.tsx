@@ -386,8 +386,6 @@ export default function GuiaRapidoDocumentacao() {
               Explore os principais aspectos da plataforma através deste guia estruturado, desde a navegação básica até aos fluxos de trabalho avançados
             </p>
           </motion.div>
-          
-          <StatsGrid stats={statsItems} className="gap-6" />
         </section>
 
         {/* Detailed Topics */}
