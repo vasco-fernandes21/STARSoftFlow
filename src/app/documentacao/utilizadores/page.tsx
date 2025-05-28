@@ -107,9 +107,10 @@ const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUrl, imag
             src={imageUrl}
             alt={imageAlt}
             fill
-            className="object-contain"
-            sizes="(max-width: 1280px) 100vw, 1280px"
             priority
+            quality={100}
+            className="object-contain"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
           />
         </div>
       </div>
@@ -607,8 +608,10 @@ export default function UtilizadoresDocumentacao() {
                               src={topic.image}
                               alt={`Ilustração: ${topic.title}`}
                               fill
+                              quality={100}
+                              priority={topicIndex === 0}
                               className="object-cover transition-transform duration-500 group-hover:scale-105"
-                              sizes="(max-width: 768px) 100vw, 50vw"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 800px"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">

@@ -19,8 +19,7 @@ import {
   ArrowUpRight,
   Clock,
   Terminal,
-  Copy,
-  Check
+  Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -379,14 +378,14 @@ export default function DocumentacaoPage() {
                     </Button>
                   </div>
                   <div className="font-mono text-sm space-y-2 opacity-60">
-                    <div className="text-blue-300">// Exemplo de utilização da API tRPC</div>
+                    <div className="text-blue-300">"// Exemplo de utilização da API tRPC"</div>
                     <div className="text-yellow-300">const {'{'}  data: projetos {'}'} = trpc.projetos.findAll.useQuery({'{'}</div>
                     <div className="text-green-300 pl-4">search: &quot;star&quot;,</div>
                     <div className="text-green-300 pl-4">estado: &quot;ATIVO&quot;,</div>
                     <div className="text-green-300 pl-4">page: 1,</div>
                     <div className="text-green-300 pl-4">limit: 10</div>
                     <div className="text-yellow-300">{'}'});</div>
-                    <div className="text-gray-400 mt-4">// Type-safe, validado automaticamente</div>
+                    <div className="text-gray-400 mt-4">"// Type-safe, validado automaticamente"</div>
                   </div>
                 </div>
               </div>
