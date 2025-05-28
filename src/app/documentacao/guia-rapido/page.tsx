@@ -349,14 +349,21 @@ export default function GuiaRapidoDocumentacao() {
               transition={{ delay: 0.2, duration: 0.6 }}
               className="relative max-w-2xl mx-auto"
             >
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                type="text"
-                placeholder="Pesquisar neste guia..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-4 py-4 text-lg rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-xl focus:shadow-2xl transition-all duration-300 focus:ring-2 focus:ring-white/50"
-              />
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-hover:text-azul transition-colors duration-300" />
+                <Input
+                  type="text"
+                  placeholder="Pesquisar neste guia..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-12 pr-16 py-4 text-lg text-gray-900 placeholder:text-gray-500 rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-xl focus:shadow-2xl transition-all duration-300 focus:ring-2 focus:ring-white/50 hover:bg-white group-hover:shadow-2xl"
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <kbd className="hidden sm:inline-block px-2 py-1 bg-white/20 border border-white/30 rounded text-xs text-white/80 font-mono backdrop-blur-sm">
+                    ⌘K
+                  </kbd>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         </div>

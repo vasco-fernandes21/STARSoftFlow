@@ -30,7 +30,9 @@ import {
   Maximize,
   SkipBack,
   SkipForward,
-  Pause
+  Pause,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,38 +71,62 @@ interface VideoModalProps {
   video: VideoTutorial | null;
 }
 
-// Função para converter link do OneDrive em link direto
-const convertOneDriveUrl = (url: string): string => {
-  // Se já for um link direto, retorna como está
-  if (url.includes('download?') || url.includes('embed?')) {
-    return url;
-  }
+// Função utilitária para extrair o ID do vídeo do YouTube
+const getYouTubeVideoId = (url: string): string | null => {
+  if (!url) return null;
   
-  // Converter link de partilha do OneDrive para link direto
-  if (url.includes('sharepoint.com') && url.includes('personal/')) {
-    // Extrair parâmetros do URL
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    
-    // Encontrar o índice onde está o ID do ficheiro
-    const personalIndex = pathParts.findIndex(part => part === 'personal');
-    if (personalIndex > -1 && pathParts[personalIndex + 2]) {
-      const userId = pathParts[personalIndex + 1];
-      // Construir URL embed do OneDrive
-      const baseUrl = `${urlObj.origin}/personal/${userId}/_layouts/15/embed.aspx`;
-      const params = new URLSearchParams(urlObj.search);
-      return `${baseUrl}?${params.toString()}`;
+  // Padrões de URL do YouTube suportados
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
     }
   }
   
-  return url;
+  return null;
+};
+
+// Função para gerar URL de thumbnail do YouTube
+const getYouTubeThumbnail = (url: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'maxresdefault'): string | null => {
+  const videoId = getYouTubeVideoId(url);
+  if (!videoId) return null;
+  
+  // Diferentes qualidades disponíveis:
+  // - default.jpg (120x90)
+  // - mqdefault.jpg (320x180) 
+  // - hqdefault.jpg (480x360)
+  // - sddefault.jpg (640x480)
+  // - maxresdefault.jpg (1280x720)
+  const qualityMap = {
+    'default': 'default',
+    'medium': 'mqdefault', 
+    'high': 'hqdefault',
+    'standard': 'sddefault',
+    'maxres': 'maxresdefault'
+  };
+  
+  return `https://img.youtube.com/vi/${videoId}/${qualityMap[quality]}.jpg`;
+};
+
+// Função para gerar URL de embed do YouTube
+const getYouTubeEmbedUrl = (url: string): string | null => {
+  const videoId = getYouTubeVideoId(url);
+  if (!videoId) return null;
+  
+  return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&showinfo=0`;
 };
 
 const VideoModal: React.FC<VideoModalProps> = ({ isOpen, onClose, video }) => {
   if (!isOpen || !video) return null;
 
-  const videoUrl = convertOneDriveUrl(video.videoUrl);
-  const isOneDriveEmbed = videoUrl.includes('embed.aspx') || videoUrl.includes('sharepoint.com');
+  const isYouTubeLink = getYouTubeVideoId(video.videoUrl) !== null;
 
   return (
     <div 
@@ -118,28 +144,30 @@ const VideoModal: React.FC<VideoModalProps> = ({ isOpen, onClose, video }) => {
         </Button>
         
         <div className="relative aspect-video bg-black">
-          {isOneDriveEmbed ? (
-            // Player para OneDrive usando iframe
+          {isYouTubeLink ? (
+            // Player do YouTube com configurações otimizadas
             <iframe
-              src={videoUrl}
+              src={getYouTubeEmbedUrl(video.videoUrl) || video.videoUrl}
               className="w-full h-full"
               frameBorder="0"
-              scrolling="no"
               allowFullScreen
               title={video.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              loading="lazy"
             />
           ) : (
-            // Player HTML5 padrão para outros vídeos
+            // Player HTML5 para MP4 e outros formatos
             <video 
               controls 
               className="w-full h-full"
               poster={video.thumbnail}
               preload="metadata"
             >
-              <source src={videoUrl} type="video/mp4" />
+              <source src={video.videoUrl} type="video/mp4" />
+              <source src={video.videoUrl} type="video/webm" />
               <p className="text-white p-4">
                 O seu navegador não suporta o elemento de vídeo.
-                <a href={videoUrl} className="text-blue-400 underline ml-2">
+                <a href={video.videoUrl} className="text-blue-400 underline ml-2" target="_blank" rel="noopener noreferrer">
                   Clique aqui para ver o vídeo
                 </a>
               </p>
@@ -193,7 +221,7 @@ export default function TutoriaisDocumentacao() {
       description: "Veja todos os tutoriais disponíveis",
       icon: <Grid3X3 className="h-5 w-5" />,
       color: "bg-gray-100 text-gray-700 border-gray-200",
-      count: 12
+      count: 6
     },
     {
       id: "primeiros-passos",
@@ -201,7 +229,7 @@ export default function TutoriaisDocumentacao() {
       description: "Introdução à plataforma",
       icon: <BookOpen className="h-5 w-5" />,
       color: "bg-blue-100 text-blue-700 border-blue-200",
-      count: 4
+      count: 2
     },
     {
       id: "projetos",
@@ -209,7 +237,7 @@ export default function TutoriaisDocumentacao() {
       description: "Criação e gestão de projetos",
       icon: <BarChart3 className="h-5 w-5" />,
       color: "bg-green-100 text-green-700 border-green-200",
-      count: 5
+      count: 3
     },
     {
       id: "utilizadores",
@@ -217,7 +245,7 @@ export default function TutoriaisDocumentacao() {
       description: "Administração de utilizadores",
       icon: <Users className="h-5 w-5" />,
       color: "bg-purple-100 text-purple-700 border-purple-200",
-      count: 3
+      count: 1
     }
   ];
 
@@ -229,8 +257,8 @@ export default function TutoriaisDocumentacao() {
       duration: "8:30",
       difficulty: "Básico",
       category: "primeiros-passos",
-      thumbnail: "/thumbnails/intro-starsoftflow.jpg",
-      videoUrl: "https://estgv-my.sharepoint.com/:v:/g/personal/pv25177_alunos_estgv_ipv_pt/EVCezuvHmNNIs6r9WegUtHsB906L-k89Rj2Knl-VLeCnUw?e=6MCphP",
+      thumbnail: getYouTubeThumbnail("https://www.youtube.com/watch?v=WPrZBuyhKRw") || "https://img.youtube.com/vi/WPrZBuyhKRw/maxresdefault.jpg",
+      videoUrl: "https://www.youtube.com/watch?v=WPrZBuyhKRw",
       instructor: "Ana Silva",
       views: 1250,
       publishedAt: "15 Nov 2024",
@@ -243,8 +271,8 @@ export default function TutoriaisDocumentacao() {
       duration: "15:20",
       difficulty: "Básico",
       category: "projetos",
-      thumbnail: "/thumbnails/criar-projeto.jpg",
-      videoUrl: "https://example.com/video2.mp4",
+      thumbnail: "/api/placeholder/1280/720?text=Criar+Projeto",
+      videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       instructor: "João Santos",
       views: 890,
       publishedAt: "12 Nov 2024",
@@ -257,8 +285,8 @@ export default function TutoriaisDocumentacao() {
       duration: "22:45",
       difficulty: "Avançado",
       category: "projetos",
-      thumbnail: "/thumbnails/workpackages-avancado.jpg",
-      videoUrl: "https://example.com/video3.mp4",
+      thumbnail: "/api/placeholder/1280/720?text=Workpackages+Avançado",
+      videoUrl: "https://youtu.be/dQw4w9WgXcQ?t=30",
       instructor: "Maria Costa",
       views: 650,
       publishedAt: "10 Nov 2024",
@@ -271,7 +299,7 @@ export default function TutoriaisDocumentacao() {
       duration: "12:15",
       difficulty: "Intermediário",
       category: "utilizadores",
-      thumbnail: "/thumbnails/perfis-utilizador.jpg",
+      thumbnail: "/api/placeholder/1280/720?text=Perfis+Utilizador",
       videoUrl: "https://example.com/video4.mp4",
       instructor: "Pedro Oliveira",
       views: 720,
@@ -285,7 +313,7 @@ export default function TutoriaisDocumentacao() {
       duration: "18:10",
       difficulty: "Intermediário",
       category: "projetos",
-      thumbnail: "/thumbnails/dashboard-relatorios.jpg",
+      thumbnail: "/api/placeholder/1280/720?text=Dashboard+Relatórios",
       videoUrl: "https://example.com/video5.mp4",
       instructor: "Sofia Rodrigues",
       views: 980,
@@ -299,8 +327,8 @@ export default function TutoriaisDocumentacao() {
       duration: "6:45",
       difficulty: "Básico",
       category: "primeiros-passos",
-      thumbnail: "/thumbnails/navegacao-basica.jpg",
-      videoUrl: "https://example.com/video6.mp4",
+      thumbnail: "/api/placeholder/1280/720?text=Navegação+Básica",
+      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
       instructor: "Ana Silva",
       views: 1450,
       publishedAt: "3 Nov 2024",
@@ -408,13 +436,20 @@ export default function TutoriaisDocumentacao() {
               transition={{ delay: 0.2, duration: 0.5 }}
               className="relative max-w-2xl mx-auto"
             >
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                placeholder="Pesquisar tutoriais..."
-                className="pl-12 pr-4 py-4 text-lg rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-xl focus:shadow-2xl transition-all duration-300 focus:ring-2 focus:ring-white/50"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-hover:text-azul transition-colors duration-300" />
+                <Input
+                  placeholder="Pesquisar tutoriais..."
+                  className="pl-12 pr-16 py-4 text-lg text-gray-900 placeholder:text-gray-500 rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-xl focus:shadow-2xl transition-all duration-300 focus:ring-2 focus:ring-white/50 hover:bg-white group-hover:shadow-2xl"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <kbd className="hidden sm:inline-block px-2 py-1 bg-white/20 border border-white/30 rounded text-xs text-white/80 font-mono backdrop-blur-sm">
+                    ⌘K
+                  </kbd>
+                </div>
+              </div>
             </motion.div>
           </div>
         </div>
@@ -507,11 +542,46 @@ export default function TutoriaisDocumentacao() {
                     <CardContent className="p-0">
                       {/* Video Thumbnail */}
                       <div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/20">
+                        {(() => {
+                          // Lógica inteligente de thumbnail
+                          const youtubeId = getYouTubeVideoId(video.videoUrl);
+                          const isYoutube = youtubeId !== null;
+                          const thumbnailUrl = isYoutube 
+                            ? getYouTubeThumbnail(video.videoUrl) 
+                            : video.thumbnail;
+
+                          return thumbnailUrl ? (
+                            <Image
+                              src={thumbnailUrl}
+                              alt={`Thumbnail: ${video.title}`}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                              onError={(e) => {
+                                // Fallback para thumbnail de qualidade inferior se maxres falhar
+                                if (isYoutube && thumbnailUrl.includes('maxresdefault')) {
+                                  const fallbackUrl = getYouTubeThumbnail(video.videoUrl, 'high');
+                                  if (fallbackUrl) {
+                                    (e.target as HTMLImageElement).src = fallbackUrl;
+                                  }
+                                }
+                              }}
+                            />
+                          ) : (
+                            // Placeholder quando não há thumbnail
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-azul/10 to-blue-500/10">
+                              <Video className="h-12 w-12 text-azul/50" />
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Overlay com botão play */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors duration-300">
                           <div className="bg-white/90 backdrop-blur-sm rounded-full p-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
                             <Play className="h-8 w-8 text-azul" />
                           </div>
                         </div>
+                        
                         <div className="absolute top-3 right-3 bg-black/70 text-white px-2 py-1 rounded-lg text-sm font-medium">
                           {video.duration}
                         </div>
@@ -561,15 +631,50 @@ export default function TutoriaisDocumentacao() {
                 >
                   <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm cursor-pointer group"
                        onClick={() => setSelectedVideo(video)}>
-                    <CardContent className="p-0">
-                      <div className="flex items-center gap-6 p-6">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-6">
                         {/* Thumbnail */}
                         <div className="relative w-48 aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden flex-shrink-0">
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/20">
+                          {(() => {
+                            // Lógica inteligente de thumbnail
+                            const youtubeId = getYouTubeVideoId(video.videoUrl);
+                            const isYoutube = youtubeId !== null;
+                            const thumbnailUrl = isYoutube 
+                              ? getYouTubeThumbnail(video.videoUrl) 
+                              : video.thumbnail;
+
+                            return thumbnailUrl ? (
+                              <Image
+                                src={thumbnailUrl}
+                                alt={`Thumbnail: ${video.title}`}
+                                fill
+                                className="object-cover rounded-xl"
+                                sizes="200px"
+                                onError={(e) => {
+                                  // Fallback para thumbnail de qualidade inferior se maxres falhar
+                                  if (isYoutube && thumbnailUrl.includes('maxresdefault')) {
+                                    const fallbackUrl = getYouTubeThumbnail(video.videoUrl, 'high');
+                                    if (fallbackUrl) {
+                                      (e.target as HTMLImageElement).src = fallbackUrl;
+                                    }
+                                  }
+                                }}
+                              />
+                            ) : (
+                              // Placeholder quando não há thumbnail
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-azul/10 to-blue-500/10 rounded-xl">
+                                <Video className="h-8 w-8 text-azul/50" />
+                              </div>
+                            );
+                          })()}
+                          
+                          {/* Overlay com botão play */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors duration-300 rounded-xl">
                             <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 group-hover:scale-110 transition-transform duration-300">
                               <Play className="h-6 w-6 text-azul" />
                             </div>
                           </div>
+                          
                           <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
                             {video.duration}
                           </div>

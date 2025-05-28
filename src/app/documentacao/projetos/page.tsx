@@ -126,7 +126,7 @@ export default function ProjetosDocumentacao() {
   const [selectedImage, setSelectedImage] = useState<{ url: string; alt: string } | null>(null);
 
   const baseURL = process.env.NEXT_PUBLIC_BLOB_URL;
-  
+
   const projetoTopics: TopicItem[] = [
     {
       id: "listagem",
@@ -344,13 +344,20 @@ export default function ProjetosDocumentacao() {
               transition={{ delay: 0.2, duration: 0.5 }}
               className="relative max-w-2xl mx-auto"
             >
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                placeholder="Pesquisar nesta documentação..."
-                className="pl-12 pr-4 py-4 text-lg rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-xl focus:shadow-2xl transition-all duration-300 focus:ring-2 focus:ring-white/50"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-hover:text-azul transition-colors duration-300" />
+                <Input
+                  placeholder="Pesquisar nesta documentação..."
+                  className="pl-12 pr-16 py-4 text-lg text-gray-900 placeholder:text-gray-500 rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-xl focus:shadow-2xl transition-all duration-300 focus:ring-2 focus:ring-white/50 hover:bg-white group-hover:shadow-2xl"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <kbd className="hidden sm:inline-block px-2 py-1 bg-white/20 border border-white/30 rounded text-xs text-white/80 font-mono backdrop-blur-sm">
+                    ⌘K
+                  </kbd>
+                </div>
+              </div>
             </motion.div>
           </div>
         </div>
