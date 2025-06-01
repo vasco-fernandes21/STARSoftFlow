@@ -152,7 +152,7 @@ export function GerirFinanciamentosModal({
       const dadosParaEnviar = {
         nome: novoFinanciamento.nome.trim(),
         overhead: Math.max(0, Math.min(100, Number(novoFinanciamento.overhead ?? 0))),
-        taxa_financiamento: Math.max(0, Math.min(100, Number(novoFinanciamento.taxa_financiamento ?? 0))),
+        taxa_financiamento: Math.max(0, Math  .min(100, Number(novoFinanciamento.taxa_financiamento ?? 0))),
         valor_eti: Math.max(0, Number(novoFinanciamento.valor_eti ?? 0))
       };
 
