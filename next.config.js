@@ -8,22 +8,12 @@ await import("./src/env.js");
 /** @type {import("next").NextConfig} */
 const config = {
     images: {
-        remotePatterns: [
-            {
-                protocol: 'https',
-                hostname: 'lh3.googleusercontent.com',
-                pathname: '/**',
-            },
-            {
-                protocol: 'https',
-                hostname: 'avatars.githubusercontent.com',
-                pathname: '/**',
-            },
-            {
-                protocol: 'https',
-                hostname: 'kd6uxjvo8hyw1ahh.public.blob.vercel-storage.com', 
-                pathname: '/**',
-            },
+        domains: [
+            'lh3.googleusercontent.com',
+            'avatars.githubusercontent.com',
+            'kd6uxjvo8hyw1ahh.public.blob.vercel-storage.com',
+            'img.youtube.com',
+            'i.ytimg.com',
         ],
     },
 
