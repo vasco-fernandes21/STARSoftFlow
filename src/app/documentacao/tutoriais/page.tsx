@@ -309,7 +309,7 @@ export default function TutoriaisDocumentacao() {
       category: "projetos",
       thumbnail: getYouTubeThumbnail("https://www.youtube.com/watch?v=188yPT1gnSA", 'high') || "",
       videoUrl: "https://youtu.be/188yPT1gnSA",
-      publishedAt: "10 Nov 2024",
+      publishedAt: "10 Jun 2025",
       tags: ["workpackages", "gestão", "avançado"]
     },
     {
@@ -318,9 +318,9 @@ export default function TutoriaisDocumentacao() {
       description: "Saiba como criar e configurar diferentes perfis de utilizador, definir permissões e gerir acessos na plataforma.",
       difficulty: "Intermediário",
       category: "utilizadores",
-      thumbnail: "",
-      videoUrl: "https://example.com/video4.mp4",
-      publishedAt: "8 Nov 2024",
+      thumbnail: getYouTubeThumbnail("https://www.youtube.com/watch?v=IgetV4_wgFE", 'high') || "",
+      videoUrl: "https://youtu.be/IgetV4_wgFE", //TODO: Adicionar vídeo
+      publishedAt: "8 Jun 2024",
       tags: ["utilizadores", "perfis", "permissões"]
     },
     {
@@ -329,9 +329,9 @@ export default function TutoriaisDocumentacao() {
       description: "Aprenda a interpretar a tabela de alocações, criar relatórios personalizados e reduzir o tempo necessário para a gestão de RH.",
       difficulty: "Intermediário",
       category: "projetos",
-      thumbnail: "",
-      videoUrl: "https://example.com/video5.mp4",
-      publishedAt: "5 Nov 2024",
+      thumbnail: getYouTubeThumbnail("https://www.youtube.com/watch?v=cob8TSjkD34", 'high') || "",
+      videoUrl: "https://youtu.be/cob8TSjkD34",
+      publishedAt: "5 Jun 2025",
       tags: ["dashboard", "relatórios", "análise"]
     },
     {
